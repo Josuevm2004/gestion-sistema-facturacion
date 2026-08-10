@@ -1,0 +1,25 @@
+# Node dependencies & store
+node_modules/
+.pnpm-store/
+.pnpm/
+
+# Next.js build output
+frontend/.next/
+frontend/out/
+frontend/build/
+.next/
+
+# Java / Maven target output
+backend/WebAppFacturacion/target/
+*.class
+*.jar
+*.war
+
+# Environment variables & OS files
+.env
+.env.local
+.env.production
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
