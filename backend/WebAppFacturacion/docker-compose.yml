@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   backend-facturacion:
-    build:
-      context: ./backend/WebAppFacturacion
-      dockerfile: Dockerfile
+    build: .
     container_name: backend-facturacion
     restart: unless-stopped
     ports:
