@@ -1,34 +1,17 @@
 version: '3.8'
 
 services:
-  db-facturacion:
-    image: mysql:8.0
-    container_name: db-facturacion
-    restart: unless-stopped
-    environment:
-      MYSQL_DATABASE: gestion_facturacion
-      MYSQL_ROOT_PASSWORD: root_facturacion_pass
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-
   backend-facturacion:
     build: .
     container_name: backend-facturacion
     restart: unless-stopped
     ports:
       - "8080:8080"
-    depends_on:
-      - db-facturacion
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:mysql://db-facturacion:3306/gestion_facturacion?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=root_facturacion_pass
-      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=com.mysql.cj.jdbc.Driver
+      - SPRING_DATASOURCE_URL=${DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASS}
+      - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.MySQLDialect
-
-volumes:
-  mysql_data:
+      - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
