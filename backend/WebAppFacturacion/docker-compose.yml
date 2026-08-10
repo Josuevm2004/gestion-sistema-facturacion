@@ -9,6 +9,6 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=prod
-      - SPRING_DATASOURCE_URL=jdbc:sqlserver://${DB_HOST:facturacion-server.database.windows.net}:1433;databaseName=${DB_NAME:gestion_facturacion};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;
-      - SPRING_DATASOURCE_USERNAME=${DB_USER:admin}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:admin123}
+      - SPRING_DATASOURCE_URL=${DB_URL}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASS}
