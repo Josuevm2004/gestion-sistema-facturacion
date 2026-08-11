@@ -428,34 +428,38 @@ export default function FormularioPublicoPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white border rounded-3 p-4 text-start mb-4">
-                    <h3 className="h6 fw-bold text-primary mb-3">Cuentas para Transferencia</h3>
-                    <div className="mb-3 p-3 border rounded-2">
-                      <div className="d-flex align-items-center mb-2">
-                        <span className="badge bg-primary me-2">BCP</span>
-                        <strong>Banco de Crédito del Perú</strong>
-                      </div>
-                      <div className="small text-muted">Cuenta Corriente Soles</div>
-                      <div className="fw-bold text-dark">194-XXXXXXX-0-XX</div>
-                      <div className="small text-muted mt-1">CCI: 002-194-XXXXXXX-0-XX-XX</div>
+                  <div className="bg-white border rounded-3 p-4 text-start mb-4 shadow-sm">
+                    <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                      <h3 className="h6 fw-bold text-primary mb-0">Cuentas Empresariales para Transferencia</h3>
+                      <span className="badge bg-dark text-white fw-bold">RUC: 20607730254</span>
                     </div>
-                    <div className="mb-3 p-3 border rounded-2">
-                      <div className="d-flex align-items-center mb-2">
-                        <span className="badge me-2" style={{ backgroundColor: '#004481', color: 'white' }}>BBVA</span>
-                        <strong>BBVA Continental</strong>
-                      </div>
-                      <div className="small text-muted">Cuenta Corriente Soles</div>
-                      <div className="fw-bold text-dark">0011-XXXX-XX-XXXXXXXX</div>
-                      <div className="small text-muted mt-1">CCI: 011-XXXX-XXXX-XXXXXXXX-XX</div>
+
+                    <div className="p-2.5 mb-3 rounded-2 bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 small fw-semibold">
+                      🏢 <strong>Titular:</strong> CORPORACIONES ONE E.I.R.L.
                     </div>
-                    <div className="p-3 border rounded-2">
-                      <div className="d-flex align-items-center mb-2">
-                        <span className="badge me-2" style={{ backgroundColor: '#009A44', color: 'white' }}>Interbank</span>
-                        <strong>Interbank</strong>
+
+                    {/* Cuenta BCP */}
+                    <div className="mb-3 p-3 border rounded-3 bg-light shadow-2xs">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <span className="badge bg-primary px-2.5 py-1 fw-bold">BCP</span>
+                        <strong className="text-dark">Cuenta Corriente BCP Soles</strong>
                       </div>
-                      <div className="small text-muted">Cuenta Corriente Soles</div>
-                      <div className="fw-bold text-dark">XXX-XXXXXXX-XXX</div>
-                      <div className="small text-muted mt-1">CCI: 003-XXX-XXXXXXX-XXX-XX</div>
+                      <div className="small text-muted mb-0.5">Número de Cuenta:</div>
+                      <div className="fw-bold text-dark font-monospace fs-6 mb-1">194-9357265-026</div>
+                      <div className="small text-muted mb-0.5">CCI (Código Interbancario):</div>
+                      <div className="fw-semibold text-secondary font-monospace">00219400935726502690</div>
+                    </div>
+
+                    {/* Cuenta BBVA */}
+                    <div className="p-3 border rounded-3 bg-light shadow-2xs">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <span className="badge px-2.5 py-1 fw-bold" style={{ backgroundColor: '#004481', color: 'white' }}>BBVA</span>
+                        <strong className="text-dark">Cuenta Corriente BBVA Continental Soles</strong>
+                      </div>
+                      <div className="small text-muted mb-0.5">Número de Cuenta:</div>
+                      <div className="fw-bold text-dark font-monospace fs-6 mb-1">0011-0323-0100032917</div>
+                      <div className="small text-muted mb-0.5">CCI (Código Interbancario):</div>
+                      <div className="fw-semibold text-secondary font-monospace">011-323-00100032917-35</div>
                     </div>
                   </div>
 
