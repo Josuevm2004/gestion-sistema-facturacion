@@ -249,21 +249,13 @@ export default function FormularioPublicoPage() {
                   name="regimenTributario"
                   className="form-select"
                   value={regimenTributario}
-                  onChange={(e) => {
-                    const reg = e.target.value;
-                    setRegimenTributario(reg);
-                    if (reg === 'RER' && (selectedPlan === 'EMPRESARIAL' || selectedPlan === 'LIDER')) {
-                      setSelectedPlan('EMPRENDE');
-                    } else if ((reg === 'MYPE_TRIBUTARIO' || reg === 'REGIMEN_GENERAL') && (selectedPlan === 'INICIA' || selectedPlan === 'EMPRENDE' || selectedPlan === 'IMPULSA')) {
-                      setSelectedPlan('EMPRESARIAL');
-                    }
-                  }}
+                  onChange={(e) => setRegimenTributario(e.target.value)}
                   required
                 >
-                  <option value="MYPE_TRIBUTARIO">Régimen MYPE Tributario (Empresarial / Líder)</option>
-                  <option value="REGIMEN_GENERAL">Régimen General (Empresarial / Líder)</option>
-                  <option value="RER">Régimen Especial - RER (Inicia, Emprende o Impulsa)</option>
-                  <option value="NRUS">Nuevo RUS - NRUS (Notas de Venta)</option>
+                  <option value="MYPE_TRIBUTARIO">Régimen MYPE Tributario</option>
+                  <option value="REGIMEN_GENERAL">Régimen General</option>
+                  <option value="RER">Régimen Especial (RER)</option>
+                  <option value="NRUS">Nuevo RUS (NRUS)</option>
                 </select>
               </div>
 
@@ -357,33 +349,21 @@ export default function FormularioPublicoPage() {
                     { id: 'EMPRESARIAL', name: 'Empresarial', price: 59, annual: 590, docs: '500 Boletas o Facturas', users: '4 Usuarios', features: 'Web, app y ticketera' },
                     { id: 'LIDER', name: 'Líder', price: 89, annual: 890, docs: '1000 Boletas o Facturas', users: '6 Usuarios', features: 'Web, app y ticketera' },
                   ].map((plan) => {
-                    const isRER = regimenTributario === 'RER';
-                    const isMypeGeneral = regimenTributario === 'MYPE_TRIBUTARIO' || regimenTributario === 'REGIMEN_GENERAL';
-                    const isAllowedForRER = plan.id === 'INICIA' || plan.id === 'EMPRENDE' || plan.id === 'IMPULSA';
-                    const isAllowedForMype = plan.id === 'EMPRESARIAL' || plan.id === 'LIDER';
-
-                    const isDisabled = (isRER && !isAllowedForRER) || (isMypeGeneral && !isAllowedForMype);
-
                     return (
                       <div key={plan.id} className={plan.id === 'EMPRESARIAL' || plan.id === 'LIDER' ? 'col-md-6' : 'col-md-4'}>
                         <div
-                          onClick={() => {
-                            if (!isDisabled) setSelectedPlan(plan.id);
-                          }}
+                          onClick={() => setSelectedPlan(plan.id)}
                           className={`p-3 rounded-3 border position-relative ${
-                            isDisabled ? 'bg-light opacity-50 border-secondary-subtle' : selectedPlan === plan.id ? 'border-primary border-2 shadow-sm bg-white' : 'border-light-subtle bg-white'
+                            selectedPlan === plan.id ? 'border-primary border-2 shadow-sm bg-white' : 'border-light-subtle bg-white'
                           }`}
-                          style={{ cursor: isDisabled ? 'not-allowed' : 'pointer', transition: 'all 0.15s' }}
+                          style={{ cursor: 'pointer', transition: 'all 0.15s' }}
                         >
-                          {selectedPlan === plan.id && !isDisabled && (
+                          {selectedPlan === plan.id && (
                             <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-primary" style={{ fontSize: '0.65rem' }}>Seleccionado</span>
-                          )}
-                          {isDisabled && (
-                            <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-secondary" style={{ fontSize: '0.65rem' }}>No disponible para tu régimen</span>
                           )}
                           <div className="d-flex justify-content-between align-items-center mb-1">
                             <strong className="text-dark">{plan.name}</strong>
-                            <span className={`badge ${isDisabled ? 'bg-secondary' : 'bg-primary'}`}>
+                            <span className="badge bg-primary">
                               {tipoSuscripcion === 'ANUAL' ? `S/ ${plan.annual}/año` : `S/ ${plan.price}/mes`}
                             </span>
                           </div>
