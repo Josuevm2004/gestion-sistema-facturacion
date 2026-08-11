@@ -13,6 +13,7 @@ public class AccesoSistema {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id", nullable = false, unique = true)
+    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private Cliente cliente;
 
     @Column(nullable = false, unique = true, length = 50)

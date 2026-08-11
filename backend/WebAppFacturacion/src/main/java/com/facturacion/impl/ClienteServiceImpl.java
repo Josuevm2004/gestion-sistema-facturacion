@@ -1,7 +1,10 @@
 package com.facturacion.impl;
 
+import com.facturacion.entity.AccesoSistema;
 import com.facturacion.entity.Cliente;
 import com.facturacion.entity.CredencialSol;
+import com.facturacion.entity.EncuestaInicial;
+import com.facturacion.entity.Pago;
 import com.facturacion.enums.ColorTag;
 import com.facturacion.enums.EstadoCapacitacion;
 import com.facturacion.enums.EstadoCuenta;
@@ -35,6 +38,15 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Autowired
     private com.facturacion.repository.PagoRepository pagoRepository;
+
+    @Autowired
+    private com.facturacion.repository.AccesoSistemaRepository accesoSistemaRepository;
+
+    @Autowired
+    private com.facturacion.repository.EncuestaInicialRepository encuestaInicialRepository;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     @Autowired
     private AESEncryptionUtil aesEncryptionUtil;
@@ -246,13 +258,24 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
 
-        // 1. Eliminar credenciales SOL en cascada si existen
-        credencialSolRepository.deleteByClienteId(id);
+        // 1. Borrar directamente con SQL nativo en CockroachDB cualquier registro vinculado
+        try { jdbcTemplate.update("DELETE FROM credencial_sol WHERE cliente_id = ?", id); } catch (Exception ignored) {}
+        try { jdbcTemplate.update("DELETE FROM acceso_sistema WHERE cliente_id = ?", id); } catch (Exception ignored) {}
+        try { jdbcTemplate.update("DELETE FROM encuesta_inicial WHERE cliente_id = ?", id); } catch (Exception ignored) {}
+        try { jdbcTemplate.update("DELETE FROM pago WHERE cliente_id = ?", id); } catch (Exception ignored) {}
 
-        // 2. Eliminar historial de pagos asociados en cascada
-        pagoRepository.deleteByClienteId(id);
+        // 2. Borrar por repositorios JPA
+        try { credencialSolRepository.findByClienteId(id).ifPresent(credencialSolRepository::delete); } catch (Exception ignored) {}
+        try { accesoSistemaRepository.findByClienteId(id).ifPresent(accesoSistemaRepository::delete); } catch (Exception ignored) {}
+        try { encuestaInicialRepository.findByClienteId(id).ifPresent(encuestaInicialRepository::delete); } catch (Exception ignored) {}
+        try {
+            List<Pago> pagos = pagoRepository.findByClienteId(id);
+            if (pagos != null && !pagos.isEmpty()) {
+                pagoRepository.deleteAll(pagos);
+            }
+        } catch (Exception ignored) {}
 
-        // 3. Eliminar entidad cliente
+        // 3. Eliminar entidad Cliente
         clienteRepository.delete(cliente);
     }
 
