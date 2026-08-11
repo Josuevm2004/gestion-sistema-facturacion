@@ -15,7 +15,6 @@ public class Pago {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id", nullable = false)
-    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private Cliente cliente;
 
     @Column(name = "codigo_operacion", length = 100)

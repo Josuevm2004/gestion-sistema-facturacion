@@ -13,7 +13,6 @@ public class CredencialSol {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id", nullable = false, unique = true)
-    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
     private Cliente cliente;
 
     @Column(name = "usuario_sol", nullable = false, length = 50)

@@ -109,11 +109,8 @@ public class Cliente {
     @JoinColumn(name = "codigo_ubigeo")
     private Ubigeo ubigeo;
 
-    @OneToOne(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @OneToOne(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private CredencialSol credencialSol;
-
-    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
-    private java.util.List<Pago> pagos = new java.util.ArrayList<>();
 
     public Cliente() {
     }
