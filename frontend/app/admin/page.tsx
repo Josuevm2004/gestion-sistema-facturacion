@@ -255,9 +255,16 @@ export default function AdminDashboardPage() {
 
     const getClientUniquePayments = (clienteId: number) => {
       const rawList = payments.filter((p) => p.clienteId === clienteId);
+      // Filtrar únicamente pagos verificados/confirmados (excluir borradores PAGAR_LUEGO)
+      const verified = rawList.filter((p) => {
+        if (!p.estadoPago) return true;
+        const est = String(p.estadoPago).toUpperCase();
+        return est === 'PAGO' || est === 'VERIFICADO' || est === 'CONFIRMADO' || est === 'PAGO_REALIZADO';
+      });
+
       const map = new Map<string, Payment>();
-      rawList.forEach((p) => {
-        const key = p.id ? `ID-${p.id}` : `${p.fechaPago}-${p.monto}-${p.codigoOperacion || ''}`;
+      verified.forEach((p) => {
+        const key = p.id ? `ID-${p.id}` : `${p.fechaPago ? String(p.fechaPago).slice(0, 10) : ''}-${p.monto}-${p.codigoOperacion || ''}`;
         if (!map.has(key)) map.set(key, p);
       });
       return Array.from(map.values());
@@ -372,12 +379,8 @@ export default function AdminDashboardPage() {
               const cPayments = getClientUniquePayments(c.id);
               const totalPagado = cPayments.reduce((sum, p) => sum + (p.monto || 0), 0);
 
-              const regDate = c.fechaRegistro ? new Date(c.fechaRegistro) : (c.fechaCapacitacion ? new Date(c.fechaCapacitacion) : new Date());
-              const regMonth = regDate.getMonth();
-              const regYear = regDate.getFullYear();
-
               const monthCellsHtml = monthsList.map((m) => {
-                // 1. Pagos reales registrados en la base de datos para este mes
+                // 1. Pagos reales VERIFICADOS registrados en la BD para este mes
                 const pMonth = cPayments.filter((p) => {
                   if (!p.fechaPago) return false;
                   const d = new Date(p.fechaPago);
@@ -389,40 +392,18 @@ export default function AdminDashboardPage() {
                   return `<td class="${bgClass}" style="text-align:center; color:#15803d; font-weight:bold;">S/ ${sumPaid.toFixed(2)}</td>`;
                 }
 
-                // 2. Meses anteriores a su mes de registro -> Sin registro todavía
-                if (m.month < regMonth && regYear === 2026) {
-                  return `<td class="${bgClass}" style="text-align:center; color:#94a3b8;">—</td>`;
-                }
-
-                // 3. Mes de Registro -> Pago Inicial del Plan Completo
-                if (m.month === regMonth) {
-                  const montoPlan = c.montoMensual || 29;
-                  return `<td class="${bgClass}" style="text-align:center; color:#15803d; font-weight:bold;">S/ ${montoPlan.toFixed(2)}</td>`;
-                }
-
-                // 4. Mes Siguiente al Registro -> Prorrateo de fin de mes
-                const nextMonthIndex = (regMonth + 1) % 12;
-                if (m.month === nextMonthIndex) {
-                  const P = c.montoMensual || 29;
-                  const D_total = new Date(regYear, regMonth + 1, 0).getDate();
-                  const D_cap = regDate.getDate();
-                  const costoDiario = P / (D_total || 30);
-                  const descuento = costoDiario * Math.max(0, D_cap - 1);
-                  const montoProrrateo = Math.max(1, Math.round(P - descuento));
-                  return `<td class="${bgClass}" style="text-align:center; color:#0284c7; font-weight:bold;">S/ ${montoProrrateo.toFixed(2)} (Prorrateo)</td>`;
-                }
-
-                // 5. Meses posteriores
+                // 2. Si el cliente está bloqueado en ese periodo
                 if (c.estadoCuenta === 'BLOQUEADO') {
                   return `<td class="${bgClass}" style="text-align:center; color:#b91c1c; font-weight:bold;">BLOQUEADO</td>`;
                 }
 
+                // 3. Si el cliente está vencido en ese mes
                 if (c.estadoCuenta === 'VENCIDO' && m.month <= new Date().getMonth()) {
                   return `<td class="${bgClass}" style="text-align:center; color:#b45309; font-weight:bold;">POR COBRAR</td>`;
                 }
 
-                const planMonto = c.montoMensual || 29;
-                return `<td class="${bgClass}" style="text-align:center; color:#334155;">S/ ${planMonto.toFixed(2)}</td>`;
+                // 4. Si aún no ha pagado para este mes
+                return `<td class="${bgClass}" style="text-align:center; color:#94a3b8;">—</td>`;
               }).join('');
 
               return `
