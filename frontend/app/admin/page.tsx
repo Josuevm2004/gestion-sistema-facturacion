@@ -261,6 +261,18 @@ export default function AdminDashboardPage() {
     const totalHabilitados = reportData.filter((c) => c.estadoCuenta === 'HABILITADO').length;
     const totalVencidos = reportData.filter((c) => c.estadoCuenta === 'VENCIDO').length;
 
+    const monthsList = [
+      { label: 'JULIO 2026', month: 6, year: 2026 },
+      { label: 'AGOSTO 2026', month: 7, year: 2026 },
+      { label: 'SEPTIEMBRE 2026', month: 8, year: 2026 },
+      { label: 'OCTUBRE 2026', month: 9, year: 2026 },
+      { label: 'NOVIEMBRE 2026', month: 10, year: 2026 },
+      { label: 'DICIEMBRE 2026', month: 11, year: 2026 },
+      { label: 'ENERO 2027', month: 0, year: 2027 },
+      { label: 'FEBRERO 2027', month: 1, year: 2027 },
+      { label: 'MARZO 2027', month: 2, year: 2027 },
+    ];
+
     // Excel HTML/XML Spreadsheet format with professional styling
     const excelHtml = `
       <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -281,54 +293,62 @@ export default function AdminDashboardPage() {
         </xml>
         <![endif]-->
         <style>
-          body { font-family: Arial, sans-serif; font-size: 11pt; color: #0F172A; }
+          body { font-family: Arial, sans-serif; font-size: 10pt; color: #0F172A; }
           table { border-collapse: collapse; width: 100%; }
           .banner-title { background-color: #0B132B; color: #FFFFFF; font-size: 14pt; font-weight: bold; text-align: center; height: 42px; vertical-align: middle; }
           .banner-sub { background-color: #1E293B; color: #94A3B8; font-size: 9.5pt; text-align: center; height: 24px; vertical-align: middle; }
           .kpi-box { background-color: #F8FAFC; border: 1px solid #CBD5E1; text-align: center; font-weight: bold; padding: 6px; }
           .kpi-num { font-size: 12pt; color: #2563EB; font-weight: bold; }
-          .th-col { background-color: #2563EB; color: #FFFFFF; font-weight: bold; text-align: center; border: 1px solid #1D4ED8; height: 32px; vertical-align: middle; }
-          .td-cell { border: 1px solid #E2E8F0; vertical-align: middle; padding: 6px 8px; font-size: 10pt; }
-          .td-alt { background-color: #F8FAFC; border: 1px solid #E2E8F0; vertical-align: middle; padding: 6px 8px; font-size: 10pt; }
+          .th-col { background-color: #2563EB; color: #FFFFFF; font-weight: bold; text-align: center; border: 1px solid #1D4ED8; height: 32px; vertical-align: middle; font-size: 9pt; }
+          .th-month { background-color: #0284C7; color: #FFFFFF; font-weight: bold; text-align: center; border: 1px solid #0369A1; height: 32px; vertical-align: middle; font-size: 9pt; }
+          .td-cell { border: 1px solid #E2E8F0; vertical-align: middle; padding: 6px 8px; font-size: 9.5pt; }
+          .td-alt { background-color: #F8FAFC; border: 1px solid #E2E8F0; vertical-align: middle; padding: 6px 8px; font-size: 9.5pt; }
           .badge-hab { background-color: #DCFCE7; color: #15803D; font-weight: bold; text-align: center; }
           .badge-venc { background-color: #FEE2E2; color: #B91C1C; font-weight: bold; text-align: center; }
           .badge-warn { background-color: #FEF3C7; color: #B45309; font-weight: bold; text-align: center; }
-          .total-row { background-color: #EFF6FF; font-weight: bold; border-top: 2px solid #2563EB; font-size: 11pt; }
+          .total-row { background-color: #EFF6FF; font-weight: bold; border-top: 2px solid #2563EB; font-size: 10pt; }
         </style>
       </head>
       <body>
         <table>
           <tr>
-            <td colspan="15" class="banner-title">REPORTE GENERAL DE GESTIÓN Y FACTURACIÓN ELECTRÓNICA - MIQUIPU</td>
+            <td colspan="30" class="banner-title">REPORTE GENERAL DE GESTIÓN Y FACTURACIÓN ELECTRÓNICA - MIQUIPU</td>
           </tr>
           <tr>
-            <td colspan="15" class="banner-sub">Reporte Consolidado de Clientes | Filtro de Fecha: ${periodoIngresoTipo}</td>
+            <td colspan="30" class="banner-sub">Reporte Consolidado de Clientes | Filtro de Fecha: ${periodoIngresoTipo}</td>
           </tr>
-          <tr><td colspan="15"></td></tr>
+          <tr><td colspan="30"></td></tr>
           <tr>
-            <td colspan="3" class="kpi-box">TOTAL CLIENTES: <span class="kpi-num">${reportData.length}</span></td>
-            <td colspan="3" class="kpi-box">TOTAL RECAUDADO: <span class="kpi-num">S/ ${totalRecaudadoCalculado.toFixed(2)}</span></td>
-            <td colspan="4" class="kpi-box">CLIENTES HABILITADOS: <span class="kpi-num" style="color:#16a34a">${totalHabilitados}</span></td>
-            <td colspan="5" class="kpi-box">CLIENTES VENCIDOS: <span class="kpi-num" style="color:#dc2626">${totalVencidos}</span></td>
+            <td colspan="5" class="kpi-box">TOTAL CLIENTES: <span class="kpi-num">${reportData.length}</span></td>
+            <td colspan="5" class="kpi-box">TOTAL RECAUDADO: <span class="kpi-num">S/ ${totalRecaudadoCalculado.toFixed(2)}</span></td>
+            <td colspan="10" class="kpi-box">CLIENTES HABILITADOS: <span class="kpi-num" style="color:#16a34a">${totalHabilitados}</span></td>
+            <td colspan="10" class="kpi-box">CLIENTES VENCIDOS / BLOQUEADOS: <span class="kpi-num" style="color:#dc2626">${totalVencidos}</span></td>
           </tr>
-          <tr><td colspan="15"></td></tr>
+          <tr><td colspan="30"></td></tr>
           <thead>
             <tr>
-              <th class="th-col">RUC</th>
-              <th class="th-col">RAZÓN SOCIAL</th>
-              <th class="th-col">NOMBRE COMERCIAL</th>
+              <th class="th-col">ETIQUETA COLOR</th>
               <th class="th-col">REGIMEN</th>
-              <th class="th-col">PLAN</th>
-              <th class="th-col">TIPO SUSCRIPCIÓN</th>
-              <th class="th-col">MONTO MENSUAL</th>
-              <th class="th-col">TELÉFONO / WHATSAPP</th>
-              <th class="th-col">CORREO</th>
+              <th class="th-col">RUC</th>
+              <th class="th-col">DNI</th>
               <th class="th-col">USUARIO SOL</th>
               <th class="th-col">CLAVE SOL</th>
-              <th class="th-col">FECHA REGISTRO</th>
-              <th class="th-col">VENDEDOR</th>
-              <th class="th-col">ESTADO CUENTA</th>
-              <th class="th-col">ESTADO CAPACITACIÓN</th>
+              <th class="th-col">RAZÓN SOCIAL</th>
+              <th class="th-col">TELEFONO</th>
+              <th class="th-col">NOMBRE COMERCIAL</th>
+              <th class="th-col">DIRECCION</th>
+              <th class="th-col">CORREO</th>
+              <th class="th-col">PLAN</th>
+              <th class="th-col">MONTO (S/)</th>
+              <th class="th-col">LINK SISTEMA</th>
+              <th class="th-col">ACCESO SISTEMA</th>
+              <th class="th-col">CONTRASEÑA SISTEMA</th>
+              <th class="th-col">F.INICIO</th>
+              <th class="th-col">VENDEDOR QUE REALIZÓ LA VENTA</th>
+              <th class="th-col">TOTAL PAGOS (S/)</th>
+              <th class="th-col">ESTADO</th>
+              <th class="th-col">CAPACITADO</th>
+              ${monthsList.map((m) => `<th class="th-month">${m.label}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
@@ -336,31 +356,65 @@ export default function AdminDashboardPage() {
               const bgClass = index % 2 === 0 ? 'td-cell' : 'td-alt';
               const estadoClass = c.estadoCuenta === 'HABILITADO' ? 'badge-hab' : c.estadoCuenta === 'VENCIDO' ? 'badge-venc' : 'badge-warn';
               const fReg = formatDatePeru(c.fechaCapacitacion || c.fechaRegistro);
+              const cPayments = payments.filter((p) => p.clienteId === c.id);
+              const totalPagado = cPayments.reduce((sum, p) => sum + (p.monto || 0), 0);
+
+              const monthCellsHtml = monthsList.map((m) => {
+                const pMonth = cPayments.filter((p) => {
+                  if (!p.fechaPago) return false;
+                  const d = new Date(p.fechaPago);
+                  return d.getMonth() === m.month && d.getFullYear() === m.year;
+                });
+
+                if (pMonth.length > 0) {
+                  const sumPaid = pMonth.reduce((acc, curr) => acc + (curr.monto || 0), 0);
+                  return `<td class="${bgClass}" style="text-align:center; color:#15803d; font-weight:bold;">S/ ${sumPaid.toFixed(2)}</td>`;
+                }
+
+                if (c.estadoCuenta === 'BLOQUEADO') {
+                  return `<td class="${bgClass}" style="text-align:center; color:#b91c1c; font-weight:bold;">BLOQUEADO</td>`;
+                }
+
+                if (c.estadoCuenta === 'VENCIDO') {
+                  return `<td class="${bgClass}" style="text-align:center; color:#b45309; font-weight:bold;">POR COBRAR</td>`;
+                }
+
+                return `<td class="${bgClass}" style="text-align:center; color:#94a3b8;">—</td>`;
+              }).join('');
 
               return `
                 <tr>
-                  <td class="${bgClass}" style="mso-number-format:'\\@'; text-align:center;">${c.ruc || '—'}</td>
-                  <td class="${bgClass}"><strong>${c.razonSocial || '—'}</strong></td>
-                  <td class="${bgClass}">${c.nombreComercial || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;"><strong>${c.colorTag || 'VERDE'}</strong></td>
                   <td class="${bgClass}" style="text-align:center;">${c.regimenTributario || '—'}</td>
-                  <td class="${bgClass}" style="text-align:center;"><strong>${c.planContratado || '—'}</strong></td>
-                  <td class="${bgClass}" style="text-align:center;">${c.tipoSuscripcion || 'MENSUAL'}</td>
-                  <td class="${bgClass}" style="text-align:right;">S/ ${(c.montoMensual || 0).toFixed(2)}</td>
-                  <td class="${bgClass}" style="mso-number-format:'\\@'; text-align:center;">${c.telefono || '—'}</td>
-                  <td class="${bgClass}">${c.email || '—'}</td>
+                  <td class="${bgClass}" style="mso-number-format:'\\@'; text-align:center;">${c.ruc || '—'}</td>
+                  <td class="${bgClass}" style="mso-number-format:'\\@'; text-align:center;">${c.dni || '—'}</td>
                   <td class="${bgClass}" style="text-align:center;">${c.usuarioSol || '—'}</td>
                   <td class="${bgClass}" style="text-align:center;">${c.claveSolCifrada || '—'}</td>
+                  <td class="${bgClass}"><strong>${c.razonSocial || '—'}</strong></td>
+                  <td class="${bgClass}" style="mso-number-format:'\\@'; text-align:center;">${c.telefono || '—'}</td>
+                  <td class="${bgClass}">${c.nombreComercial || '—'}</td>
+                  <td class="${bgClass}">${c.direccion || '—'}</td>
+                  <td class="${bgClass}">${c.email || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;"><strong>${c.planContratado || '—'}</strong></td>
+                  <td class="${bgClass}" style="text-align:right;">S/ ${(c.montoMensual || 0).toFixed(2)} (${c.tipoSuscripcion || 'MENSUAL'})</td>
+                  <td class="${bgClass}">${c.linkSistema || '—'}</td>
+                  <td class="${bgClass}">${c.usuarioSistema || '—'}</td>
+                  <td class="${bgClass}">${c.claveSistema || '—'}</td>
                   <td class="${bgClass}" style="text-align:center;">${fReg}</td>
                   <td class="${bgClass}" style="text-align:center;">${c.vendedor ? c.vendedor.toUpperCase() : 'SIN ASIGNAR'}</td>
+                  <td class="${bgClass}" style="text-align:right; font-weight:bold; color:#2563eb;">S/ ${totalPagado.toFixed(2)}</td>
                   <td class="${bgClass} ${estadoClass}">${c.estadoCuenta || '—'}</td>
                   <td class="${bgClass}" style="text-align:center;">${c.estadoCapacitacion || 'PENDIENTE'}</td>
+                  ${monthCellsHtml}
                 </tr>
               `;
             }).join('')}
             <tr class="total-row">
-              <td colspan="6" style="text-align:right;">TOTALES GENERALES:</td>
+              <td colspan="12" style="text-align:right;">TOTALES GENERALES:</td>
               <td style="text-align:right;">S/ ${reportData.reduce((s, c) => s + (c.montoMensual || 0), 0).toFixed(2)}</td>
-              <td colspan="8"></td>
+              <td colspan="5"></td>
+              <td style="text-align:right; color:#2563eb;">S/ ${totalRecaudadoCalculado.toFixed(2)}</td>
+              <td colspan="${2 + monthsList.length}"></td>
             </tr>
           </tbody>
         </table>
@@ -2387,32 +2441,7 @@ export default function AdminDashboardPage() {
 
                 {/* Tabla de Resultados del Reporte */}
                 {(() => {
-                  const reportFilteredList = clients.filter((c) => {
-                    if (search.trim()) {
-                      const q = search.toLowerCase();
-                      const matches =
-                        c.razonSocial?.toLowerCase().includes(q) ||
-                        c.ruc?.includes(q) ||
-                        (c.telefono || '').includes(q) ||
-                        (c.email || '').toLowerCase().includes(q) ||
-                        (c.vendedor || '').toLowerCase().includes(q);
-                      if (!matches) return false;
-                    }
-                    if (colorFilter !== 'TODOS' && c.colorTag !== colorFilter) return false;
-                    if (regimenFilter !== 'TODOS' && c.regimenTributario !== regimenFilter) return false;
-                    if (planFilter !== 'TODOS' && c.planContratado !== planFilter) return false;
-                    if (suscripcionFilter !== 'TODOS' && c.tipoSuscripcion !== suscripcionFilter) return false;
-                    if (capacitacionFilter !== 'TODOS' && c.estadoCapacitacion !== capacitacionFilter) return false;
-                    if (estadoCuentaFilter !== 'TODOS' && c.estadoCuenta !== estadoCuentaFilter) return false;
-                    if (sellerFilter !== 'TODOS') {
-                      if (sellerFilter === 'SIN_ASIGNAR') {
-                        if (c.vendedor && c.vendedor !== 'Sin Asignar') return false;
-                      } else {
-                        if (c.vendedor !== sellerFilter) return false;
-                      }
-                    }
-                    return true;
-                  });
+                  const reportFilteredList = clients.filter(filterClientUnified);
 
                   return (
                     <div className="table-responsive">
