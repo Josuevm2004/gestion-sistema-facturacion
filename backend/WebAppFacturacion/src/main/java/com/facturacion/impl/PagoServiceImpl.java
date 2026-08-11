@@ -30,8 +30,7 @@ public class PagoServiceImpl implements PagoService {
     @Autowired
     private PagoRepository pagoRepository;
 
-    @Autowired
-    private NotificacionEmailService emailService;
+
 
     @Override
     @Transactional
@@ -96,7 +95,7 @@ public class PagoServiceImpl implements PagoService {
         cliente.setFechaVencimientoMensual(LocalDateTime.now().plusMonths(1));
         clienteRepository.save(cliente);
 
-        emailService.enviarConfirmacionPago(cliente.getEmail(), cliente.getRazonSocial(), periodo, request.getCodigoOperacion());
+
 
         return EstadoPagoResponse.builder()
                 .clienteId(cliente.getId())
@@ -122,6 +121,8 @@ public class PagoServiceImpl implements PagoService {
         Double monto = pagoOpt.map(Pago::getMonto).orElse(cliente.getMontoMensual());
         LocalDateTime fecha = pagoOpt.map(Pago::getFechaPago).orElse(null);
 
+        String razonClean = cliente.getRazonSocial() != null ? cliente.getRazonSocial().replaceAll("[^a-zA-Z0-9]", "").toLowerCase() : "cliente";
+
         return EstadoPagoResponse.builder()
                 .clienteId(cliente.getId())
                 .ruc(cliente.getRuc())
@@ -130,7 +131,7 @@ public class PagoServiceImpl implements PagoService {
                 .codigoOperacion(codOp)
                 .monto(monto)
                 .fechaPago(fecha)
-                .subdominioUrl("https://" + cliente.getRazonSocial().replaceAll("[^a-zA-Z0-9]", "").toLowerCase() + ".facturacionperu.pe")
+                .subdominioUrl("https://" + razonClean + ".facturacionperu.pe")
                 .build();
     }
 

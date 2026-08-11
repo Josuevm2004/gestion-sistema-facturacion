@@ -42,11 +42,13 @@ public class AlertaCobranzaScheduler {
             String fechaVenc = cliente.getFechaVencimientoMensual().format(formatter);
             log.info("Generando alerta de cobranza para cliente: {} (RUC: {})", cliente.getRazonSocial(), cliente.getRuc());
 
-            emailService.enviarAlertaVencimiento(cliente.getEmail(), cliente.getRazonSocial(), fechaVenc, cliente.getMontoMensual());
+            try {
+                emailService.enviarAlertaVencimiento(cliente.getEmail(), cliente.getRazonSocial(), fechaVenc, cliente.getMontoMensual());
 
-            String msjWhatsApp = String.format("📢 Hola %s, tu servicio de Facturación Electrónica vence el %s. Recuerda renovar abonando S/ %.2f mediante transferencia bancaria para evitar la interrupción del servicio.",
-                    cliente.getRazonSocial(), fechaVenc, cliente.getMontoMensual());
-            whatsAppService.enviarMensajeWhatsApp(cliente.getTelefono(), msjWhatsApp);
+                String msjWhatsApp = String.format("📢 Hola %s, tu servicio de Facturación Electrónica vence el %s. Recuerda renovar abonando S/ %.2f mediante transferencia bancaria para evitar la interrupción del servicio.",
+                        cliente.getRazonSocial(), fechaVenc, cliente.getMontoMensual());
+                whatsAppService.enviarMensajeWhatsApp(cliente.getTelefono(), msjWhatsApp);
+            } catch (Exception ignored) {}
 
             if (cliente.getFechaVencimientoMensual().isBefore(LocalDateTime.now().minusDays(5))) {
                 cliente.setEstadoCuenta(EstadoCuenta.BLOQUEADO);

@@ -43,11 +43,7 @@ public class FormularioRegistroServiceImpl implements FormularioRegistroService 
     @Autowired
     private AESEncryptionUtil aesEncryptionUtil;
 
-    @Autowired
-    private NotificacionEmailService emailService;
 
-    @Autowired
-    private NotificacionWhatsAppService whatsAppService;
 
     @Override
     @Transactional
@@ -137,8 +133,7 @@ public class FormularioRegistroServiceImpl implements FormularioRegistroService 
 
         pagoRepository.save(pagoInicial);
 
-        emailService.enviarCorreoBienvenida(cliente.getEmail(), cliente.getRazonSocial(), urlAcceso, acceso.getUsuarioAdminFacturador(), claveTemporal);
-        whatsAppService.enviarMensajeWhatsApp(cliente.getTelefono(), "¡Hola " + cliente.getRazonSocial() + "! Bienvenido a Facturación Electrónica. Tu subdominio de acceso es: " + urlAcceso);
+
 
         return DetalleClienteResponse.builder()
                 .id(cliente.getId())
