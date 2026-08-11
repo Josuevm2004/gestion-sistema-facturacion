@@ -11,6 +11,7 @@ import java.util.Optional;
 @Repository
 public interface PagoRepository extends JpaRepository<Pago, Long> {
     List<Pago> findByClienteId(Long clienteId);
+    void deleteByClienteId(Long clienteId);
     Optional<Pago> findByCodigoOperacion(String codigoOperacion);
     Optional<Pago> findTopByClienteIdAndPeriodoMesAnoOrderByFechaRegistroDesc(Long clienteId, String periodoMesAno);
     List<Pago> findByEstadoPago(EstadoPago estadoPago);
