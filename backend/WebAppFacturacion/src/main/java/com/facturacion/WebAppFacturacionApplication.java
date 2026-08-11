@@ -7,6 +7,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -29,7 +30,7 @@ public class WebAppFacturacionApplication {
 	}
 
 	@Bean
-	public CommandLineRunner initData(UsuarioAdminRepository usuarioAdminRepository, PasswordEncoder passwordEncoder) {
+	public CommandLineRunner initData(UsuarioAdminRepository usuarioAdminRepository, PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate) {
 		return args -> {
 			if (usuarioAdminRepository.findByUsername("admin").isEmpty()) {
 				UsuarioAdmin admin = new UsuarioAdmin();
@@ -41,6 +42,18 @@ public class WebAppFacturacionApplication {
 				admin.setFechaCreacion(LocalDateTime.now(ZoneId.of("America/Lima")));
 				usuarioAdminRepository.save(admin);
 			}
+
+			// Configurar ON DELETE CASCADE nativo en CockroachDB para pago y credencial_sol
+			try {
+				jdbcTemplate.execute("ALTER TABLE pago DROP CONSTRAINT IF EXISTS fkb15ggnkpjecemrcsb6bgarseg");
+				jdbcTemplate.execute("ALTER TABLE pago DROP CONSTRAINT IF EXISTS fk_pago_cliente");
+				jdbcTemplate.execute("ALTER TABLE pago ADD CONSTRAINT fk_pago_cliente FOREIGN KEY (cliente_id) REFERENCES cliente(id) ON DELETE CASCADE");
+			} catch (Exception ignored) {}
+
+			try {
+				jdbcTemplate.execute("ALTER TABLE credencial_sol DROP CONSTRAINT IF EXISTS fk_credencial_sol_cliente");
+				jdbcTemplate.execute("ALTER TABLE credencial_sol ADD CONSTRAINT fk_credencial_sol_cliente FOREIGN KEY (cliente_id) REFERENCES cliente(id) ON DELETE CASCADE");
+			} catch (Exception ignored) {}
 		};
 	}
 }

@@ -247,19 +247,15 @@ public class ClienteServiceImpl implements ClienteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
 
         // 1. Eliminar credenciales SOL si existen
-        try {
-            credencialSolRepository.findByClienteId(id).ifPresent(credencialSolRepository::delete);
-        } catch (Exception ignored) {}
+        credencialSolRepository.findByClienteId(id).ifPresent(credencialSolRepository::delete);
 
-        // 2. Eliminar historial de pagos asociados en Azure SQL
-        try {
-            List<com.facturacion.entity.Pago> pagos = pagoRepository.findByClienteId(id);
-            if (pagos != null && !pagos.isEmpty()) {
-                pagoRepository.deleteAll(pagos);
-            }
-        } catch (Exception ignored) {}
+        // 2. Eliminar historial de pagos asociados
+        List<com.facturacion.entity.Pago> pagos = pagoRepository.findByClienteId(id);
+        if (pagos != null && !pagos.isEmpty()) {
+            pagoRepository.deleteAll(pagos);
+        }
 
-        // 3. Eliminar entidad cliente
+        // 3. Eliminar finalmente el cliente
         clienteRepository.delete(cliente);
     }
 
