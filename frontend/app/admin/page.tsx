@@ -1027,59 +1027,67 @@ export default function AdminDashboardPage() {
                       </button>
 
                       {showNotificationsDropdown && (
-                        <div
-                          className="position-absolute end-0 mt-2 bg-white text-dark rounded-3 shadow-lg p-3 border"
-                          style={{ zIndex: 9999, width: '350px', maxHeight: '420px', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.25)' }}
-                        >
-                          <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-                            <strong className="text-dark fs-6 d-flex align-items-center gap-2">
-                              <Bell size={18} className="text-warning" />
-                              <span>Recordatorios de Vencimiento</span>
-                            </strong>
-                            <button
-                              type="button"
-                              className="btn-close btn-sm"
-                              onClick={() => setShowNotificationsDropdown(false)}
-                            ></button>
+                        <>
+                          <div
+                            className="d-block d-lg-none position-fixed top-0 start-0 w-100 h-100 bg-dark opacity-50"
+                            style={{ zIndex: 100040 }}
+                            onClick={() => setShowNotificationsDropdown(false)}
+                          ></div>
+
+                          <div
+                            className="notification-dropdown-responsive bg-white text-dark rounded-3 shadow-lg p-3 border"
+                            style={{ maxHeight: '80vh', overflowY: 'auto' }}
+                          >
+                            <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                              <strong className="text-dark fs-6 d-flex align-items-center gap-2">
+                                <Bell size={18} className="text-warning" />
+                                <span>Recordatorios de Vencimiento</span>
+                              </strong>
+                              <button
+                                type="button"
+                                className="btn-close btn-sm"
+                                onClick={() => setShowNotificationsDropdown(false)}
+                              ></button>
+                            </div>
+
+                            {clientesPorVencer1DiaList.length === 0 ? (
+                              <div className="text-center text-muted py-4">
+                                <CheckCircle size={24} className="text-success mb-2 d-block mx-auto" />
+                                <p className="small mb-0">No hay alertas de recordatorio activas (1 día antes).</p>
+                              </div>
+                            ) : (
+                              <div className="d-flex flex-column gap-2">
+                                {clientesPorVencer1DiaList.map((c) => (
+                                  <div
+                                    key={`alert-near-${c.id}`}
+                                    className="p-3 border rounded bg-light text-start shadow-sm"
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => {
+                                      setCalendarSearch(c.ruc);
+                                      setActiveTab('calendario');
+                                      setShowNotificationsDropdown(false);
+                                    }}
+                                    title="Haz clic para ir directamente al cliente en Centro de Control"
+                                  >
+                                    <div className="d-flex justify-content-between align-items-center mb-1">
+                                      <strong className="text-dark text-truncate me-2" style={{ maxWidth: '200px' }}>
+                                        {c.razonSocial}
+                                      </strong>
+                                      <span className="badge bg-warning text-dark flex-shrink-0" style={{ fontSize: '0.65rem' }}>
+                                        POR VENCER (1 DÍA)
+                                      </span>
+                                    </div>
+
+                                    <div className="d-flex justify-content-between align-items-center small text-muted">
+                                      <span>RUC: {c.ruc} | {c.planContratado}</span>
+                                      <span className="fw-bold text-primary">S/ {c.montoMensual.toFixed(2)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-
-                          {clientesPorVencer1DiaList.length === 0 ? (
-                            <div className="text-center text-muted py-4">
-                              <CheckCircle size={24} className="text-success mb-2 d-block mx-auto" />
-                              <p className="small mb-0">No hay alertas de recordatorio activas (1 día antes).</p>
-                            </div>
-                          ) : (
-                            <div className="d-flex flex-column gap-2">
-                              {clientesPorVencer1DiaList.map((c) => (
-                                <div
-                                  key={`alert-near-${c.id}`}
-                                  className="p-3 border rounded bg-light text-start shadow-sm"
-                                  style={{ cursor: 'pointer' }}
-                                  onClick={() => {
-                                    setCalendarSearch(c.ruc);
-                                    setActiveTab('calendario');
-                                    setShowNotificationsDropdown(false);
-                                  }}
-                                  title="Haz clic para ir directamente al cliente en Centro de Control"
-                                >
-                                  <div className="d-flex justify-content-between align-items-center mb-1">
-                                    <strong className="text-dark text-truncate me-2" style={{ maxWidth: '200px' }}>
-                                      {c.razonSocial}
-                                    </strong>
-                                    <span className="badge bg-warning text-dark flex-shrink-0" style={{ fontSize: '0.65rem' }}>
-                                      POR VENCER (1 DÍA)
-                                    </span>
-                                  </div>
-
-                                  <div className="d-flex justify-content-between align-items-center small text-muted">
-                                    <span>RUC: {c.ruc} | {c.planContratado}</span>
-                                    <span className="fw-bold text-primary">S/ {c.montoMensual.toFixed(2)}</span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
+                        </>
                       )}
                     </div>
 
