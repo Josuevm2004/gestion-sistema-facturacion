@@ -16,4 +16,5 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     Optional<Cliente> findByEmail(String email);
     List<Cliente> findByEstadoCuenta(EstadoCuenta estadoCuenta);
     List<Cliente> findByFechaVencimientoMensualBefore(LocalDateTime fecha);
+    List<Cliente> findByVendedor(String vendedor);
 }

@@ -1,7 +1,9 @@
 package com.facturacion.controller;
 
+import com.facturacion.entity.Cliente;
 import com.facturacion.entity.UsuarioAdmin;
 import com.facturacion.exception.ResourceNotFoundException;
+import com.facturacion.repository.ClienteRepository;
 import com.facturacion.repository.UsuarioAdminRepository;
 import com.facturacion.response.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,9 @@ public class UsuarioController {
 
     @Autowired
     private UsuarioAdminRepository usuarioAdminRepository;
+
+    @Autowired
+    private ClienteRepository clienteRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -65,6 +70,17 @@ public class UsuarioController {
     public ResponseEntity<ApiResponse<Void>> eliminarUsuario(@PathVariable Long id) {
         UsuarioAdmin usuario = usuarioAdminRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con ID: " + id));
+
+        // 1. Reasignar clientes del vendedor eliminado a 'Sin Asignar' para proteger el historial de ventas
+        if (usuario.getNombre() != null) {
+            List<Cliente> clientesVendedor = clienteRepository.findByVendedor(usuario.getNombre());
+            for (Cliente c : clientesVendedor) {
+                c.setVendedor("Sin Asignar");
+                clienteRepository.save(c);
+            }
+        }
+
+        // 2. Eliminar usuario/vendedor de la base de datos
         usuarioAdminRepository.delete(usuario);
         return ResponseEntity.ok(ApiResponse.success("Usuario eliminado correctamente", null));
     }
