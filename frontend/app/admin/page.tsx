@@ -214,9 +214,27 @@ export default function AdminDashboardPage() {
     }
   }
 
+  function formatDatePeru(dateStr?: string | null): string {
+    if (!dateStr) return '—';
+    const clean = dateStr.split('T')[0];
+    const parts = clean.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+  }
+
   useEffect(() => {
     if (!token) return;
     loadData(token);
+
+    // Automatic real-time background sync every 10 seconds
+    const interval = setInterval(() => {
+      loadData(token, false);
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [token]);
 
   function handleExportExcel() {
@@ -225,120 +243,137 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const headers = [
-      'CELULAR',
-      'REGIMEN',
-      'RUC',
-      'DNI',
-      'USUARIO SOL',
-      'CLAVE SOL',
-      'RAZÓN SOCIAL',
-      'TELEFONO',
-      'NOMBRE COMERCIAL',
-      'DIRECCION',
-      'CORREO',
-      'PLAN',
-      'MONTO',
-      'LINK SISTEMA',
-      'ACCESO SISTEMA',
-      'CONTRASEÑA SISTEMA',
-      'F.INICIO',
-      'VENDEDOR QUE REALIZÓ LA VENTA',
-      'TOTAL PAGOS (S/)',
-      'ESTADO',
-      'CAPACITADO',
-      'JULIO',
-      'AGOSTO',
-      'SEPTIEMBRE',
-      'OCTUBRE',
-      'NOVIEMBRE',
-      'DICIEMBRE',
-      'ENERO 2026'
-    ];
+    const nowPeru = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+    const todayPeruStr = new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
 
-    const reportData = clients.filter((c) => {
-      if (search.trim()) {
-        const q = search.toLowerCase();
-        const matches =
-          c.razonSocial?.toLowerCase().includes(q) ||
-          c.ruc?.includes(q) ||
-          (c.telefono || '').includes(q) ||
-          (c.email || '').toLowerCase().includes(q) ||
-          (c.vendedor || '').toLowerCase().includes(q) ||
-          (c.usuarioSol || '').toLowerCase().includes(q) ||
-          (c.usuarioSistema || '').toLowerCase().includes(q);
-        if (!matches) return false;
-      }
-      if (colorFilter !== 'TODOS' && c.colorTag !== colorFilter) return false;
-      if (regimenFilter !== 'TODOS' && c.regimenTributario !== regimenFilter) return false;
-      if (planFilter !== 'TODOS' && c.planContratado !== planFilter) return false;
-      if (suscripcionFilter !== 'TODOS' && c.tipoSuscripcion !== suscripcionFilter) return false;
-      if (capacitacionFilter !== 'TODOS' && c.estadoCapacitacion !== capacitacionFilter) return false;
-      if (estadoCuentaFilter !== 'TODOS' && c.estadoCuenta !== estadoCuentaFilter) return false;
-      if (sellerFilter !== 'TODOS') {
-        if (sellerFilter === 'SIN_ASIGNAR') {
-          if (c.vendedor && c.vendedor !== 'Sin Asignar') return false;
-        } else {
-          if (c.vendedor !== sellerFilter) return false;
-        }
-      }
-      return true;
-    });
+    const reportData = clients.filter(filterClientUnified);
 
-    const rows = reportData.map((c) => {
+    if (reportData.length === 0) {
+      alert('No se encontraron clientes para el filtro seleccionado.');
+      return;
+    }
+
+    const totalRecaudadoCalculado = reportData.reduce((sum, c) => {
       const cPayments = payments.filter((p) => p.clienteId === c.id);
-      const totalPagado = cPayments.reduce((sum, p) => sum + (p.monto || 0), 0);
+      return sum + cPayments.reduce((pSum, p) => pSum + (p.monto || 0), 0);
+    }, 0);
 
-      const getPaymentForMonth = (monthIndex: number, year: number) => {
-        const pMonth = cPayments.filter((p) => {
-          if (!p.fechaPago) return false;
-          const d = new Date(p.fechaPago);
-          return d.getMonth() === monthIndex && d.getFullYear() === year;
-        });
-        return pMonth.length > 0 ? `S/ ${pMonth.reduce((acc, curr) => acc + (curr.monto || 0), 0)}` : '—';
-      };
+    const totalHabilitados = reportData.filter((c) => c.estadoCuenta === 'HABILITADO').length;
+    const totalVencidos = reportData.filter((c) => c.estadoCuenta === 'VENCIDO').length;
 
-      return [
-        c.colorTag || 'VERDE',
-        c.regimenTributario || '—',
-        `"${c.ruc}"`,
-        c.dni || '—',
-        c.usuarioSol || '—',
-        c.claveSolCifrada || '—',
-        `"${(c.razonSocial || '').replace(/"/g, '""')}"`,
-        c.telefono || '—',
-        `"${(c.nombreComercial || '').replace(/"/g, '""')}"`,
-        `"${(c.direccion || '').replace(/"/g, '""')}"`,
-        c.email || '—',
-        c.planContratado || '—',
-        `S/ ${c.montoMensual || 0}`,
-        `"${(c.linkSistema || '').replace(/"/g, '""')}"`,
-        c.usuarioSistema || '—',
-        c.claveSistema || '—',
-        c.fechaCapacitacion ? new Date(c.fechaCapacitacion).toLocaleDateString('es-PE') : (c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString('es-PE') : '—'),
-        c.vendedor ? c.vendedor.toUpperCase() : 'SIN ASIGNAR',
-        `S/ ${Math.round(totalPagado)}`,
-        c.estadoCuenta || '—',
-        c.estadoCapacitacion || '—',
-        getPaymentForMonth(6, 2026),
-        getPaymentForMonth(7, 2026),
-        getPaymentForMonth(8, 2026),
-        getPaymentForMonth(9, 2026),
-        getPaymentForMonth(10, 2026),
-        getPaymentForMonth(11, 2026),
-        getPaymentForMonth(0, 2026),
-      ];
-    });
+    // Excel HTML/XML Spreadsheet format with professional styling
+    const excelHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta charset="utf-8">
+        <!--[if gte mso 9]>
+        <xml>
+         <x:ExcelWorkbook>
+          <x:ExcelWorksheets>
+           <x:ExcelWorksheet>
+            <x:Name>Reporte Clientes Miquipu</x:Name>
+            <x:WorksheetOptions>
+             <x:DisplayGridlines/>
+            </x:WorksheetOptions>
+           </x:ExcelWorksheet>
+          </x:ExcelWorksheets>
+         </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          body { font-family: Arial, sans-serif; font-size: 11pt; color: #0F172A; }
+          table { border-collapse: collapse; width: 100%; }
+          .banner-title { background-color: #0B132B; color: #FFFFFF; font-size: 14pt; font-weight: bold; text-align: center; height: 42px; vertical-align: middle; }
+          .banner-sub { background-color: #1E293B; color: #94A3B8; font-size: 9.5pt; text-align: center; height: 24px; vertical-align: middle; }
+          .kpi-box { background-color: #F8FAFC; border: 1px solid #CBD5E1; text-align: center; font-weight: bold; padding: 6px; }
+          .kpi-num { font-size: 12pt; color: #2563EB; font-weight: bold; }
+          .th-col { background-color: #2563EB; color: #FFFFFF; font-weight: bold; text-align: center; border: 1px solid #1D4ED8; height: 32px; vertical-align: middle; }
+          .td-cell { border: 1px solid #E2E8F0; vertical-align: middle; padding: 6px 8px; font-size: 10pt; }
+          .td-alt { background-color: #F8FAFC; border: 1px solid #E2E8F0; vertical-align: middle; padding: 6px 8px; font-size: 10pt; }
+          .badge-hab { background-color: #DCFCE7; color: #15803D; font-weight: bold; text-align: center; }
+          .badge-venc { background-color: #FEE2E2; color: #B91C1C; font-weight: bold; text-align: center; }
+          .badge-warn { background-color: #FEF3C7; color: #B45309; font-weight: bold; text-align: center; }
+          .total-row { background-color: #EFF6FF; font-weight: bold; border-top: 2px solid #2563EB; font-size: 11pt; }
+        </style>
+      </head>
+      <body>
+        <table>
+          <tr>
+            <td colspan="15" class="banner-title">REPORTE GENERAL DE GESTIÓN Y FACTURACIÓN ELECTRÓNICA - MIQUIPU</td>
+          </tr>
+          <tr>
+            <td colspan="15" class="banner-sub">Reporte Consolidado de Clientes | Filtro de Fecha: ${periodoIngresoTipo}</td>
+          </tr>
+          <tr><td colspan="15"></td></tr>
+          <tr>
+            <td colspan="3" class="kpi-box">TOTAL CLIENTES: <span class="kpi-num">${reportData.length}</span></td>
+            <td colspan="3" class="kpi-box">TOTAL RECAUDADO: <span class="kpi-num">S/ ${totalRecaudadoCalculado.toFixed(2)}</span></td>
+            <td colspan="4" class="kpi-box">CLIENTES HABILITADOS: <span class="kpi-num" style="color:#16a34a">${totalHabilitados}</span></td>
+            <td colspan="5" class="kpi-box">CLIENTES VENCIDOS: <span class="kpi-num" style="color:#dc2626">${totalVencidos}</span></td>
+          </tr>
+          <tr><td colspan="15"></td></tr>
+          <thead>
+            <tr>
+              <th class="th-col">RUC</th>
+              <th class="th-col">RAZÓN SOCIAL</th>
+              <th class="th-col">NOMBRE COMERCIAL</th>
+              <th class="th-col">REGIMEN</th>
+              <th class="th-col">PLAN</th>
+              <th class="th-col">TIPO SUSCRIPCIÓN</th>
+              <th class="th-col">MONTO MENSUAL</th>
+              <th class="th-col">TELÉFONO / WHATSAPP</th>
+              <th class="th-col">CORREO</th>
+              <th class="th-col">USUARIO SOL</th>
+              <th class="th-col">CLAVE SOL</th>
+              <th class="th-col">FECHA REGISTRO</th>
+              <th class="th-col">VENDEDOR</th>
+              <th class="th-col">ESTADO CUENTA</th>
+              <th class="th-col">ESTADO CAPACITACIÓN</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reportData.map((c, index) => {
+              const bgClass = index % 2 === 0 ? 'td-cell' : 'td-alt';
+              const estadoClass = c.estadoCuenta === 'HABILITADO' ? 'badge-hab' : c.estadoCuenta === 'VENCIDO' ? 'badge-venc' : 'badge-warn';
+              const fReg = formatDatePeru(c.fechaCapacitacion || c.fechaRegistro);
 
-    const csvContent =
-      '\uFEFF' +
-      [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\r\n');
+              return `
+                <tr>
+                  <td class="${bgClass}" style="mso-number-format:'\\@'; text-align:center;">${c.ruc || '—'}</td>
+                  <td class="${bgClass}"><strong>${c.razonSocial || '—'}</strong></td>
+                  <td class="${bgClass}">${c.nombreComercial || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;">${c.regimenTributario || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;"><strong>${c.planContratado || '—'}</strong></td>
+                  <td class="${bgClass}" style="text-align:center;">${c.tipoSuscripcion || 'MENSUAL'}</td>
+                  <td class="${bgClass}" style="text-align:right;">S/ ${(c.montoMensual || 0).toFixed(2)}</td>
+                  <td class="${bgClass}" style="mso-number-format:'\\@'; text-align:center;">${c.telefono || '—'}</td>
+                  <td class="${bgClass}">${c.email || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;">${c.usuarioSol || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;">${c.claveSolCifrada || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;">${fReg}</td>
+                  <td class="${bgClass}" style="text-align:center;">${c.vendedor ? c.vendedor.toUpperCase() : 'SIN ASIGNAR'}</td>
+                  <td class="${bgClass} ${estadoClass}">${c.estadoCuenta || '—'}</td>
+                  <td class="${bgClass}" style="text-align:center;">${c.estadoCapacitacion || 'PENDIENTE'}</td>
+                </tr>
+              `;
+            }).join('')}
+            <tr class="total-row">
+              <td colspan="6" style="text-align:right;">TOTALES GENERALES:</td>
+              <td style="text-align:right;">S/ ${reportData.reduce((s, c) => s + (c.montoMensual || 0), 0).toFixed(2)}</td>
+              <td colspan="8"></td>
+            </tr>
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([excelHtml], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `Reporte_Clientes_Miquipu_${new Date().toISOString().slice(0, 10)}.csv`);
+    const filterTag = periodoIngresoTipo !== 'TODOS' ? `_${periodoIngresoTipo}` : '';
+    link.setAttribute('download', `Reporte_Facturacion_Miquipu${filterTag}_${todayPeruStr.replace(/\//g, '-')}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -640,7 +675,7 @@ export default function AdminDashboardPage() {
     if (!trainingClient || !token || !trainingDateInput) return;
 
     try {
-      const isoDate = new Date(trainingDateInput).toISOString();
+      const isoDate = `${trainingDateInput}T12:00:00.000Z`;
       await adminApi(token).patch(`/admin/clientes/${trainingClient.id}/fecha-capacitacion?fecha=${isoDate}`);
       setNotice(`Fecha de capacitación programada para ${trainingClient.razonSocial}. Se calculó el prorrateo de fin de mes.`);
       setTrainingClient(null);
@@ -654,7 +689,12 @@ export default function AdminDashboardPage() {
 
   const prorrateoCalculado = useMemo(() => {
     if (!trainingClient || !trainingDateInput) return null;
-    const date = new Date(trainingDateInput);
+    const parts = trainingDateInput.split('-');
+    if (parts.length !== 3) return null;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const date = new Date(year, month, day);
     if (isNaN(date.getTime())) return null;
 
     const P = trainingClient.montoMensual || 29;
@@ -671,8 +711,6 @@ export default function AdminDashboardPage() {
       };
     }
 
-    const year = date.getFullYear();
-    const month = date.getMonth();
     const D_total = new Date(year, month + 1, 0).getDate();
     const D_cap = date.getDate();
     const costoDiario = P / D_total;
@@ -844,21 +882,68 @@ export default function AdminDashboardPage() {
     });
   }, [uniqueSellers, clients, payments]);
 
+  function filterClientUnified(c: Client): boolean {
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      const matchSearch =
+        (c.razonSocial || '').toLowerCase().includes(q) ||
+        (c.ruc || '').includes(q) ||
+        (c.telefono || '').includes(q) ||
+        (c.email || '').toLowerCase().includes(q) ||
+        (c.vendedor || '').toLowerCase().includes(q) ||
+        (c.usuarioSol || '').toLowerCase().includes(q) ||
+        (c.usuarioSistema || '').toLowerCase().includes(q) ||
+        (c.nombreComercial || '').toLowerCase().includes(q);
+      if (!matchSearch) return false;
+    }
+
+    if (colorFilter !== 'TODOS' && c.colorTag !== colorFilter) return false;
+    if (regimenFilter !== 'TODOS' && c.regimenTributario !== regimenFilter) return false;
+    if (planFilter !== 'TODOS' && c.planContratado !== planFilter) return false;
+    if (suscripcionFilter !== 'TODOS' && c.tipoSuscripcion !== suscripcionFilter) return false;
+    if (capacitacionFilter !== 'TODOS' && c.estadoCapacitacion !== capacitacionFilter) return false;
+    if (estadoCuentaFilter !== 'TODOS' && c.estadoCuenta !== estadoCuentaFilter) return false;
+
+    if (sellerFilter !== 'TODOS') {
+      if (sellerFilter === 'SIN_ASIGNAR') {
+        if (c.vendedor && c.vendedor !== 'Sin Asignar') return false;
+      } else {
+        if (c.vendedor !== sellerFilter) return false;
+      }
+    }
+
+    if (periodoIngresoTipo !== 'TODOS') {
+      const refDateStr = c.fechaRegistro || c.fechaCapacitacion;
+      if (!refDateStr) return false;
+      const refDatePeru = formatDatePeru(refDateStr);
+      const todayPeruStr = new Date().toLocaleDateString('es-PE', { timeZone: 'America/Lima' });
+
+      if (periodoIngresoTipo === 'HOY') {
+        if (refDatePeru !== todayPeruStr) return false;
+      } else if (periodoIngresoTipo === 'MES_ACTUAL') {
+        const now = new Date();
+        const d = new Date(refDateStr);
+        if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) return false;
+      } else if (periodoIngresoTipo === 'ANO_ACTUAL') {
+        const now = new Date();
+        const d = new Date(refDateStr);
+        if (d.getFullYear() !== now.getFullYear()) return false;
+      } else if (periodoIngresoTipo === 'FECHA_CUSTOM' && fechaCustomFilter) {
+        const customPeru = formatDatePeru(fechaCustomFilter);
+        if (refDatePeru !== customPeru) return false;
+      }
+    }
+
+    return true;
+  }
+
   const allFilteredClients = useMemo(() => {
-    return clients.filter((c) => {
-      const matchSearch = `${c.ruc} ${c.razonSocial} ${c.telefono} ${c.email || ''} ${c.vendedor || ''}`.toLowerCase().includes(search.toLowerCase());
-      const matchRegimen = regimenFilter === 'TODOS' || c.regimenTributario === regimenFilter;
-      const matchPlan = planFilter === 'TODOS' || c.planContratado === planFilter;
-      const matchSuscripcion = suscripcionFilter === 'TODOS' || c.tipoSuscripcion === suscripcionFilter;
-      const matchColor = colorFilter === 'TODOS' || c.colorTag === colorFilter;
-      const matchSeller = sellerFilter === 'TODOS' || (sellerFilter === 'SIN_ASIGNAR' ? (!c.vendedor || c.vendedor === 'Sin Asignar') : c.vendedor === sellerFilter);
-      return matchSearch && matchRegimen && matchPlan && matchSuscripcion && matchColor && matchSeller;
-    });
-  }, [clients, search, regimenFilter, planFilter, suscripcionFilter, colorFilter, sellerFilter]);
+    return clients.filter(filterClientUnified);
+  }, [clients, search, regimenFilter, planFilter, suscripcionFilter, colorFilter, capacitacionFilter, estadoCuentaFilter, sellerFilter, periodoIngresoTipo, fechaCustomFilter]);
 
   const capacitacionesClients = useMemo(() => {
-    return clients.filter((c) => capacitacionFilter === 'TODOS' || c.estadoCapacitacion === capacitacionFilter);
-  }, [clients, capacitacionFilter]);
+    return clients.filter(filterClientUnified);
+  }, [clients, search, regimenFilter, planFilter, suscripcionFilter, colorFilter, capacitacionFilter, estadoCuentaFilter, sellerFilter, periodoIngresoTipo, fechaCustomFilter]);
 
   return (
     <div className="bg-white min-h-screen pb-5">
@@ -1944,7 +2029,7 @@ export default function AdminDashboardPage() {
                             </span>
                           </td>
                           <td>
-                            {c.fechaCapacitacion ? new Date(c.fechaCapacitacion).toLocaleDateString() : <span className="text-muted small">Sin programar</span>}
+                            {c.fechaCapacitacion ? formatDatePeru(c.fechaCapacitacion) : <span className="text-muted small">Sin programar</span>}
                           </td>
                           <td>
                             {c.estadoCuenta === 'HABILITADO' ? (
