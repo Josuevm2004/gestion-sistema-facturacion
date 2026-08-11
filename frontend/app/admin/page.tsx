@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ShieldCheck,
   LogOut,
@@ -167,11 +167,24 @@ export default function AdminDashboardPage() {
   const [trainingClient, setTrainingClient] = useState<Client | null>(null);
   const [trainingDateInput, setTrainingDateInput] = useState<string>('');
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [simulatedDateInput, setSimulatedDateInput] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [isSimulatingDate, setIsSimulatingDate] = useState<boolean>(false);
+
   const [cambioPlanClient, setCambioPlanClient] = useState<Client | null>(null);
   const [cambioPlanSeleccionado, setCambioPlanSeleccionado] = useState<string>('');
   const [cambioPlanTipo, setCambioPlanTipo] = useState<string>('MENSUAL');
   const [calendarSearch, setCalendarSearch] = useState('');
   const [historyClient, setHistoryClient] = useState<Client | null>(null);
+
+  const getEffectiveSystemDate = useCallback((): Date => {
+    if (isSimulatingDate && simulatedDateInput) {
+      const parts = simulatedDateInput.split('-');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+      }
+    }
+    return new Date();
+  }, [isSimulatingDate, simulatedDateInput]);
 
   useEffect(() => {
     const savedToken = localStorage.getItem('jwt_token');
@@ -335,7 +348,7 @@ export default function AdminDashboardPage() {
             <td colspan="33" class="banner-title">REPORTE GENERAL DE GESTIÓN Y FACTURACIÓN ELECTRÓNICA - MIQUIPU</td>
           </tr>
           <tr>
-            <td colspan="33" class="banner-sub">Reporte Consolidado de Clientes | Filtro de Fecha: ${periodoIngresoTipo}</td>
+            <td colspan="33" class="banner-sub">Reporte Consolidado de Clientes | Filtro: ${periodoIngresoTipo}${isSimulatingDate ? ` | SIMULACIÓN FECHA SISTEMA: ${getEffectiveSystemDate().toLocaleDateString('es-PE')}` : ''}</td>
           </tr>
           <tr><td colspan="33"></td></tr>
           <tr>
@@ -816,7 +829,7 @@ export default function AdminDashboardPage() {
 
 
   const totalCobradoDia = useMemo(() => {
-    const now = new Date();
+    const now = getEffectiveSystemDate();
     const todayY = now.getFullYear();
     const todayM = now.getMonth();
     const todayD = now.getDate();
@@ -837,10 +850,10 @@ export default function AdminDashboardPage() {
     return clients
       .filter((c) => c.estadoCuenta === 'HABILITADO')
       .reduce((sum, c) => sum + (c.montoMensual || 0), 0);
-  }, [payments, clients]);
+  }, [payments, clients, simulatedDateInput, isSimulatingDate]);
 
   const periodoVentasIngresos = useMemo(() => {
-    const now = new Date();
+    const now = getEffectiveSystemDate();
     const todayStr = now.toLocaleDateString('es-PE');
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
@@ -871,19 +884,26 @@ export default function AdminDashboardPage() {
       totalOperaciones: filteredPayments.length,
       paymentsList: filteredPayments,
     };
-  }, [payments, periodoIngresoTipo, fechaCustomFilter]);
+  }, [payments, periodoIngresoTipo, fechaCustomFilter, simulatedDateInput, isSimulatingDate]);
 
   const clientesActivos = useMemo(() => clients.filter((c) => c.estadoCuenta === 'HABILITADO').length, [clients]);
   
 
   const clientesPorCobrarList = useMemo(() => {
-    return clients.filter((c) => c.estadoCuenta === 'POR_COBRAR');
-  }, [clients]);
+    const now = getEffectiveSystemDate();
+    return clients.filter((c) => {
+      if (c.estadoCuenta === 'POR_COBRAR' || c.estadoCuenta === 'VENCIDO') return true;
+      if (c.fechaVencimientoMensual) {
+        return new Date(c.fechaVencimientoMensual) < now;
+      }
+      return false;
+    });
+  }, [clients, simulatedDateInput, isSimulatingDate]);
 
 
 
   const clientesVencidosList = useMemo(() => {
-    const now = new Date();
+    const now = getEffectiveSystemDate();
     return clients.filter((c) => {
       if (c.estadoCuenta === 'BLOQUEADO') return false;
       if (c.fechaVencimientoMensual) {
@@ -891,12 +911,24 @@ export default function AdminDashboardPage() {
       }
       return false;
     });
-  }, [clients]);
+  }, [clients, simulatedDateInput, isSimulatingDate]);
 
-  const clientesBloqueadosList = useMemo(() => clients.filter((c) => c.estadoCuenta === 'BLOQUEADO'), [clients]);
+  const clientesBloqueadosList = useMemo(() => {
+    const now = getEffectiveSystemDate();
+    return clients.filter((c) => {
+      if (c.estadoCuenta === 'BLOQUEADO') return true;
+      if (c.fechaVencimientoMensual) {
+        const vencDate = new Date(c.fechaVencimientoMensual);
+        const diffTime = now.getTime() - vencDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays > 5; // Más de 5 días vencido se considera bloqueado en simulación
+      }
+      return false;
+    });
+  }, [clients, simulatedDateInput, isSimulatingDate]);
 
   const clientesPorVencer1DiaList = useMemo(() => {
-    const now = new Date();
+    const now = getEffectiveSystemDate();
     return clients.filter((c) => {
       if (!c.fechaVencimientoMensual) return false;
       const vencDate = new Date(c.fechaVencimientoMensual);
@@ -904,7 +936,7 @@ export default function AdminDashboardPage() {
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return diffDays <= 1 && diffDays >= 0;
     });
-  }, [clients]);
+  }, [clients, simulatedDateInput, isSimulatingDate]);
 
 
 
@@ -916,7 +948,7 @@ export default function AdminDashboardPage() {
   }, [usersList, clients]);
 
   const sellerMetrics = useMemo(() => {
-    const now = new Date();
+    const now = getEffectiveSystemDate();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
     const todayStr = now.toLocaleDateString('es-PE');
@@ -958,7 +990,7 @@ export default function AdminDashboardPage() {
         ventasAno,
       };
     });
-  }, [uniqueSellers, clients, payments]);
+  }, [uniqueSellers, clients, payments, simulatedDateInput, isSimulatingDate]);
 
   function filterClientUnified(c: Client): boolean {
     if (search.trim()) {
@@ -1349,6 +1381,60 @@ export default function AdminDashboardPage() {
       </nav>
 
       <main className="container-fluid px-3 px-md-4 my-4" style={{ maxWidth: '1600px' }}>
+        {token && (
+          <div className="bg-warning bg-opacity-10 border border-warning border-opacity-50 rounded-3 p-3 mb-4 shadow-sm">
+            <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+              <div className="d-flex align-items-center gap-2">
+                <div className="p-2 bg-warning bg-opacity-20 text-dark rounded-circle">
+                  <Calendar size={20} />
+                </div>
+                <div>
+                  <div className="fw-bold text-dark d-flex align-items-center gap-2">
+                    <span>🗓️ Simulador de Fecha del Sistema (Máquina del Tiempo)</span>
+                    {isSimulatingDate && (
+                      <span className="badge bg-warning text-dark fw-bold">
+                        ⚡ SIMULACIÓN ACTIVA ({getEffectiveSystemDate().toLocaleDateString('es-PE')})
+                      </span>
+                    )}
+                  </div>
+                  <small className="text-muted">
+                    Prueba alertas, prorrateos, vencimientos y exportaciones a Excel cambiando la fecha del sistema sin alterar la base de datos real.
+                  </small>
+                </div>
+              </div>
+
+              <div className="d-flex align-items-center gap-2 bg-white p-2 rounded-2 border shadow-2xs">
+                <label className="small fw-semibold text-dark mb-0 ms-1">Fecha Simulada:</label>
+                <input
+                  type="date"
+                  className="form-control form-control-sm border-warning fw-bold font-monospace"
+                  style={{ width: '150px' }}
+                  value={simulatedDateInput}
+                  onChange={(e) => {
+                    setSimulatedDateInput(e.target.value);
+                    setIsSimulatingDate(true);
+                  }}
+                />
+                {isSimulatingDate ? (
+                  <button
+                    className="btn btn-sm btn-dark fw-semibold rounded-pill px-3 shadow-2xs"
+                    onClick={() => {
+                      setIsSimulatingDate(false);
+                      setSimulatedDateInput(new Date().toISOString().slice(0, 10));
+                    }}
+                  >
+                    Restablecer a Hoy
+                  </button>
+                ) : (
+                  <span className="badge bg-light text-secondary border px-2 py-1 small">
+                    Fecha Real Activa
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {notice && (
           <div className="alert alert-info alert-dismissible fade show shadow-sm rounded-3 mb-4" role="alert">
             <span>{notice}</span>
