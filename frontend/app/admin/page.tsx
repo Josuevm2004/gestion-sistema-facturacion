@@ -253,8 +253,18 @@ export default function AdminDashboardPage() {
       return;
     }
 
+    const getClientUniquePayments = (clienteId: number) => {
+      const rawList = payments.filter((p) => p.clienteId === clienteId);
+      const map = new Map<string, Payment>();
+      rawList.forEach((p) => {
+        const key = p.id ? `ID-${p.id}` : `${p.fechaPago}-${p.monto}-${p.codigoOperacion || ''}`;
+        if (!map.has(key)) map.set(key, p);
+      });
+      return Array.from(map.values());
+    };
+
     const totalRecaudadoCalculado = reportData.reduce((sum, c) => {
-      const cPayments = payments.filter((p) => p.clienteId === c.id);
+      const cPayments = getClientUniquePayments(c.id);
       return sum + cPayments.reduce((pSum, p) => pSum + (p.monto || 0), 0);
     }, 0);
 
@@ -262,15 +272,18 @@ export default function AdminDashboardPage() {
     const totalVencidos = reportData.filter((c) => c.estadoCuenta === 'VENCIDO').length;
 
     const monthsList = [
-      { label: 'JULIO 2026', month: 6, year: 2026 },
-      { label: 'AGOSTO 2026', month: 7, year: 2026 },
-      { label: 'SEPTIEMBRE 2026', month: 8, year: 2026 },
-      { label: 'OCTUBRE 2026', month: 9, year: 2026 },
-      { label: 'NOVIEMBRE 2026', month: 10, year: 2026 },
-      { label: 'DICIEMBRE 2026', month: 11, year: 2026 },
-      { label: 'ENERO 2027', month: 0, year: 2027 },
-      { label: 'FEBRERO 2027', month: 1, year: 2027 },
-      { label: 'MARZO 2027', month: 2, year: 2027 },
+      { label: 'JULIO', month: 6 },
+      { label: 'AGOSTO', month: 7 },
+      { label: 'SEPTIEMBRE', month: 8 },
+      { label: 'OCTUBRE', month: 9 },
+      { label: 'NOVIEMBRE', month: 10 },
+      { label: 'DICIEMBRE', month: 11 },
+      { label: 'ENERO', month: 0 },
+      { label: 'FEBRERO', month: 1 },
+      { label: 'MARZO', month: 2 },
+      { label: 'ABRIL', month: 3 },
+      { label: 'MAYO', month: 4 },
+      { label: 'JUNIO', month: 5 },
     ];
 
     // Excel HTML/XML Spreadsheet format with professional styling
@@ -312,19 +325,19 @@ export default function AdminDashboardPage() {
       <body>
         <table>
           <tr>
-            <td colspan="30" class="banner-title">REPORTE GENERAL DE GESTIÓN Y FACTURACIÓN ELECTRÓNICA - MIQUIPU</td>
+            <td colspan="33" class="banner-title">REPORTE GENERAL DE GESTIÓN Y FACTURACIÓN ELECTRÓNICA - MIQUIPU</td>
           </tr>
           <tr>
-            <td colspan="30" class="banner-sub">Reporte Consolidado de Clientes | Filtro de Fecha: ${periodoIngresoTipo}</td>
+            <td colspan="33" class="banner-sub">Reporte Consolidado de Clientes | Filtro de Fecha: ${periodoIngresoTipo}</td>
           </tr>
-          <tr><td colspan="30"></td></tr>
+          <tr><td colspan="33"></td></tr>
           <tr>
             <td colspan="5" class="kpi-box">TOTAL CLIENTES: <span class="kpi-num">${reportData.length}</span></td>
             <td colspan="5" class="kpi-box">TOTAL RECAUDADO: <span class="kpi-num">S/ ${totalRecaudadoCalculado.toFixed(2)}</span></td>
-            <td colspan="10" class="kpi-box">CLIENTES HABILITADOS: <span class="kpi-num" style="color:#16a34a">${totalHabilitados}</span></td>
-            <td colspan="10" class="kpi-box">CLIENTES VENCIDOS / BLOQUEADOS: <span class="kpi-num" style="color:#dc2626">${totalVencidos}</span></td>
+            <td colspan="11" class="kpi-box">CLIENTES HABILITADOS: <span class="kpi-num" style="color:#16a34a">${totalHabilitados}</span></td>
+            <td colspan="12" class="kpi-box">CLIENTES VENCIDOS / BLOQUEADOS: <span class="kpi-num" style="color:#dc2626">${totalVencidos}</span></td>
           </tr>
-          <tr><td colspan="30"></td></tr>
+          <tr><td colspan="33"></td></tr>
           <thead>
             <tr>
               <th class="th-col">ETIQUETA COLOR</th>
@@ -356,14 +369,19 @@ export default function AdminDashboardPage() {
               const bgClass = index % 2 === 0 ? 'td-cell' : 'td-alt';
               const estadoClass = c.estadoCuenta === 'HABILITADO' ? 'badge-hab' : c.estadoCuenta === 'VENCIDO' ? 'badge-venc' : 'badge-warn';
               const fReg = formatDatePeru(c.fechaCapacitacion || c.fechaRegistro);
-              const cPayments = payments.filter((p) => p.clienteId === c.id);
+              const cPayments = getClientUniquePayments(c.id);
               const totalPagado = cPayments.reduce((sum, p) => sum + (p.monto || 0), 0);
 
+              const regDate = c.fechaRegistro ? new Date(c.fechaRegistro) : (c.fechaCapacitacion ? new Date(c.fechaCapacitacion) : new Date());
+              const regMonth = regDate.getMonth();
+              const regYear = regDate.getFullYear();
+
               const monthCellsHtml = monthsList.map((m) => {
+                // 1. Pagos reales registrados en la base de datos para este mes
                 const pMonth = cPayments.filter((p) => {
                   if (!p.fechaPago) return false;
                   const d = new Date(p.fechaPago);
-                  return d.getMonth() === m.month && d.getFullYear() === m.year;
+                  return d.getMonth() === m.month;
                 });
 
                 if (pMonth.length > 0) {
@@ -371,15 +389,40 @@ export default function AdminDashboardPage() {
                   return `<td class="${bgClass}" style="text-align:center; color:#15803d; font-weight:bold;">S/ ${sumPaid.toFixed(2)}</td>`;
                 }
 
+                // 2. Meses anteriores a su mes de registro -> Sin registro todavía
+                if (m.month < regMonth && regYear === 2026) {
+                  return `<td class="${bgClass}" style="text-align:center; color:#94a3b8;">—</td>`;
+                }
+
+                // 3. Mes de Registro -> Pago Inicial del Plan Completo
+                if (m.month === regMonth) {
+                  const montoPlan = c.montoMensual || 29;
+                  return `<td class="${bgClass}" style="text-align:center; color:#15803d; font-weight:bold;">S/ ${montoPlan.toFixed(2)}</td>`;
+                }
+
+                // 4. Mes Siguiente al Registro -> Prorrateo de fin de mes
+                const nextMonthIndex = (regMonth + 1) % 12;
+                if (m.month === nextMonthIndex) {
+                  const P = c.montoMensual || 29;
+                  const D_total = new Date(regYear, regMonth + 1, 0).getDate();
+                  const D_cap = regDate.getDate();
+                  const costoDiario = P / (D_total || 30);
+                  const descuento = costoDiario * Math.max(0, D_cap - 1);
+                  const montoProrrateo = Math.max(1, Math.round(P - descuento));
+                  return `<td class="${bgClass}" style="text-align:center; color:#0284c7; font-weight:bold;">S/ ${montoProrrateo.toFixed(2)} (Prorrateo)</td>`;
+                }
+
+                // 5. Meses posteriores
                 if (c.estadoCuenta === 'BLOQUEADO') {
                   return `<td class="${bgClass}" style="text-align:center; color:#b91c1c; font-weight:bold;">BLOQUEADO</td>`;
                 }
 
-                if (c.estadoCuenta === 'VENCIDO') {
+                if (c.estadoCuenta === 'VENCIDO' && m.month <= new Date().getMonth()) {
                   return `<td class="${bgClass}" style="text-align:center; color:#b45309; font-weight:bold;">POR COBRAR</td>`;
                 }
 
-                return `<td class="${bgClass}" style="text-align:center; color:#94a3b8;">—</td>`;
+                const planMonto = c.montoMensual || 29;
+                return `<td class="${bgClass}" style="text-align:center; color:#334155;">S/ ${planMonto.toFixed(2)}</td>`;
               }).join('');
 
               return `
