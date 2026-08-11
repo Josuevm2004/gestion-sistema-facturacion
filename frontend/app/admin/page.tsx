@@ -28,9 +28,7 @@ import {
   User,
   UserPlus,
   FileSpreadsheet,
-  ExternalLink,
-  FlaskConical,
-  Zap
+  ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -159,6 +157,17 @@ export default function AdminDashboardPage() {
   const [estadoCuentaFilter, setEstadoCuentaFilter] = useState('TODOS');
   const [periodoIngresoTipo, setPeriodoIngresoTipo] = useState<'TODOS' | 'HOY' | 'MES_ACTUAL' | 'ANO_ACTUAL' | 'FECHA_CUSTOM'>('TODOS');
   const [fechaCustomFilter, setFechaCustomFilter] = useState<string>('');
+  const [simulatedDate, setSimulatedDate] = useState<string>('');
+  
+  const currentRefDate = useMemo(() => {
+    if (simulatedDate) {
+      const parts = simulatedDate.split('-');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+      }
+    }
+    return new Date();
+  }, [simulatedDate]);
   
   const [notice, setNotice] = useState<string | null>(null);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState<boolean>(false);
@@ -174,17 +183,6 @@ export default function AdminDashboardPage() {
   const [cambioPlanTipo, setCambioPlanTipo] = useState<string>('MENSUAL');
   const [calendarSearch, setCalendarSearch] = useState('');
   const [historyClient, setHistoryClient] = useState<Client | null>(null);
-  const [simulatedDateInput, setSimulatedDateInput] = useState<string>('');
-
-  const getNow = (): Date => {
-    if (simulatedDateInput) {
-      const parts = simulatedDateInput.split('-');
-      if (parts.length === 3) {
-        return new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
-      }
-    }
-    return new Date();
-  };
 
   useEffect(() => {
     const savedToken = localStorage.getItem('jwt_token');
@@ -222,33 +220,6 @@ export default function AdminDashboardPage() {
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || err.message || 'Error al conectar con la base de datos';
       setNotice(`Error al consultar datos: ${errorMsg}`);
-    } finally {
-      setIsSyncing(false);
-    }
-  }
-
-  async function handleSyncSimulatedDateToBackend() {
-    if (!simulatedDateInput || !token) return;
-    const simDate = getNow();
-    setIsSyncing(true);
-    let updatedCount = 0;
-
-    try {
-      for (const client of clients) {
-        if (client.estadoCuenta === 'BLOQUEADO') continue;
-        if (client.fechaVencimientoMensual) {
-          const vencDate = new Date(client.fechaVencimientoMensual);
-          if (vencDate < simDate && client.estadoCuenta !== 'VENCIDO') {
-            await adminApi(token).patch(`/admin/clientes/${client.id}/estado-cuenta?estado=VENCIDO`);
-            updatedCount++;
-          }
-        }
-      }
-
-      await loadData(token);
-      setNotice(`⚡ Simulador de Fecha: Se aplicó la fecha ${simulatedDateInput}. Se actualizaron ${updatedCount} cuentas a estado VENCIDO en la base de datos de CockroachDB.`);
-    } catch (err: any) {
-      setNotice(`Error al simular fecha en la base de datos: ${err.message}`);
     } finally {
       setIsSyncing(false);
     }
@@ -920,33 +891,28 @@ export default function AdminDashboardPage() {
     return clients.filter((c) => c.estadoCuenta === 'POR_COBRAR');
   }, [clients]);
 
-
-
   const clientesVencidosList = useMemo(() => {
-    const now = getNow();
     return clients.filter((c) => {
       if (c.estadoCuenta === 'BLOQUEADO') return false;
       if (c.fechaVencimientoMensual) {
-        return new Date(c.fechaVencimientoMensual) < now;
+        return new Date(c.fechaVencimientoMensual) < currentRefDate;
       }
       return false;
     });
-  }, [clients, simulatedDateInput]);
+  }, [clients, currentRefDate]);
 
   const clientesBloqueadosList = useMemo(() => clients.filter((c) => c.estadoCuenta === 'BLOQUEADO'), [clients]);
 
   const clientesPorVencer1DiaList = useMemo(() => {
-    const now = getNow();
     return clients.filter((c) => {
+      if (c.estadoCuenta === 'BLOQUEADO') return false;
       if (!c.fechaVencimientoMensual) return false;
       const vencDate = new Date(c.fechaVencimientoMensual);
-      const diffTime = vencDate.getTime() - now.getTime();
+      const diffTime = vencDate.getTime() - currentRefDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays <= 1 && diffDays >= 0;
+      return diffDays <= 3 && diffDays >= 0;
     });
-  }, [clients, simulatedDateInput]);
-
-
+  }, [clients, currentRefDate]);
 
   const uniqueSellers = useMemo(() => {
     const setS = new Set<string>();
@@ -956,10 +922,9 @@ export default function AdminDashboardPage() {
   }, [usersList, clients]);
 
   const sellerMetrics = useMemo(() => {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const todayStr = now.toLocaleDateString('es-PE');
+    const currentYear = currentRefDate.getFullYear();
+    const currentMonth = currentRefDate.getMonth();
+    const todayStr = currentRefDate.toLocaleDateString('es-PE');
 
     return uniqueSellers.map((sellerName) => {
       const sellerClients = clients.filter((c) => c.vendedor === sellerName);
@@ -998,7 +963,7 @@ export default function AdminDashboardPage() {
         ventasAno,
       };
     });
-  }, [uniqueSellers, clients, payments]);
+  }, [uniqueSellers, clients, payments, currentRefDate]);
 
   function filterClientUnified(c: Client): boolean {
     if (search.trim()) {
@@ -1212,8 +1177,36 @@ export default function AdminDashboardPage() {
                     )}
                   </ul>
 
-                  {/* Acciones del lado derecho: Alertas + Salir (Ícono) */}
+                  {/* Acciones del lado derecho: Simulador de Fecha + Alertas + Perfil */}
                   <div className="d-flex align-items-center gap-2 mt-3 mt-lg-0 ms-lg-2 position-relative">
+                    {/* Control Widget: Simulación de Tiempo y Pruebas */}
+                    <div className="d-flex align-items-center gap-1 bg-dark bg-opacity-75 border border-warning rounded-pill px-2.5 py-1 shadow-sm me-1" style={{ fontSize: '0.75rem' }}>
+                      <span className="text-warning fw-bold d-flex align-items-center gap-1">
+                        <Calendar size={14} />
+                        <span className="d-none d-sm-inline">Simular Fecha:</span>
+                      </span>
+                      <input
+                        type="date"
+                        className="form-control form-control-sm bg-dark text-warning border-warning py-0 px-1 font-monospace fw-bold shadow-none"
+                        style={{ width: '125px', fontSize: '0.75rem', height: '24px' }}
+                        value={simulatedDate}
+                        onChange={(e) => setSimulatedDate(e.target.value)}
+                        title="Selecciona una fecha ficticia para evaluar vencimientos, alertas y reportes sin esperar a fin de mes"
+                      />
+                      {simulatedDate ? (
+                        <button
+                          onClick={() => setSimulatedDate('')}
+                          className="btn btn-sm btn-danger py-0 px-1.5 rounded-circle ms-1 fw-bold"
+                          style={{ fontSize: '0.65rem', lineHeight: 1 }}
+                          title="Restablecer a la fecha real de hoy"
+                        >
+                          ✕
+                        </button>
+                      ) : (
+                        <span className="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 ms-1 py-0.5 px-1.5" style={{ fontSize: '0.65rem' }}>Hoy</span>
+                      )}
+                    </div>
+
                     <div className="position-relative w-100 w-lg-auto">
                       <button
                         onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
@@ -1388,61 +1381,23 @@ export default function AdminDashboardPage() {
         </div>
       </nav>
 
-      {/* Widget de Simulación de Fecha / Modo Pruebas del Sistema */}
-      {token && (
-        <div className="bg-dark text-white border-bottom border-secondary py-2 px-3 px-lg-4 shadow-sm">
-          <div className="container-fluid d-flex flex-wrap justify-content-between align-items-center gap-2">
-            <div className="d-flex align-items-center gap-2">
-              <span className="badge bg-warning text-dark fw-bold px-2.5 py-1.5 d-flex align-items-center gap-1 shadow-sm">
-                <FlaskConical size={14} />
-                <span>MODO PRUEBAS / SIMULADOR DE FECHA</span>
-              </span>
-              <span className="small text-white-50 d-none d-md-inline">
-                Simula cualquier fecha futura para probar vencimientos, alertas, bloqueos y renovaciones en la BD.
-              </span>
-            </div>
-
-            <div className="d-flex align-items-center gap-2 flex-wrap">
-              <div className="d-flex align-items-center gap-1 bg-black bg-opacity-40 px-2 py-1 rounded-2 border border-secondary">
-                <Calendar size={14} className="text-warning me-1" />
-                <input
-                  type="date"
-                  className="form-control form-control-sm bg-transparent text-white border-0 py-0"
-                  style={{ width: '135px', colorScheme: 'dark' }}
-                  value={simulatedDateInput}
-                  onChange={(e) => setSimulatedDateInput(e.target.value)}
-                />
-              </div>
-
-              {simulatedDateInput ? (
-                <>
-                  <button
-                    onClick={handleSyncSimulatedDateToBackend}
-                    disabled={isSyncing}
-                    className="btn btn-warning btn-sm fw-bold rounded-pill px-3 shadow-sm d-flex align-items-center gap-1"
-                    title="Aplica la fecha simulada y evalúa vencimientos en la base de datos de CockroachDB"
-                  >
-                    <Zap size={14} />
-                    <span>Aplicar Fecha en BD</span>
-                  </button>
-                  <button
-                    onClick={() => { setSimulatedDateInput(''); loadData(token, true); }}
-                    className="btn btn-outline-light btn-sm rounded-pill px-3"
-                  >
-                    Restablecer Fecha Real
-                  </button>
-                </>
-              ) : (
-                <span className="badge bg-success bg-opacity-20 text-success border border-success border-opacity-30 rounded-pill px-3 py-1.5 small">
-                  ● Fecha Real Servidor ({new Date().toLocaleDateString('es-PE')})
+      <main className="container-fluid px-3 px-md-4 my-4" style={{ maxWidth: '1600px' }}>
+        {simulatedDate && (
+          <div className="alert alert-warning shadow-sm rounded-3 mb-4 border border-warning" role="alert">
+            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <AlertTriangle size={20} className="text-dark flex-shrink-0" />
+                <span className="small text-dark">
+                  <strong>🧪 MODO PRUEBAS / SIMULACIÓN DE FECHA ACTIVO:</strong> Evaluando el sistema con la fecha ficticia <strong>{formatDatePeru(simulatedDate)}</strong>. (Toda renovación, cobro o cambio que realices se guardará REALMENTE en la base de datos).
                 </span>
-              )}
+              </div>
+              <button onClick={() => setSimulatedDate('')} className="btn btn-sm btn-dark rounded-pill px-3 py-1 fw-bold">
+                Restablecer a Fecha Real
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <main className="container-fluid px-3 px-md-4 my-4" style={{ maxWidth: '1600px' }}>
         {notice && (
           <div className="alert alert-info alert-dismissible fade show shadow-sm rounded-3 mb-4" role="alert">
             <span>{notice}</span>
