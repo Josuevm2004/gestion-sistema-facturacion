@@ -50,8 +50,6 @@ public class RegistroFormularioRequest {
     @NotBlank(message = "La clave SOL es obligatoria")
     private String claveSol;
 
-    @NotBlank(message = "El código de ubigeo o ubicación es obligatorio")
-    @Size(max = 255, message = "El ubigeo no puede superar los 255 caracteres")
     private String codigoUbigeo;
 
     private String comoNosConocio;

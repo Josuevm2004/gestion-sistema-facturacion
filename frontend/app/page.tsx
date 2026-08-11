@@ -77,7 +77,6 @@ export default function FormularioPublicoPage() {
       regimenTributario: formData.get('regimenTributario') as string,
       planContratado: selectedPlan,
       tipoSuscripcion: tipoSuscripcion,
-      codigoUbigeo: formData.get('codigoUbigeo') as string,
       usuarioSol: formData.get('usuarioSol') as string,
       claveSol: formData.get('claveSol') as string,
       comoNosConocio: formData.get('comoNosConocio') as string,
@@ -114,7 +113,7 @@ export default function FormularioPublicoPage() {
           <Link href="/" className="navbar-brand d-flex align-items-center gap-2">
             <Image src="/logo.jpeg" alt="Miquipu Logo" width={36} height={36} className="rounded-2" />
             <span className="brand-title">Miquipu</span>
-            <span className="brand-badge">Facturación SUNAT</span>
+            <span className="brand-badge">Facturacion Electronica</span>
           </Link>
         </div>
       </nav>
@@ -244,6 +243,31 @@ export default function FormularioPublicoPage() {
                 <div className="invalid-feedback">Correo válido requerido.</div>
               </div>
 
+              <div className="col-md-6">
+                <label className="form-label">Régimen Tributario</label>
+                <select
+                  name="regimenTributario"
+                  className="form-select"
+                  value={regimenTributario}
+                  onChange={(e) => {
+                    const reg = e.target.value;
+                    setRegimenTributario(reg);
+                    if (reg === 'RER' && (selectedPlan === 'EMPRESARIAL' || selectedPlan === 'LIDER')) {
+                      setSelectedPlan('EMPRENDE');
+                    } else if ((reg === 'MYPE_TRIBUTARIO' || reg === 'REGIMEN_GENERAL') && (selectedPlan === 'INICIA' || selectedPlan === 'EMPRENDE' || selectedPlan === 'IMPULSA')) {
+                      setSelectedPlan('EMPRESARIAL');
+                    }
+                  }}
+                  required
+                >
+                  <option value="MYPE_TRIBUTARIO">Régimen MYPE Tributario (Empresarial / Líder)</option>
+                  <option value="REGIMEN_GENERAL">Régimen General (Empresarial / Líder)</option>
+                  <option value="RER">Régimen Especial - RER (Inicia, Emprende o Impulsa)</option>
+                  <option value="NRUS">Nuevo RUS - NRUS (Notas de Venta)</option>
+                </select>
+              </div>
+
+              {/* SECCIÓN 3: DATOS PERSONALES */}
               <div className="col-12 mt-4">
                 <h2 className="h6 fw-bold text-primary text-uppercase mb-1">3. Datos Personales del Representante</h2>
               </div>
@@ -273,45 +297,38 @@ export default function FormularioPublicoPage() {
                 <input type="text" name="telefonoPersonal" className="form-control" placeholder="912345678" maxLength={9} />
               </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Régimen Tributario</label>
-                <select
-                  name="regimenTributario"
-                  className="form-select"
-                  value={regimenTributario}
-                  onChange={(e) => {
-                    const reg = e.target.value;
-                    setRegimenTributario(reg);
-                    if (reg === 'RER' && (selectedPlan === 'EMPRESARIAL' || selectedPlan === 'LIDER')) {
-                      setSelectedPlan('EMPRENDE');
-                    } else if ((reg === 'MYPE_TRIBUTARIO' || reg === 'REGIMEN_GENERAL') && (selectedPlan === 'INICIA' || selectedPlan === 'EMPRENDE' || selectedPlan === 'IMPULSA')) {
-                      setSelectedPlan('EMPRESARIAL');
-                    }
-                  }}
-                  required
-                >
-                  <option value="MYPE_TRIBUTARIO">Régimen MYPE Tributario (Empresarial / Líder)</option>
-                  <option value="REGIMEN_GENERAL">Régimen General (Empresarial / Líder)</option>
-                  <option value="RER">Régimen Especial - RER (Inicia, Emprende o Impulsa)</option>
-                  <option value="NRUS">Nuevo RUS - NRUS (Notas de Venta)</option>
-                </select>
-                <div className="form-text small text-muted">
-                  {regimenTributario === 'NRUS' && '📝 Nuevo RUS: Emite únicamente Notas de Venta.'}
-                  {regimenTributario === 'RER' && '🟢 Régimen Especial (RER): Inicia, Emprende o Impulsa (Hasta S/ 40 mil/mes).'}
-                  {(regimenTributario === 'MYPE_TRIBUTARIO' || regimenTributario === 'REGIMEN_GENERAL') && '🟢 MYPE / General: Requiera mayor volumen (Empresarial o Líder).'}
+              {/* SECCIÓN 4: CLAVE SOL */}
+              <div className="col-12 mt-4">
+                <div className="p-3 rounded-3 border bg-light">
+                  <div className="alert alert-info d-flex align-items-center gap-2 mb-3 border-0 shadow-sm rounded-3" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
+                    <Info size={20} className="flex-shrink-0" />
+                    <div>
+                      <strong>Requisito Importante:</strong> Ingrese sus credenciales SOL de SUNAT para habilitar su facturación electrónica.
+                    </div>
+                  </div>
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <KeyRound size={16} className="text-primary" />
+                    <strong className="text-dark">4. Credenciales Clave SOL (SUNAT)</strong>
+                  </div>
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label">Usuario SOL</label>
+                      <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS" required />
+                      <div className="invalid-feedback">Ingresa tu usuario SOL.</div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">Clave SOL</label>
+                      <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required />
+                      <div className="invalid-feedback">Ingresa tu clave SOL.</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Ubigeo (Departamento / Provincia / Distrito)</label>
-                <input type="text" name="codigoUbigeo" className="form-control" placeholder="Ej: Lima / Lima / Miraflores o 150114" required />
-                <div className="invalid-feedback">Ingresa tu ubigeo o ubicación.</div>
-              </div>
-
-              {/* SECCIÓN 3: SELECCIÓN DE PLAN */}
+              {/* SECCIÓN 5: SELECCIÓN DE PLAN */}
               <div className="col-12 mt-4">
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
-                  <h2 className="h6 fw-bold text-primary text-uppercase mb-2 mb-md-0">3. Selección de Plan</h2>
+                  <h2 className="h6 fw-bold text-primary text-uppercase mb-2 mb-md-0">5. Selección de Plan</h2>
                   
                   {/* Selector de Modalidad (Mensual vs Anual) */}
                   <div className="btn-group bg-light p-1 rounded-3 border" role="group">
@@ -383,28 +400,6 @@ export default function FormularioPublicoPage() {
                       </div>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* SECCIÓN 4: CLAVE SOL */}
-              <div className="col-12 mt-4">
-                <div className="p-3 bg-light rounded-2 border">
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <KeyRound size={16} className="text-primary" />
-                    <strong className="text-dark">4. Credenciales Clave SOL (SUNAT)</strong>
-                  </div>
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <label className="form-label">Usuario SOL</label>
-                      <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS" required />
-                      <div className="invalid-feedback">Ingresa tu usuario SOL.</div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Clave SOL</label>
-                      <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required />
-                      <div className="invalid-feedback">Ingresa tu clave SOL.</div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
