@@ -99,12 +99,20 @@ public class FormularioRegistroServiceImpl implements FormularioRegistroService 
                 .build();
         encuestaInicialRepository.save(encuesta);
 
-        String subdominioSanitizado = request.getRazonSocial()
-                .replaceAll("[^a-zA-Z0-9]", "")
-                .toLowerCase();
-        if (subdominioSanitizado.length() < 3) {
-            subdominioSanitizado = "factura" + cliente.getId();
+        String subdominioBase = request.getRazonSocial() != null
+                ? request.getRazonSocial().replaceAll("[^a-zA-Z0-9]", "").toLowerCase()
+                : "factura";
+        if (subdominioBase.length() < 3) {
+            subdominioBase = "factura" + (cliente.getId() != null ? cliente.getId() : System.currentTimeMillis());
         }
+
+        String subdominioSanitizado = subdominioBase;
+        int counter = 1;
+        while (accesoSistemaRepository.findBySubdominio(subdominioSanitizado).isPresent()) {
+            subdominioSanitizado = subdominioBase + counter;
+            counter++;
+        }
+
         String claveTemporal = UUID.randomUUID().toString().substring(0, 8);
         String urlAcceso = "https://" + subdominioSanitizado + ".facturacionperu.pe";
 
