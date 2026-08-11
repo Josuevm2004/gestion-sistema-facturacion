@@ -56,11 +56,6 @@ public class FormularioRegistroServiceImpl implements FormularioRegistroService 
             throw new IllegalArgumentException("El RUC " + request.getRuc() + " ya se encuentra registrado en la plataforma.");
         }
 
-        Ubigeo ubigeo = null;
-        if (request.getCodigoUbigeo() != null && ubigeoRepository != null) {
-            ubigeo = ubigeoRepository.findById(request.getCodigoUbigeo()).orElse(null);
-        }
-
         Cliente cliente = Cliente.builder()
                 .ruc(request.getRuc())
                 .razonSocial(request.getRazonSocial())
@@ -73,7 +68,6 @@ public class FormularioRegistroServiceImpl implements FormularioRegistroService 
                 .montoMensual(request.getPlanContratado().getPrecioMensual())
                 .estadoCuenta(EstadoCuenta.POR_COBRAR)
                 .fechaVencimientoMensual(LocalDateTime.now().plusMonths(1))
-                .ubigeo(ubigeo)
                 .build();
         cliente.setTipoSuscripcion(request.getTipoSuscripcion() != null ? request.getTipoSuscripcion() : com.facturacion.enums.TipoSuscripcion.MENSUAL);
         cliente.setColorTag(com.facturacion.enums.ColorTag.VERDE);

@@ -246,16 +246,7 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente cliente = clienteRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
 
-        // 1. Eliminar credenciales SOL si existen
-        credencialSolRepository.findByClienteId(id).ifPresent(credencialSolRepository::delete);
-
-        // 2. Eliminar historial de pagos asociados
-        List<com.facturacion.entity.Pago> pagos = pagoRepository.findByClienteId(id);
-        if (pagos != null && !pagos.isEmpty()) {
-            pagoRepository.deleteAll(pagos);
-        }
-
-        // 3. Eliminar finalmente el cliente
+        // Borra cliente en cascada limpia tanto en JPA como en CockroachDB
         clienteRepository.delete(cliente);
     }
 
@@ -306,7 +297,6 @@ public class ClienteServiceImpl implements ClienteService {
         response.setFechaRegistro(cliente.getFechaRegistro());
         response.setFechaVencimientoMensual(cliente.getFechaVencimientoMensual());
         response.setFechaCapacitacion(cliente.getFechaCapacitacion());
-        response.setUbigeoCodigo(cliente.getUbigeo() != null ? cliente.getUbigeo().getCodigo() : null);
         response.setDireccion(cliente.getDireccion());
         response.setNombres(cliente.getNombres());
         response.setApellidos(cliente.getApellidos());

@@ -105,17 +105,18 @@ public class Cliente {
     @Column(name = "clave_sistema", length = 100)
     private String claveSistema;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "codigo_ubigeo")
-    private Ubigeo ubigeo;
+
 
     @OneToOne(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private CredencialSol credencialSol;
 
+    @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private java.util.List<Pago> pagos = new java.util.ArrayList<>();
+
     public Cliente() {
     }
 
-    public Cliente(Long id, String ruc, String razonSocial, String nombreComercial, String direccion, String telefono, String email, RegimenTributario regimenTributario, PlanContratado planContratado, Double montoMensual, EstadoCuenta estadoCuenta, EstadoCapacitacion estadoCapacitacion, LocalDateTime fechaRegistro, LocalDateTime fechaVencimientoMensual, Ubigeo ubigeo) {
+    public Cliente(Long id, String ruc, String razonSocial, String nombreComercial, String direccion, String telefono, String email, RegimenTributario regimenTributario, PlanContratado planContratado, Double montoMensual, EstadoCuenta estadoCuenta, EstadoCapacitacion estadoCapacitacion, LocalDateTime fechaRegistro, LocalDateTime fechaVencimientoMensual) {
         this.id = id;
         this.ruc = ruc;
         this.razonSocial = razonSocial;
@@ -130,7 +131,6 @@ public class Cliente {
         this.estadoCapacitacion = estadoCapacitacion != null ? estadoCapacitacion : EstadoCapacitacion.PENDIENTE;
         this.fechaRegistro = fechaRegistro;
         this.fechaVencimientoMensual = fechaVencimientoMensual;
-        this.ubigeo = ubigeo;
     }
 
     @PrePersist
@@ -287,13 +287,7 @@ public class Cliente {
         this.fechaVencimientoMensual = fechaVencimientoMensual;
     }
 
-    public Ubigeo getUbigeo() {
-        return ubigeo;
-    }
 
-    public void setUbigeo(Ubigeo ubigeo) {
-        this.ubigeo = ubigeo;
-    }
 
     public CredencialSol getCredencialSol() {
         return credencialSol;
@@ -378,7 +372,6 @@ public class Cliente {
         private EstadoCapacitacion estadoCapacitacion = EstadoCapacitacion.PENDIENTE;
         private LocalDateTime fechaRegistro;
         private LocalDateTime fechaVencimientoMensual;
-        private Ubigeo ubigeo;
 
         public ClienteBuilder id(Long id) {
             this.id = id;
@@ -450,13 +443,8 @@ public class Cliente {
             return this;
         }
 
-        public ClienteBuilder ubigeo(Ubigeo ubigeo) {
-            this.ubigeo = ubigeo;
-            return this;
-        }
-
         public Cliente build() {
-            return new Cliente(id, ruc, razonSocial, nombreComercial, direccion, telefono, email, regimenTributario, planContratado, montoMensual, estadoCuenta, estadoCapacitacion, fechaRegistro, fechaVencimientoMensual, ubigeo);
+            return new Cliente(id, ruc, razonSocial, nombreComercial, direccion, telefono, email, regimenTributario, planContratado, montoMensual, estadoCuenta, estadoCapacitacion, fechaRegistro, fechaVencimientoMensual);
         }
     }
 }
