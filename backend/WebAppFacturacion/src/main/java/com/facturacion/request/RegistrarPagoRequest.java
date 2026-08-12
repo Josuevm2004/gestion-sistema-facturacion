@@ -1,7 +1,10 @@
 package com.facturacion.request;
 
 import com.facturacion.enums.MedioPago;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotNull;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class RegistrarPagoRequest {
 
     @NotNull(message = "El ID de cliente es obligatorio")

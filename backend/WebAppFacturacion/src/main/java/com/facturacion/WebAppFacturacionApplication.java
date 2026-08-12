@@ -43,6 +43,20 @@ public class WebAppFacturacionApplication {
 				usuarioAdminRepository.save(admin);
 			}
 
+			// Auto-crear columnas faltantes por migración de esquema en CockroachDB
+			try {
+				jdbcTemplate.execute("ALTER TABLE pago ADD COLUMN IF NOT EXISTS comprobante_url VARCHAR(500)");
+				jdbcTemplate.execute("ALTER TABLE pago ADD COLUMN IF NOT EXISTS observaciones VARCHAR(255)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS departamento VARCHAR(100)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS provincia VARCHAR(100)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS distrito VARCHAR(100)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS nombres VARCHAR(100)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS apellidos VARCHAR(100)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS dni VARCHAR(8)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS email_personal VARCHAR(100)");
+				jdbcTemplate.execute("ALTER TABLE cliente ADD COLUMN IF NOT EXISTS telefono_personal VARCHAR(20)");
+			} catch (Exception ignored) {}
+
 			// Configurar ON DELETE CASCADE nativo en CockroachDB para pago y credencial_sol
 			try {
 				jdbcTemplate.execute("ALTER TABLE pago DROP CONSTRAINT IF EXISTS fkb15ggnkpjecemrcsb6bgarseg");
