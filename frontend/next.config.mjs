@@ -19,7 +19,7 @@ try {
 const nextConfig = {
   reactStrictMode: true,
   async rewrites() {
-    const target = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+    const target = process.env.NEXT_PUBLIC_API_URL || 'http://146.181.58.160:8080/api';
     const cleanTarget = target.endsWith('/') ? target.slice(0, -1) : target;
     return [
       {
