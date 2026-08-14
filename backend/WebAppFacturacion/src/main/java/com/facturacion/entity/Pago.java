@@ -3,6 +3,7 @@ package com.facturacion.entity;
 import com.facturacion.enums.EstadoPago;
 import com.facturacion.enums.MedioPago;
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -13,33 +14,29 @@ public class Pago {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = false)
-    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
-    private Cliente cliente;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "venta_id", nullable = false)
+    private Venta venta;
 
     @Column(name = "codigo_operacion", length = 100)
     private String codigoOperacion;
 
-    @Column(nullable = false)
-    private Double monto;
+    @Column(nullable = false, precision = 10, scale = 2)
+    private BigDecimal monto;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "medio_pago", nullable = false, length = 30)
+    @Column(name = "medio_pago", nullable = false)
     private MedioPago medioPago;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "estado_pago", nullable = false, length = 20)
-    private EstadoPago estadoPago = EstadoPago.PENDIENTE_PAGO;
+    @Column(name = "estado_pago", nullable = false)
+    private EstadoPago estadoPago = EstadoPago.PENDIENTE;
 
     @Column(name = "fecha_pago")
     private LocalDateTime fechaPago;
 
-    @Column(name = "fecha_registro")
-    private LocalDateTime fechaRegistro;
-
-    @Column(name = "periodo_mes_ano", nullable = false, length = 7)
-    private String periodoMesAno;
+    @Column(name = "fecha_registro", nullable = false, updatable = false)
+    private LocalDateTime fechaRegistro = LocalDateTime.now();
 
     @Column(name = "comprobante_url", length = 500)
     private String comprobanteUrl;
@@ -47,38 +44,16 @@ public class Pago {
     @Column(length = 255)
     private String observaciones;
 
-    public Pago() {
-    }
-
-    public Pago(Long id, Cliente cliente, String codigoOperacion, Double monto, MedioPago medioPago, EstadoPago estadoPago, LocalDateTime fechaPago, LocalDateTime fechaRegistro, String periodoMesAno, String comprobanteUrl, String observaciones) {
-        this.id = id;
-        this.cliente = cliente;
-        this.codigoOperacion = codigoOperacion;
-        this.monto = monto;
-        this.medioPago = medioPago;
-        this.estadoPago = estadoPago != null ? estadoPago : EstadoPago.PENDIENTE_PAGO;
-        this.fechaPago = fechaPago;
-        this.fechaRegistro = fechaRegistro;
-        this.periodoMesAno = periodoMesAno;
-        this.comprobanteUrl = comprobanteUrl;
-        this.observaciones = observaciones;
-    }
-
-    @PrePersist
-    public void prePersist() {
-        if (this.fechaRegistro == null) {
-            this.fechaRegistro = LocalDateTime.now();
-        }
-    }
+    public Pago() {}
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public Cliente getCliente() { return cliente; }
-    public void setCliente(Cliente cliente) { this.cliente = cliente; }
+    public Venta getVenta() { return venta; }
+    public void setVenta(Venta venta) { this.venta = venta; }
     public String getCodigoOperacion() { return codigoOperacion; }
     public void setCodigoOperacion(String codigoOperacion) { this.codigoOperacion = codigoOperacion; }
-    public Double getMonto() { return monto; }
-    public void setMonto(Double monto) { this.monto = monto; }
+    public BigDecimal getMonto() { return monto; }
+    public void setMonto(BigDecimal monto) { this.monto = monto; }
     public MedioPago getMedioPago() { return medioPago; }
     public void setMedioPago(MedioPago medioPago) { this.medioPago = medioPago; }
     public EstadoPago getEstadoPago() { return estadoPago; }
@@ -87,39 +62,8 @@ public class Pago {
     public void setFechaPago(LocalDateTime fechaPago) { this.fechaPago = fechaPago; }
     public LocalDateTime getFechaRegistro() { return fechaRegistro; }
     public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
-    public String getPeriodoMesAno() { return periodoMesAno; }
-    public void setPeriodoMesAno(String periodoMesAno) { this.periodoMesAno = periodoMesAno; }
     public String getComprobanteUrl() { return comprobanteUrl; }
     public void setComprobanteUrl(String comprobanteUrl) { this.comprobanteUrl = comprobanteUrl; }
     public String getObservaciones() { return observaciones; }
     public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
-
-    public static PagoBuilder builder() { return new PagoBuilder(); }
-
-    public static class PagoBuilder {
-        private Long id;
-        private Cliente cliente;
-        private String codigoOperacion;
-        private Double monto;
-        private MedioPago medioPago;
-        private EstadoPago estadoPago = EstadoPago.PENDIENTE_PAGO;
-        private LocalDateTime fechaPago;
-        private LocalDateTime fechaRegistro;
-        private String periodoMesAno;
-        private String comprobanteUrl;
-        private String observaciones;
-
-        public PagoBuilder id(Long id) { this.id = id; return this; }
-        public PagoBuilder cliente(Cliente cliente) { this.cliente = cliente; return this; }
-        public PagoBuilder codigoOperacion(String codigoOperacion) { this.codigoOperacion = codigoOperacion; return this; }
-        public PagoBuilder monto(Double monto) { this.monto = monto; return this; }
-        public PagoBuilder medioPago(MedioPago medioPago) { this.medioPago = medioPago; return this; }
-        public PagoBuilder estadoPago(EstadoPago estadoPago) { this.estadoPago = estadoPago; return this; }
-        public PagoBuilder fechaPago(LocalDateTime fechaPago) { this.fechaPago = fechaPago; return this; }
-        public PagoBuilder fechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; return this; }
-        public PagoBuilder periodoMesAno(String periodoMesAno) { this.periodoMesAno = periodoMesAno; return this; }
-        public PagoBuilder comprobanteUrl(String comprobanteUrl) { this.comprobanteUrl = comprobanteUrl; return this; }
-        public PagoBuilder observaciones(String observaciones) { this.observaciones = observaciones; return this; }
-        public Pago build() { return new Pago(id, cliente, codigoOperacion, monto, medioPago, estadoPago, fechaPago, fechaRegistro, periodoMesAno, comprobanteUrl, observaciones); }
-    }
 }

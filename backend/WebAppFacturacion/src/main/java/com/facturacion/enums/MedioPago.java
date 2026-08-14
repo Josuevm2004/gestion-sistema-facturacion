@@ -1,11 +1,9 @@
 package com.facturacion.enums;
 
 public enum MedioPago {
-    TRANSFERENCIA_BCP,
-    BBVA,
-    INTERBANK,
-    SCOTIABANK,
+    YAPE,
     PLIN,
+    TRANSFERENCIA,
     EFECTIVO,
     OTRO
 }

@@ -7,14 +7,14 @@ import com.facturacion.request.LoginRequest;
 import com.facturacion.response.ApiResponse;
 import com.facturacion.response.JwtResponse;
 import com.facturacion.util.JwtTokenProvider;
-import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api")
+@CrossOrigin(origins = "*")
 public class AuthController {
 
     @Autowired
@@ -26,19 +26,19 @@ public class AuthController {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    @PostMapping("/login")
-    public ResponseEntity<ApiResponse<JwtResponse>> login(@Valid @RequestBody LoginRequest request) {
-        UsuarioAdmin admin = usuarioAdminRepository.findByUsername(request.getUsername())
+    @PostMapping({"/auth/login", "/admin/login"})
+    public ResponseEntity<ApiResponse<JwtResponse>> login(@RequestBody LoginRequest request) {
+        UsuarioAdmin admin = usuarioAdminRepository.findByUsernameAndActivoTrue(request.getUsername())
                 .orElseGet(() -> {
                     if ("admin".equals(request.getUsername()) && "admin123".equals(request.getPassword())) {
-                        return UsuarioAdmin.builder()
-                                .id(1L)
-                                .username("admin")
-                                .password(passwordEncoder.encode("admin123"))
-                                .nombre("Administrador Sistema")
-                                .email("admin@facturacion.com")
-                                .rol("ADMIN")
-                                .build();
+                        UsuarioAdmin defaultAdmin = new UsuarioAdmin();
+                        defaultAdmin.setId(1L);
+                        defaultAdmin.setUsername("admin");
+                        defaultAdmin.setPassword(passwordEncoder.encode("admin123"));
+                        defaultAdmin.setNombre("Administrador General");
+                        defaultAdmin.setEmail("admin@facturacion.com");
+                        defaultAdmin.setRol("ADMIN");
+                        return defaultAdmin;
                     }
                     throw new ResourceNotFoundException("Credenciales inválidas. Usuario o contraseña incorrectos.");
                 });
@@ -49,14 +49,7 @@ public class AuthController {
 
         String token = jwtTokenProvider.generateToken(admin.getUsername(), admin.getRol());
 
-        JwtResponse jwtResponse = JwtResponse.builder()
-                .token(token)
-                .username(admin.getUsername())
-                .email(admin.getEmail())
-                .nombre(admin.getNombre())
-                .rol(admin.getRol())
-                .build();
-
+        JwtResponse jwtResponse = new JwtResponse(token, admin.getUsername(), admin.getEmail(), admin.getRol());
         return ResponseEntity.ok(ApiResponse.success("Inicio de sesión exitoso", jwtResponse));
     }
 }

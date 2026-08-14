@@ -23,31 +23,19 @@ public class UsuarioAdmin {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(length = 20)
+    @Column(nullable = false, length = 20)
     private String rol = "ADMIN";
 
-    @Column(name = "fecha_creacion")
-    private LocalDateTime fechaCreacion;
+    @Column(nullable = false)
+    private Boolean activo = true;
 
-    public UsuarioAdmin() {
-    }
+    @Column(name = "fecha_eliminacion")
+    private LocalDateTime fechaEliminacion;
 
-    public UsuarioAdmin(Long id, String username, String password, String nombre, String email, String rol, LocalDateTime fechaCreacion) {
-        this.id = id;
-        this.username = username;
-        this.password = password;
-        this.nombre = nombre;
-        this.email = email;
-        this.rol = rol != null ? rol : "ADMIN";
-        this.fechaCreacion = fechaCreacion;
-    }
+    @Column(name = "fecha_creacion", nullable = false, updatable = false)
+    private LocalDateTime fechaCreacion = LocalDateTime.now();
 
-    @PrePersist
-    public void prePersist() {
-        if (this.fechaCreacion == null) {
-            this.fechaCreacion = LocalDateTime.now();
-        }
-    }
+    public UsuarioAdmin() {}
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -61,27 +49,10 @@ public class UsuarioAdmin {
     public void setEmail(String email) { this.email = email; }
     public String getRol() { return rol; }
     public void setRol(String rol) { this.rol = rol; }
+    public Boolean getActivo() { return activo; }
+    public void setActivo(Boolean activo) { this.activo = activo; }
+    public LocalDateTime getFechaEliminacion() { return fechaEliminacion; }
+    public void setFechaEliminacion(LocalDateTime fechaEliminacion) { this.fechaEliminacion = fechaEliminacion; }
     public LocalDateTime getFechaCreacion() { return fechaCreacion; }
     public void setFechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; }
-
-    public static UsuarioAdminBuilder builder() { return new UsuarioAdminBuilder(); }
-
-    public static class UsuarioAdminBuilder {
-        private Long id;
-        private String username;
-        private String password;
-        private String nombre;
-        private String email;
-        private String rol = "ADMIN";
-        private LocalDateTime fechaCreacion;
-
-        public UsuarioAdminBuilder id(Long id) { this.id = id; return this; }
-        public UsuarioAdminBuilder username(String username) { this.username = username; return this; }
-        public UsuarioAdminBuilder password(String password) { this.password = password; return this; }
-        public UsuarioAdminBuilder nombre(String nombre) { this.nombre = nombre; return this; }
-        public UsuarioAdminBuilder email(String email) { this.email = email; return this; }
-        public UsuarioAdminBuilder rol(String rol) { this.rol = rol; return this; }
-        public UsuarioAdminBuilder fechaCreacion(LocalDateTime fechaCreacion) { this.fechaCreacion = fechaCreacion; return this; }
-        public UsuarioAdmin build() { return new UsuarioAdmin(id, username, password, nombre, email, rol, fechaCreacion); }
-    }
 }

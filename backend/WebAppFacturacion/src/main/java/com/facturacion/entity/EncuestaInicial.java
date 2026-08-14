@@ -11,16 +11,15 @@ public class EncuestaInicial {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = false, unique = true)
-    @org.hibernate.annotations.OnDelete(action = org.hibernate.annotations.OnDeleteAction.CASCADE)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
     @Column(name = "como_nos_conocio", length = 100)
     private String comoNosConocio;
 
-    @Column(name = "uso_sistema_anterior")
-    private Boolean usoSistemaAnterior;
+    @Column(name = "uso_sistema_anterior", nullable = false)
+    private Boolean usoSistemaAnterior = false;
 
     @Column(name = "volumen_facturacion_estimado", length = 50)
     private String volumenFacturacionEstimado;
@@ -28,28 +27,10 @@ public class EncuestaInicial {
     @Column(length = 500)
     private String comentarios;
 
-    @Column(name = "fecha_respuesta")
-    private LocalDateTime fechaRespuesta;
+    @Column(name = "fecha_respuesta", nullable = false, updatable = false)
+    private LocalDateTime fechaRespuesta = LocalDateTime.now();
 
-    public EncuestaInicial() {
-    }
-
-    public EncuestaInicial(Long id, Cliente cliente, String comoNosConocio, Boolean usoSistemaAnterior, String volumenFacturacionEstimado, String comentarios, LocalDateTime fechaRespuesta) {
-        this.id = id;
-        this.cliente = cliente;
-        this.comoNosConocio = comoNosConocio;
-        this.usoSistemaAnterior = usoSistemaAnterior;
-        this.volumenFacturacionEstimado = volumenFacturacionEstimado;
-        this.comentarios = comentarios;
-        this.fechaRespuesta = fechaRespuesta;
-    }
-
-    @PrePersist
-    public void prePersist() {
-        if (this.fechaRespuesta == null) {
-            this.fechaRespuesta = LocalDateTime.now();
-        }
-    }
+    public EncuestaInicial() {}
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -65,25 +46,4 @@ public class EncuestaInicial {
     public void setComentarios(String comentarios) { this.comentarios = comentarios; }
     public LocalDateTime getFechaRespuesta() { return fechaRespuesta; }
     public void setFechaRespuesta(LocalDateTime fechaRespuesta) { this.fechaRespuesta = fechaRespuesta; }
-
-    public static EncuestaInicialBuilder builder() { return new EncuestaInicialBuilder(); }
-
-    public static class EncuestaInicialBuilder {
-        private Long id;
-        private Cliente cliente;
-        private String comoNosConocio;
-        private Boolean usoSistemaAnterior;
-        private String volumenFacturacionEstimado;
-        private String comentarios;
-        private LocalDateTime fechaRespuesta;
-
-        public EncuestaInicialBuilder id(Long id) { this.id = id; return this; }
-        public EncuestaInicialBuilder cliente(Cliente cliente) { this.cliente = cliente; return this; }
-        public EncuestaInicialBuilder comoNosConocio(String comoNosConocio) { this.comoNosConocio = comoNosConocio; return this; }
-        public EncuestaInicialBuilder usoSistemaAnterior(Boolean usoSistemaAnterior) { this.usoSistemaAnterior = usoSistemaAnterior; return this; }
-        public EncuestaInicialBuilder volumenFacturacionEstimado(String volumenFacturacionEstimado) { this.volumenFacturacionEstimado = volumenFacturacionEstimado; return this; }
-        public EncuestaInicialBuilder comentarios(String comentarios) { this.comentarios = comentarios; return this; }
-        public EncuestaInicialBuilder fechaRespuesta(LocalDateTime fechaRespuesta) { this.fechaRespuesta = fechaRespuesta; return this; }
-        public EncuestaInicial build() { return new EncuestaInicial(id, cliente, comoNosConocio, usoSistemaAnterior, volumenFacturacionEstimado, comentarios, fechaRespuesta); }
-    }
 }

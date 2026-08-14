@@ -1,38 +1,27 @@
 package com.facturacion.request;
 
 import com.facturacion.enums.MedioPago;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class RegistrarPagoRequest {
 
-    @NotNull(message = "El ID de cliente es obligatorio")
-    private Long clienteId;
-
+    private Long ventaId;
     private String codigoOperacion;
-
-    @NotNull(message = "El monto es obligatorio")
-    private Double monto;
-
-    @NotNull(message = "El medio de pago es obligatorio")
+    private BigDecimal monto;
     private MedioPago medioPago;
-
-    private String periodoMesAno;
     private String comprobanteUrl;
     private String observaciones;
 
-    public RegistrarPagoRequest() { }
-    public Long getClienteId() { return clienteId; }
-    public void setClienteId(Long clienteId) { this.clienteId = clienteId; }
+    public RegistrarPagoRequest() {}
+
+    public Long getVentaId() { return ventaId; }
+    public void setVentaId(Long ventaId) { this.ventaId = ventaId; }
     public String getCodigoOperacion() { return codigoOperacion; }
     public void setCodigoOperacion(String codigoOperacion) { this.codigoOperacion = codigoOperacion; }
-    public Double getMonto() { return monto; }
-    public void setMonto(Double monto) { this.monto = monto; }
+    public BigDecimal getMonto() { return monto; }
+    public void setMonto(BigDecimal monto) { this.monto = monto; }
     public MedioPago getMedioPago() { return medioPago; }
     public void setMedioPago(MedioPago medioPago) { this.medioPago = medioPago; }
-    public String getPeriodoMesAno() { return periodoMesAno; }
-    public void setPeriodoMesAno(String periodoMesAno) { this.periodoMesAno = periodoMesAno; }
     public String getComprobanteUrl() { return comprobanteUrl; }
     public void setComprobanteUrl(String comprobanteUrl) { this.comprobanteUrl = comprobanteUrl; }
     public String getObservaciones() { return observaciones; }

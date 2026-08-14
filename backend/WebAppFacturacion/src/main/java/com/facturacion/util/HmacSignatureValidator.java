@@ -1,1 +1,4 @@
-// File marked for removal
+package com.facturacion.util;
+
+// Deprecated
+public class HmacSignatureValidator {}
