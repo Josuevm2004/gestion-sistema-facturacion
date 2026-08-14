@@ -1,9 +1,8 @@
 import axios from 'axios';
 
-const PUBLIC_BACKEND_API_URL = 'http://146.181.58.160:8080/api';
-const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '');
+const serverApiUrl = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://146.181.58.160:8080/api';
 
-export const API_URL = configuredApiUrl || PUBLIC_BACKEND_API_URL;
+export const API_URL = typeof window !== 'undefined' ? '/api' : serverApiUrl;
 
 export const api = axios.create({
   baseURL: API_URL,
