@@ -36,7 +36,7 @@ export function useAdminData() {
   const [sellerFilter, setSellerFilter] = useState('');
   const [periodoIngresoTipo, setPeriodoIngresoTipo] = useState('');
   const [fechaCustomFilter, setFechaCustomFilter] = useState('');
-  const [showSolKeys, setShowSolKeys] = useState<Record<number, boolean>>({});
+  const [showSolKeys, setShowSolKeys] = useState<Record<string, boolean>>({});
 
   // Modales
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -444,16 +444,15 @@ export function useAdminData() {
     const planAUsar = normalizePlanKey(nuevoPlan || client.planContratado || 'EMPRENDE');
     const tipoAUsar = (nuevoTipo || client.tipoSuscripcion || 'MENSUAL').toUpperCase() as 'MENSUAL' | 'ANUAL';
 
-    const PLAN_SUB_MAP: Record<string, { MENSUAL: number; ANUAL: number }> = {
-      INICIA: { MENSUAL: 1, ANUAL: 2 },
-      EMPRENDE: { MENSUAL: 3, ANUAL: 4 },
-      IMPULSA: { MENSUAL: 5, ANUAL: 6 },
-      EMPRESARIAL: { MENSUAL: 7, ANUAL: 8 },
-      LIDER: { MENSUAL: 9, ANUAL: 10 },
+    const PLAN_ID_MAP: Record<string, number> = {
+      INICIA: 1,
+      EMPRENDE: 2,
+      IMPULSA: 3,
+      EMPRESARIAL: 4,
+      LIDER: 5,
     };
 
-    const subMap = PLAN_SUB_MAP[planAUsar] || PLAN_SUB_MAP.EMPRENDE;
-    const suscripcionId = subMap[tipoAUsar] || subMap.MENSUAL;
+    const planId = PLAN_ID_MAP[planAUsar] || PLAN_ID_MAP.EMPRENDE;
 
     const isCambio = nuevoPlan && normalizePlanKey(nuevoPlan) !== normalizePlanKey(client.planContratado);
     const tipoVenta = isCambio ? 'CAMBIO_PLAN' : 'RENOVACION';
@@ -469,8 +468,8 @@ export function useAdminData() {
     try {
       await adminApi(token).post(`/admin/ventas/procesar-operacion`, {
         clienteId: client.id,
-        vendedorId: 1,
-        suscripcionId: suscripcionId,
+        planId,
+        tipoSuscripcion: tipoAUsar,
         tipoVenta: tipoVenta,
         observaciones: `Operación de ${tipoVenta}: ${planAUsar} (${tipoAUsar})`,
       });
@@ -503,7 +502,7 @@ export function useAdminData() {
 
     const formData = new FormData(event.currentTarget);
     const selectedVendedor = formData.get('vendedor') as string;
-    let foundVendedorId: number | null = null;
+    let foundVendedorId: string | number | null = null;
     if (selectedVendedor && selectedVendedor !== 'Por asignar') {
       const u = usersList.find((usr) => usr.nombre === selectedVendedor || usr.username === selectedVendedor);
       if (u) foundVendedorId = u.id;
@@ -685,7 +684,7 @@ export function useAdminData() {
     }
   }
 
-  async function handleMarkNotificationAsRead(notificationId: number) {
+  async function handleMarkNotificationAsRead(notificationId: string | number) {
     if (!token || !notificationId) return;
     setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, leida: true } : n)));
     try {

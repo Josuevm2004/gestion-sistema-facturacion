@@ -20,7 +20,7 @@ interface AdminNavbarProps {
   setShowNewUserModal: (b: boolean) => void;
   handleLogout: () => void;
   setCalendarSearch: (s: string) => void;
-  handleMarkNotificationAsRead?: (id: number) => void;
+  handleMarkNotificationAsRead?: (id: string | number) => void;
 }
 
 export default function AdminNavbar({
@@ -41,8 +41,29 @@ export default function AdminNavbar({
   setCalendarSearch,
   handleMarkNotificationAsRead,
 }: AdminNavbarProps) {
-  const activeNotifications = notifications.filter((n) => n && !n.leida);
-  const alertCount = activeNotifications.length || clientesPorVencer1DiaList.length;
+  const activeNotifications = React.useMemo(() => {
+    const seen = new Set<string>();
+    return notifications.filter((n) => {
+      if (!n || n.leida) return false;
+      const key = `${n.clienteId || n.clienteRuc || n.clienteRazonSocial || n.id}-${n.tipo}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [notifications]);
+
+  const uniqueNearDueClients = React.useMemo(() => {
+    const seen = new Set<string>();
+    return clientesPorVencer1DiaList.filter((c) => {
+      if (!c) return false;
+      const key = String(c.id || c.ruc || c.razonSocial);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [clientesPorVencer1DiaList]);
+
+  const alertCount = activeNotifications.length || uniqueNearDueClients.length;
 
   const navItems = [
     { key: 'resumen', label: 'Resumen' },
@@ -185,7 +206,7 @@ export default function AdminNavbar({
                               <div className="small text-muted">{n.mensaje}</div>
                             </div>
                           ))}
-                          {activeNotifications.length === 0 && clientesPorVencer1DiaList.map((c) => (
+                          {activeNotifications.length === 0 && uniqueNearDueClients.map((c) => (
                             <div
                               key={`alert-near-${c.id}`}
                               className="p-3 border rounded bg-light text-start shadow-sm"

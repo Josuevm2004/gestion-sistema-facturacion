@@ -56,11 +56,9 @@ public class VentaServiceImpl implements VentaService {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(request.getClienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
-        UsuarioAdmin vendedor = usuarioAdminRepository.findById(request.getVendedorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Vendedor no encontrado"));
+        UsuarioAdmin vendedor = resolverVendedor(request.getVendedorId());
 
-        Suscripcion suscripcion = suscripcionRepository.findById(request.getSuscripcionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Suscripción no encontrada"));
+        Suscripcion suscripcion = resolverSuscripcion(request);
 
         Venta ventaAnterior = ventaRepository.findTopByClienteIdOrderByFechaVentaDesc(cliente.getId()).orElse(null);
         EstadoCliente viejoEstado = cliente.getEstado();
@@ -154,6 +152,47 @@ public class VentaServiceImpl implements VentaService {
         historialEstadoClienteRepository.save(h);
 
         return nuevaVenta;
+    }
+
+    private UsuarioAdmin resolverVendedor(Long vendedorId) {
+        if (vendedorId != null) {
+            UsuarioAdmin vendedor = usuarioAdminRepository.findById(vendedorId).orElse(null);
+            if (vendedor != null) {
+                return vendedor;
+            }
+        }
+        return usuarioAdminRepository.findAll().stream().findFirst().orElse(null);
+    }
+
+    private Suscripcion resolverSuscripcion(ProcesarOperacionVentaRequest request) {
+        if (request.getPlanId() != null && request.getTipoSuscripcion() != null) {
+            return suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(request.getPlanId(), request.getTipoSuscripcion())
+                    .orElseThrow(() -> new ResourceNotFoundException("Suscripcion no encontrada para el plan seleccionado"));
+        }
+
+        if (request.getSuscripcionId() != null) {
+            Suscripcion suscripcion = suscripcionRepository.findById(request.getSuscripcionId()).orElse(null);
+            if (suscripcion != null) {
+                return suscripcion;
+            }
+
+            Suscripcion legacy = resolverSuscripcionLegacy(request.getSuscripcionId());
+            if (legacy != null) {
+                return legacy;
+            }
+        }
+
+        throw new ResourceNotFoundException("Suscripcion no encontrada");
+    }
+
+    private Suscripcion resolverSuscripcionLegacy(Long legacySuscripcionId) {
+        if (legacySuscripcionId == null || legacySuscripcionId < 1 || legacySuscripcionId > 10) {
+            return null;
+        }
+
+        long planId = ((legacySuscripcionId - 1) / 2) + 1;
+        TipoSuscripcion tipo = legacySuscripcionId % 2 == 0 ? TipoSuscripcion.ANUAL : TipoSuscripcion.MENSUAL;
+        return suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(planId, tipo).orElse(null);
     }
 
     private void crearSiguienteRenovacionPendiente(Venta ventaActual, LocalDateTime fechaFinServicio) {

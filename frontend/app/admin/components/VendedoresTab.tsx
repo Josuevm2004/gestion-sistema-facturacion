@@ -4,7 +4,7 @@ import React from 'react';
 import { ShieldCheck, Edit, Trash2 } from 'lucide-react';
 
 export type UserAccount = {
-  id: number;
+  id: string | number;
   username: string;
   nombre: string;
   email: string;

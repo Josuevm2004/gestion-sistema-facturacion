@@ -6,9 +6,10 @@ import { Search, Users, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
 
 export type ColorTagType = 'VERDE' | 'ROJO' | 'AMARILLO' | 'AZUL';
 export type SubscriptionType = 'MENSUAL' | 'ANUAL';
+export type EntityId = string | number;
 
 export type Client = {
-  id: number;
+  id: EntityId;
   ruc: string;
   razonSocial: string;
   nombreComercial?: string;
@@ -28,7 +29,7 @@ export type Client = {
   tipoSuscripcion?: string;
   montoMensual: number;
   montoSiguienteCobro?: number;
-  ventaId?: number;
+  ventaId?: EntityId;
   diasProrrateados?: number;
   estadoCuenta: string;
   estadoCapacitacion: string;
@@ -58,8 +59,8 @@ interface ClientesTodosTabProps {
   setPlanFilter: (v: string) => void;
   handleColorTagChange: (client: Client, color: ColorTagType) => void;
   handleAssignVendedor: (client: Client, vendedorName: string) => void;
-  showSolKeys: Record<number, boolean>;
-  setShowSolKeys: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+  showSolKeys: Record<string, boolean>;
+  setShowSolKeys: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   currentUser: any;
   setEditingClient: (client: Client) => void;
   setDeletingClient: (client: Client) => void;
@@ -88,7 +89,7 @@ export default function ClientesTodosTab({
 }: ClientesTodosTabProps) {
   const currentSearch = search !== undefined ? search : (searchTerm || '');
   const handleSearchChange = setSearch || setSearchTerm || (() => {});
-  const [activeColorPickerId, setActiveColorPickerId] = React.useState<number | null>(null);
+  const [activeColorPickerId, setActiveColorPickerId] = React.useState<EntityId | null>(null);
   const [colorPickerPosition, setColorPickerPosition] = React.useState<{ top: number; left: number } | null>(null);
   const colorPickerRef = React.useRef<HTMLDivElement | null>(null);
   const colorLabels: Record<ColorTagType, string> = {
@@ -115,7 +116,7 @@ export default function ClientesTodosTab({
     [activeColorPickerId, allFilteredClients]
   );
 
-  const toggleColorPicker = (event: React.MouseEvent<HTMLButtonElement>, clientId: number) => {
+  const toggleColorPicker = (event: React.MouseEvent<HTMLButtonElement>, clientId: EntityId) => {
     if (activeColorPickerId === clientId) {
       setActiveColorPickerId(null);
       setColorPickerPosition(null);

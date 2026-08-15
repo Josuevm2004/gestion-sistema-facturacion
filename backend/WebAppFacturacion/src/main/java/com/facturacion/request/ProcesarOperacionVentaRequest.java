@@ -1,12 +1,15 @@
 package com.facturacion.request;
 
 import com.facturacion.enums.TipoVenta;
+import com.facturacion.enums.TipoSuscripcion;
 
 public class ProcesarOperacionVentaRequest {
 
     private Long clienteId;
     private Long vendedorId;
     private Long suscripcionId;
+    private Long planId;
+    private TipoSuscripcion tipoSuscripcion;
     private TipoVenta tipoVenta; // RENOVACION, CAMBIO_PLAN
     private String observaciones;
 
@@ -18,6 +21,10 @@ public class ProcesarOperacionVentaRequest {
     public void setVendedorId(Long vendedorId) { this.vendedorId = vendedorId; }
     public Long getSuscripcionId() { return suscripcionId; }
     public void setSuscripcionId(Long suscripcionId) { this.suscripcionId = suscripcionId; }
+    public Long getPlanId() { return planId; }
+    public void setPlanId(Long planId) { this.planId = planId; }
+    public TipoSuscripcion getTipoSuscripcion() { return tipoSuscripcion; }
+    public void setTipoSuscripcion(TipoSuscripcion tipoSuscripcion) { this.tipoSuscripcion = tipoSuscripcion; }
     public TipoVenta getTipoVenta() { return tipoVenta; }
     public void setTipoVenta(TipoVenta tipoVenta) { this.tipoVenta = tipoVenta; }
     public String getObservaciones() { return observaciones; }

@@ -108,8 +108,9 @@ export default function ReportesExcelTab({
         }
       })
     );
-    const operacionesByClient = new Map<number, any[]>();
-    detailResults.forEach((item) => operacionesByClient.set(item.clientId, item.operaciones));
+    const idKey = (value: any) => (value === undefined || value === null || value === '' ? '' : String(value));
+    const operacionesByClient = new Map<string, any[]>();
+    detailResults.forEach((item) => operacionesByClient.set(idKey(item.clientId), item.operaciones));
     const detailPayments = detailResults.flatMap((item) =>
       (item.pagos || []).map((p: any) => ({ ...p, clienteId: item.clientId }))
     );
@@ -118,10 +119,10 @@ export default function ReportesExcelTab({
       const estadoPago = (p?.estadoPago || '').toUpperCase();
       return estadoPago === 'PAGADO' && (p?.fechaPago || p?.fechaRegistro);
     });
-    const paymentClientId = (p: any) => Number(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId ?? 0);
-    const paymentVentaId = (p: any) => Number(p?.venta?.id ?? p?.ventaId ?? 0);
-    const paymentsByClient = new Map<number, any[]>();
-    const paymentsByVenta = new Map<number, any>();
+    const paymentClientId = (p: any) => idKey(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId);
+    const paymentVentaId = (p: any) => idKey(p?.venta?.id ?? p?.ventaId);
+    const paymentsByClient = new Map<string, any[]>();
+    const paymentsByVenta = new Map<string, any>();
     const seenPaymentKeys = new Set<string>();
     paidPayments.forEach((p) => {
       const clienteId = paymentClientId(p);
@@ -175,7 +176,7 @@ export default function ReportesExcelTab({
       normalizeSubscription(op?.tipoSuscripcion || client?.tipoSuscripcion) === 'ANUAL';
     const isAnnualClient = (client?: Client) => normalizeSubscription(client?.tipoSuscripcion) === 'ANUAL';
     const operationAmount = (op: any) => {
-      const ventaId = Number(op?.ventaId ?? op?.venta?.id ?? 0);
+      const ventaId = idKey(op?.ventaId ?? op?.venta?.id);
       const paymentForVenta = ventaId ? paymentsByVenta.get(ventaId) : null;
       return Number(op?.montoPagado ?? paymentForVenta?.monto ?? op?.montoVenta ?? op?.montoTotal ?? op?.precioLista ?? 0);
     };
@@ -203,9 +204,9 @@ export default function ReportesExcelTab({
     const paymentMonthKey = (p: any) => monthKeyFromDate(p?.fechaPago || p?.fechaRegistro);
     const paymentAmount = (p: any) => Number(p?.monto ?? p?.venta?.montoTotal ?? 0);
     const operationCoversPayment = (op: any, p: any) => {
-      const pagoId = Number(p?.id ?? p?.pagoId ?? 0);
+      const pagoId = idKey(p?.id ?? p?.pagoId);
       const ventaId = paymentVentaId(p);
-      return Boolean((pagoId && Number(op?.pagoId) === pagoId) || (ventaId && Number(op?.ventaId) === ventaId));
+      return Boolean((pagoId && idKey(op?.pagoId) === pagoId) || (ventaId && idKey(op?.ventaId) === ventaId));
     };
     const shouldUsePaymentFallback = (p: any, client: Client, operaciones: any[]) => {
       if (isAnnualClient(client)) return false;
@@ -244,7 +245,7 @@ export default function ReportesExcelTab({
       const registroKey = monthKeyFromDate(c.fechaRegistro);
       if (registroKey) monthKeysSet.add(registroKey);
 
-      const operaciones = operacionesByClient.get(c.id) || [];
+      const operaciones = operacionesByClient.get(idKey(c.id)) || [];
       let hasAnnualOperation = false;
       operaciones.forEach((op) => {
         const key = monthKeyFromDate(operationMonthSource(op, c));
@@ -259,7 +260,7 @@ export default function ReportesExcelTab({
           monthKeysSet.add(key);
         }
       });
-      (paymentsByClient.get(c.id) || []).forEach((p) => {
+      (paymentsByClient.get(idKey(c.id)) || []).forEach((p) => {
         if (!shouldUsePaymentFallback(p, c, operaciones)) return;
         const key = paymentMonthKey(p);
         if (key) monthKeysSet.add(key);
@@ -327,7 +328,7 @@ export default function ReportesExcelTab({
       monthKeys.forEach((key) => monthlySums.set(key, 0));
       const annualSpans: Array<{ startKey: string; amount: number; monthsCovered: number }> = [];
 
-      const operaciones = operacionesByClient.get(c.id) || [];
+      const operaciones = operacionesByClient.get(idKey(c.id)) || [];
       let hasAnnualOperation = false;
       operaciones.forEach((op) => {
         const rawDate = operationMonthSource(op, c);
@@ -343,7 +344,7 @@ export default function ReportesExcelTab({
         }
       });
       let fallbackPaymentsTotal = 0;
-      (paymentsByClient.get(c.id) || []).forEach((p) => {
+      (paymentsByClient.get(idKey(c.id)) || []).forEach((p) => {
         if (!shouldUsePaymentFallback(p, c, operaciones)) return;
         const key = paymentMonthKey(p);
         if (!key) return;
