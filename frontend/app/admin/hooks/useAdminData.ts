@@ -822,7 +822,7 @@ export function useAdminData() {
   const clientesVencidosList = useMemo(() => {
     return effectiveClients.filter((c) => {
       const exp = getCalculatedExpirationDate(c);
-      return exp.isExpired || c.estadoCuenta === 'VENCIDO' || c.estadoCuenta === 'BLOQUEADO';
+      return c.estadoCuenta !== 'BLOQUEADO' && (exp.isExpired || c.estadoCuenta === 'VENCIDO');
     });
   }, [effectiveClients]);
 
@@ -831,7 +831,11 @@ export function useAdminData() {
   }, [effectiveClients]);
 
   const clientesCapacitacionPendienteList = useMemo(() => {
-    return effectiveClients.filter((c) => c.estadoCapacitacion === 'PENDIENTE' || !c.fechaCapacitacion);
+    return effectiveClients.filter((c) => {
+      const estado = (c.estadoCuenta || '').toUpperCase();
+      const capacitacionPendiente = c.estadoCapacitacion === 'PENDIENTE' || !c.fechaCapacitacion;
+      return estado === 'POR_CAPACITAR' && capacitacionPendiente;
+    });
   }, [effectiveClients]);
 
   const clientesPorVencer1DiaList = useMemo(() => {
