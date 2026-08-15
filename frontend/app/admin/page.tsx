@@ -152,7 +152,7 @@ export default function AdminPage() {
               <BloqueadosTab
                 clientesBloqueadosList={adminData.clientesBloqueadosList}
                 handleEstadoCuentaChange={adminData.handleEstadoCuentaChange}
-                handleRenovarPlan={adminData.handleRenovarPlan}
+                handleDevolverAcceso={adminData.handleDevolverAcceso}
                 setDeletingClient={adminData.setDeletingClient}
               />
             )}

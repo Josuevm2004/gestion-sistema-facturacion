@@ -409,9 +409,6 @@ export function useAdminData() {
 
   async function handleEstadoCuentaChange(client: Client, nuevoEstado: string) {
     if (!token) return;
-    setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, estadoCuenta: nuevoEstado } : c))
-    );
     try {
       if (nuevoEstado === 'BLOQUEADO') {
         await adminApi(token).put(`/admin/servicios/cliente/${client.id}/bloquear?motivo=Cliente bloqueado desde dashboard`);
@@ -427,9 +424,6 @@ export function useAdminData() {
 
   async function handleDevolverAcceso(client: Client) {
     if (!token) return;
-    setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, estadoCuenta: 'VENCIDO' } : c))
-    );
     try {
       await adminApi(token).put(`/admin/servicios/cliente/${client.id}/devolver-acceso`);
       setNotice(`Acceso devuelto para ${client.razonSocial}. Restaurado a estado VENCIDO.`);
@@ -456,14 +450,6 @@ export function useAdminData() {
 
     const isCambio = nuevoPlan && normalizePlanKey(nuevoPlan) !== normalizePlanKey(client.planContratado);
     const tipoVenta = isCambio ? 'CAMBIO_PLAN' : 'RENOVACION';
-
-    setClients((prev) =>
-      prev.map((c) =>
-        c.id === client.id
-          ? { ...c, planContratado: planAUsar, tipoSuscripcion: tipoAUsar, estadoCuenta: 'HABILITADO' }
-          : c
-      )
-    );
 
     try {
       await adminApi(token).post(`/admin/ventas/procesar-operacion`, {

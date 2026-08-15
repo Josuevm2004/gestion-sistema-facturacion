@@ -558,7 +558,9 @@ public class ClienteServiceImpl implements ClienteService {
                     res.setPlanId(ventaPlan.getSuscripcion().getPlan().getId());
                     res.setPlanNombre(ventaPlan.getSuscripcion().getPlan().getNombrePlan());
                 }
-                res.setTipoSuscripcion(ventaPlan.getSuscripcion().getTipoSuscripcion().name());
+                res.setTipoSuscripcion(ventaPlan.getSuscripcion().getTipoSuscripcion() != null
+                        ? ventaPlan.getSuscripcion().getTipoSuscripcion().name()
+                        : null);
             }
         }
 
@@ -568,7 +570,7 @@ public class ClienteServiceImpl implements ClienteService {
             res.setFechaCapacitacion(servicio.getFechaCapacitacion());
             res.setFechaInicioServicio(servicio.getFechaInicio());
             res.setFechaFinServicio(servicio.getFechaFin());
-            res.setEstadoServicio(servicio.getEstado().name());
+            res.setEstadoServicio(servicio.getEstado() != null ? servicio.getEstado().name() : null);
             if (res.getMontoSiguienteCobro() == null) {
                 res.setMontoSiguienteCobro(servicio.getMontoProrrateo());
             }

@@ -7,14 +7,14 @@ import { Client } from './ClientesTodosTab';
 interface BloqueadosTabProps {
   clientesBloqueadosList: Client[];
   handleEstadoCuentaChange: (client: Client, nuevoEstado: string) => void;
-  handleRenovarPlan: (client: Client, nuevoPlan?: string, nuevoTipo?: string) => any;
+  handleDevolverAcceso: (client: Client) => any;
   setDeletingClient: (client: Client) => void;
 }
 
 export default function BloqueadosTab({
   clientesBloqueadosList,
   handleEstadoCuentaChange,
-  handleRenovarPlan,
+  handleDevolverAcceso,
   setDeletingClient,
 }: BloqueadosTabProps) {
   return (
@@ -39,7 +39,7 @@ export default function BloqueadosTab({
           <thead>
             <tr>
               <th>RUC / Empresa</th>
-              <th>Teléfono</th>
+              <th>Telefono</th>
               <th>Email</th>
               <th>Plan</th>
               <th>Estado</th>
@@ -72,8 +72,10 @@ export default function BloqueadosTab({
                     <div className="d-flex gap-2">
                       <button
                         onClick={() => {
-                          const ok = window.confirm(`Â¿Reactivar a ${c.razonSocial}? Se registrarÃ¡ una renovaciÃ³n con prorrateo si corresponde.`);
-                          if (ok) handleRenovarPlan(c);
+                          const ok = window.confirm(
+                            `Habilitar acceso para ${c.razonSocial}? Pasara a VENCIDO para gestionar renovacion o cambio de plan.`
+                          );
+                          if (ok) handleDevolverAcceso(c);
                         }}
                         className="btn btn-sm btn-success rounded-pill px-3 py-1.5 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
                       >
