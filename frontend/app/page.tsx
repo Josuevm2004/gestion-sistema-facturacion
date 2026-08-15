@@ -20,6 +20,7 @@ type ClientRegistration = {
   nombreComercial?: string;
   planContratado: string;
   montoMensual: number;
+  tipoSuscripcion?: 'MENSUAL' | 'ANUAL';
   subdominio?: string;
   usuarioAdminFacturador?: string;
   claveTemporal?: string;
@@ -35,6 +36,21 @@ const PLAN_PRICES: Record<string, number> = {
   LIDER: 89,
 };
 
+const PLAN_ANNUAL_PRICES: Record<string, number> = {
+  INICIA: 190,
+  EMPRENDE: 290,
+  IMPULSA: 390,
+  EMPRESARIAL: 590,
+  LIDER: 890,
+};
+
+const PLAN_IDS: Record<string, number> = {
+  INICIA: 1,
+  EMPRENDE: 2,
+  IMPULSA: 3,
+  EMPRESARIAL: 4,
+  LIDER: 5,
+};
 
 export default function FormularioPublicoPage() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -75,6 +91,7 @@ export default function FormularioPublicoPage() {
       provincia: formData.get('provincia') as string,
       distrito: formData.get('distrito') as string,
       regimenTributario: formData.get('regimenTributario') as string,
+      planId: PLAN_IDS[selectedPlan] || 2,
       planContratado: selectedPlan,
       tipoSuscripcion: tipoSuscripcion,
       usuarioSol: formData.get('usuarioSol') as string,
@@ -91,8 +108,9 @@ export default function FormularioPublicoPage() {
         id: registeredData.id || registeredData.clienteId,
         ruc: registeredData.ruc,
         razonSocial: registeredData.razonSocial,
-        planContratado: registeredData.planContratado || selectedPlan,
-        montoMensual: PLAN_PRICES[selectedPlan] || 29,
+        planContratado: registeredData.planNombre || registeredData.planContratado || selectedPlan,
+        montoMensual: Number(registeredData.precioPlan ?? (tipoSuscripcion === 'ANUAL' ? PLAN_ANNUAL_PRICES[selectedPlan] : PLAN_PRICES[selectedPlan]) ?? 29),
+        tipoSuscripcion,
         subdominio: registeredData.subdominio || registeredData.acceso?.subdominio,
       });
       setStep(2);
@@ -420,7 +438,10 @@ export default function FormularioPublicoPage() {
                     </div>
                     <div className="d-flex justify-content-between mb-2">
                       <span className="text-muted">Monto a pagar:</span>
-                      <strong className="text-success">S/ {client.montoMensual.toFixed(2)}</strong>
+                      <strong className="text-success">
+                        S/ {client.montoMensual.toFixed(2)}
+                        {client.tipoSuscripcion === 'ANUAL' ? ' anual' : ''}
+                      </strong>
                     </div>
                     <div className="d-flex justify-content-between">
                       <span className="text-muted">Estado:</span>

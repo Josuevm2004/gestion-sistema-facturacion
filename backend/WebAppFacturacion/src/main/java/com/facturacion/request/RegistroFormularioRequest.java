@@ -22,6 +22,7 @@ public class RegistroFormularioRequest {
     private String distrito;
 
     private Long planId;
+    private String planContratado;
     private TipoSuscripcion tipoSuscripcion;
 
     private String comoNosConocio;
@@ -65,6 +66,8 @@ public class RegistroFormularioRequest {
     public void setDistrito(String distrito) { this.distrito = distrito; }
     public Long getPlanId() { return planId; }
     public void setPlanId(Long planId) { this.planId = planId; }
+    public String getPlanContratado() { return planContratado; }
+    public void setPlanContratado(String planContratado) { this.planContratado = planContratado; }
     public TipoSuscripcion getTipoSuscripcion() { return tipoSuscripcion; }
     public void setTipoSuscripcion(TipoSuscripcion tipoSuscripcion) { this.tipoSuscripcion = tipoSuscripcion; }
     public String getComoNosConocio() { return comoNosConocio; }

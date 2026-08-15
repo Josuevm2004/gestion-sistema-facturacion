@@ -111,7 +111,7 @@ public class ClienteServiceImpl implements ClienteService {
         }
 
         // 4. Obtener Suscripción elegida
-        Long planId = request.getPlanId() != null ? request.getPlanId() : 1L;
+        Long planId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
         TipoSuscripcion tipoSub = request.getTipoSuscripcion() != null ? request.getTipoSuscripcion() : TipoSuscripcion.MENSUAL;
 
         Suscripcion suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(planId, tipoSub)
@@ -157,6 +157,24 @@ public class ClienteServiceImpl implements ClienteService {
         registrarHistorial(cliente, null, estadoPorCobrar, vendedor, "Registro inicial vía encuesta onboarding");
 
         return mapToDashboardResponse(cliente);
+    }
+
+    private Long resolverPlanId(String planContratado) {
+        String rawPlan = planContratado == null ? "INICIA" : planContratado;
+        String normalized = java.text.Normalizer.normalize(rawPlan, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toUpperCase()
+                .replace("PLAN ", "")
+                .trim();
+
+        return switch (normalized) {
+            case "EMPRENDE" -> 2L;
+            case "IMPULSA" -> 3L;
+            case "EMPRESARIAL" -> 4L;
+            case "LIDER" -> 5L;
+            case "INICIAL", "INICIA" -> 1L;
+            default -> 1L;
+        };
     }
 
     @Override
