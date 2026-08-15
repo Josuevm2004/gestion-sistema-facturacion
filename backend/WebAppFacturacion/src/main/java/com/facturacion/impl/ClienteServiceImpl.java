@@ -26,6 +26,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -179,18 +180,95 @@ public class ClienteServiceImpl implements ClienteService {
         detalle.setCliente(mapToDashboardResponse(cliente));
 
         List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(id);
-        detalle.setVentasHistorial(new ArrayList<>(ventas));
+        detalle.setVentasHistorial(mapVentasHistorial(ventas));
 
         List<Pago> pagos = pagoRepository.findByVentaClienteIdOrderByFechaRegistroDesc(id);
-        detalle.setPagosHistorial(new ArrayList<>(pagos));
+        detalle.setPagosHistorial(mapPagosHistorial(pagos));
 
         List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(id);
         detalle.setOperacionesHistorial(construirHistorialOperaciones(ventas, pagos, servicios));
 
         List<HistorialEstadoCliente> historico = historialEstadoClienteRepository.findByClienteIdOrderByFechaCambioDesc(id);
-        detalle.setEstadosHistorial(new ArrayList<>(historico));
+        detalle.setEstadosHistorial(mapEstadosHistorial(historico));
 
         return detalle;
+    }
+
+    private List<Object> mapVentasHistorial(List<Venta> ventas) {
+        List<Object> result = new ArrayList<>();
+        for (Venta v : ventas) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", v.getId());
+            item.put("ventaId", v.getId());
+            item.put("clienteId", v.getCliente() != null ? v.getCliente().getId() : null);
+            item.put("tipoVenta", v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
+            item.put("tipoOperacion", v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
+            item.put("estadoVenta", v.getEstadoVenta() != null ? v.getEstadoVenta().name() : null);
+            item.put("fechaVenta", v.getFechaVenta());
+            item.put("fechaOperacion", v.getFechaVenta());
+            item.put("precioLista", v.getPrecioLista());
+            item.put("montoTotal", v.getMontoTotal());
+            item.put("montoVenta", v.getMontoTotal());
+            item.put("montoProrrateado", v.getMontoProrrateado());
+            item.put("observaciones", v.getObservaciones());
+            if (v.getSuscripcion() != null) {
+                item.put("suscripcionId", v.getSuscripcion().getId());
+                item.put("tipoSuscripcion", v.getSuscripcion().getTipoSuscripcion() != null ? v.getSuscripcion().getTipoSuscripcion().name() : null);
+                if (v.getSuscripcion().getPlan() != null) {
+                    item.put("planId", v.getSuscripcion().getPlan().getId());
+                    item.put("plan", v.getSuscripcion().getPlan().getNombrePlan());
+                    item.put("planNombre", v.getSuscripcion().getPlan().getNombrePlan());
+                }
+            }
+            result.add(item);
+        }
+        return result;
+    }
+
+    private List<Object> mapPagosHistorial(List<Pago> pagos) {
+        List<Object> result = new ArrayList<>();
+        for (Pago p : pagos) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", p.getId());
+            item.put("pagoId", p.getId());
+            item.put("ventaId", p.getVenta() != null ? p.getVenta().getId() : null);
+            item.put("clienteId", p.getVenta() != null && p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
+            item.put("codigoOperacion", p.getCodigoOperacion());
+            item.put("monto", p.getMonto());
+            item.put("medioPago", p.getMedioPago() != null ? p.getMedioPago().name() : null);
+            item.put("estadoPago", p.getEstadoPago() != null ? p.getEstadoPago().name() : null);
+            item.put("fechaPago", p.getFechaPago());
+            item.put("fechaRegistro", p.getFechaRegistro());
+            item.put("comprobanteUrl", p.getComprobanteUrl());
+            item.put("observaciones", p.getObservaciones());
+
+            if (p.getVenta() != null) {
+                Map<String, Object> venta = new LinkedHashMap<>();
+                venta.put("id", p.getVenta().getId());
+                venta.put("clienteId", p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
+                venta.put("montoTotal", p.getVenta().getMontoTotal());
+                venta.put("estadoVenta", p.getVenta().getEstadoVenta() != null ? p.getVenta().getEstadoVenta().name() : null);
+                item.put("venta", venta);
+            }
+
+            result.add(item);
+        }
+        return result;
+    }
+
+    private List<Object> mapEstadosHistorial(List<HistorialEstadoCliente> historico) {
+        List<Object> result = new ArrayList<>();
+        for (HistorialEstadoCliente h : historico) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", h.getId());
+            item.put("estadoAnterior", h.getEstadoAnterior() != null ? h.getEstadoAnterior().getNombre() : null);
+            item.put("estadoNuevo", h.getEstadoNuevo() != null ? h.getEstadoNuevo().getNombre() : null);
+            item.put("motivo", h.getMotivo());
+            item.put("fechaCambio", h.getFechaCambio());
+            item.put("usuarioAdmin", h.getUsuarioAdmin() != null ? h.getUsuarioAdmin().getNombre() : null);
+            result.add(item);
+        }
+        return result;
     }
 
     private List<OperacionHistorialResponse> construirHistorialOperaciones(
