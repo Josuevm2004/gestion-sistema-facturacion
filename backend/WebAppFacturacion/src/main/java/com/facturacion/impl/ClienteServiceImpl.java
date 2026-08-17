@@ -393,6 +393,9 @@ public class ClienteServiceImpl implements ClienteService {
         }
 
         clienteRepository.save(cliente);
+        if (request.getVendedorId() != null) {
+            asignarVendedorAVentasExistentes(cliente.getId(), request.getVendedorId());
+        }
         return mapToDashboardResponse(cliente);
     }
 
@@ -413,16 +416,23 @@ public class ClienteServiceImpl implements ClienteService {
     public ClienteDashboardResponse cambiarVendedor(Long clienteId, Long vendedorId) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-        UsuarioAdmin vendedor = usuarioAdminRepository.findById(vendedorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Vendedor no encontrado"));
-
         List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
         if (ventasCliente.isEmpty()) {
-            throw new ResourceNotFoundException("El cliente no tiene ventas registradas para asignar vendedor");
+            return mapToDashboardResponse(cliente);
+        }
+        asignarVendedorAVentasExistentes(clienteId, vendedorId);
+        return mapToDashboardResponse(cliente);
+    }
+
+    private void asignarVendedorAVentasExistentes(Long clienteId, Long vendedorId) {
+        UsuarioAdmin vendedor = usuarioAdminRepository.findById(vendedorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendedor no encontrado"));
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+        if (ventasCliente.isEmpty()) {
+            return;
         }
         ventasCliente.forEach(venta -> venta.setVendedor(vendedor));
         ventaRepository.saveAll(ventasCliente);
-        return mapToDashboardResponse(cliente);
     }
 
     @Override
@@ -509,15 +519,18 @@ public class ClienteServiceImpl implements ClienteService {
             res.setColorHex(c.getColorTag().getHex());
         }
 
+        ServicioCliente servicio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(c.getId()).orElse(null);
         List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(c.getId());
         LocalDateTime ahora = LocalDateTime.now();
         Venta ventaPendiente = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
                 .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
                 .findFirst()
                 .orElse(null);
         Venta ventaPendienteVencida = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
                 .filter(v -> v.getFechaVenta() == null || !v.getFechaVenta().isAfter(ahora))
                 .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
                 .findFirst()
@@ -564,7 +577,6 @@ public class ClienteServiceImpl implements ClienteService {
             }
         }
 
-        ServicioCliente servicio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(c.getId()).orElse(null);
         if (servicio != null) {
             res.setServicioId(servicio.getId());
             res.setFechaCapacitacion(servicio.getFechaCapacitacion());
@@ -579,5 +591,14 @@ public class ClienteServiceImpl implements ClienteService {
 
         res.setFechaRegistro(c.getFechaRegistro());
         return res;
+    }
+
+    private boolean esPendienteObsoletaPorServicioActivo(Venta venta, ServicioCliente servicio) {
+        return venta != null
+                && venta.getFechaVenta() != null
+                && servicio != null
+                && servicio.getEstado() == EstadoServicio.ACTIVO
+                && servicio.getFechaInicio() != null
+                && venta.getFechaVenta().isBefore(servicio.getFechaInicio());
     }
 }

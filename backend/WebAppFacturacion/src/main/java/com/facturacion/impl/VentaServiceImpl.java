@@ -75,7 +75,13 @@ public class VentaServiceImpl implements VentaService {
         LocalDateTime fechaRef = LocalDateTime.now();
 
         List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(cliente.getId());
-        Venta ventaPendiente = encontrarVentaPendienteParaOperacion(ventasCliente, tipo, suscripcion);
+        Venta operacionReciente = encontrarOperacionPagadaReciente(ventasCliente, tipo, suscripcion, fechaRef);
+        if (operacionReciente != null) {
+            return operacionReciente;
+        }
+
+        ServicioCliente servicioActual = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(cliente.getId()).orElse(null);
+        Venta ventaPendiente = encontrarVentaPendienteParaOperacion(ventasCliente, tipo, suscripcion, servicioActual);
         Venta ventaAnterior = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
                 .findFirst()
@@ -138,7 +144,11 @@ public class VentaServiceImpl implements VentaService {
         return ventaProcesada;
     }
 
-    private Venta encontrarVentaPendienteParaOperacion(List<Venta> ventasCliente, TipoVenta tipo, Suscripcion suscripcion) {
+    private Venta encontrarVentaPendienteParaOperacion(
+            List<Venta> ventasCliente,
+            TipoVenta tipo,
+            Suscripcion suscripcion,
+            ServicioCliente servicioActual) {
         if (tipo != TipoVenta.RENOVACION) {
             return null;
         }
@@ -146,6 +156,7 @@ public class VentaServiceImpl implements VentaService {
         Venta mismaSuscripcion = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
                 .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
+                .filter(v -> !esPendienteObsoleta(v, servicioActual))
                 .filter(v -> mismaSuscripcion(v, suscripcion))
                 .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
                 .findFirst()
@@ -158,9 +169,19 @@ public class VentaServiceImpl implements VentaService {
         return ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
                 .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
+                .filter(v -> !esPendienteObsoleta(v, servicioActual))
                 .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private boolean esPendienteObsoleta(Venta venta, ServicioCliente servicioActual) {
+        return venta != null
+                && venta.getFechaVenta() != null
+                && servicioActual != null
+                && servicioActual.getEstado() == EstadoServicio.ACTIVO
+                && servicioActual.getFechaInicio() != null
+                && venta.getFechaVenta().isBefore(servicioActual.getFechaInicio());
     }
 
     private boolean mismaSuscripcion(Venta venta, Suscripcion suscripcion) {
@@ -168,6 +189,20 @@ public class VentaServiceImpl implements VentaService {
                 && suscripcion != null
                 && venta.getSuscripcion().getId() != null
                 && venta.getSuscripcion().getId().equals(suscripcion.getId());
+    }
+
+    private Venta encontrarOperacionPagadaReciente(
+            List<Venta> ventasCliente,
+            TipoVenta tipo,
+            Suscripcion suscripcion,
+            LocalDateTime fechaRef) {
+        return ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+                .filter(v -> v.getTipoVenta() == tipo)
+                .filter(v -> mismaSuscripcion(v, suscripcion))
+                .filter(v -> v.getFechaVenta() != null && !v.getFechaVenta().isBefore(fechaRef.minusMinutes(2)))
+                .findFirst()
+                .orElse(null);
     }
 
     private LocalDate resolverFechaInicioOperacion(Venta ventaPendiente, LocalDateTime fechaRef) {
@@ -308,7 +343,8 @@ public class VentaServiceImpl implements VentaService {
         if (ventaActual.getId() == null
                 || ventaActual.getSuscripcion() == null
                 || fechaFinServicio == null
-                || ventaRepository.existsByVentaAnteriorIdAndTipoVenta(ventaActual.getId(), TipoVenta.RENOVACION)) {
+                || ventaRepository.existsByVentaAnteriorIdAndTipoVentaAndEstadoVenta(
+                        ventaActual.getId(), TipoVenta.RENOVACION, EstadoVenta.PENDIENTE_PAGO)) {
             return;
         }
 

@@ -117,7 +117,8 @@ export default function ReportesExcelTab({
     const rawPaymentsForExcel = [...(Array.isArray(payments) ? payments : []), ...detailPayments];
     const paidPayments = rawPaymentsForExcel.filter((p) => {
       const estadoPago = (p?.estadoPago || '').toUpperCase();
-      return estadoPago === 'PAGADO' && (p?.fechaPago || p?.fechaRegistro);
+      const estadoVenta = (p?.venta?.estadoVenta || p?.estadoVenta || '').toUpperCase();
+      return estadoPago === 'PAGADO' && estadoVenta !== 'CANCELADA' && (p?.fechaPago || p?.fechaRegistro);
     });
     const paymentClientId = (p: any) => idKey(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId);
     const paymentVentaId = (p: any) => idKey(p?.venta?.id ?? p?.ventaId);
@@ -184,7 +185,6 @@ export default function ReportesExcelTab({
       isAnnualOperation(op, client)
         ? op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion
         : op?.fechaPago || op?.fechaOperacion;
-    const annualClientStartKey = (client: Client) => monthKeyFromDate(client.fechaCapacitacion || client.fechaRegistro);
     const annualClientAmount = (client: Client) => {
       const planPrice = annualPlanPrices[normalizePlanKey(client.planContratado)] || 0;
       const directAmount = Number(client.montoMensual || client.montoSiguienteCobro || 0);
@@ -203,6 +203,11 @@ export default function ReportesExcelTab({
       isAnnualOperation(op, client) ? annualOperationAmount(op, client) : operationAmount(op);
     const paymentMonthKey = (p: any) => monthKeyFromDate(p?.fechaPago || p?.fechaRegistro);
     const paymentAmount = (p: any) => Number(p?.monto ?? p?.venta?.montoTotal ?? 0);
+    const isPaidOperation = (op: any) => {
+      const estadoPago = (op?.estadoPago || '').toUpperCase();
+      const estadoVenta = (op?.estadoVenta || '').toUpperCase();
+      return estadoPago === 'PAGADO' || estadoVenta === 'PAGADA';
+    };
     const operationCoversPayment = (op: any, p: any) => {
       const pagoId = idKey(p?.id ?? p?.pagoId);
       const ventaId = paymentVentaId(p);
@@ -245,13 +250,11 @@ export default function ReportesExcelTab({
       const registroKey = monthKeyFromDate(c.fechaRegistro);
       if (registroKey) monthKeysSet.add(registroKey);
 
-      const operaciones = operacionesByClient.get(idKey(c.id)) || [];
-      let hasAnnualOperation = false;
+      const operaciones = (operacionesByClient.get(idKey(c.id)) || []).filter(isPaidOperation);
       operaciones.forEach((op) => {
         const key = monthKeyFromDate(operationMonthSource(op, c));
         if (!key) return;
         if (isAnnualOperation(op, c)) {
-          hasAnnualOperation = true;
           const monthsCovered = annualMonthsCovered(op);
           for (let i = 0; i < monthsCovered; i += 1) {
             monthKeysSet.add(addMonthsToKey(key, i));
@@ -266,14 +269,6 @@ export default function ReportesExcelTab({
         if (key) monthKeysSet.add(key);
       });
 
-      if (isAnnualClient(c) && !hasAnnualOperation) {
-        const startKey = annualClientStartKey(c);
-        if (startKey) {
-          for (let i = 0; i < 12; i += 1) {
-            monthKeysSet.add(addMonthsToKey(startKey, i));
-          }
-        }
-      }
     });
 
     if (monthKeysSet.size === 0) {
@@ -328,15 +323,13 @@ export default function ReportesExcelTab({
       monthKeys.forEach((key) => monthlySums.set(key, 0));
       const annualSpans: Array<{ startKey: string; amount: number; monthsCovered: number }> = [];
 
-      const operaciones = operacionesByClient.get(idKey(c.id)) || [];
-      let hasAnnualOperation = false;
+      const operaciones = (operacionesByClient.get(idKey(c.id)) || []).filter(isPaidOperation);
       operaciones.forEach((op) => {
         const rawDate = operationMonthSource(op, c);
         const key = monthKeyFromDate(rawDate);
         if (key) {
           const montoOperacion = excelOperationAmount(op, c);
           if (isAnnualOperation(op, c)) {
-            hasAnnualOperation = true;
             annualSpans.push({ startKey: key, amount: montoOperacion || annualClientAmount(c), monthsCovered: annualMonthsCovered(op) });
           } else {
             monthlySums.set(key, (monthlySums.get(key) || 0) + montoOperacion);
@@ -352,16 +345,10 @@ export default function ReportesExcelTab({
         monthlySums.set(key, (monthlySums.get(key) || 0) + montoPago);
         fallbackPaymentsTotal += montoPago;
       });
-      if (isAnnualClient(c) && !hasAnnualOperation) {
-        const startKey = annualClientStartKey(c);
-        if (startKey) {
-          annualSpans.push({ startKey, amount: annualClientAmount(c), monthsCovered: 12 });
-        }
-      }
       annualSpans.sort((a, b) => monthIndexFromKey(a.startKey) - monthIndexFromKey(b.startKey));
 
       const totalOperaciones = operaciones.reduce((acc, op) => acc + excelOperationAmount(op, c), 0);
-      const totalCobros = totalOperaciones + fallbackPaymentsTotal || (isAnnualClient(c) ? annualClientAmount(c) : 0);
+      const totalCobros = totalOperaciones + fallbackPaymentsTotal;
 
       const cells = [
         c.ruc,
@@ -518,8 +505,9 @@ export default function ReportesExcelTab({
     const countedPaymentIds = new Set<string>();
     (payments || []).forEach((p) => {
       const estadoPago = (p?.estadoPago || '').toUpperCase();
+      const estadoVenta = (p?.venta?.estadoVenta || p?.estadoVenta || '').toUpperCase();
       const paymentKey = String(p?.venta?.id || p?.ventaId || p?.id || p?.codigoOperacion || `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}`);
-      if (estadoPago !== 'PAGADO' || countedPaymentIds.has(paymentKey) || !p?.fechaPago) return;
+      if (estadoPago !== 'PAGADO' || estadoVenta === 'CANCELADA' || countedPaymentIds.has(paymentKey) || !p?.fechaPago) return;
 
       const payDate = new Date(p.fechaPago);
       if (isNaN(payDate.getTime())) return;

@@ -24,6 +24,9 @@ export function useAdminData() {
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const lastVencimientosReviewRef = useRef<number>(0);
+  const processingPaymentsRef = useRef<Set<string>>(new Set());
+  const processingOperationsRef = useRef<Set<string>>(new Set());
+  const processingStateRef = useRef<Set<string>>(new Set());
 
   // Filtros unificados
   const [search, setSearch] = useState('');
@@ -375,6 +378,9 @@ export function useAdminData() {
 
   async function handleRegisterPayment(client: Client) {
     if (!token) return;
+    const processingKey = `PAGO-${client.id}-${client.ventaId || 'SIN_VENTA'}`;
+    if (processingPaymentsRef.current.has(processingKey)) return;
+    processingPaymentsRef.current.add(processingKey);
 
     // 1. Actualización optimista instantánea a POR_CAPACITAR
     setClients((prev) =>
@@ -404,11 +410,17 @@ export function useAdminData() {
       await loadData(token);
     } catch (err: any) {
       setNotice(`Error al registrar el pago: ${err.response?.data?.message || err.message}`);
+      await loadData(token);
+    } finally {
+      processingPaymentsRef.current.delete(processingKey);
     }
   }
 
   async function handleEstadoCuentaChange(client: Client, nuevoEstado: string) {
     if (!token) return;
+    const processingKey = `ESTADO-${client.id}-${nuevoEstado}`;
+    if (processingStateRef.current.has(processingKey)) return;
+    processingStateRef.current.add(processingKey);
     try {
       if (nuevoEstado === 'BLOQUEADO') {
         await adminApi(token).put(`/admin/servicios/cliente/${client.id}/bloquear?motivo=Cliente bloqueado desde dashboard`);
@@ -419,17 +431,26 @@ export function useAdminData() {
       await loadData(token);
     } catch (err: any) {
       setNotice(`Error al actualizar estado: ${err.message}`);
+      await loadData(token);
+    } finally {
+      processingStateRef.current.delete(processingKey);
     }
   }
 
   async function handleDevolverAcceso(client: Client) {
     if (!token) return;
+    const processingKey = `DEVOLVER-${client.id}`;
+    if (processingStateRef.current.has(processingKey)) return;
+    processingStateRef.current.add(processingKey);
     try {
       await adminApi(token).put(`/admin/servicios/cliente/${client.id}/devolver-acceso`);
       setNotice(`Acceso devuelto para ${client.razonSocial}. Restaurado a estado VENCIDO.`);
       await loadData(token);
     } catch (err: any) {
       setNotice(`Error al devolver acceso: ${err.message}`);
+      await loadData(token);
+    } finally {
+      processingStateRef.current.delete(processingKey);
     }
   }
 
@@ -450,6 +471,9 @@ export function useAdminData() {
 
     const isCambio = nuevoPlan && normalizePlanKey(nuevoPlan) !== normalizePlanKey(client.planContratado);
     const tipoVenta = isCambio ? 'CAMBIO_PLAN' : 'RENOVACION';
+    const processingKey = `${client.id}-${tipoVenta}-${planId}-${tipoAUsar}`;
+    if (processingOperationsRef.current.has(processingKey)) return;
+    processingOperationsRef.current.add(processingKey);
 
     try {
       await adminApi(token).post(`/admin/ventas/procesar-operacion`, {
@@ -464,6 +488,9 @@ export function useAdminData() {
       await loadData(token);
     } catch (err: any) {
       setNotice(`Error al procesar la venta: ${err.response?.data?.message || err.message}`);
+      await loadData(token);
+    } finally {
+      processingOperationsRef.current.delete(processingKey);
     }
   }
 
@@ -692,8 +719,9 @@ export function useAdminData() {
 
     safePayments.forEach((p) => {
       const estadoPago = (p.estadoPago || '').toUpperCase();
+      const estadoVenta = (p.venta?.estadoVenta || p.estadoVenta || '').toUpperCase();
       const paymentKey = String(p.venta?.id || p.ventaId || p.id || p.codigoOperacion || `${p.fechaPago || p.fechaRegistro}-${p.monto}`);
-      if (estadoPago === 'PAGADO' && !countedPaymentIds.has(paymentKey) && p.fechaPago) {
+      if (estadoPago === 'PAGADO' && estadoVenta !== 'CANCELADA' && !countedPaymentIds.has(paymentKey) && p.fechaPago) {
         const pDate = new Date(p.fechaPago);
         if (!isNaN(pDate.getTime())) {
           const payStr = `${pDate.getFullYear()}-${String(pDate.getMonth() + 1).padStart(2, '0')}-${String(pDate.getDate()).padStart(2, '0')}`;

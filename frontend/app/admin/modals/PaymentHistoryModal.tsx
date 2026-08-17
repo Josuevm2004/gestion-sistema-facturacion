@@ -22,6 +22,7 @@ export default function PaymentHistoryModal({
   calcularProrrateoEntero,
 }: PaymentHistoryModalProps) {
   const [dbHistory, setDbHistory] = useState<any[]>([]);
+  const [dbStateHistory, setDbStateHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function PaymentHistoryModal({
       .then((data) => {
         if (data.success && data.data) {
           setDbHistory(data.data.operacionesHistorial || data.data.ventasHistorial || []);
+          setDbStateHistory(data.data.estadosHistorial || []);
         }
       })
       .catch((err) => console.error('Error fetching client DB history:', err))
@@ -56,10 +58,14 @@ export default function PaymentHistoryModal({
   // Filtrar pagos en memoria
   const rawPayments = (payments || []).filter((p) => {
     if (!p) return false;
+    const estadoPago = (p.estadoPago || '').toUpperCase();
+    const estadoVenta = (p.venta?.estadoVenta || p.estadoVenta || '').toUpperCase();
+    if (estadoPago !== 'PAGADO' || estadoVenta === 'CANCELADA') return false;
+    const currentId = String(historyClient.id);
     return (
-      p.clienteId === historyClient.id ||
-      p.cliente?.id === historyClient.id ||
-      p.venta?.cliente?.id === historyClient.id
+      String(p.clienteId || '') === currentId ||
+      String(p.cliente?.id || '') === currentId ||
+      String(p.venta?.cliente?.id || '') === currentId
     );
   });
 
@@ -83,6 +89,27 @@ export default function PaymentHistoryModal({
       });
     });
   }
+  dbStateHistory.forEach((h) => {
+    const estadoNuevo = h.estadoNuevo || 'SIN_ESTADO';
+    const estadoAnterior = h.estadoAnterior || 'SIN_ESTADO';
+    transactions.push({
+      id: `estado-${h.id || h.fechaCambio}`,
+      fecha: h.fechaCambio || historyClient.fechaRegistro,
+      tipoOperacion:
+        estadoNuevo === 'BLOQUEADO'
+          ? 'Bloqueo'
+          : estadoNuevo === 'VENCIDO'
+          ? 'Devolucion/Vencimiento'
+          : estadoNuevo === 'HABILITADO'
+          ? 'Habilitacion'
+          : 'Cambio de Estado',
+      badgeClass: estadoNuevo === 'BLOQUEADO' ? 'bg-danger' : 'bg-secondary',
+      monto: null,
+      estado: `${estadoAnterior} -> ${estadoNuevo}`,
+      observaciones: h.motivo || 'Movimiento de estado',
+      isStateMovement: true,
+    });
+  });
   rawPayments.forEach((p) => {
     const ventaId = p.ventaId || p.venta?.id;
     if (!transactions.some((t) => t.id === `venta-${ventaId}` || t.id === `pago-${p.id}`)) {
@@ -110,6 +137,12 @@ export default function PaymentHistoryModal({
       observaciones: 'Venta inicial registrada',
     });
   }
+
+  transactions.sort((a, b) => {
+    const aTime = a.fecha ? new Date(a.fecha).getTime() : 0;
+    const bTime = b.fecha ? new Date(b.fecha).getTime() : 0;
+    return bTime - aTime;
+  });
 
   const MESES = [
     'Enero',
@@ -212,7 +245,9 @@ export default function PaymentHistoryModal({
                             {t.estado}
                           </span>
                         </td>
-                        <td className="fw-bold text-success fs-6">S/ {Number(t.monto || 0).toFixed(2)}</td>
+                        <td className="fw-bold text-success fs-6">
+                          {t.isStateMovement ? '—' : `S/ ${Number(t.monto || 0).toFixed(2)}`}
+                        </td>
                       </tr>
                     );
                   })}

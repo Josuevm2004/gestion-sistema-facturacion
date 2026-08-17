@@ -15,6 +15,7 @@ import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
 import com.facturacion.repository.EstadoClienteRepository;
 import com.facturacion.repository.HistorialEstadoClienteRepository;
+import com.facturacion.repository.ClienteRepository;
 import com.facturacion.repository.PagoRepository;
 import com.facturacion.repository.ServicioClienteRepository;
 import com.facturacion.repository.VentaRepository;
@@ -43,6 +44,8 @@ public class PagoServiceImpl implements PagoService {
     private VentaRepository ventaRepository;
     @Autowired
     private EstadoClienteRepository estadoClienteRepository;
+    @Autowired
+    private ClienteRepository clienteRepository;
     @Autowired
     private HistorialEstadoClienteRepository historialEstadoClienteRepository;
     @Autowired
@@ -122,6 +125,7 @@ public class PagoServiceImpl implements PagoService {
                 });
 
         cliente.setEstado(estadoPorCapacitar);
+        clienteRepository.save(cliente);
         historialEstadoClienteRepository.save(crearHistorial(cliente, viejoEstado, estadoPorCapacitar,
                 "Pago verificado para Venta de ALTA #" + venta.getId(), fechaOperacion));
     }
@@ -195,6 +199,7 @@ public class PagoServiceImpl implements PagoService {
                 });
 
         cliente.setEstado(estadoHabilitado);
+        clienteRepository.save(cliente);
         historialEstadoClienteRepository.save(crearHistorial(cliente, viejoEstado, estadoHabilitado,
                 "Pago verificado para Venta #" + venta.getId() + " (" + venta.getTipoVenta() + ")", fechaOperacion));
     }
@@ -233,7 +238,8 @@ public class PagoServiceImpl implements PagoService {
         if (fechaFinServicio == null
                 || ventaActual.getId() == null
                 || ventaActual.getSuscripcion() == null
-                || ventaRepository.existsByVentaAnteriorIdAndTipoVenta(ventaActual.getId(), TipoVenta.RENOVACION)) {
+                || ventaRepository.existsByVentaAnteriorIdAndTipoVentaAndEstadoVenta(
+                        ventaActual.getId(), TipoVenta.RENOVACION, EstadoVenta.PENDIENTE_PAGO)) {
             return;
         }
 

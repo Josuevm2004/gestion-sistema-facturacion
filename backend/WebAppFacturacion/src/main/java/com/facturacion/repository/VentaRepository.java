@@ -1,6 +1,8 @@
 package com.facturacion.repository;
 
 import com.facturacion.entity.Venta;
+import com.facturacion.enums.EstadoVenta;
+import com.facturacion.enums.TipoVenta;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -11,6 +13,7 @@ import java.util.Optional;
 public interface VentaRepository extends JpaRepository<Venta, Long> {
     List<Venta> findByClienteIdOrderByFechaVentaDesc(Long clienteId);
     Optional<Venta> findTopByClienteIdOrderByFechaVentaDesc(Long clienteId);
-    Optional<Venta> findByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, com.facturacion.enums.TipoVenta tipoVenta);
-    boolean existsByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, com.facturacion.enums.TipoVenta tipoVenta);
+    Optional<Venta> findByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, TipoVenta tipoVenta);
+    boolean existsByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, TipoVenta tipoVenta);
+    boolean existsByVentaAnteriorIdAndTipoVentaAndEstadoVenta(Long ventaAnteriorId, TipoVenta tipoVenta, EstadoVenta estadoVenta);
 }

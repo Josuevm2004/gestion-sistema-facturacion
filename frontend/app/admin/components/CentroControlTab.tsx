@@ -117,6 +117,7 @@ export default function CentroControlTab({
                   c.fechaCapacitacion,
                   c.montoMensual
                 );
+                const cobroProximo = Number(c.montoSiguienteCobro ?? prorrateo.montoProrrateado ?? c.montoMensual ?? 0);
 
                 const isNearExpiry = diffDays <= 3 && diffDays >= 0;
                 const isExpired = diffDays <= 0;
@@ -155,7 +156,7 @@ export default function CentroControlTab({
                       <span className="badge bg-light text-dark border">{c.tipoSuscripcion || 'MENSUAL'}</span>
                     </td>
                     <td className="py-2">
-                      <strong className="text-success fs-6">S/ {prorrateo.montoProrrateado}</strong>
+                      <strong className="text-success fs-6">S/ {cobroProximo.toFixed(2)}</strong>
                     </td>
                     <td className="py-2">
                       <strong className={isExpired ? 'text-danger' : isNearExpiry ? 'text-warning' : 'text-dark'}>
