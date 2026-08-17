@@ -248,6 +248,8 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
     @Override
     @Transactional
     public void revisarVencimientos() {
+        realinearServiciosMensualesActivosAlDiaCobro();
+
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime hoyStart = now.with(LocalTime.MIN);
         LocalDateTime hoyEnd = now.with(LocalTime.MAX);
@@ -320,5 +322,63 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 notificacionRepository.save(n);
             }
         }
+    }
+
+    private void realinearServiciosMensualesActivosAlDiaCobro() {
+        List<ServicioCliente> serviciosActivos = servicioClienteRepository.findByEstado(EstadoServicio.ACTIVO);
+        LocalDateTime ahora = LocalDateTime.now();
+
+        for (ServicioCliente servicio : serviciosActivos) {
+            Venta ventaServicio = servicio.getVenta();
+            if (servicio.getFechaInicio() == null
+                    || ventaServicio == null
+                    || ventaServicio.getSuscripcion() == null
+                    || ventaServicio.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
+                continue;
+            }
+
+            LocalDate fechaInicio = servicio.getFechaInicio().toLocalDate();
+            LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicio, monthlyBillingDay);
+            LocalDateTime fechaFinCalculada = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+
+            if (!fechaFinCalculada.equals(servicio.getFechaFin())) {
+                servicio.setFechaFin(fechaFinCalculada);
+                servicio.setFechaActualizacion(ahora);
+                servicioClienteRepository.save(servicio);
+            }
+
+            ventaRepository.findByVentaAnteriorIdAndTipoVenta(ventaServicio.getId(), TipoVenta.RENOVACION)
+                    .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                    .ifPresent(pendiente -> realinearVentaPendienteMensual(servicio, pendiente, fechaFinMensual, ahora));
+        }
+    }
+
+    private void realinearVentaPendienteMensual(
+            ServicioCliente servicio,
+            Venta pendiente,
+            LocalDate fechaCobro,
+            LocalDateTime ahora) {
+        Venta ventaServicio = servicio.getVenta();
+        BigDecimal precioBase = pendiente.getPrecioLista() != null
+                ? pendiente.getPrecioLista()
+                : ventaServicio.getSuscripcion().getPrecio();
+
+        pendiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+        pendiente.setPrecioLista(precioBase);
+        if (ventaServicio.getTipoVenta() == TipoVenta.ALTA) {
+            ProrrateoCalculatorUtil.ResultadoProrrateo r =
+                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioBase, servicio.getFechaInicio().toLocalDate(), monthlyBillingDay);
+            pendiente.setMontoProrrateado(r.descuento());
+            pendiente.setMontoTotal(r.montoFinal());
+            servicio.setMontoProrrateo(r.montoFinal());
+            servicio.setDiasProrrateados(Math.max(1, r.diasTotales() - r.diasNoConsumidos()));
+            servicio.setFechaActualizacion(ahora);
+            servicioClienteRepository.save(servicio);
+        } else {
+            pendiente.setMontoProrrateado(BigDecimal.ZERO);
+            pendiente.setMontoTotal(precioBase);
+        }
+        pendiente.setFechaActualizacion(ahora);
+        ventaRepository.save(pendiente);
     }
 }

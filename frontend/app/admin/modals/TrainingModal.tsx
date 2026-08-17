@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { MONTHLY_BILLING_DAY } from '@/lib/billing';
 import { Client } from '../components/ClientesTodosTab';
 
 interface TrainingModalProps {
@@ -45,7 +46,7 @@ export default function TrainingModal({
 
               {prorrateoCalculado && (
                 <div className="p-3 bg-light rounded-3 border">
-                  <h6 className="fw-bold text-primary mb-2">Cálculo de Prorrateo con Corte Día 15 (Fórmula Mcobro)</h6>
+                  <h6 className="fw-bold text-primary mb-2">Cálculo de Prorrateo con Corte Día {MONTHLY_BILLING_DAY} (Fórmula Mcobro)</h6>
                   <div className="small">
                     <div>
                       Plan contratado: <strong>{trainingClient.planContratado} (S/ {trainingClient.montoMensual})</strong>
@@ -62,7 +63,7 @@ export default function TrainingModal({
                       </div>
                     )}
                     <div className="fs-5 fw-bold text-success mt-2">
-                      Cobro al corte del día 15: S/ {prorrateoCalculado.montoProrrateado.toFixed(2)}
+                      Cobro al corte del día {MONTHLY_BILLING_DAY}: S/ {prorrateoCalculado.montoProrrateado.toFixed(2)}
                     </div>
                     <div className="text-muted small">Fecha límite de pago ajustada: {prorrateoCalculado.fechaVencimiento}</div>
                   </div>

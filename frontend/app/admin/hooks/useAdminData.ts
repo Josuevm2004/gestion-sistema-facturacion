@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi, api } from '@/lib/api';
+import { MONTHLY_BILLING_DAY } from '@/lib/billing';
 import { Client, ColorTagType, SubscriptionType } from '../components/ClientesTodosTab';
 import { UserAccount } from '../components/VendedoresTab';
 
@@ -237,7 +238,7 @@ export function useAdminData() {
     fechaCapacitacionStr?: string,
     montoMensualBase?: number
   ) {
-    const monthlyBillingDay = 15;
+    const monthlyBillingDay = MONTHLY_BILLING_DAY;
     const monthlyPlanPrices: Record<string, number> = { INICIA: 19, EMPRENDE: 29, IMPULSA: 39, EMPRESARIAL: 59, LIDER: 89 };
     const annualPlanPrices: Record<string, number> = { INICIA: 190, EMPRENDE: 290, IMPULSA: 390, EMPRESARIAL: 590, LIDER: 890 };
     const pKey = normalizePlanKey(planStr);
@@ -287,7 +288,7 @@ export function useAdminData() {
     const year = dCap.getFullYear();
     const month = dCap.getMonth();
     const diaCap = dCap.getDate();
-    const monthlyBillingDay = 15;
+    const monthlyBillingDay = MONTHLY_BILLING_DAY;
     const billingDate = (base: Date) => {
       const y = base.getFullYear();
       const m = base.getMonth();
@@ -323,7 +324,7 @@ export function useAdminData() {
   function getCalculatedExpirationDate(client: Client): { fechaStr: string; dateObj: Date; isExpired: boolean; daysRemaining: number } {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const monthlyBillingDay = 15;
+    const monthlyBillingDay = MONTHLY_BILLING_DAY;
     const getBillingDate = (baseDate: Date) => {
       const year = baseDate.getFullYear();
       const month = baseDate.getMonth();
