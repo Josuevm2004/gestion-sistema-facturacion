@@ -1,6 +1,11 @@
 package com.facturacion.impl;
 
-import com.facturacion.entity.*;
+import com.facturacion.entity.Cliente;
+import com.facturacion.entity.EstadoCliente;
+import com.facturacion.entity.HistorialEstadoCliente;
+import com.facturacion.entity.Pago;
+import com.facturacion.entity.ServicioCliente;
+import com.facturacion.entity.Venta;
 import com.facturacion.enums.EstadoPago;
 import com.facturacion.enums.EstadoServicio;
 import com.facturacion.enums.EstadoVenta;
@@ -8,7 +13,11 @@ import com.facturacion.enums.MedioPago;
 import com.facturacion.enums.TipoSuscripcion;
 import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
-import com.facturacion.repository.*;
+import com.facturacion.repository.EstadoClienteRepository;
+import com.facturacion.repository.HistorialEstadoClienteRepository;
+import com.facturacion.repository.PagoRepository;
+import com.facturacion.repository.ServicioClienteRepository;
+import com.facturacion.repository.VentaRepository;
 import com.facturacion.request.RegistrarPagoRequest;
 import com.facturacion.service.PagoService;
 import com.facturacion.util.ProrrateoCalculatorUtil;
@@ -18,10 +27,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
 @Service
@@ -34,8 +42,6 @@ public class PagoServiceImpl implements PagoService {
     @Autowired
     private VentaRepository ventaRepository;
     @Autowired
-    private ClienteRepository clienteRepository;
-    @Autowired
     private EstadoClienteRepository estadoClienteRepository;
     @Autowired
     private HistorialEstadoClienteRepository historialEstadoClienteRepository;
@@ -44,6 +50,14 @@ public class PagoServiceImpl implements PagoService {
 
     @Value("${app.billing.monthly-billing-day:15}")
     private int monthlyBillingDay;
+
+    private record AjusteCobro(
+            LocalDateTime fechaInicio,
+            LocalDateTime fechaFin,
+            BigDecimal descuentoProrrateo,
+            BigDecimal montoTotal,
+            int diasProrrateados
+    ) {}
 
     @Override
     @Transactional
@@ -63,10 +77,17 @@ public class PagoServiceImpl implements PagoService {
             return pagoExistente;
         }
 
+        AjusteCobro ajusteCobro = null;
+        if (venta.getTipoVenta() != TipoVenta.ALTA) {
+            ajusteCobro = calcularAjusteCobro(venta, fechaOperacion);
+            venta.setMontoProrrateado(ajusteCobro.descuentoProrrateo());
+            venta.setMontoTotal(ajusteCobro.montoTotal());
+        }
+
         Pago pago = new Pago();
         pago.setVenta(venta);
         pago.setCodigoOperacion(request.getCodigoOperacion());
-        pago.setMonto(request.getMonto() != null ? request.getMonto() : venta.getMontoTotal());
+        pago.setMonto(venta.getTipoVenta() == TipoVenta.ALTA && request.getMonto() != null ? request.getMonto() : venta.getMontoTotal());
         pago.setMedioPago(request.getMedioPago() != null ? request.getMedioPago() : MedioPago.OTRO);
         pago.setEstadoPago(EstadoPago.PAGADO);
         pago.setFechaPago(fechaOperacion);
@@ -81,60 +102,89 @@ public class PagoServiceImpl implements PagoService {
 
         Cliente cliente = venta.getCliente();
         if (cliente != null && venta.getTipoVenta() == TipoVenta.ALTA) {
-            EstadoCliente viejoEstado = cliente.getEstado();
-            EstadoCliente estadoPorCapacitar = estadoClienteRepository.findByNombreAndActivoTrue("POR_CAPACITAR")
-                    .orElseGet(() -> {
-                        EstadoCliente e = new EstadoCliente();
-                        e.setNombre("POR_CAPACITAR");
-                        e.setDescripcion("Pago realizado, pendiente de capacitación");
-                        return estadoClienteRepository.save(e);
-                    });
-
-            cliente.setEstado(estadoPorCapacitar);
-            clienteRepository.save(cliente);
-
-            HistorialEstadoCliente h = new HistorialEstadoCliente();
-            h.setCliente(cliente);
-            h.setEstadoAnterior(viejoEstado);
-            h.setEstadoNuevo(estadoPorCapacitar);
-            h.setMotivo("Pago verificado para Venta de ALTA #" + venta.getId());
-            h.setFechaCambio(fechaOperacion);
-            historialEstadoClienteRepository.save(h);
+            pasarClienteAPorCapacitar(cliente, venta, fechaOperacion);
         } else if (cliente != null) {
-            activarServicioPorVentaPagada(cliente, venta, fechaOperacion);
+            cancelarOtrasVentasPendientes(cliente.getId(), venta, fechaOperacion);
+            activarServicioPorVentaPagada(cliente, venta, ajusteCobro, fechaOperacion);
         }
 
         return pago;
     }
 
-    private void activarServicioPorVentaPagada(Cliente cliente, Venta venta, LocalDateTime fechaOperacion) {
-        ServicioCliente servicio = servicioClienteRepository.findByVentaId(venta.getId()).orElse(null);
-        if (servicio == null) {
-            LocalDateTime fechaInicio = venta.getFechaVenta() != null ? venta.getFechaVenta() : fechaOperacion;
-            LocalDateTime fechaFin;
-            if (venta.getSuscripcion() != null && venta.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
-                fechaFin = fechaInicio.plusYears(1);
-            } else {
-                LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicio.toLocalDate(), monthlyBillingDay);
-                fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
-            }
+    private void pasarClienteAPorCapacitar(Cliente cliente, Venta venta, LocalDateTime fechaOperacion) {
+        EstadoCliente viejoEstado = cliente.getEstado();
+        EstadoCliente estadoPorCapacitar = estadoClienteRepository.findByNombreAndActivoTrue("POR_CAPACITAR")
+                .orElseGet(() -> {
+                    EstadoCliente e = new EstadoCliente();
+                    e.setNombre("POR_CAPACITAR");
+                    e.setDescripcion("Pago realizado, pendiente de capacitacion");
+                    return estadoClienteRepository.save(e);
+                });
 
-            servicio = new ServicioCliente();
-            servicio.setCliente(cliente);
-            servicio.setVenta(venta);
-            servicio.setFechaInicio(fechaInicio);
-            servicio.setFechaFin(fechaFin);
-            servicio.setFechaCapacitacion(fechaInicio);
-            servicio.setEstado(EstadoServicio.ACTIVO);
-            servicio.setMontoProrrateo(venta.getMontoTotal());
-            servicio.setDiasProrrateados(0);
-            servicio.setObservaciones("Servicio activado por pago de " + venta.getTipoVenta());
-            servicio.setFechaCreacion(fechaOperacion);
-            servicio.setFechaActualizacion(fechaOperacion);
-            servicioClienteRepository.save(servicio);
+        cliente.setEstado(estadoPorCapacitar);
+        historialEstadoClienteRepository.save(crearHistorial(cliente, viejoEstado, estadoPorCapacitar,
+                "Pago verificado para Venta de ALTA #" + venta.getId(), fechaOperacion));
+    }
+
+    private AjusteCobro calcularAjusteCobro(Venta venta, LocalDateTime fechaOperacion) {
+        BigDecimal precioLista = venta.getPrecioLista() != null
+                ? venta.getPrecioLista()
+                : venta.getSuscripcion() != null ? venta.getSuscripcion().getPrecio() : venta.getMontoTotal();
+        venta.setPrecioLista(precioLista);
+
+        LocalDate fechaInicioDate = resolverFechaInicioOperacion(venta, fechaOperacion);
+        LocalDateTime fechaInicio = fechaInicioDate.equals(fechaOperacion.toLocalDate())
+                ? fechaOperacion
+                : LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
+
+        if (venta.getSuscripcion() != null && venta.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
+            return new AjusteCobro(fechaInicio, fechaInicio.plusYears(1), BigDecimal.ZERO, precioLista, 365);
         }
-        crearSiguienteRenovacionPendiente(venta, servicio.getFechaFin());
 
+        ProrrateoCalculatorUtil.ResultadoProrrateo r =
+                ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioLista, fechaInicioDate, monthlyBillingDay);
+        LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
+        LocalDateTime fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+        int diasProrrateados = Math.max(1, r.diasTotales() - r.diasNoConsumidos());
+
+        return new AjusteCobro(fechaInicio, fechaFin, r.descuento(), r.montoFinal(), diasProrrateados);
+    }
+
+    private LocalDate resolverFechaInicioOperacion(Venta venta, LocalDateTime fechaOperacion) {
+        LocalDate hoy = fechaOperacion.toLocalDate();
+        if (venta.getFechaVenta() != null) {
+            LocalDate fechaProgramada = venta.getFechaVenta().toLocalDate();
+            if (hoy.isBefore(fechaProgramada)) {
+                return fechaProgramada;
+            }
+        }
+        return hoy;
+    }
+
+    private void activarServicioPorVentaPagada(Cliente cliente, Venta venta, AjusteCobro ajusteCobro, LocalDateTime fechaOperacion) {
+        AjusteCobro ajuste = ajusteCobro != null ? ajusteCobro : calcularAjusteCobro(venta, fechaOperacion);
+        ServicioCliente servicio = servicioClienteRepository.findByVentaId(venta.getId()).orElseGet(ServicioCliente::new);
+
+        servicio.setCliente(cliente);
+        servicio.setVenta(venta);
+        servicio.setFechaInicio(ajuste.fechaInicio());
+        servicio.setFechaFin(ajuste.fechaFin());
+        servicio.setFechaCapacitacion(ajuste.fechaInicio());
+        servicio.setEstado(EstadoServicio.ACTIVO);
+        servicio.setMontoProrrateo(ajuste.montoTotal());
+        servicio.setDiasProrrateados(ajuste.diasProrrateados());
+        servicio.setObservaciones("Servicio activado por pago de " + venta.getTipoVenta());
+        if (servicio.getId() == null) {
+            servicio.setFechaCreacion(fechaOperacion);
+        }
+        servicio.setFechaActualizacion(fechaOperacion);
+        servicioClienteRepository.save(servicio);
+
+        crearSiguienteRenovacionPendiente(venta, servicio.getFechaFin());
+        habilitarCliente(cliente, venta, fechaOperacion);
+    }
+
+    private void habilitarCliente(Cliente cliente, Venta venta, LocalDateTime fechaOperacion) {
         EstadoCliente viejoEstado = cliente.getEstado();
         EstadoCliente estadoHabilitado = estadoClienteRepository.findByNombreAndActivoTrue("HABILITADO")
                 .orElseGet(() -> {
@@ -145,15 +195,38 @@ public class PagoServiceImpl implements PagoService {
                 });
 
         cliente.setEstado(estadoHabilitado);
-        clienteRepository.save(cliente);
+        historialEstadoClienteRepository.save(crearHistorial(cliente, viejoEstado, estadoHabilitado,
+                "Pago verificado para Venta #" + venta.getId() + " (" + venta.getTipoVenta() + ")", fechaOperacion));
+    }
 
+    private HistorialEstadoCliente crearHistorial(
+            Cliente cliente,
+            EstadoCliente estadoAnterior,
+            EstadoCliente estadoNuevo,
+            String motivo,
+            LocalDateTime fechaOperacion) {
         HistorialEstadoCliente h = new HistorialEstadoCliente();
         h.setCliente(cliente);
-        h.setEstadoAnterior(viejoEstado);
-        h.setEstadoNuevo(estadoHabilitado);
-        h.setMotivo("Pago verificado para Venta #" + venta.getId() + " (" + venta.getTipoVenta() + ")");
+        h.setEstadoAnterior(estadoAnterior);
+        h.setEstadoNuevo(estadoNuevo);
+        h.setMotivo(motivo);
         h.setFechaCambio(fechaOperacion);
-        historialEstadoClienteRepository.save(h);
+        return h;
+    }
+
+    private void cancelarOtrasVentasPendientes(Long clienteId, Venta ventaPagada, LocalDateTime fechaOperacion) {
+        List<Venta> pendientes = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId).stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .filter(v -> v.getId() == null || !v.getId().equals(ventaPagada.getId()))
+                .toList();
+
+        for (Venta pendiente : pendientes) {
+            pendiente.setEstadoVenta(EstadoVenta.CANCELADA);
+            pendiente.setFechaActualizacion(fechaOperacion);
+        }
+        if (!pendientes.isEmpty()) {
+            ventaRepository.saveAll(pendientes);
+        }
     }
 
     private void crearSiguienteRenovacionPendiente(Venta ventaActual, LocalDateTime fechaFinServicio) {
@@ -164,9 +237,7 @@ public class PagoServiceImpl implements PagoService {
             return;
         }
 
-        LocalDate fechaCobroDate = ventaActual.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL
-                ? fechaFinServicio.toLocalDate()
-                : fechaFinServicio.toLocalDate();
+        LocalDate fechaCobroDate = fechaFinServicio.toLocalDate();
         LocalDateTime fechaCobro = LocalDateTime.of(fechaCobroDate, LocalTime.NOON);
 
         Venta siguienteVenta = new Venta();
