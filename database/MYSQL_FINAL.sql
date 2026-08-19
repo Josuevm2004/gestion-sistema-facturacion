@@ -391,6 +391,7 @@ CREATE TABLE encuesta_inicial (
 -- ALTA
 -- RENOVACION
 -- CAMBIO_PLAN
+-- MEJORA_PLAN
 --
 -- Nunca se modifica una venta histórica para convertirla
 -- en otra.
@@ -417,7 +418,8 @@ CREATE TABLE venta (
     tipo_venta ENUM(
         'ALTA',
         'RENOVACION',
-        'CAMBIO_PLAN'
+        'CAMBIO_PLAN',
+        'MEJORA_PLAN'
     ) NOT NULL,
 
     -- Venta anterior

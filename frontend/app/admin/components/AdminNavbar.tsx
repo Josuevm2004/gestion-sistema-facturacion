@@ -41,6 +41,8 @@ export default function AdminNavbar({
   setCalendarSearch,
   handleMarkNotificationAsRead,
 }: AdminNavbarProps) {
+  const [dismissedNearDueAlerts, setDismissedNearDueAlerts] = React.useState<Set<string>>(new Set());
+
   const activeNotifications = React.useMemo(() => {
     const seen = new Set<string>();
     return notifications.filter((n) => {
@@ -57,11 +59,12 @@ export default function AdminNavbar({
     return clientesPorVencer1DiaList.filter((c) => {
       if (!c) return false;
       const key = String(c.id || c.ruc || c.razonSocial);
+      if (dismissedNearDueAlerts.has(key)) return false;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-  }, [clientesPorVencer1DiaList]);
+  }, [clientesPorVencer1DiaList, dismissedNearDueAlerts]);
 
   const alertCount = activeNotifications.length || uniqueNearDueClients.length;
 
@@ -188,6 +191,9 @@ export default function AdminNavbar({
                                 if (n.id && handleMarkNotificationAsRead) {
                                   handleMarkNotificationAsRead(n.id);
                                 }
+                                if (n.clienteId) {
+                                  setDismissedNearDueAlerts((prev) => new Set(prev).add(String(n.clienteId)));
+                                }
                                 if (n.clienteRazonSocial) {
                                   setCalendarSearch(n.clienteRazonSocial);
                                   setActiveTab('calendario');
@@ -212,6 +218,8 @@ export default function AdminNavbar({
                               className="p-3 border rounded bg-light text-start shadow-sm"
                               style={{ cursor: 'pointer' }}
                               onClick={() => {
+                                const key = String(c.id || c.ruc || c.razonSocial);
+                                setDismissedNearDueAlerts((prev) => new Set(prev).add(key));
                                 setCalendarSearch(c.ruc);
                                 setActiveTab('calendario');
                                 setShowNotificationsDropdown(false);

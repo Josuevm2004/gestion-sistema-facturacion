@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Users, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
+import { Search, Users, Edit, Trash2, Eye, EyeOff, TrendingUp } from 'lucide-react';
 
 export type ColorTagType = 'VERDE' | 'ROJO' | 'AMARILLO' | 'AZUL';
 export type SubscriptionType = 'MENSUAL' | 'ANUAL';
@@ -63,6 +63,8 @@ interface ClientesTodosTabProps {
   setShowSolKeys: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   currentUser: any;
   setEditingClient: (client: Client) => void;
+  setMejoraPlanClient: (client: Client) => void;
+  setMejoraPlanSeleccionado: (plan: string) => void;
   setDeletingClient: (client: Client) => void;
   COLOR_MAP?: any;
 }
@@ -84,6 +86,8 @@ export default function ClientesTodosTab({
   setShowSolKeys,
   currentUser,
   setEditingClient,
+  setMejoraPlanClient,
+  setMejoraPlanSeleccionado,
   setDeletingClient,
   COLOR_MAP,
 }: ClientesTodosTabProps) {
@@ -109,6 +113,20 @@ export default function ClientesTodosTab({
     const key = (tag || 'VERDE').toUpperCase();
     if (COLOR_MAP && COLOR_MAP[key]) return COLOR_MAP[key];
     return defaultColorMap[key] || defaultColorMap.VERDE;
+  };
+  const planOrder = ['INICIA', 'EMPRENDE', 'IMPULSA', 'EMPRESARIAL', 'LIDER'];
+  const normalizePlanKey = (planStr?: string) => {
+    const normalized = (planStr || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase()
+      .replace(/^PLAN\s+/, '')
+      .trim();
+    return normalized === 'INICIAL' ? 'INICIA' : normalized;
+  };
+  const nextUpgradePlan = (planStr?: string) => {
+    const currentIndex = planOrder.indexOf(normalizePlanKey(planStr));
+    return planOrder[Math.min(currentIndex + 1, planOrder.length - 1)] || 'EMPRENDE';
   };
 
   const activeColorClient = React.useMemo(
@@ -297,6 +315,18 @@ export default function ClientesTodosTab({
                 </td>
                 <td>
                   <div className="d-flex gap-1">
+                    {c.estadoCuenta === 'HABILITADO' && normalizePlanKey(c.planContratado) !== 'LIDER' && (
+                      <button
+                        onClick={() => {
+                          setMejoraPlanSeleccionado(nextUpgradePlan(c.planContratado));
+                          setMejoraPlanClient(c);
+                        }}
+                        className="btn btn-sm btn-outline-success"
+                        title="Mejorar plan activo sin modificar vencimiento"
+                      >
+                        <TrendingUp size={14} />
+                      </button>
+                    )}
                     <button onClick={() => setEditingClient(c)} className="btn btn-sm btn-outline-primary" title="Editar cliente">
                       <Edit size={14} />
                     </button>

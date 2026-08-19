@@ -11,8 +11,9 @@ public class AlertaCobranzaScheduler {
     @Autowired
     private ServicioClienteService servicioClienteService;
 
-    // Se ejecuta automáticamente todos los días a las 08:00 AM
-    @Scheduled(cron = "0 0 8 * * *")
+    // Ejecuta la revisión al comenzar cada día y mantiene una segunda
+    // ejecución de respaldo a las 08:00. La zona evita depender del UTC del servidor.
+    @Scheduled(cron = "0 0 0,8 * * *", zone = "America/Lima")
     public void revisarVencimientosYNotificaciones() {
         servicioClienteService.revisarVencimientos();
     }

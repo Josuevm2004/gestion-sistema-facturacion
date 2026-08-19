@@ -48,6 +48,8 @@ export function useAdminData() {
   const [cambioPlanClient, setCambioPlanClient] = useState<Client | null>(null);
   const [cambioPlanSeleccionado, setCambioPlanSeleccionado] = useState<string>('INICIA');
   const [cambioPlanTipo, setCambioPlanTipo] = useState<string>('MENSUAL');
+  const [mejoraPlanClient, setMejoraPlanClient] = useState<Client | null>(null);
+  const [mejoraPlanSeleccionado, setMejoraPlanSeleccionado] = useState<string>('EMPRENDE');
 
   const [trainingClient, setTrainingClient] = useState<Client | null>(null);
   const [trainingDateInput, setTrainingDateInput] = useState<string>('');
@@ -98,78 +100,87 @@ export function useAdminData() {
     if (!tokenToUse) return;
     if (showSyncMsg) setIsSyncing(true);
     try {
+      const clientApi = adminApi(tokenToUse);
+      const normalizeAndSetClients = (rawClients: any[]) => {
+        const normalizedClients: Client[] = rawClients.map((c: any) => ({
+          id: c.id,
+          ruc: c.ruc,
+          razonSocial: c.razonSocial || c.ruc,
+          nombreComercial: c.nombreComercial || '',
+          direccion: c.direccion || '',
+          telefono: c.telefono || '',
+          email: c.email || '',
+          nombres: c.nombres || '',
+          apellidos: c.apellidos || '',
+          dni: c.dni || '',
+          emailPersonal: c.emailPersonal || '',
+          telefonoPersonal: c.telefonoPersonal || '',
+          departamento: c.departamento || '',
+          provincia: c.provincia || '',
+          distrito: c.distrito || '',
+          regimenTributario: c.regimenTributario || 'GENERAL',
+          planContratado: c.planNombre || c.planContratado || '',
+          tipoSuscripcion: c.tipoSuscripcion || '',
+          montoMensual: c.precioPlan !== undefined && c.precioPlan !== null ? c.precioPlan : (c.montoMensual ?? 0),
+          montoSiguienteCobro: c.montoSiguienteCobro,
+          ventaId: c.ventaId,
+          diasProrrateados: c.diasProrrateados,
+          estadoCuenta: c.estadoNombre || c.estadoCuenta || 'SIN_ESTADO',
+          estadoCapacitacion: c.fechaCapacitacion ? 'COMPLETADO' : (c.estadoNombre === 'POR_CAPACITAR' ? 'PENDIENTE' : 'PENDIENTE'),
+          colorTag: (c.colorCodigo || c.colorTag || 'VERDE') as ColorTagType,
+          fechaRegistro: c.fechaRegistro,
+          fechaCreacion: c.fechaRegistro,
+          fechaVencimientoMensual: c.fechaFinServicio || c.fechaVencimientoMensual,
+          fechaCapacitacion: c.fechaCapacitacion,
+          usuarioSol: c.usuarioSol,
+          claveSolCifrada: c.claveSolCifrada,
+          vendedor: c.vendedorNombre || c.vendedor || 'Por asignar',
+          linkSistema: c.urlAcceso || c.linkSistema,
+          usuarioSistema: c.usuarioAdminFacturador || c.usuarioSistema,
+          claveSistema: c.claveTemporal || c.claveSistema,
+        }));
+
+        setClients(normalizedClients);
+      };
+
       const nowMs = Date.now();
+      let vencimientosReview: Promise<void> | null = null;
       if (nowMs - lastVencimientosReviewRef.current > 60000) {
         lastVencimientosReviewRef.current = nowMs;
-        try {
-          await adminApi(tokenToUse).post('/admin/servicios/revisar-vencimientos');
-        } catch (re) {
+        vencimientosReview = clientApi.post('/admin/servicios/revisar-vencimientos')
+          .then(() => undefined)
+          .catch((re) => {
           console.warn('No se pudo revisar vencimientos automaticamente', re);
-        }
+          });
       }
 
-      const clientRes = await adminApi(tokenToUse).get('/admin/clientes');
+      const [clientResult, payResult, userResult, notifResult] = await Promise.allSettled([
+        clientApi.get('/admin/clientes'),
+        clientApi.get('/admin/pagos'),
+        clientApi.get('/admin/usuarios'),
+        clientApi.get('/admin/notificaciones'),
+      ]);
+
+      if (clientResult.status === 'rejected') {
+        throw clientResult.reason;
+      }
+
+      const clientRes = clientResult.value;
       const rawClients = extractArray(clientRes.data);
-      const normalizedClients: Client[] = rawClients.map((c: any) => ({
-        id: c.id,
-        ruc: c.ruc,
-        razonSocial: c.razonSocial || c.ruc,
-        nombreComercial: c.nombreComercial || '',
-        direccion: c.direccion || '',
-        telefono: c.telefono || '',
-        email: c.email || '',
-        nombres: c.nombres || '',
-        apellidos: c.apellidos || '',
-        dni: c.dni || '',
-        emailPersonal: c.emailPersonal || '',
-        telefonoPersonal: c.telefonoPersonal || '',
-        departamento: c.departamento || '',
-        provincia: c.provincia || '',
-        distrito: c.distrito || '',
-        regimenTributario: c.regimenTributario || 'GENERAL',
-        planContratado: c.planNombre || c.planContratado || 'Plan Emprende',
-        tipoSuscripcion: c.tipoSuscripcion || 'MENSUAL',
-        montoMensual: c.precioPlan !== undefined ? c.precioPlan : (c.montoMensual || 29),
-        montoSiguienteCobro: c.montoSiguienteCobro,
-        ventaId: c.ventaId,
-        diasProrrateados: c.diasProrrateados,
-        estadoCuenta: c.estadoNombre || c.estadoCuenta || 'POR_COBRAR',
-        estadoCapacitacion: c.fechaCapacitacion ? 'COMPLETADO' : (c.estadoNombre === 'POR_CAPACITAR' ? 'PENDIENTE' : 'PENDIENTE'),
-        colorTag: (c.colorCodigo || c.colorTag || 'VERDE') as ColorTagType,
-        fechaRegistro: c.fechaRegistro,
-        fechaCreacion: c.fechaRegistro,
-        fechaVencimientoMensual: c.fechaFinServicio || c.fechaVencimientoMensual,
-        fechaCapacitacion: c.fechaCapacitacion,
-        usuarioSol: c.usuarioSol,
-        claveSolCifrada: c.claveSolCifrada,
-        vendedor: c.vendedorNombre || c.vendedor || 'Por asignar',
-        linkSistema: c.urlAcceso || c.linkSistema,
-        usuarioSistema: c.usuarioAdminFacturador || c.usuarioSistema,
-        claveSistema: c.claveTemporal || c.claveSistema,
-      }));
+      normalizeAndSetClients(rawClients);
 
-      setClients(normalizedClients);
+      setPayments(payResult.status === 'fulfilled' ? extractArray(payResult.value.data) : []);
+      setUsersList(userResult.status === 'fulfilled' ? extractArray(userResult.value.data) : []);
+      setNotifications(notifResult.status === 'fulfilled' ? extractArray(notifResult.value.data) : []);
 
-      try {
-        const payRes = await adminApi(tokenToUse).get('/admin/pagos');
-        setPayments(extractArray(payRes.data));
-      } catch (pe) {
-        setPayments([]);
-      }
-
-      try {
-        const userRes = await adminApi(tokenToUse).get('/admin/usuarios');
-        setUsersList(extractArray(userRes.data));
-      } catch (ue) {
-        setUsersList([]);
-      }
-
-      try {
-        const notifRes = await adminApi(tokenToUse).get('/admin/notificaciones');
-        setNotifications(extractArray(notifRes.data));
-      } catch (ne) {
-        setNotifications([]);
-      }
+      vencimientosReview?.then(async () => {
+        try {
+          const refreshedClients = await clientApi.get('/admin/clientes');
+          normalizeAndSetClients(extractArray(refreshedClients.data));
+        } catch (e) {
+          console.warn('No se pudo refrescar clientes despues de revisar vencimientos', e);
+        }
+      });
 
       if (showSyncMsg) {
         setNotice('¡Datos sincronizados con éxito!');
@@ -202,7 +213,10 @@ export function useAdminData() {
 
     try {
       const response = await api.post('/admin/login', { username, password });
-      const authToken = response.data.token || response.data.access_token || 'token_demo_admin';
+      const authToken = response.data.token || response.data.access_token;
+      if (!authToken) {
+        throw new Error('El servidor no devolvió token de acceso.');
+      }
       const userObj = response.data.usuario || { username, nombre: username, rol: 'ADMIN' };
 
       localStorage.setItem('miquipu_admin_token', authToken);
@@ -222,7 +236,7 @@ export function useAdminData() {
   }
 
   function normalizePlanKey(planStr?: string) {
-    const normalized = (planStr || 'INICIA')
+    const normalized = (planStr || '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toUpperCase()
@@ -239,11 +253,12 @@ export function useAdminData() {
     montoMensualBase?: number
   ) {
     const monthlyBillingDay = MONTHLY_BILLING_DAY;
-    const monthlyPlanPrices: Record<string, number> = { INICIA: 19, EMPRENDE: 29, IMPULSA: 39, EMPRESARIAL: 59, LIDER: 89 };
-    const annualPlanPrices: Record<string, number> = { INICIA: 190, EMPRENDE: 290, IMPULSA: 390, EMPRESARIAL: 590, LIDER: 890 };
-    const pKey = normalizePlanKey(planStr);
     const isAnual = (tipoSuscripcion || 'MENSUAL').toUpperCase() === 'ANUAL';
-    const montoPlan = montoMensualBase || (isAnual ? annualPlanPrices[pKey] : monthlyPlanPrices[pKey]) || (isAnual ? 190 : 19);
+    const montoPlan = Number(montoMensualBase || 0);
+
+    if (!montoPlan) {
+      return { montoProrrateado: 0, diasProrrateados: 0 };
+    }
 
     if (isAnual) {
       return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 365 };
@@ -358,16 +373,28 @@ export function useAdminData() {
       if (isNaN(baseDate.getTime())) baseDate = new Date();
       expDate = getNextBillingDate(baseDate);
     } else {
-      expDate = new Date();
+      return {
+        fechaStr: 'Sin fecha',
+        dateObj: new Date(''),
+        isExpired: false,
+        daysRemaining: 9999,
+      };
     }
 
-    if (isNaN(expDate.getTime())) expDate = new Date();
+    if (isNaN(expDate.getTime())) {
+      return {
+        fechaStr: 'Sin fecha',
+        dateObj: expDate,
+        isExpired: false,
+        daysRemaining: 9999,
+      };
+    }
 
     expDate.setHours(0, 0, 0, 0);
 
     const diffTime = expDate.getTime() - today.getTime();
     const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const isExpired = daysRemaining < 0;
+    const isExpired = daysRemaining <= 0;
 
     return {
       fechaStr: expDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
@@ -457,7 +484,7 @@ export function useAdminData() {
 
   async function handleRenovarPlan(client: Client, nuevoPlan?: string, nuevoTipo?: string) {
     if (!token) return;
-    const planAUsar = normalizePlanKey(nuevoPlan || client.planContratado || 'EMPRENDE');
+    const planAUsar = normalizePlanKey(nuevoPlan || client.planContratado);
     const tipoAUsar = (nuevoTipo || client.tipoSuscripcion || 'MENSUAL').toUpperCase() as 'MENSUAL' | 'ANUAL';
 
     const PLAN_ID_MAP: Record<string, number> = {
@@ -468,7 +495,11 @@ export function useAdminData() {
       LIDER: 5,
     };
 
-    const planId = PLAN_ID_MAP[planAUsar] || PLAN_ID_MAP.EMPRENDE;
+    const planId = PLAN_ID_MAP[planAUsar];
+    if (!planId) {
+      setNotice('El cliente no tiene un plan válido registrado en la base de datos.');
+      return;
+    }
 
     const isCambio = nuevoPlan && normalizePlanKey(nuevoPlan) !== normalizePlanKey(client.planContratado);
     const tipoVenta = isCambio ? 'CAMBIO_PLAN' : 'RENOVACION';
@@ -489,6 +520,49 @@ export function useAdminData() {
       await loadData(token);
     } catch (err: any) {
       setNotice(`Error al procesar la venta: ${err.response?.data?.message || err.message}`);
+      await loadData(token);
+    } finally {
+      processingOperationsRef.current.delete(processingKey);
+    }
+  }
+
+  async function handleMejorarPlan(client: Client, nuevoPlan: string) {
+    if (!token) return;
+    const planAUsar = normalizePlanKey(nuevoPlan);
+    const tipoAUsar = (client.tipoSuscripcion || 'MENSUAL').toUpperCase() as 'MENSUAL' | 'ANUAL';
+
+    const PLAN_ID_MAP: Record<string, number> = {
+      INICIA: 1,
+      EMPRENDE: 2,
+      IMPULSA: 3,
+      EMPRESARIAL: 4,
+      LIDER: 5,
+    };
+
+    const planId = PLAN_ID_MAP[planAUsar];
+    if (!planId) {
+      setNotice('Selecciona un plan válido para mejorar.');
+      return;
+    }
+
+    const processingKey = `${client.id}-MEJORA_PLAN-${planId}-${tipoAUsar}`;
+    if (processingOperationsRef.current.has(processingKey)) return;
+    processingOperationsRef.current.add(processingKey);
+
+    try {
+      const response = await adminApi(token).post(`/admin/ventas/procesar-operacion`, {
+        clienteId: client.id,
+        planId,
+        tipoSuscripcion: tipoAUsar,
+        tipoVenta: 'MEJORA_PLAN',
+        observaciones: `Mejora de plan activa a ${planAUsar} (${tipoAUsar}) sin reiniciar vencimiento`,
+      });
+
+      const monto = Number(response.data?.data?.montoTotal ?? 0);
+      setNotice(`Mejora de plan registrada para ${client.razonSocial}. Diferencia cobrada: S/ ${monto.toFixed(2)}.`);
+      await loadData(token);
+    } catch (err: any) {
+      setNotice(`Error al mejorar plan: ${err.response?.data?.message || err.message}`);
       await loadData(token);
     } finally {
       processingOperationsRef.current.delete(processingKey);
@@ -906,6 +980,10 @@ export function useAdminData() {
     setCambioPlanSeleccionado,
     cambioPlanTipo,
     setCambioPlanTipo,
+    mejoraPlanClient,
+    setMejoraPlanClient,
+    mejoraPlanSeleccionado,
+    setMejoraPlanSeleccionado,
     trainingClient,
     setTrainingClient,
     trainingDateInput,
@@ -926,6 +1004,7 @@ export function useAdminData() {
     handleEstadoCuentaChange,
     handleDevolverAcceso,
     handleRenovarPlan,
+    handleMejorarPlan,
     handleDeleteClientConfirm,
     handleSaveEditClient,
     handleSaveTrainingSchedule,

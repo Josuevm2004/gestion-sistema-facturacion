@@ -21,7 +21,7 @@ export default function CentroControlTab({
   clients,
   calendarSearch,
   setCalendarSearch,
-  calcularProrrateoEntero,
+  calcularProrrateoEntero: _calcularProrrateoEntero,
   setHistoryClient,
 }: CentroControlTabProps) {
   return (
@@ -107,20 +107,14 @@ export default function CentroControlTab({
 
               return filtered.map((c, idx) => {
                 const { _vencDate: vencDate, _diffDays: diffDays } = c;
-                const estadoVisual = diffDays !== 9999 && diffDays < 0 && c.estadoCuenta === 'HABILITADO'
+                const estadoVisual = diffDays !== 9999 && diffDays <= 0 && c.estadoCuenta === 'HABILITADO'
                   ? 'VENCIDO'
                   : c.estadoCuenta;
 
-                const prorrateo = calcularProrrateoEntero(
-                  c.planContratado,
-                  c.tipoSuscripcion,
-                  c.fechaCapacitacion,
-                  c.montoMensual
-                );
-                const cobroProximo = Number(c.montoSiguienteCobro ?? prorrateo.montoProrrateado ?? c.montoMensual ?? 0);
+                const cobroProximo = Number(c.montoSiguienteCobro ?? c.montoMensual ?? 0);
 
                 const isNearExpiry = diffDays <= 3 && diffDays >= 0;
-                const isExpired = diffDays < 0;
+                const isExpired = diffDays <= 0;
 
                 return (
                   <tr key={c.id} className={isExpired ? 'table-danger' : isNearExpiry ? 'table-warning' : ''}>

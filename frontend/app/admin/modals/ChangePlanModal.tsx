@@ -24,22 +24,8 @@ export default function ChangePlanModal({
 }: ChangePlanModalProps) {
   if (!cambioPlanClient) return null;
 
-  const monthlyPlanPrices: Record<string, number> = {
-    INICIA: 19,
-    EMPRENDE: 29,
-    IMPULSA: 39,
-    EMPRESARIAL: 59,
-    LIDER: 89,
-  };
-  const annualPlanPrices: Record<string, number> = {
-    INICIA: 190,
-    EMPRENDE: 290,
-    IMPULSA: 390,
-    EMPRESARIAL: 590,
-    LIDER: 890,
-  };
   const normalizePlanKey = (planStr?: string) => {
-    const normalized = (planStr || 'EMPRENDE')
+    const normalized = (planStr || '')
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toUpperCase()
@@ -48,10 +34,6 @@ export default function ChangePlanModal({
     return normalized === 'INICIAL' ? 'INICIA' : normalized;
   };
   const selectedPlanKey = normalizePlanKey(cambioPlanSeleccionado);
-  const montoTotal =
-    cambioPlanTipo === 'ANUAL'
-      ? annualPlanPrices[selectedPlanKey] || 290
-      : monthlyPlanPrices[selectedPlanKey] || 29;
 
   return (
     <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1}>
@@ -63,8 +45,7 @@ export default function ChangePlanModal({
           </div>
           <div className="modal-body">
             <p className="small text-muted mb-3">
-              Plan actual: <strong>{cambioPlanClient.planContratado}</strong> ({cambioPlanClient.tipoSuscripcion || 'MENSUAL'}) — S/{' '}
-              {cambioPlanClient.montoMensual.toFixed(2)}/mes
+              Plan actual: <strong>{cambioPlanClient.planContratado}</strong> ({cambioPlanClient.tipoSuscripcion || 'MENSUAL'})
             </p>
             <div className="row g-3">
               <div className="col-md-6">
@@ -74,11 +55,11 @@ export default function ChangePlanModal({
                   value={selectedPlanKey}
                   onChange={(e) => setCambioPlanSeleccionado(e.target.value)}
                 >
-                  <option value="INICIA">Plan Inicia — S/ 19/mes (50 Docs)</option>
-                  <option value="EMPRENDE">Plan Emprende — S/ 29/mes (100 Docs)</option>
-                  <option value="IMPULSA">Plan Impulsa — S/ 39/mes (200 Docs)</option>
-                  <option value="EMPRESARIAL">Plan Empresarial — S/ 59/mes (500 Docs)</option>
-                  <option value="LIDER">Plan Líder — S/ 89/mes (1000 Docs)</option>
+                  <option value="INICIA">Plan Inicia</option>
+                  <option value="EMPRENDE">Plan Emprende</option>
+                  <option value="IMPULSA">Plan Impulsa</option>
+                  <option value="EMPRESARIAL">Plan Empresarial</option>
+                  <option value="LIDER">Plan Líder</option>
                 </select>
               </div>
               <div className="col-md-6">
@@ -95,9 +76,7 @@ export default function ChangePlanModal({
             </div>
 
             <div className="alert alert-info mt-3 mb-0 small">
-              Nuevo plan: <strong>{cambioPlanSeleccionado}</strong> — Cobro a registrar:{' '}
-              <strong>S/ {montoTotal.toFixed(2)}</strong>
-              {cambioPlanTipo === 'ANUAL' ? ' (anual)' : ' (mensual)'}
+              Nuevo plan: <strong>{cambioPlanSeleccionado}</strong>. El cobro se calculará con el precio registrado en la base de datos.
             </div>
           </div>
           <div className="modal-footer border-top">

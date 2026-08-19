@@ -32,6 +32,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -75,12 +76,17 @@ public class VentaServiceImpl implements VentaService {
         LocalDateTime fechaRef = LocalDateTime.now();
 
         List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(cliente.getId());
+        if (tipo == TipoVenta.MEJORA_PLAN) {
+            return procesarMejoraPlan(cliente, vendedor, suscripcion, request, ventasCliente, fechaRef);
+        }
+
         Venta operacionReciente = encontrarOperacionPagadaReciente(ventasCliente, tipo, suscripcion, fechaRef);
         if (operacionReciente != null) {
             return operacionReciente;
         }
 
         ServicioCliente servicioActual = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(cliente.getId()).orElse(null);
+        validarOperacionVencida(tipo, cliente, servicioActual, fechaRef);
         Venta ventaPendiente = encontrarVentaPendienteParaOperacion(ventasCliente, tipo, suscripcion, servicioActual);
         Venta ventaAnterior = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
@@ -124,6 +130,8 @@ public class VentaServiceImpl implements VentaService {
             cancelarVentasPendientesCliente(cliente.getId(), ventaPendiente, fechaRef);
         }
 
+        marcarServicioAnteriorComoVencido(servicioActual, fechaRef);
+
         Venta ventaProcesada = ventaPendiente != null && tipo == TipoVenta.RENOVACION ? ventaPendiente : new Venta();
         ventaProcesada.setCliente(cliente);
         ventaProcesada.setVendedor(vendedor);
@@ -149,6 +157,171 @@ public class VentaServiceImpl implements VentaService {
         habilitarCliente(cliente, vendedor, tipo, montoTotal, fechaRef);
 
         return ventaProcesada;
+    }
+
+    private void validarOperacionVencida(
+            TipoVenta tipo,
+            Cliente cliente,
+            ServicioCliente servicio,
+            LocalDateTime fechaRef) {
+        if (tipo != TipoVenta.RENOVACION && tipo != TipoVenta.CAMBIO_PLAN) {
+            return;
+        }
+        if (servicio == null || servicio.getFechaFin() == null) {
+            throw new ResourceNotFoundException("No existe un servicio vencido para procesar esta operacion");
+        }
+        boolean vencidoPorFecha = !servicio.getFechaFin().toLocalDate().isAfter(fechaRef.toLocalDate());
+        boolean estadoPermiteOperacion = servicio.getEstado() == EstadoServicio.VENCIDO
+                || servicio.getEstado() == EstadoServicio.BLOQUEADO;
+        if (!vencidoPorFecha && !estadoPermiteOperacion) {
+            throw new ResourceNotFoundException(
+                    "Renovacion y cambio de plan solo estan disponibles cuando el servicio esta vencido o bloqueado");
+        }
+        if (servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION) {
+            throw new ResourceNotFoundException("El cliente aun esta pendiente de capacitacion");
+        }
+    }
+
+    private void marcarServicioAnteriorComoVencido(ServicioCliente servicio, LocalDateTime fechaRef) {
+        if (servicio != null
+                && servicio.getEstado() == EstadoServicio.ACTIVO
+                && servicio.getFechaFin() != null
+                && !servicio.getFechaFin().toLocalDate().isAfter(fechaRef.toLocalDate())) {
+            servicio.setEstado(EstadoServicio.VENCIDO);
+            servicio.setFechaActualizacion(fechaRef);
+            servicioClienteRepository.save(servicio);
+        }
+    }
+
+    private Venta procesarMejoraPlan(
+            Cliente cliente,
+            UsuarioAdmin vendedor,
+            Suscripcion nuevaSuscripcion,
+            ProcesarOperacionVentaRequest request,
+            List<Venta> ventasCliente,
+            LocalDateTime fechaRef) {
+        EstadoCliente estadoActual = cliente.getEstado();
+        if (estadoActual == null || !"HABILITADO".equals(estadoActual.getNombre())) {
+            throw new ResourceNotFoundException("La mejora de plan solo aplica a clientes con cuenta HABILITADA");
+        }
+
+        ServicioCliente servicioActual = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(cliente.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Servicio activo no encontrado para mejorar plan"));
+        if (servicioActual.getEstado() != EstadoServicio.ACTIVO
+                || servicioActual.getFechaInicio() == null
+                || servicioActual.getFechaFin() == null
+                || !servicioActual.getFechaFin().toLocalDate().isAfter(fechaRef.toLocalDate())) {
+            throw new ResourceNotFoundException("El cliente no tiene un servicio activo vigente para mejorar plan");
+        }
+
+        Venta ventaActual = ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("No existe una venta vigente pagada para mejorar plan"));
+        if (ventaActual.getSuscripcion() == null) {
+            throw new ResourceNotFoundException("La venta vigente no tiene suscripción registrada");
+        }
+        if (nuevaSuscripcion.getTipoSuscripcion() != ventaActual.getSuscripcion().getTipoSuscripcion()) {
+            throw new ResourceNotFoundException("Mejorar plan no cambia mensual/anual. Usa Cambio de Plan cuando el servicio venza");
+        }
+
+        BigDecimal precioActual = ventaActual.getSuscripcion().getPrecio();
+        BigDecimal precioNuevo = nuevaSuscripcion.getPrecio();
+        if (precioNuevo == null || precioActual == null || precioNuevo.compareTo(precioActual) <= 0) {
+            throw new ResourceNotFoundException("La mejora debe ser hacia un plan de mayor precio");
+        }
+
+        BigDecimal diferenciaLista = precioNuevo.subtract(precioActual);
+        BigDecimal montoMejora = calcularDiferenciaProporcional(
+                diferenciaLista,
+                fechaRef.toLocalDate(),
+                servicioActual.getFechaInicio().toLocalDate(),
+                servicioActual.getFechaFin().toLocalDate()
+        );
+
+        Venta mejora = new Venta();
+        mejora.setCliente(cliente);
+        mejora.setVendedor(vendedor != null ? vendedor : ventaActual.getVendedor());
+        mejora.setSuscripcion(nuevaSuscripcion);
+        mejora.setTipoVenta(TipoVenta.MEJORA_PLAN);
+        mejora.setVentaAnterior(ventaActual);
+        mejora.setPrecioLista(diferenciaLista);
+        mejora.setMontoProrrateado(diferenciaLista.subtract(montoMejora).max(BigDecimal.ZERO));
+        mejora.setMontoTotal(montoMejora);
+        mejora.setEstadoVenta(EstadoVenta.PAGADA);
+        mejora.setObservaciones(request.getObservaciones() != null
+                ? request.getObservaciones()
+                : "Mejora de plan sin modificar fecha de inicio ni vencimiento del servicio");
+        mejora.setFechaVenta(fechaRef);
+        mejora.setFechaActualizacion(fechaRef);
+        mejora = ventaRepository.save(mejora);
+
+        registrarPagoSiNoExiste(cliente, mejora, TipoVenta.MEJORA_PLAN, montoMejora, fechaRef);
+
+        servicioActual.setFechaActualizacion(fechaRef);
+        servicioActual.setObservaciones("Plan mejorado a "
+                + (nuevaSuscripcion.getPlan() != null ? nuevaSuscripcion.getPlan().getNombrePlan() : "nuevo plan")
+                + " sin modificar vencimiento");
+        servicioClienteRepository.save(servicioActual);
+        actualizarRenovacionPendientePorMejora(cliente.getId(), nuevaSuscripcion, mejora, servicioActual.getFechaFin(), fechaRef);
+
+        HistorialEstadoCliente h = new HistorialEstadoCliente();
+        h.setCliente(cliente);
+        h.setEstadoAnterior(estadoActual);
+        h.setEstadoNuevo(estadoActual);
+        h.setUsuarioAdmin(mejora.getVendedor());
+        h.setMotivo("Mejora de plan registrada por S/ " + montoMejora + ". Fechas del servicio conservadas.");
+        h.setFechaCambio(fechaRef);
+        historialEstadoClienteRepository.save(h);
+
+        return mejora;
+    }
+
+    private void actualizarRenovacionPendientePorMejora(
+            Long clienteId,
+            Suscripcion nuevaSuscripcion,
+            Venta mejora,
+            LocalDateTime fechaFinServicio,
+            LocalDateTime fechaRef) {
+        Venta pendiente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId).stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
+                .filter(v -> v.getFechaVenta() == null || !v.getFechaVenta().toLocalDate().isBefore(fechaRef.toLocalDate()))
+                .min(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(null);
+
+        if (pendiente == null) {
+            crearSiguienteRenovacionPendiente(mejora, fechaFinServicio);
+            return;
+        }
+
+        pendiente.setVentaAnterior(mejora);
+        pendiente.setSuscripcion(nuevaSuscripcion);
+        pendiente.setVendedor(mejora.getVendedor());
+        pendiente.setPrecioLista(nuevaSuscripcion.getPrecio());
+        pendiente.setMontoProrrateado(BigDecimal.ZERO);
+        pendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
+        pendiente.setFechaVenta(LocalDateTime.of(fechaFinServicio.toLocalDate(), LocalTime.NOON));
+        pendiente.setFechaActualizacion(fechaRef);
+        pendiente.setObservaciones("Renovacion pendiente actualizada por mejora de plan para " + fechaFinServicio.toLocalDate());
+        ventaRepository.save(pendiente);
+    }
+
+    private BigDecimal calcularDiferenciaProporcional(
+            BigDecimal diferenciaLista,
+            LocalDate fechaOperacion,
+            LocalDate fechaInicioServicio,
+            LocalDate fechaFinServicio) {
+        int diasTotales = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioServicio, fechaFinServicio));
+        int diasRestantes = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaOperacion, fechaFinServicio));
+        if (diasRestantes > diasTotales) {
+            diasRestantes = diasTotales;
+        }
+
+        return diferenciaLista
+                .divide(BigDecimal.valueOf(diasTotales), 10, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(diasRestantes))
+                .setScale(0, RoundingMode.HALF_UP);
     }
 
     private Venta encontrarVentaPendienteParaOperacion(

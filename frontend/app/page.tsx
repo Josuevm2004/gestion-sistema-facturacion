@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import {
   Building2,
   CheckCircle2,
@@ -28,29 +28,31 @@ type ClientRegistration = {
   estadoPago?: string;
 };
 
-const PLAN_PRICES: Record<string, number> = {
-  INICIA: 19,
-  EMPRENDE: 29,
-  IMPULSA: 39,
-  EMPRESARIAL: 59,
-  LIDER: 89,
+type DbSubscription = {
+  id: number;
+  planId: number;
+  planNombre: string;
+  tipoSuscripcion: 'MENSUAL' | 'ANUAL';
+  precio: number;
 };
 
-const PLAN_ANNUAL_PRICES: Record<string, number> = {
-  INICIA: 190,
-  EMPRENDE: 290,
-  IMPULSA: 390,
-  EMPRESARIAL: 590,
-  LIDER: 890,
+const PLAN_DETAILS: Record<string, { docs: string; users: string; features: string }> = {
+  INICIA: { docs: '50 Boletas o Facturas', users: '1 Usuario', features: 'Web y aplicativo' },
+  EMPRENDE: { docs: '100 Boletas o Facturas', users: '2 Usuarios', features: 'Web y aplicativo' },
+  IMPULSA: { docs: '200 Boletas o Facturas', users: '3 Usuarios', features: 'Web, app y ticketera' },
+  EMPRESARIAL: { docs: '500 Boletas o Facturas', users: '4 Usuarios', features: 'Web, app y ticketera' },
+  LIDER: { docs: '1000 Boletas o Facturas', users: '6 Usuarios', features: 'Web, app y ticketera' },
 };
 
-const PLAN_IDS: Record<string, number> = {
-  INICIA: 1,
-  EMPRENDE: 2,
-  IMPULSA: 3,
-  EMPRESARIAL: 4,
-  LIDER: 5,
-};
+function normalizePlanName(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/^PLAN\s+/, '')
+    .replace('INICIAL', 'INICIA')
+    .trim();
+}
 
 export default function FormularioPublicoPage() {
   const [step, setStep] = useState<1 | 2>(1);
@@ -60,7 +62,57 @@ export default function FormularioPublicoPage() {
   const [tipoSuscripcion, setTipoSuscripcion] = useState<'MENSUAL' | 'ANUAL'>('MENSUAL');
   const [message, setMessage] = useState<{ type: 'success' | 'warning' | 'info' | 'danger'; text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
+  const [plansLoading, setPlansLoading] = useState(true);
+  const [plansError, setPlansError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    api.get('/admin/planes/suscripciones')
+      .then((response) => {
+        const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+        const normalized: DbSubscription[] = rows
+          .filter((row: any) => row?.activo !== false && row?.plan?.id && row?.plan?.nombrePlan && row?.tipoSuscripcion && row?.precio != null)
+          .map((row: any) => ({
+            id: Number(row.id),
+            planId: Number(row.plan.id),
+            planNombre: row.plan.nombrePlan,
+            tipoSuscripcion: String(row.tipoSuscripcion).toUpperCase() as 'MENSUAL' | 'ANUAL',
+            precio: Number(row.precio),
+          }));
+        if (!mounted) return;
+        setSubscriptions(normalized);
+        if (!normalized.some((s) => normalizePlanName(s.planNombre) === selectedPlan)) {
+          setSelectedPlan(normalizePlanName(normalized[0]?.planNombre || ''));
+        }
+      })
+      .catch(() => {
+        if (mounted) setPlansError('No se pudieron cargar los planes desde la base de datos.');
+      })
+      .finally(() => {
+        if (mounted) setPlansLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const availablePlans = Array.from(
+    new Map(
+      subscriptions.map((subscription) => [
+        subscription.planId,
+        { id: subscription.planId, key: normalizePlanName(subscription.planNombre), name: subscription.planNombre },
+      ])
+    ).values()
+  );
+  const selectedSubscription = subscriptions.find(
+    (subscription) => normalizePlanName(subscription.planNombre) === selectedPlan && subscription.tipoSuscripcion === tipoSuscripcion
+  );
+
+  function subscriptionPrice(planId: number) {
+    return subscriptions.find((subscription) => subscription.planId === planId && subscription.tipoSuscripcion === tipoSuscripcion)?.precio;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -73,6 +125,12 @@ export default function FormularioPublicoPage() {
 
     setIsSubmitting(true);
     setMessage(null);
+
+    if (!selectedSubscription) {
+      setMessage({ type: 'danger', text: 'El plan seleccionado no tiene una tarifa activa para esta modalidad.' });
+      setIsSubmitting(false);
+      return;
+    }
 
     const formData = new FormData(form);
     const payload = {
@@ -91,7 +149,7 @@ export default function FormularioPublicoPage() {
       provincia: formData.get('provincia') as string,
       distrito: formData.get('distrito') as string,
       regimenTributario: formData.get('regimenTributario') as string,
-      planId: PLAN_IDS[selectedPlan] || 2,
+      planId: selectedSubscription.planId,
       planContratado: selectedPlan,
       tipoSuscripcion: tipoSuscripcion,
       usuarioSol: formData.get('usuarioSol') as string,
@@ -109,7 +167,7 @@ export default function FormularioPublicoPage() {
         ruc: registeredData.ruc,
         razonSocial: registeredData.razonSocial,
         planContratado: registeredData.planNombre || registeredData.planContratado || selectedPlan,
-        montoMensual: Number(registeredData.precioPlan ?? (tipoSuscripcion === 'ANUAL' ? PLAN_ANNUAL_PRICES[selectedPlan] : PLAN_PRICES[selectedPlan]) ?? 29),
+        montoMensual: Number(registeredData.precioPlan ?? selectedSubscription.precio),
         tipoSuscripcion,
         subdominio: registeredData.subdominio || registeredData.acceso?.subdominio,
       });
@@ -338,7 +396,11 @@ export default function FormularioPublicoPage() {
               {/* SECCIÓN 5: SELECCIÓN DE PLAN */}
               <div className="col-12 mt-4">
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
-                  <h2 className="h6 fw-bold text-primary text-uppercase mb-2 mb-md-0">5. Selección de Plan</h2>
+                  <div>
+                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">5. Selección de Plan</h2>
+                    {plansLoading && <small className="text-muted">Cargando tarifas desde la base de datos...</small>}
+                    {plansError && <small className="text-danger d-block">{plansError}</small>}
+                  </div>
                   
                   {/* Selector de Modalidad (Mensual vs Anual) */}
                   <div className="btn-group bg-light p-1 rounded-3 border" role="group">
@@ -360,39 +422,37 @@ export default function FormularioPublicoPage() {
                 </div>
 
                 <div className="row g-3">
-                  {[
-                    { id: 'INICIA', name: 'Inicia', price: 19, annual: 190, docs: '50 Boletas o Facturas', users: '1 Usuario', features: 'Web y aplicativo' },
-                    { id: 'EMPRENDE', name: 'Emprende', price: 29, annual: 290, docs: '100 Boletas o Facturas', users: '2 Usuarios', features: 'Web y aplicativo' },
-                    { id: 'IMPULSA', name: 'Impulsa', price: 39, annual: 390, docs: '200 Boletas o Facturas', users: '3 Usuarios', features: 'Web, app y ticketera' },
-                    { id: 'EMPRESARIAL', name: 'Empresarial', price: 59, annual: 590, docs: '500 Boletas o Facturas', users: '4 Usuarios', features: 'Web, app y ticketera' },
-                    { id: 'LIDER', name: 'Líder', price: 89, annual: 890, docs: '1000 Boletas o Facturas', users: '6 Usuarios', features: 'Web, app y ticketera' },
-                  ].map((plan) => {
+                  {availablePlans.map((plan) => {
+                    const details = PLAN_DETAILS[plan.key] || { docs: '', users: '', features: '' };
+                    const price = subscriptionPrice(plan.id);
                     return (
-                      <div key={plan.id} className={plan.id === 'EMPRESARIAL' || plan.id === 'LIDER' ? 'col-md-6' : 'col-md-4'}>
+                      <div key={plan.id} className={plan.key === 'EMPRESARIAL' || plan.key === 'LIDER' ? 'col-md-6' : 'col-md-4'}>
                         <div
-                          onClick={() => setSelectedPlan(plan.id)}
+                          onClick={() => setSelectedPlan(plan.key)}
                           className={`p-3 rounded-3 border position-relative ${
-                            selectedPlan === plan.id ? 'border-primary border-2 shadow-sm bg-white' : 'border-light-subtle bg-white'
+                            selectedPlan === plan.key ? 'border-primary border-2 shadow-sm bg-white' : 'border-light-subtle bg-white'
                           }`}
                           style={{ cursor: 'pointer', transition: 'all 0.15s' }}
                         >
-                          {selectedPlan === plan.id && (
+                          {selectedPlan === plan.key && (
                             <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-primary" style={{ fontSize: '0.65rem' }}>Seleccionado</span>
                           )}
                           <div className="d-flex justify-content-between align-items-center mb-1">
                             <strong className="text-dark">{plan.name}</strong>
                             <span className="badge bg-primary">
-                              {tipoSuscripcion === 'ANUAL' ? `S/ ${plan.annual}/año` : `S/ ${plan.price}/mes`}
+                              {price != null ? `S/ ${price.toFixed(2)}${tipoSuscripcion === 'ANUAL' ? '/año' : '/mes'}` : 'No disponible'}
                             </span>
                           </div>
-                          <p className="small text-muted mb-1">{plan.docs}</p>
+                          <p className="small text-muted mb-1">{details.docs}</p>
                           <div className="d-flex gap-2 small text-muted">
-                            <span>{plan.users}</span>
+                            <span>{details.users}</span>
                             <span>|</span>
-                            <span>{plan.features}</span>
+                            <span>{details.features}</span>
                           </div>
                           <div className="text-end mt-1">
-                            <span className="small text-success fw-semibold">Anual: S/ {plan.annual} (ahorra 2 meses)</span>
+                            {subscriptionPrice(plan.id) != null && tipoSuscripcion === 'MENSUAL' && (
+                              <span className="small text-success fw-semibold">Tarifa anual en base de datos disponible al cambiar modalidad</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -402,7 +462,7 @@ export default function FormularioPublicoPage() {
               </div>
 
               <div className="col-12 mt-4">
-                <button type="submit" disabled={isSubmitting} className="btn btn-miquipu btn-lg w-100 d-flex align-items-center justify-content-center gap-2">
+                <button type="submit" disabled={isSubmitting || plansLoading || !selectedSubscription} className="btn btn-miquipu btn-lg w-100 d-flex align-items-center justify-content-center gap-2">
                   {isSubmitting ? <RefreshCw size={18} className="spin" /> : <span>Enviar Datos e Ir a Pagar</span>}
                   <ArrowRight size={18} />
                 </button>

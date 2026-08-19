@@ -92,7 +92,10 @@ public class PagoServiceImpl implements PagoService {
         Pago pago = new Pago();
         pago.setVenta(venta);
         pago.setCodigoOperacion(request.getCodigoOperacion());
-        pago.setMonto(venta.getTipoVenta() == TipoVenta.ALTA && request.getMonto() != null ? request.getMonto() : venta.getMontoTotal());
+        // El monto comercial siempre sale de venta, que a su vez se resolvió
+        // desde suscripcion.precio en la base de datos. El cliente no puede
+        // alterar el total enviando otro valor desde el navegador.
+        pago.setMonto(venta.getMontoTotal());
         pago.setMedioPago(request.getMedioPago() != null ? request.getMedioPago() : MedioPago.OTRO);
         pago.setEstadoPago(EstadoPago.PAGADO);
         pago.setFechaPago(fechaOperacion);

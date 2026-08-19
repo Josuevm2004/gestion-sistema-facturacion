@@ -274,11 +274,11 @@ export default function ResumenTab({
             </div>
             <div className="d-flex flex-column gap-3 pt-1">
               {[
-                { key: 'INICIA', name: 'Plan Inicia (S/ 19)', color: 'bg-info' },
-                { key: 'EMPRENDE', name: 'Plan Emprende (S/ 29)', color: 'bg-primary' },
-                { key: 'IMPULSA', name: 'Plan Impulsa (S/ 39)', color: 'bg-purple' },
-                { key: 'EMPRESARIAL', name: 'Plan Empresarial (S/ 59)', color: 'bg-success' },
-                { key: 'LIDER', name: 'Plan Líder (S/ 89)', color: 'bg-dark' },
+                { key: 'INICIA', name: 'Plan Inicia', color: 'bg-info' },
+                { key: 'EMPRENDE', name: 'Plan Emprende', color: 'bg-primary' },
+                { key: 'IMPULSA', name: 'Plan Impulsa', color: 'bg-purple' },
+                { key: 'EMPRESARIAL', name: 'Plan Empresarial', color: 'bg-success' },
+                { key: 'LIDER', name: 'Plan Líder', color: 'bg-dark' },
               ].map((p) => {
                 const count = clients.filter((c) => normalizePlanKey(c.planContratado) === p.key).length;
                 const pct = clients.length > 0 ? Math.round((count / clients.length) * 100) : 0;

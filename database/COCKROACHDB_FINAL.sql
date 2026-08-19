@@ -249,7 +249,7 @@ CREATE TABLE venta (
         ON UPDATE CASCADE,
 
     CONSTRAINT chk_venta_tipo
-        CHECK (tipo_venta IN ('ALTA', 'RENOVACION', 'CAMBIO_PLAN')),
+        CHECK (tipo_venta IN ('ALTA', 'RENOVACION', 'CAMBIO_PLAN', 'MEJORA_PLAN')),
 
     CONSTRAINT chk_venta_estado
         CHECK (estado_venta IN ('PENDIENTE_PAGO', 'PAGADA', 'CANCELADA')),

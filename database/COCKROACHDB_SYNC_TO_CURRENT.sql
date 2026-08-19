@@ -42,6 +42,11 @@ ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS fecha_eliminacion 
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS fecha_registro TIMESTAMP NOT NULL DEFAULT current_timestamp();
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS fecha_actualizacion TIMESTAMP NOT NULL DEFAULT current_timestamp();
 
+-- Tipo de venta agregado para mejorar un plan activo sin reiniciar fechas.
+ALTER TABLE IF EXISTS public.venta DROP CONSTRAINT IF EXISTS chk_venta_tipo;
+ALTER TABLE IF EXISTS public.venta ADD CONSTRAINT chk_venta_tipo
+CHECK (tipo_venta IN ('ALTA', 'RENOVACION', 'CAMBIO_PLAN', 'MEJORA_PLAN'));
+
 -- Semillas idempotentes.
 UPSERT INTO public.plan (id, nombre_plan)
 VALUES

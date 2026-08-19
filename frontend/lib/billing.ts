@@ -1,6 +1,8 @@
+export const DEFAULT_MONTHLY_BILLING_DAY = 19;
+
 function parseBillingDay(value?: string): number {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 19;
+  if (!Number.isFinite(parsed)) return DEFAULT_MONTHLY_BILLING_DAY;
   return Math.min(31, Math.max(1, Math.trunc(parsed)));
 }
 

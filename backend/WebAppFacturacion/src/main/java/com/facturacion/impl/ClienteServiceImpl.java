@@ -114,9 +114,13 @@ public class ClienteServiceImpl implements ClienteService {
         Long planId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
         TipoSuscripcion tipoSub = request.getTipoSuscripcion() != null ? request.getTipoSuscripcion() : TipoSuscripcion.MENSUAL;
 
+        if (planId == null) {
+            throw new ResourceNotFoundException("El plan seleccionado no es valido");
+        }
+
         Suscripcion suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(planId, tipoSub)
-                .orElseGet(() -> suscripcionRepository.findAll().stream().findFirst()
-                        .orElseThrow(() -> new ResourceNotFoundException("No existen suscripciones registradas")));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No existe una suscripcion activa para el plan y modalidad seleccionados"));
 
         // 5. Vendedor nulo inicialmente (Por asignar)
         UsuarioAdmin vendedor = null;
@@ -160,7 +164,7 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     private Long resolverPlanId(String planContratado) {
-        String rawPlan = planContratado == null ? "INICIA" : planContratado;
+        String rawPlan = planContratado == null ? "" : planContratado;
         String normalized = java.text.Normalizer.normalize(rawPlan, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toUpperCase()
@@ -173,7 +177,7 @@ public class ClienteServiceImpl implements ClienteService {
             case "EMPRESARIAL" -> 4L;
             case "LIDER" -> 5L;
             case "INICIAL", "INICIA" -> 1L;
-            default -> 1L;
+            default -> null;
         };
     }
 
@@ -374,6 +378,7 @@ public class ClienteServiceImpl implements ClienteService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
 
         if (request.getRazonSocial() != null) cliente.setRazonSocial(request.getRazonSocial());
+        if (request.getRuc() != null) cliente.setRuc(request.getRuc());
         if (request.getUsuarioSol() != null) cliente.setUsuarioSol(request.getUsuarioSol());
         if (request.getClaveSol() != null) cliente.setClaveSolCifrada(request.getClaveSol());
         if (request.getNombreComercial() != null) cliente.setNombreComercial(request.getNombreComercial());
@@ -546,7 +551,7 @@ public class ClienteServiceImpl implements ClienteService {
         Venta ventaPendienteVencida = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
                 .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
-                .filter(v -> v.getFechaVenta() == null || !v.getFechaVenta().isAfter(ahora))
+                .filter(v -> v.getFechaVenta() == null || !v.getFechaVenta().toLocalDate().isAfter(ahora.toLocalDate()))
                 .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
                 .findFirst()
                 .orElse(null);
@@ -559,7 +564,10 @@ public class ClienteServiceImpl implements ClienteService {
         if (ventaParaCobro != null) {
             res.setVentaId(ventaParaCobro.getId());
             res.setMontoSiguienteCobro(ventaParaCobro.getMontoTotal());
-            if (ventaPendienteVencida != null && !"BLOQUEADO".equals(estadoNombre) && !"POR_CAPACITAR".equals(estadoNombre)) {
+            if (ventaPendienteVencida != null
+                    && !"BLOQUEADO".equals(estadoNombre)
+                    && !"POR_CAPACITAR".equals(estadoNombre)
+                    && !"VENCIDO".equals(estadoNombre)) {
                 res.setEstadoNombre("POR_COBRAR");
             }
         } else if (ventaPlan != null) {
@@ -630,7 +638,7 @@ public class ClienteServiceImpl implements ClienteService {
         res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
         res.setClaveTemporal(c.getClaveTemporal());
         res.setUrlAcceso(c.getUrlAcceso());
-        res.setEstadoNombre("POR_COBRAR");
+        res.setEstadoNombre(c.getEstado() != null ? c.getEstado().getNombre() : null);
         res.setVendedorNombre("Por asignar");
         res.setFechaRegistro(c.getFechaRegistro());
         return res;

@@ -19,6 +19,7 @@ import ReportesExcelTab from './components/ReportesExcelTab';
 import EditClientModal from './modals/EditClientModal';
 import DeleteClientModal from './modals/DeleteClientModal';
 import ChangePlanModal from './modals/ChangePlanModal';
+import UpgradePlanModal from './modals/UpgradePlanModal';
 import TrainingModal from './modals/TrainingModal';
 import PaymentHistoryModal from './modals/PaymentHistoryModal';
 import UserModal from './modals/UserModal';
@@ -118,6 +119,8 @@ export default function AdminPage() {
                 setShowSolKeys={adminData.setShowSolKeys}
                 currentUser={adminData.currentUser}
                 setEditingClient={adminData.setEditingClient}
+                setMejoraPlanClient={adminData.setMejoraPlanClient}
+                setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
                 setDeletingClient={adminData.setDeletingClient}
                 COLOR_MAP={{
                   VERDE: { hex: '#198754', label: '🟢 Verde', bgClass: 'bg-success bg-opacity-10 text-success border-success' },
@@ -138,7 +141,7 @@ export default function AdminPage() {
 
             {adminData.activeTab === 'vencidos' && (
               <VencidosTab
-                clientesVencidosList={[...adminData.clientesVencidosList, ...adminData.clientesBloqueadosList]}
+                clientesVencidosList={adminData.clientesVencidosList}
                 handleRenovarPlan={adminData.handleRenovarPlan}
                 setCambioPlanClient={adminData.setCambioPlanClient}
                 setCambioPlanSeleccionado={adminData.setCambioPlanSeleccionado}
@@ -246,6 +249,14 @@ export default function AdminPage() {
           cambioPlanTipo={adminData.cambioPlanTipo}
           setCambioPlanTipo={adminData.setCambioPlanTipo}
           handleRenovarPlan={adminData.handleRenovarPlan}
+        />
+
+        <UpgradePlanModal
+          mejoraPlanClient={adminData.mejoraPlanClient}
+          setMejoraPlanClient={adminData.setMejoraPlanClient}
+          mejoraPlanSeleccionado={adminData.mejoraPlanSeleccionado}
+          setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
+          handleMejorarPlan={adminData.handleMejorarPlan}
         />
 
         <TrainingModal

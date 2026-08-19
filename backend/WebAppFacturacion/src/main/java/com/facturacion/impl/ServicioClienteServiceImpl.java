@@ -58,7 +58,10 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         LocalDateTime fechaCap = request.getFechaCapacitacion() != null ? request.getFechaCapacitacion() : LocalDateTime.now();
         LocalDate fechaCapDate = fechaCap.toLocalDate();
 
-        BigDecimal precioBase = servicio.getVenta() != null ? servicio.getVenta().getPrecioLista() : BigDecimal.valueOf(29);
+        if (servicio.getVenta() == null || servicio.getVenta().getPrecioLista() == null) {
+            throw new ResourceNotFoundException("La capacitación requiere una venta con precio registrada en la base de datos");
+        }
+        BigDecimal precioBase = servicio.getVenta().getPrecioLista();
         TipoSuscripcion tipoSub = (servicio.getVenta() != null && servicio.getVenta().getSuscripcion() != null)
                 ? servicio.getVenta().getSuscripcion().getTipoSuscripcion()
                 : TipoSuscripcion.MENSUAL;
@@ -257,9 +260,13 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         UsuarioAdmin admin = usuarioAdminRepository.findAll().stream().findFirst().orElse(null);
         if (admin == null) return;
 
+        LocalDateTime diaInicio = now.with(LocalTime.MIN);
+        LocalDateTime diaFin = now.with(LocalTime.MAX);
+
         List<ServicioCliente> vencenHoy = servicioClienteRepository.findActivosQueVencenEntre(hoyStart, hoyEnd);
         for (ServicioCliente s : vencenHoy) {
-            if (!notificacionRepository.existsByClienteIdAndTipoAndLeidaFalse(s.getCliente().getId(), TipoNotificacion.VENCE_HOY)) {
+            if (!notificacionRepository.existsByClienteIdAndTipoAndFechaCreacionBetween(
+                    s.getCliente().getId(), TipoNotificacion.VENCE_HOY, diaInicio, diaFin)) {
                 Notificacion n = new Notificacion();
                 n.setUsuarioAdmin(admin);
                 n.setCliente(s.getCliente());
@@ -274,7 +281,8 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         // 1. Alertas VENCIMIENTO_MANANA
         List<ServicioCliente> vencenManana = servicioClienteRepository.findActivosQueVencenEntre(mananaStart, mananaEnd);
         for (ServicioCliente s : vencenManana) {
-            if (!notificacionRepository.existsByClienteIdAndTipoAndLeidaFalse(s.getCliente().getId(), TipoNotificacion.VENCIMIENTO_MANANA)) {
+            if (!notificacionRepository.existsByClienteIdAndTipoAndFechaCreacionBetween(
+                    s.getCliente().getId(), TipoNotificacion.VENCIMIENTO_MANANA, diaInicio, diaFin)) {
                 Notificacion n = new Notificacion();
                 n.setUsuarioAdmin(admin);
                 n.setCliente(s.getCliente());
@@ -287,7 +295,11 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         }
 
         // 2. Alertas VENCE_HOY y VENCIDO
-        List<ServicioCliente> vencidos = servicioClienteRepository.findActivosVencidos(now);
+        // El dia mostrado como vencimiento ya es el primer dia sin acceso.
+        // Como la fecha persistida termina a las 23:59:59, se compara contra
+        // el inicio del dia siguiente para trabajar por fecha calendario.
+        LocalDateTime inicioDiaSiguiente = now.plusDays(1).with(LocalTime.MIN);
+        List<ServicioCliente> vencidos = servicioClienteRepository.findActivosVencidos(inicioDiaSiguiente);
         EstadoCliente estadoVencido = estadoClienteRepository.findByNombreAndActivoTrue("VENCIDO").orElse(null);
 
         for (ServicioCliente s : vencidos) {
@@ -309,7 +321,10 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 historialEstadoClienteRepository.save(h);
             }
 
-            if (!notificacionRepository.existsByClienteIdAndTipoAndLeidaFalse(s.getCliente().getId(), TipoNotificacion.VENCIDO)) {
+            if (s.getFechaFin() != null
+                    && s.getFechaFin().toLocalDate().isBefore(now.toLocalDate())
+                    && !notificacionRepository.existsByClienteIdAndTipoAndFechaCreacionBetween(
+                    s.getCliente().getId(), TipoNotificacion.VENCIDO, diaInicio, diaFin)) {
                 Notificacion n = new Notificacion();
                 n.setUsuarioAdmin(admin);
                 n.setCliente(s.getCliente());

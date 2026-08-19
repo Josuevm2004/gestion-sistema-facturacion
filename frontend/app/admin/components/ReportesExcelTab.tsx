@@ -166,15 +166,9 @@ export default function ReportesExcelTab({
       if (normalized === 'LIDER') return 'LIDER';
       return normalized;
     };
-    const annualPlanPrices: Record<string, number> = {
-      INICIA: 190,
-      EMPRENDE: 290,
-      IMPULSA: 390,
-      EMPRESARIAL: 590,
-      LIDER: 890,
-    };
+    const isUpgradeOperation = (op: any) => (op?.tipoVenta || op?.tipoOperacion || '').toUpperCase() === 'MEJORA_PLAN';
     const isAnnualOperation = (op: any, client?: Client) =>
-      normalizeSubscription(op?.tipoSuscripcion || client?.tipoSuscripcion) === 'ANUAL';
+      !isUpgradeOperation(op) && normalizeSubscription(op?.tipoSuscripcion || client?.tipoSuscripcion) === 'ANUAL';
     const isAnnualClient = (client?: Client) => normalizeSubscription(client?.tipoSuscripcion) === 'ANUAL';
     const operationAmount = (op: any) => {
       const ventaId = idKey(op?.ventaId ?? op?.venta?.id);
@@ -186,17 +180,13 @@ export default function ReportesExcelTab({
         ? op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion
         : op?.fechaPago || op?.fechaOperacion;
     const annualClientAmount = (client: Client) => {
-      const planPrice = annualPlanPrices[normalizePlanKey(client.planContratado)] || 0;
       const directAmount = Number(client.montoMensual || client.montoSiguienteCobro || 0);
-      if (planPrice && (!directAmount || directAmount > planPrice * 2)) return planPrice;
-      return directAmount || planPrice;
+      return directAmount;
     };
     const annualOperationAmount = (op: any, client: Client) => {
       const planAmount = annualClientAmount(client);
       const listAmount = Number(op?.precioLista || 0);
       const rawAmount = operationAmount(op);
-      if (listAmount && (!rawAmount || rawAmount > listAmount * 2)) return listAmount;
-      if (planAmount && (!rawAmount || rawAmount > planAmount * 2)) return planAmount;
       return rawAmount || listAmount || planAmount;
     };
     const excelOperationAmount = (op: any, client: Client) =>

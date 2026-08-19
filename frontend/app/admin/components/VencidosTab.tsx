@@ -31,8 +31,8 @@ export default function VencidosTab({
             <AlertCircle size={20} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-danger mb-0">Clientes Vencidos y Bloqueados</h2>
-            <small className="text-muted">Gestión comercial: Renovación, Cambio de Plan, Bloqueo o Devolver Acceso</small>
+            <h2 className="h6 fw-bold text-danger mb-0">Clientes Vencidos</h2>
+            <small className="text-muted">Gestión comercial: Renovación, Cambio de Plan o Bloqueo</small>
           </div>
         </div>
         <span className="badge bg-danger text-white rounded-pill px-3 py-1.5 fw-bold">
@@ -57,7 +57,7 @@ export default function VencidosTab({
             {clientesVencidosList.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-3">
-                  No hay clientes vencidos ni bloqueados.
+                  No hay clientes vencidos.
                 </td>
               </tr>
             ) : (
