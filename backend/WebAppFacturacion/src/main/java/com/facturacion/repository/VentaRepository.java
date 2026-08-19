@@ -14,6 +14,7 @@ public interface VentaRepository extends JpaRepository<Venta, Long> {
     List<Venta> findByClienteIdOrderByFechaVentaDesc(Long clienteId);
     Optional<Venta> findTopByClienteIdOrderByFechaVentaDesc(Long clienteId);
     Optional<Venta> findByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, TipoVenta tipoVenta);
+    List<Venta> findByVentaAnteriorIdAndTipoVentaOrderByFechaVentaDesc(Long ventaAnteriorId, TipoVenta tipoVenta);
     boolean existsByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, TipoVenta tipoVenta);
     boolean existsByVentaAnteriorIdAndTipoVentaAndEstadoVenta(Long ventaAnteriorId, TipoVenta tipoVenta, EstadoVenta estadoVenta);
 }

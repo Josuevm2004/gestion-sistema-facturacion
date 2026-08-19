@@ -20,8 +20,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.temporal.TemporalAdjusters;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ServicioClienteServiceImpl implements ServicioClienteService {
@@ -133,8 +133,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         LocalDate fechaCobroProrrateo = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaCapacitacion, monthlyBillingDay);
         LocalDateTime fechaCobro = LocalDateTime.of(fechaCobroProrrateo, LocalTime.NOON);
 
-        Venta ventaProrrateada = ventaRepository.findByVentaAnteriorIdAndTipoVenta(ventaInicial.getId(), TipoVenta.RENOVACION)
-                .orElseGet(Venta::new);
+        Venta ventaProrrateada = encontrarRenovacionPendienteExistente(ventaInicial.getId()).orElseGet(Venta::new);
 
         ventaProrrateada.setCliente(ventaInicial.getCliente());
         ventaProrrateada.setVendedor(ventaInicial.getVendedor());
@@ -157,8 +156,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             BigDecimal precioAnual) {
         LocalDateTime fechaCobro = LocalDateTime.of(fechaCobroAnual, LocalTime.NOON);
 
-        Venta ventaAnual = ventaRepository.findByVentaAnteriorIdAndTipoVenta(ventaInicial.getId(), TipoVenta.RENOVACION)
-                .orElseGet(Venta::new);
+        Venta ventaAnual = encontrarRenovacionPendienteExistente(ventaInicial.getId()).orElseGet(Venta::new);
 
         ventaAnual.setCliente(ventaInicial.getCliente());
         ventaAnual.setVendedor(ventaInicial.getVendedor());
@@ -347,10 +345,19 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 servicioClienteRepository.save(servicio);
             }
 
-            ventaRepository.findByVentaAnteriorIdAndTipoVenta(ventaServicio.getId(), TipoVenta.RENOVACION)
-                    .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+            encontrarRenovacionPendienteExistente(ventaServicio.getId())
                     .ifPresent(pendiente -> realinearVentaPendienteMensual(servicio, pendiente, fechaFinMensual, ahora));
         }
+    }
+
+    private Optional<Venta> encontrarRenovacionPendienteExistente(Long ventaAnteriorId) {
+        if (ventaAnteriorId == null) {
+            return Optional.empty();
+        }
+        return ventaRepository.findByVentaAnteriorIdAndTipoVentaOrderByFechaVentaDesc(ventaAnteriorId, TipoVenta.RENOVACION)
+                .stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .findFirst();
     }
 
     private void realinearVentaPendienteMensual(

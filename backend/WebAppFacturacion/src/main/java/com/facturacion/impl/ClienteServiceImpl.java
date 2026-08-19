@@ -183,7 +183,11 @@ public class ClienteServiceImpl implements ClienteService {
         List<Cliente> clientes = clienteRepository.findByActivoTrue();
         List<ClienteDashboardResponse> list = new ArrayList<>();
         for (Cliente c : clientes) {
-            list.add(mapToDashboardResponse(c));
+            try {
+                list.add(mapToDashboardResponse(c));
+            } catch (RuntimeException ex) {
+                list.add(mapToDashboardResponseBasico(c));
+            }
         }
         return list;
     }
@@ -589,6 +593,34 @@ public class ClienteServiceImpl implements ClienteService {
             res.setDiasProrrateados(servicio.getDiasProrrateados());
         }
 
+        res.setFechaRegistro(c.getFechaRegistro());
+        return res;
+    }
+
+    private ClienteDashboardResponse mapToDashboardResponseBasico(Cliente c) {
+        ClienteDashboardResponse res = new ClienteDashboardResponse();
+        res.setId(c.getId());
+        res.setRuc(c.getRuc());
+        res.setUsuarioSol(c.getUsuarioSol());
+        res.setClaveSolCifrada(c.getClaveSolCifrada());
+        res.setRazonSocial(c.getRazonSocial());
+        res.setNombreComercial(c.getNombreComercial());
+        res.setDireccion(c.getDireccion());
+        res.setTelefono(c.getTelefono());
+        res.setEmail(c.getEmail());
+        res.setNombres(c.getNombres());
+        res.setApellidos(c.getApellidos());
+        res.setDni(c.getDni());
+        res.setEmailPersonal(c.getEmailPersonal());
+        res.setTelefonoPersonal(c.getTelefonoPersonal());
+        res.setDepartamento(c.getDepartamento());
+        res.setProvincia(c.getProvincia());
+        res.setDistrito(c.getDistrito());
+        res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
+        res.setClaveTemporal(c.getClaveTemporal());
+        res.setUrlAcceso(c.getUrlAcceso());
+        res.setEstadoNombre("POR_COBRAR");
+        res.setVendedorNombre("Por asignar");
         res.setFechaRegistro(c.getFechaRegistro());
         return res;
     }
