@@ -2,7 +2,23 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { Bell, User, UserPlus, Users, Activity, LogOut, CheckCircle } from 'lucide-react';
+import {
+  Activity,
+  AlertTriangle,
+  Bell,
+  CalendarDays,
+  CheckCircle,
+  FileSpreadsheet,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  User,
+  UserPlus,
+  Users,
+  WalletCards,
+  LockKeyhole,
+} from 'lucide-react';
 
 interface AdminNavbarProps {
   activeTab: string;
@@ -69,39 +85,39 @@ export default function AdminNavbar({
   const alertCount = activeNotifications.length || uniqueNearDueClients.length;
 
   const navItems = [
-    { key: 'resumen', label: 'Resumen' },
-    { key: 'todos', label: 'Todos los Clientes' },
-    { key: 'cobrar', label: 'Por Cobrar', count: clientesPorCobrarList.length, badge: 'bg-warning text-dark' },
-    { key: 'vencidos', label: 'Vencidos', count: clientesVencidosList.length, badge: 'bg-danger' },
-    { key: 'bloqueados', label: 'Bloqueados', count: clientesBloqueadosList.length, badge: 'bg-secondary' },
-    { key: 'capacitaciones', label: 'Capacitaciones' },
-    { key: 'calendario', label: 'Centro de Control' },
-    { key: 'reporte', label: 'Reporte General' },
+    { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={15} /> },
+    { key: 'todos', label: 'Todos los Clientes', icon: <Users size={15} /> },
+    { key: 'cobrar', label: 'Por Cobrar', icon: <WalletCards size={15} />, count: clientesPorCobrarList.length, badge: 'bg-warning text-dark' },
+    { key: 'vencidos', label: 'Vencidos', icon: <AlertTriangle size={15} />, count: clientesVencidosList.length, badge: 'bg-danger' },
+    { key: 'bloqueados', label: 'Bloqueados', icon: <LockKeyhole size={15} />, count: clientesBloqueadosList.length, badge: 'bg-secondary' },
+    { key: 'capacitaciones', label: 'Capacitaciones', icon: <GraduationCap size={15} /> },
+    { key: 'calendario', label: 'Centro de Control', icon: <CalendarDays size={15} /> },
+    { key: 'reporte', label: 'Reporte General', icon: <FileSpreadsheet size={15} /> },
   ];
 
   return (
-    <nav className="navbar navbar-expand-lg sticky-top custom-navbar bg-black shadow-sm">
-      <div className="container-fluid px-3 px-md-4">
-        <div className="d-flex align-items-center gap-3">
-          <Image src="/logo.jpeg" alt="Miquipu Logo" width={40} height={40} className="rounded-3 shadow-sm" />
-          <span className="navbar-brand text-white fw-bold mb-0 me-0" style={{ letterSpacing: '-0.3px', fontSize: '1.15rem' }}>
+    <nav className="navbar navbar-expand-lg sticky-top custom-navbar admin-navbar">
+      <div className="container-fluid admin-navbar-inner px-3 px-md-4">
+        <div className="admin-brand d-flex align-items-center gap-2 gap-sm-3">
+          <Image src="/logo.jpeg" alt="Miquipu Logo" width={40} height={40} className="admin-brand-logo rounded-3 shadow-sm" />
+          <span className="navbar-brand admin-brand-name text-white fw-bold mb-0 me-0">
             Miquipu Admin
           </span>
         </div>
 
         <button
-          className="navbar-toggler border-0 text-white p-2"
+          className="navbar-toggler admin-navbar-toggler border-0 text-white p-2"
           type="button"
           data-bs-toggle="offcanvas"
           data-bs-target="#adminNavbarOffcanvas"
           aria-controls="adminNavbarOffcanvas"
           aria-label="Abrir menu de navegacion"
         >
-          <span className="navbar-toggler-icon" style={{ filter: 'invert(1)' }}></span>
+          <Menu size={22} aria-hidden="true" />
         </button>
 
-        <div className="offcanvas offcanvas-start bg-dark text-white" tabIndex={-1} id="adminNavbarOffcanvas">
-          <div className="offcanvas-header border-bottom border-secondary">
+        <div className="offcanvas offcanvas-start offcanvas-lg bg-dark text-white admin-offcanvas" tabIndex={-1} id="adminNavbarOffcanvas">
+          <div className="offcanvas-header border-bottom border-secondary admin-offcanvas-header">
             <div className="d-flex align-items-center gap-2">
               <Image src="/logo.jpeg" alt="Miquipu Logo" width={32} height={32} className="rounded-3" />
               <h5 className="offcanvas-title text-white fw-bold">Menu Miquipu</h5>
@@ -109,17 +125,19 @@ export default function AdminNavbar({
             <button type="button" className="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
           </div>
 
-          <div className="offcanvas-body align-items-center justify-content-between">
-            <ul className="navbar-nav gap-1 me-auto mb-2 mb-lg-0" style={{ fontSize: '0.88rem' }}>
+          <div className="offcanvas-body admin-offcanvas-body align-items-center justify-content-between">
+            <ul className="navbar-nav admin-nav-links gap-1 me-auto mb-2 mb-lg-0">
               {navItems.map((item) => (
                 <li className="nav-item" key={item.key}>
                   <button
-                    className={`nav-link btn border-0 text-start py-1 px-2 rounded-2 d-flex align-items-center gap-1 ${
+                    className={`nav-link admin-nav-link btn border-0 text-start d-flex align-items-center gap-2 ${
                       activeTab === item.key ? 'active bg-primary text-white fw-bold' : 'text-white-50'
                     }`}
                     onClick={() => setActiveTab(item.key)}
                     data-bs-dismiss="offcanvas"
+                    aria-current={activeTab === item.key ? 'page' : undefined}
                   >
+                    <span className="admin-nav-icon d-inline-flex align-items-center justify-content-center">{item.icon}</span>
                     <span>{item.label}</span>
                     {!!item.count && <span className={`badge rounded-pill ${item.badge || 'bg-primary'}`}>{item.count}</span>}
                   </button>
@@ -129,23 +147,25 @@ export default function AdminNavbar({
               {currentUser?.rol === 'ADMIN' && (
                 <li className="nav-item">
                   <button
-                    className={`nav-link btn border-0 text-start py-1 px-2 rounded-2 ${
+                    className={`nav-link admin-nav-link btn border-0 text-start d-flex align-items-center gap-2 ${
                       activeTab === 'usuarios' ? 'active bg-primary text-white fw-bold' : 'text-white-50'
                     }`}
                     onClick={() => setActiveTab('usuarios')}
                     data-bs-dismiss="offcanvas"
+                    aria-current={activeTab === 'usuarios' ? 'page' : undefined}
                   >
+                    <span className="admin-nav-icon d-inline-flex align-items-center justify-content-center"><Users size={15} /></span>
                     Vendedores / Usuarios
                   </button>
                 </li>
               )}
             </ul>
 
-            <div className="d-flex align-items-center gap-2 mt-3 mt-lg-0 ms-lg-2 position-relative">
-              <div className="position-relative w-100 w-lg-auto">
+            <div className="admin-navbar-actions d-flex align-items-center gap-2 mt-3 mt-lg-0 ms-lg-2 position-relative">
+              <div className="position-relative admin-alert-wrap w-100 w-lg-auto">
                 <button
                   onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
-                  className="btn btn-warning btn-sm w-100 w-lg-auto position-relative d-flex align-items-center justify-content-center gap-1 py-1 px-3 fw-semibold"
+                  className="btn btn-warning admin-alert-button btn-sm w-100 w-lg-auto position-relative d-flex align-items-center justify-content-center gap-2 py-2 px-3 fw-semibold"
                   title="Alertas de Vencimiento"
                 >
                   <Bell size={15} />
@@ -164,7 +184,7 @@ export default function AdminNavbar({
                     ></div>
 
                     <div
-                      className="notification-dropdown-responsive bg-white text-dark rounded-3 shadow-lg p-3 border"
+                      className="notification-dropdown-responsive admin-notification-panel bg-white text-dark rounded-3 shadow-lg p-3 border"
                       style={{ maxHeight: '80vh', overflowY: 'auto' }}
                     >
                       <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
@@ -246,10 +266,10 @@ export default function AdminNavbar({
                 )}
               </div>
 
-              <div className="position-relative">
+              <div className="position-relative admin-profile-wrap">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="btn btn-outline-light btn-sm d-flex align-items-center gap-2 px-2 py-1 rounded-3 border-secondary shadow-sm"
+                  className="btn btn-outline-light admin-profile-button btn-sm d-flex align-items-center gap-2 px-2 py-1 rounded-3 border-secondary shadow-sm"
                   title="Perfil de Usuario"
                 >
                   <span className="p-1 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style={{ width: '24px', height: '24px' }}>
@@ -258,11 +278,11 @@ export default function AdminNavbar({
                   <span className="fw-semibold text-truncate d-none d-sm-inline" style={{ maxWidth: '120px' }}>
                     {currentUser?.nombre || currentUser?.username || 'Mi Perfil'}
                   </span>
-                  <span className="small opacity-75 ms-1">v</span>
+                  <span className="small opacity-75 ms-1">⌄</span>
                 </button>
 
                 {showProfileDropdown && (
-                  <div className="position-absolute end-0 mt-2 bg-white text-dark rounded-3 shadow-lg p-2 border" style={{ zIndex: 99999, width: '240px' }}>
+                  <div className="position-absolute end-0 mt-2 bg-white text-dark rounded-3 shadow-lg p-2 border admin-profile-panel">
                     <div className="px-3 py-2 border-bottom mb-2 bg-light rounded-2 text-start">
                       <strong className="d-block text-dark text-truncate" style={{ fontSize: '0.85rem' }}>
                         {currentUser?.nombre || currentUser?.username || 'Usuario'}

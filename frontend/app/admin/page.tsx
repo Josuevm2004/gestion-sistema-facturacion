@@ -28,7 +28,7 @@ export default function AdminPage() {
   const adminData = useAdminData();
 
   return (
-    <div className="bg-white min-h-screen pb-5">
+    <div className="admin-shell bg-white min-h-screen pb-5">
       {adminData.token && (
         <AdminNavbar
           activeTab={adminData.activeTab}
@@ -50,18 +50,18 @@ export default function AdminPage() {
         />
       )}
 
-      <main className="container-fluid px-3 px-md-4 my-4" style={{ maxWidth: '1600px' }}>
+      <main className="admin-main container-fluid px-3 px-md-4 my-4">
         {adminData.notice && (
-          <div className="alert alert-info alert-dismissible fade show shadow-sm rounded-3 mb-4" role="alert">
+          <div className="alert admin-notice alert-info alert-dismissible fade show shadow-sm rounded-3 mb-4" role="alert">
             <span>{adminData.notice}</span>
             <button type="button" className="btn-close" onClick={() => adminData.setNotice(null)}></button>
           </div>
         )}
 
         {!adminData.token ? (
-          <div className="row justify-content-center my-5">
-            <div className="col-md-5">
-              <div className="custom-card p-4 p-md-5">
+          <div className="admin-login-shell row justify-content-center my-5">
+            <div className="col-12 col-sm-10 col-md-7 col-lg-5 col-xl-4">
+              <div className="custom-card admin-login-card p-4 p-md-5">
                 <div className="text-center mb-4">
                   <Image src="/logo.jpeg" alt="Miquipu Logo" width={56} height={56} className="rounded-3 shadow-sm mb-2" />
                   <h1 className="h5 fw-bold text-dark mb-1">Acceso Administrativo</h1>
