@@ -28,6 +28,8 @@ export function useAdminData() {
   const lastVencimientosReviewRef = useRef<number>(0);
   const vencimientosReviewInFlightRef = useRef(false);
   const loadDataInFlightRef = useRef(false);
+  const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recoveryAttemptsRef = useRef(0);
   const processingPaymentsRef = useRef<Set<string>>(new Set());
   const processingOperationsRef = useRef<Set<string>>(new Set());
   const processingStateRef = useRef<Set<string>>(new Set());
@@ -194,12 +196,13 @@ export function useAdminData() {
       const rawClients = extractArray(clientRes.data);
       normalizeAndSetClients(rawClients);
 
-      setPayments(payResult.status === 'fulfilled' ? extractArray(payResult.value.data) : []);
-      setUsersList(userResult.status === 'fulfilled' ? extractArray(userResult.value.data) : []);
-      setNotifications(notifResult.status === 'fulfilled' ? extractArray(notifResult.value.data) : []);
+      if (payResult.status === 'fulfilled') setPayments(extractArray(payResult.value.data));
+      if (userResult.status === 'fulfilled') setUsersList(extractArray(userResult.value.data));
+      if (notifResult.status === 'fulfilled') setNotifications(extractArray(notifResult.value.data));
       if (subscriptionResult.status === 'fulfilled') {
         setSubscriptions(extractArray(subscriptionResult.value.data));
       }
+      recoveryAttemptsRef.current = 0;
 
       vencimientosReview?.then(async () => {
         try {
@@ -220,6 +223,13 @@ export function useAdminData() {
         setNotice('Tu sesión ha expirado. Por favor ingresa tus credenciales nuevamente.');
       } else {
         setNotice('No se pudieron cargar los clientes del servidor.');
+        if (!recoveryTimerRef.current && recoveryAttemptsRef.current < 3) {
+          recoveryAttemptsRef.current += 1;
+          recoveryTimerRef.current = setTimeout(() => {
+            recoveryTimerRef.current = null;
+            void loadData(tokenToUse);
+          }, 5000);
+        }
       }
     } finally {
       setIsSyncing(false);
