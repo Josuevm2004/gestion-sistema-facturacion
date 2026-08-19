@@ -9,4 +9,5 @@ import java.util.Optional;
 @Repository
 public interface EncuestaInicialRepository extends JpaRepository<EncuestaInicial, Long> {
     Optional<EncuestaInicial> findByClienteId(Long clienteId);
+    void deleteByClienteId(Long clienteId);
 }

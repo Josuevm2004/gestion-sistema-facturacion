@@ -57,6 +57,8 @@ public class ClienteServiceImpl implements ClienteService {
     private EncuestaInicialRepository encuestaInicialRepository;
     @Autowired
     private HistorialEstadoClienteRepository historialEstadoClienteRepository;
+    @Autowired
+    private NotificacionRepository notificacionRepository;
 
     @Value("${app.billing.monthly-billing-day:1}")
     private int monthlyBillingDay;
@@ -489,6 +491,24 @@ public class ClienteServiceImpl implements ClienteService {
     public void eliminarClientePermanentemente(Long clienteId) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        // Se elimina en orden explícito para que también funcione con bases
+        // antiguas cuyas claves foráneas todavía no tienen CASCADE.
+        notificacionRepository.deleteByClienteId(clienteId);
+        historialEstadoClienteRepository.deleteByClienteId(clienteId);
+        encuestaInicialRepository.deleteByClienteId(clienteId);
+
+        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+        for (Venta venta : ventas) {
+            ventaRepository.findByVentaAnteriorId(venta.getId()).forEach(dependiente -> {
+                dependiente.setVentaAnterior(null);
+                ventaRepository.save(dependiente);
+            });
+            pagoRepository.deleteAll(pagoRepository.findByVentaId(venta.getId()));
+        }
+
+        servicioClienteRepository.deleteAll(servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId));
+        ventaRepository.deleteAll(ventas);
         clienteRepository.delete(cliente);
     }
 

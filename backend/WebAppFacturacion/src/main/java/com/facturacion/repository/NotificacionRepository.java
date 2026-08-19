@@ -18,4 +18,5 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
             TipoNotificacion tipo,
             LocalDateTime inicio,
             LocalDateTime fin);
+    void deleteByClienteId(Long clienteId);
 }
