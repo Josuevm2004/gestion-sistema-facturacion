@@ -213,11 +213,17 @@ export function useAdminData() {
 
     try {
       const response = await api.post('/admin/login', { username, password });
-      const authToken = response.data.token || response.data.access_token;
+      const responseBody = response.data ?? {};
+      const authData = responseBody.data ?? responseBody;
+      const authToken = authData.token || authData.access_token;
       if (!authToken) {
         throw new Error('El servidor no devolvió token de acceso.');
       }
-      const userObj = response.data.usuario || { username, nombre: username, rol: 'ADMIN' };
+      const userObj = authData.usuario || authData.user || {
+        username: authData.username || username,
+        nombre: authData.nombre || authData.username || username,
+        rol: authData.rol || 'ADMIN',
+      };
 
       localStorage.setItem('miquipu_admin_token', authToken);
       localStorage.setItem('miquipu_admin_user', JSON.stringify(userObj));
