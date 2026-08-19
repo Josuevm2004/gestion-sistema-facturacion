@@ -116,7 +116,7 @@ export default function AdminNavbar({
           <Menu size={22} aria-hidden="true" />
         </button>
 
-        <div className="offcanvas offcanvas-start offcanvas-lg bg-dark text-white admin-offcanvas" tabIndex={-1} id="adminNavbarOffcanvas">
+        <div className="offcanvas offcanvas-start offcanvas-lg bg-dark text-white admin-offcanvas ms-lg-4" tabIndex={-1} id="adminNavbarOffcanvas">
           <div className="offcanvas-header border-bottom border-secondary admin-offcanvas-header">
             <div className="d-flex align-items-center gap-2">
               <Image src="/logo.jpeg" alt="Miquipu Logo" width={32} height={32} className="rounded-3" />
