@@ -25,6 +25,6 @@ public interface ServicioClienteRepository extends JpaRepository<ServicioCliente
     @Query("SELECT s FROM ServicioCliente s WHERE s.estado = 'ACTIVO' AND s.fechaFin BETWEEN :start AND :end")
     List<ServicioCliente> findActivosQueVencenEntre(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    @Query("SELECT s FROM ServicioCliente s WHERE s.estado = 'ACTIVO' AND s.fechaFin < :now")
+    @Query("SELECT s FROM ServicioCliente s WHERE s.estado = 'ACTIVO' AND s.fechaFin <= :now")
     List<ServicioCliente> findActivosVencidos(@Param("now") LocalDateTime now);
 }

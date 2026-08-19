@@ -42,7 +42,7 @@ import java.util.List;
 @Service
 public class VentaServiceImpl implements VentaService {
 
-    private static final LocalTime END_OF_BILLING_DAY = LocalTime.of(23, 59, 59);
+    private static final LocalTime BILLING_CUTOFF_TIME = LocalTime.MIDNIGHT;
 
     @Autowired
     private VentaRepository ventaRepository;
@@ -61,7 +61,7 @@ public class VentaServiceImpl implements VentaService {
     @Autowired
     private PagoRepository pagoRepository;
 
-    @Value("${app.billing.monthly-billing-day:19}")
+    @Value("${app.billing.monthly-billing-day:1}")
     private int monthlyBillingDay;
 
     @Override
@@ -112,7 +112,7 @@ public class VentaServiceImpl implements VentaService {
             descuentoProrrateo = ventaPendiente.getMontoProrrateado() != null ? ventaPendiente.getMontoProrrateado() : BigDecimal.ZERO;
             montoTotal = ventaPendiente.getMontoTotal() != null ? ventaPendiente.getMontoTotal() : precioLista;
             LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
-            fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+            fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
         } else {
             ProrrateoCalculatorUtil.ResultadoProrrateo r =
@@ -120,7 +120,7 @@ public class VentaServiceImpl implements VentaService {
             descuentoProrrateo = r.descuento();
             montoTotal = r.montoFinal();
             LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
-            fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+            fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, r.diasTotales() - r.diasNoConsumidos());
         }
 

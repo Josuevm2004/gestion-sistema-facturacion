@@ -36,7 +36,7 @@ import java.util.List;
 @Service
 public class PagoServiceImpl implements PagoService {
 
-    private static final LocalTime END_OF_BILLING_DAY = LocalTime.of(23, 59, 59);
+    private static final LocalTime BILLING_CUTOFF_TIME = LocalTime.MIDNIGHT;
 
     @Autowired
     private PagoRepository pagoRepository;
@@ -51,7 +51,7 @@ public class PagoServiceImpl implements PagoService {
     @Autowired
     private ServicioClienteRepository servicioClienteRepository;
 
-    @Value("${app.billing.monthly-billing-day:19}")
+    @Value("${app.billing.monthly-billing-day:1}")
     private int monthlyBillingDay;
 
     private record AjusteCobro(
@@ -153,7 +153,7 @@ public class PagoServiceImpl implements PagoService {
         ProrrateoCalculatorUtil.ResultadoProrrateo r =
                 ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioLista, fechaInicioDate, monthlyBillingDay);
         LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
-        LocalDateTime fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+        LocalDateTime fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
         int diasProrrateados = Math.max(1, r.diasTotales() - r.diasNoConsumidos());
 
         return new AjusteCobro(fechaInicio, fechaFin, r.descuento(), r.montoFinal(), diasProrrateados);
@@ -183,7 +183,7 @@ public class PagoServiceImpl implements PagoService {
         }
 
         LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
-        LocalDateTime fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+        LocalDateTime fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
         int diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
 
         return new AjusteCobro(

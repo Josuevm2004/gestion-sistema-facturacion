@@ -26,7 +26,7 @@ import java.util.Optional;
 @Service
 public class ServicioClienteServiceImpl implements ServicioClienteService {
 
-    private static final LocalTime END_OF_BILLING_DAY = LocalTime.of(23, 59, 59);
+    private static final LocalTime BILLING_CUTOFF_TIME = LocalTime.MIDNIGHT;
 
     @Autowired
     private ServicioClienteRepository servicioClienteRepository;
@@ -43,7 +43,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
     @Autowired
     private VentaRepository ventaRepository;
 
-    @Value("${app.billing.monthly-billing-day:19}")
+    @Value("${app.billing.monthly-billing-day:1}")
     private int monthlyBillingDay;
 
     @Override
@@ -79,7 +79,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             montoProrrateado = r.montoFinal();
             descuentoProrrateo = r.descuento();
             LocalDate fechaFin = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaCapDate, monthlyBillingDay);
-            fechaFinCalculada = LocalDateTime.of(fechaFin, END_OF_BILLING_DAY);
+            fechaFinCalculada = LocalDateTime.of(fechaFin, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, r.diasTotales() - r.diasNoConsumidos());
         }
 
@@ -295,11 +295,8 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         }
 
         // 2. Alertas VENCE_HOY y VENCIDO
-        // El dia mostrado como vencimiento ya es el primer dia sin acceso.
-        // Como la fecha persistida termina a las 23:59:59, se compara contra
-        // el inicio del dia siguiente para trabajar por fecha calendario.
-        LocalDateTime inicioDiaSiguiente = now.plusDays(1).with(LocalTime.MIN);
-        List<ServicioCliente> vencidos = servicioClienteRepository.findActivosVencidos(inicioDiaSiguiente);
+        // La fecha de vencimiento es el primer instante del dia sin acceso.
+        List<ServicioCliente> vencidos = servicioClienteRepository.findActivosVencidos(now);
         EstadoCliente estadoVencido = estadoClienteRepository.findByNombreAndActivoTrue("VENCIDO").orElse(null);
 
         for (ServicioCliente s : vencidos) {
@@ -322,7 +319,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             }
 
             if (s.getFechaFin() != null
-                    && s.getFechaFin().toLocalDate().isBefore(now.toLocalDate())
+                    && !s.getFechaFin().isAfter(now)
                     && !notificacionRepository.existsByClienteIdAndTipoAndFechaCreacionBetween(
                     s.getCliente().getId(), TipoNotificacion.VENCIDO, diaInicio, diaFin)) {
                 Notificacion n = new Notificacion();
@@ -352,7 +349,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
 
             LocalDate fechaInicio = servicio.getFechaInicio().toLocalDate();
             LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicio, monthlyBillingDay);
-            LocalDateTime fechaFinCalculada = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+            LocalDateTime fechaFinCalculada = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
 
             if (!fechaFinCalculada.equals(servicio.getFechaFin())) {
                 servicio.setFechaFin(fechaFinCalculada);

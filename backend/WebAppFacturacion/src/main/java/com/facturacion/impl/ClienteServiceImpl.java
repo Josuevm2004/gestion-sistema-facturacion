@@ -33,7 +33,7 @@ import java.util.Map;
 @Service
 public class ClienteServiceImpl implements ClienteService {
 
-    private static final LocalTime END_OF_BILLING_DAY = LocalTime.of(23, 59, 59);
+    private static final LocalTime BILLING_CUTOFF_TIME = LocalTime.MIDNIGHT;
 
     @Autowired
     private ClienteRepository clienteRepository;
@@ -58,7 +58,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Autowired
     private HistorialEstadoClienteRepository historialEstadoClienteRepository;
 
-    @Value("${app.billing.monthly-billing-day:19}")
+    @Value("${app.billing.monthly-billing-day:1}")
     private int monthlyBillingDay;
 
     @Override
@@ -149,7 +149,7 @@ public class ClienteServiceImpl implements ClienteService {
             servicio.setFechaFin(fechaOperacion.plusYears(1));
         } else {
             LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaOperacion.toLocalDate(), monthlyBillingDay);
-            servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY));
+            servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
         }
         servicio.setEstado(EstadoServicio.PENDIENTE_CAPACITACION);
         servicio.setObservaciones("Servicio registrado desde formulario de onboarding");

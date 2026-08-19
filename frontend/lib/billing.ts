@@ -1,4 +1,4 @@
-export const DEFAULT_MONTHLY_BILLING_DAY = 19;
+export const DEFAULT_MONTHLY_BILLING_DAY = 1;
 
 function parseBillingDay(value?: string): number {
   const parsed = Number(value);

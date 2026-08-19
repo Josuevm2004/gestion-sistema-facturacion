@@ -211,6 +211,19 @@ export default function ReportesExcelTab({
       const [year, month] = key.split('-').map(Number);
       return year * 12 + month - 1;
     };
+    const addMonthRangeToSet = (startKey: string, endKey: string) => {
+      const startIndex = monthIndexFromKey(startKey);
+      const endIndex = monthIndexFromKey(endKey);
+      if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return;
+
+      const first = Math.min(startIndex, endIndex);
+      const last = Math.max(startIndex, endIndex);
+      for (let index = first; index <= last; index += 1) {
+        const year = Math.floor(index / 12);
+        const month = (index % 12) + 1;
+        monthKeysSet.add(`${year}-${String(month).padStart(2, '0')}`);
+      }
+    };
     const annualMonthsCovered = (op: any) => {
       const startKey = monthKeyFromDate(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
       const endKey = monthKeyFromDate(op?.fechaFinServicio);
@@ -236,9 +249,11 @@ export default function ReportesExcelTab({
     ];
 
     const monthKeysSet = new Set<string>();
+    const today = new Date();
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
     reportFilteredList.forEach((c) => {
       const registroKey = monthKeyFromDate(c.fechaRegistro);
-      if (registroKey) monthKeysSet.add(registroKey);
+      if (registroKey) addMonthRangeToSet(registroKey, currentMonthKey);
 
       const operaciones = (operacionesByClient.get(idKey(c.id)) || []).filter(isPaidOperation);
       operaciones.forEach((op) => {
@@ -250,7 +265,7 @@ export default function ReportesExcelTab({
             monthKeysSet.add(addMonthsToKey(key, i));
           }
         } else {
-          monthKeysSet.add(key);
+          addMonthRangeToSet(key, currentMonthKey);
         }
       });
       (paymentsByClient.get(idKey(c.id)) || []).forEach((p) => {
@@ -262,8 +277,7 @@ export default function ReportesExcelTab({
     });
 
     if (monthKeysSet.size === 0) {
-      const today = new Date();
-      monthKeysSet.add(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`);
+      monthKeysSet.add(currentMonthKey);
     }
 
     const monthKeys = Array.from(monthKeysSet).sort();
@@ -354,15 +368,15 @@ export default function ReportesExcelTab({
         c.dni || '',
         c.telefonoPersonal || '',
         c.emailPersonal || '',
-        c.regimenTributario || 'GENERAL',
-        c.planContratado || 'EMPRENDE',
-        c.tipoSuscripcion || 'MENSUAL',
+        c.regimenTributario || '',
+        c.planContratado || '',
+        c.tipoSuscripcion || '',
         Number(c.montoMensual || 0).toFixed(2),
-        c.vendedor || 'Por asignar',
-        c.colorTag || 'VERDE',
-        c.estadoCuenta || 'POR_COBRAR',
-        c.estadoCapacitacion || 'PENDIENTE',
-        c.fechaCapacitacion || 'Pendiente',
+        c.vendedor || '',
+        c.colorTag || '',
+        c.estadoCuenta || '',
+        c.estadoCapacitacion || '',
+        c.fechaCapacitacion || '',
         c.fechaVencimientoMensual || '',
         Number(c.montoSiguienteCobro || 0).toFixed(2),
         c.diasProrrateados || 0,
@@ -397,8 +411,11 @@ export default function ReportesExcelTab({
           );
           i += mergeCount;
         } else {
+          const amount = monthlySums.get(key) || 0;
           monthCellsXml.push(
-            `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${(monthlySums.get(key) || 0).toFixed(2)}</Data></Cell>`
+            amount > 0
+              ? `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
+              : '<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>'
           );
         }
       }
