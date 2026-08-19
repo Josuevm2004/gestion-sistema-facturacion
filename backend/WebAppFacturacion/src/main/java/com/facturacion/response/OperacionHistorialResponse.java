@@ -19,6 +19,7 @@ public class OperacionHistorialResponse {
     private String plan;
     private String tipoSuscripcion;
     private BigDecimal precioLista;
+    private BigDecimal precioPlan;
     private BigDecimal montoVenta;
     private BigDecimal montoPagado;
     private BigDecimal descuentoProrrateo;
@@ -56,6 +57,8 @@ public class OperacionHistorialResponse {
     public void setTipoSuscripcion(String tipoSuscripcion) { this.tipoSuscripcion = tipoSuscripcion; }
     public BigDecimal getPrecioLista() { return precioLista; }
     public void setPrecioLista(BigDecimal precioLista) { this.precioLista = precioLista; }
+    public BigDecimal getPrecioPlan() { return precioPlan; }
+    public void setPrecioPlan(BigDecimal precioPlan) { this.precioPlan = precioPlan; }
     public BigDecimal getMontoVenta() { return montoVenta; }
     public void setMontoVenta(BigDecimal montoVenta) { this.montoVenta = montoVenta; }
     public BigDecimal getMontoPagado() { return montoPagado; }

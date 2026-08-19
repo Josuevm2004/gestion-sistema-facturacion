@@ -241,7 +241,18 @@ public class VentaServiceImpl implements VentaService {
 
         Venta mejora = new Venta();
         mejora.setCliente(cliente);
-        mejora.setVendedor(vendedor != null ? vendedor : ventaActual.getVendedor());
+        // La mejora conserva el vendedor de la venta vigente. Solo se usa
+        // otro vendedor cuando la operacion lo solicita explicitamente.
+        UsuarioAdmin vendedorMejora = vendedor;
+        if (request.getVendedorId() == null) {
+            vendedorMejora = ventasCliente.stream()
+                    .filter(v -> v.getTipoVenta() != TipoVenta.MEJORA_PLAN)
+                    .filter(v -> v.getVendedor() != null)
+                    .map(Venta::getVendedor)
+                    .findFirst()
+                    .orElse(ventaActual.getVendedor());
+        }
+        mejora.setVendedor(vendedorMejora);
         mejora.setSuscripcion(nuevaSuscripcion);
         mejora.setTipoVenta(TipoVenta.MEJORA_PLAN);
         mejora.setVentaAnterior(ventaActual);

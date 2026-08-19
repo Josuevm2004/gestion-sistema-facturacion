@@ -345,6 +345,7 @@ public class ClienteServiceImpl implements ClienteService {
 
             if (v.getSuscripcion() != null) {
                 op.setTipoSuscripcion(v.getSuscripcion().getTipoSuscripcion() != null ? v.getSuscripcion().getTipoSuscripcion().name() : null);
+                op.setPrecioPlan(v.getSuscripcion().getPrecio());
                 if (v.getSuscripcion().getPlan() != null) {
                     op.setPlan(v.getSuscripcion().getPlan().getNombrePlan());
                 }

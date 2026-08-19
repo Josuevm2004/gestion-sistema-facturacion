@@ -167,8 +167,12 @@ export default function ReportesExcelTab({
       return normalized;
     };
     const isUpgradeOperation = (op: any) => (op?.tipoVenta || op?.tipoOperacion || '').toUpperCase() === 'MEJORA_PLAN';
+    const isAnnualSubscriptionOperation = (op: any, client?: Client) =>
+      normalizeSubscription(op?.tipoSuscripcion || client?.tipoSuscripcion) === 'ANUAL';
     const isAnnualOperation = (op: any, client?: Client) =>
-      !isUpgradeOperation(op) && normalizeSubscription(op?.tipoSuscripcion || client?.tipoSuscripcion) === 'ANUAL';
+      !isUpgradeOperation(op) && isAnnualSubscriptionOperation(op, client);
+    const isAnnualUpgradeOperation = (op: any, client?: Client) =>
+      isUpgradeOperation(op) && isAnnualSubscriptionOperation(op, client);
     const isAnnualClient = (client?: Client) => normalizeSubscription(client?.tipoSuscripcion) === 'ANUAL';
     const operationAmount = (op: any) => {
       const ventaId = idKey(op?.ventaId ?? op?.venta?.id);
@@ -340,6 +344,31 @@ export default function ReportesExcelTab({
           }
         }
       });
+
+      // Una mejora anual actualiza el monto del tramo anual vigente,
+      // conservando las mismas fechas y sus doce meses de cobertura.
+      operaciones
+        .filter((op) => isAnnualUpgradeOperation(op, c))
+        .sort((a, b) => {
+          const aKey = monthKeyFromDate(a?.fechaPago || a?.fechaOperacion) || '';
+          const bKey = monthKeyFromDate(b?.fechaPago || b?.fechaOperacion) || '';
+          return monthIndexFromKey(aKey) - monthIndexFromKey(bKey);
+        })
+        .forEach((op) => {
+          const upgradeKey = monthKeyFromDate(op?.fechaPago || op?.fechaOperacion);
+          const updatedPlanAmount = Number(op?.precioPlan ?? c.montoMensual ?? 0);
+          if (!upgradeKey || updatedPlanAmount <= 0) return;
+
+          const upgradeIndex = monthIndexFromKey(upgradeKey);
+          const activeSpan = annualSpans
+            .filter((span) => {
+              const startIndex = monthIndexFromKey(span.startKey);
+              return upgradeIndex >= startIndex && upgradeIndex < startIndex + span.monthsCovered;
+            })
+            .sort((a, b) => monthIndexFromKey(b.startKey) - monthIndexFromKey(a.startKey))[0];
+
+          if (activeSpan) activeSpan.amount = updatedPlanAmount;
+        });
       let fallbackPaymentsTotal = 0;
       (paymentsByClient.get(idKey(c.id)) || []).forEach((p) => {
         if (!shouldUsePaymentFallback(p, c, operaciones)) return;
