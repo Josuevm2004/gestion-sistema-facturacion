@@ -9,25 +9,14 @@ interface UpgradePlanModalProps {
   setMejoraPlanClient: (client: Client | null) => void;
   mejoraPlanSeleccionado: string;
   setMejoraPlanSeleccionado: (plan: string) => void;
-  handleMejorarPlan: (client: Client, nuevoPlan: string) => Promise<void>;
-}
-
-const PLANES = [
-  { key: 'INICIA', label: 'Plan Inicia' },
-  { key: 'EMPRENDE', label: 'Plan Emprende' },
-  { key: 'IMPULSA', label: 'Plan Impulsa' },
-  { key: 'EMPRESARIAL', label: 'Plan Empresarial' },
-  { key: 'LIDER', label: 'Plan Lider' },
-];
-
-function normalizePlanKey(planStr?: string) {
-  const normalized = (planStr || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase()
-    .replace(/^PLAN\s+/, '')
-    .trim();
-  return normalized === 'INICIAL' ? 'INICIA' : normalized;
+  subscriptions: Array<{
+    id: string | number;
+    plan?: { nombrePlan?: string };
+    tipoSuscripcion?: string;
+    precio?: number;
+    activo?: boolean;
+  }>;
+  handleMejorarPlan: (client: Client, subscriptionId: string) => Promise<void>;
 }
 
 export default function UpgradePlanModal({
@@ -35,13 +24,21 @@ export default function UpgradePlanModal({
   setMejoraPlanClient,
   mejoraPlanSeleccionado,
   setMejoraPlanSeleccionado,
+  subscriptions,
   handleMejorarPlan,
 }: UpgradePlanModalProps) {
   if (!mejoraPlanClient) return null;
 
-  const currentPlanKey = normalizePlanKey(mejoraPlanClient.planContratado);
-  const currentIndex = PLANES.findIndex((p) => p.key === currentPlanKey);
-  const upgradeOptions = PLANES.filter((_, idx) => idx > currentIndex);
+  const currentType = (mejoraPlanClient.tipoSuscripcion || 'MENSUAL').toUpperCase();
+  const currentPrice = Number(mejoraPlanClient.montoMensual || 0);
+  const planOptions = subscriptions
+    .filter((subscription) => subscription.activo !== false)
+    .filter((subscription) => (subscription.tipoSuscripcion || '').toUpperCase() === currentType)
+    .sort((a, b) => Number(a.precio || 0) - Number(b.precio || 0));
+  const selectedSubscription = planOptions.find(
+    (subscription) => String(subscription.id) === String(mejoraPlanSeleccionado)
+  ) || planOptions.find((subscription) => Number(subscription.precio || 0) > currentPrice);
+  const canUpgrade = Boolean(selectedSubscription && Number(selectedSubscription.precio || 0) > currentPrice);
 
   return (
     <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1}>
@@ -60,27 +57,31 @@ export default function UpgradePlanModal({
               Plan actual: <strong>{mejoraPlanClient.planContratado}</strong> ({mejoraPlanClient.tipoSuscripcion || 'MENSUAL'})
             </p>
 
-            {upgradeOptions.length === 0 ? (
+            {planOptions.length === 0 ? (
               <div className="alert alert-warning mb-0 small">
-                Este cliente ya está en el plan más alto disponible.
+                No hay tarifas {currentType.toLowerCase()} activas disponibles en la base de datos.
               </div>
             ) : (
               <>
-                <label className="form-label fw-semibold">Nuevo Plan Superior</label>
+                <label className="form-label fw-semibold">Planes disponibles ({currentType})</label>
                 <select
                   className="form-select"
-                  value={mejoraPlanSeleccionado}
+                  value={selectedSubscription ? String(selectedSubscription.id) : ''}
                   onChange={(e) => setMejoraPlanSeleccionado(e.target.value)}
                 >
-                  {upgradeOptions.map((plan) => (
-                    <option key={plan.key} value={plan.key}>
-                      {plan.label}
+                  {planOptions.map((subscription) => {
+                    const planName = subscription.plan?.nombrePlan || 'Plan sin nombre';
+                    const isHigher = Number(subscription.precio || 0) > currentPrice;
+                    return (
+                    <option key={String(subscription.id)} value={String(subscription.id)} disabled={!isHigher}>
+                      {planName} - S/ {Number(subscription.precio || 0).toFixed(2)}{isHigher ? '' : ' (no disponible para mejora)'}
                     </option>
-                  ))}
+                    );
+                  })}
                 </select>
 
                 <div className="alert alert-info mt-3 mb-0 small">
-                  Se registrará una venta por la diferencia proporcional del plan activo. La fecha de inicio y vencimiento del servicio no se modifican.
+                  Se registrará una venta por la diferencia proporcional. La fecha de inicio y vencimiento no se modifican, incluso para planes anuales.
                 </div>
               </>
             )}
@@ -93,9 +94,10 @@ export default function UpgradePlanModal({
             <button
               type="button"
               className="btn btn-success fw-semibold"
-              disabled={upgradeOptions.length === 0}
+              disabled={!canUpgrade}
               onClick={async () => {
-                await handleMejorarPlan(mejoraPlanClient, mejoraPlanSeleccionado);
+                if (!selectedSubscription) return;
+                await handleMejorarPlan(mejoraPlanClient, String(selectedSubscription.id));
                 setMejoraPlanClient(null);
               }}
             >

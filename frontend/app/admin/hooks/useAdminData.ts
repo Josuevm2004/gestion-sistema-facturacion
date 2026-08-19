@@ -24,7 +24,10 @@ export function useAdminData() {
   const [payments, setPayments] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const lastVencimientosReviewRef = useRef<number>(0);
+  const vencimientosReviewInFlightRef = useRef(false);
+  const loadDataInFlightRef = useRef(false);
   const processingPaymentsRef = useRef<Set<string>>(new Set());
   const processingOperationsRef = useRef<Set<string>>(new Set());
   const processingStateRef = useRef<Set<string>>(new Set());
@@ -77,10 +80,10 @@ export function useAdminData() {
       }
       loadData(savedToken);
 
-      // Auto-sincronización en tiempo real cada 4 segundos
+      // Sincronización periódica sin solapar cargas ni saturar el backend.
       const intervalId = setInterval(() => {
         loadData(savedToken);
-      }, 4000);
+      }, 60000);
 
       return () => clearInterval(intervalId);
     }
@@ -98,6 +101,8 @@ export function useAdminData() {
   async function loadData(authToken?: string | null, showSyncMsg = false) {
     const tokenToUse = authToken || token;
     if (!tokenToUse) return;
+    if (loadDataInFlightRef.current) return;
+    loadDataInFlightRef.current = true;
     if (showSyncMsg) setIsSyncing(true);
     try {
       const clientApi = adminApi(tokenToUse);
@@ -160,20 +165,25 @@ export function useAdminData() {
 
       const nowMs = Date.now();
       let vencimientosReview: Promise<void> | null = null;
-      if (nowMs - lastVencimientosReviewRef.current > 60000) {
+      if (nowMs - lastVencimientosReviewRef.current > 60000 && !vencimientosReviewInFlightRef.current) {
         lastVencimientosReviewRef.current = nowMs;
+        vencimientosReviewInFlightRef.current = true;
         vencimientosReview = clientApi.post('/admin/servicios/revisar-vencimientos')
           .then(() => undefined)
           .catch((re) => {
-          console.warn('No se pudo revisar vencimientos automaticamente', re);
+            console.warn('No se pudo revisar vencimientos automaticamente', re);
+          })
+          .finally(() => {
+            vencimientosReviewInFlightRef.current = false;
           });
       }
 
-      const [clientResult, payResult, userResult, notifResult] = await Promise.allSettled([
+      const [clientResult, payResult, userResult, notifResult, subscriptionResult] = await Promise.allSettled([
         getClientsWithRetry(),
         clientApi.get('/admin/pagos'),
         clientApi.get('/admin/usuarios'),
         clientApi.get('/admin/notificaciones'),
+        clientApi.get('/admin/planes/suscripciones'),
       ]);
 
       if (clientResult.status === 'rejected') {
@@ -187,6 +197,9 @@ export function useAdminData() {
       setPayments(payResult.status === 'fulfilled' ? extractArray(payResult.value.data) : []);
       setUsersList(userResult.status === 'fulfilled' ? extractArray(userResult.value.data) : []);
       setNotifications(notifResult.status === 'fulfilled' ? extractArray(notifResult.value.data) : []);
+      if (subscriptionResult.status === 'fulfilled') {
+        setSubscriptions(extractArray(subscriptionResult.value.data));
+      }
 
       vencimientosReview?.then(async () => {
         try {
@@ -210,6 +223,7 @@ export function useAdminData() {
       }
     } finally {
       setIsSyncing(false);
+      loadDataInFlightRef.current = false;
     }
   }
 
@@ -558,22 +572,14 @@ export function useAdminData() {
     }
   }
 
-  async function handleMejorarPlan(client: Client, nuevoPlan: string) {
+  async function handleMejorarPlan(client: Client, subscriptionId: string) {
     if (!token) return;
-    const planAUsar = normalizePlanKey(nuevoPlan);
     const tipoAUsar = (client.tipoSuscripcion || 'MENSUAL').toUpperCase() as 'MENSUAL' | 'ANUAL';
-
-    const PLAN_ID_MAP: Record<string, number> = {
-      INICIA: 1,
-      EMPRENDE: 2,
-      IMPULSA: 3,
-      EMPRESARIAL: 4,
-      LIDER: 5,
-    };
-
-    const planId = PLAN_ID_MAP[planAUsar];
-    if (!planId) {
-      setNotice('Selecciona un plan válido para mejorar.');
+    const selectedSubscription = subscriptions.find((subscription) => String(subscription.id) === String(subscriptionId));
+    const planId = Number(selectedSubscription?.plan?.id || selectedSubscription?.planId || 0);
+    const planAUsar = selectedSubscription?.plan?.nombrePlan || 'plan seleccionado';
+    if (!planId || !selectedSubscription) {
+      setNotice('Selecciona una tarifa válida registrada en la base de datos.');
       return;
     }
 
@@ -980,6 +986,7 @@ export function useAdminData() {
     payments,
     notifications,
     usersList,
+    subscriptions,
     search,
     setSearch,
     regimenFilter,

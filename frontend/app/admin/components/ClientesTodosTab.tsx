@@ -59,6 +59,7 @@ interface ClientesTodosTabProps {
   setPlanFilter: (v: string) => void;
   handleColorTagChange: (client: Client, color: ColorTagType) => void;
   handleAssignVendedor: (client: Client, vendedorName: string) => void;
+  usersList?: Array<{ id: EntityId; nombre?: string; username?: string; activo?: boolean }>;
   showSolKeys: Record<string, boolean>;
   setShowSolKeys: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   currentUser: any;
@@ -82,6 +83,7 @@ export default function ClientesTodosTab({
   setPlanFilter,
   handleColorTagChange,
   handleAssignVendedor,
+  usersList = [],
   showSolKeys,
   setShowSolKeys,
   currentUser,
@@ -114,7 +116,6 @@ export default function ClientesTodosTab({
     if (COLOR_MAP && COLOR_MAP[key]) return COLOR_MAP[key];
     return defaultColorMap[key] || defaultColorMap.VERDE;
   };
-  const planOrder = ['INICIA', 'EMPRENDE', 'IMPULSA', 'EMPRESARIAL', 'LIDER'];
   const normalizePlanKey = (planStr?: string) => {
     const normalized = (planStr || '')
       .normalize('NFD')
@@ -124,11 +125,6 @@ export default function ClientesTodosTab({
       .trim();
     return normalized === 'INICIAL' ? 'INICIA' : normalized;
   };
-  const nextUpgradePlan = (planStr?: string) => {
-    const currentIndex = planOrder.indexOf(normalizePlanKey(planStr));
-    return planOrder[Math.min(currentIndex + 1, planOrder.length - 1)] || 'EMPRENDE';
-  };
-
   const activeColorClient = React.useMemo(
     () => allFilteredClients.find((client) => client.id === activeColorPickerId) || null,
     [activeColorPickerId, allFilteredClients]
@@ -294,14 +290,23 @@ export default function ClientesTodosTab({
                       👤 {c.vendedor}
                     </span>
                   ) : currentUser?.rol === 'ADMIN' ? (
-                    <button
-                      onClick={() => handleAssignVendedor(c, currentUser?.nombre || currentUser?.username || 'Administrador')}
-                      className="btn btn-sm btn-outline-success text-nowrap py-0.5 px-2 fw-semibold"
-                      style={{ fontSize: '0.75rem' }}
-                      title="Asignar vendedor a este cliente (Exclusivo Administrador)"
+                    <select
+                      className="form-select form-select-sm"
+                      defaultValue=""
+                      onChange={(event) => {
+                        if (event.target.value) handleAssignVendedor(c, event.target.value);
+                        event.currentTarget.value = '';
+                      }}
+                      title="Selecciona manualmente un vendedor para este cliente"
                     >
-                      + Asignar Vendedor
-                    </button>
+                      <option value="">Asignar vendedor...</option>
+                      {usersList
+                        .filter((user) => user.activo !== false)
+                        .map((user) => {
+                          const label = user.nombre || user.username || '';
+                          return label ? <option key={String(user.id)} value={label}>{label}</option> : null;
+                        })}
+                    </select>
                   ) : (
                     <span className="badge bg-light text-muted fw-normal border" style={{ fontSize: '0.75rem' }}>
                       Por asignar
@@ -318,7 +323,7 @@ export default function ClientesTodosTab({
                     {c.estadoCuenta === 'HABILITADO' && normalizePlanKey(c.planContratado) !== 'LIDER' && (
                       <button
                         onClick={() => {
-                          setMejoraPlanSeleccionado(nextUpgradePlan(c.planContratado));
+                          setMejoraPlanSeleccionado('');
                           setMejoraPlanClient(c);
                         }}
                         className="btn btn-sm btn-outline-success"

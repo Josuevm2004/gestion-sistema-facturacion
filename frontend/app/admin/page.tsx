@@ -115,6 +115,7 @@ export default function AdminPage() {
                 setPlanFilter={adminData.setPlanFilter}
                 handleColorTagChange={adminData.handleColorTagChange}
                 handleAssignVendedor={adminData.handleAssignVendedor}
+                usersList={adminData.usersList}
                 showSolKeys={adminData.showSolKeys}
                 setShowSolKeys={adminData.setShowSolKeys}
                 currentUser={adminData.currentUser}
@@ -256,6 +257,7 @@ export default function AdminPage() {
           setMejoraPlanClient={adminData.setMejoraPlanClient}
           mejoraPlanSeleccionado={adminData.mejoraPlanSeleccionado}
           setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
+          subscriptions={adminData.subscriptions}
           handleMejorarPlan={adminData.handleMejorarPlan}
         />
 
