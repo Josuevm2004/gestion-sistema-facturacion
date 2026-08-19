@@ -58,7 +58,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Autowired
     private HistorialEstadoClienteRepository historialEstadoClienteRepository;
 
-    @Value("${app.billing.monthly-billing-day:15}")
+    @Value("${app.billing.monthly-billing-day:19}")
     private int monthlyBillingDay;
 
     @Override

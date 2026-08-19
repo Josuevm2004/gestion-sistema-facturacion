@@ -51,7 +51,7 @@ public class PagoServiceImpl implements PagoService {
     @Autowired
     private ServicioClienteRepository servicioClienteRepository;
 
-    @Value("${app.billing.monthly-billing-day:15}")
+    @Value("${app.billing.monthly-billing-day:19}")
     private int monthlyBillingDay;
 
     private record AjusteCobro(

@@ -1,6 +1,6 @@
 function parseBillingDay(value?: string): number {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 15;
+  if (!Number.isFinite(parsed)) return 19;
   return Math.min(31, Math.max(1, Math.trunc(parsed)));
 }
 

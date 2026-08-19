@@ -43,7 +43,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
     @Autowired
     private VentaRepository ventaRepository;
 
-    @Value("${app.billing.monthly-billing-day:15}")
+    @Value("${app.billing.monthly-billing-day:19}")
     private int monthlyBillingDay;
 
     @Override

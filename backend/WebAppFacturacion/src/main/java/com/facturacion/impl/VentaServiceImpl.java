@@ -60,7 +60,7 @@ public class VentaServiceImpl implements VentaService {
     @Autowired
     private PagoRepository pagoRepository;
 
-    @Value("${app.billing.monthly-billing-day:15}")
+    @Value("${app.billing.monthly-billing-day:19}")
     private int monthlyBillingDay;
 
     @Override
