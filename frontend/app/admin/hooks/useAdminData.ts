@@ -143,6 +143,21 @@ export function useAdminData() {
         setClients(normalizedClients);
       };
 
+      const getClientsWithRetry = async () => {
+        let lastError: unknown;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            return await clientApi.get('/admin/clientes');
+          } catch (error) {
+            lastError = error;
+            if (attempt < 2) {
+              await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+            }
+          }
+        }
+        throw lastError;
+      };
+
       const nowMs = Date.now();
       let vencimientosReview: Promise<void> | null = null;
       if (nowMs - lastVencimientosReviewRef.current > 60000) {
@@ -155,7 +170,7 @@ export function useAdminData() {
       }
 
       const [clientResult, payResult, userResult, notifResult] = await Promise.allSettled([
-        clientApi.get('/admin/clientes'),
+        getClientsWithRetry(),
         clientApi.get('/admin/pagos'),
         clientApi.get('/admin/usuarios'),
         clientApi.get('/admin/notificaciones'),
@@ -175,7 +190,7 @@ export function useAdminData() {
 
       vencimientosReview?.then(async () => {
         try {
-          const refreshedClients = await clientApi.get('/admin/clientes');
+          const refreshedClients = await getClientsWithRetry();
           normalizeAndSetClients(extractArray(refreshedClients.data));
         } catch (e) {
           console.warn('No se pudo refrescar clientes despues de revisar vencimientos', e);
@@ -455,17 +470,22 @@ export function useAdminData() {
     const processingKey = `ESTADO-${client.id}-${nuevoEstado}`;
     if (processingStateRef.current.has(processingKey)) return;
     processingStateRef.current.add(processingKey);
+
+    setClients((prev) =>
+      prev.map((c) => (c.id === client.id ? { ...c, estadoCuenta: nuevoEstado } : c))
+    );
+    setNotice(`Estado de cuenta de ${client.razonSocial} actualizado a ${nuevoEstado}.`);
+
     try {
       if (nuevoEstado === 'BLOQUEADO') {
         await adminApi(token).put(`/admin/servicios/cliente/${client.id}/bloquear?motivo=Cliente bloqueado desde dashboard`);
       } else {
         await adminApi(token).put(`/admin/clientes/${client.id}/estado?nuevoEstado=${nuevoEstado}`);
       }
-      setNotice(`Estado de cuenta de ${client.razonSocial} actualizado a ${nuevoEstado}.`);
-      await loadData(token);
+      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al actualizar estado: ${err.message}`);
-      await loadData(token);
+      void loadData(token);
     } finally {
       processingStateRef.current.delete(processingKey);
     }
@@ -476,13 +496,19 @@ export function useAdminData() {
     const processingKey = `DEVOLVER-${client.id}`;
     if (processingStateRef.current.has(processingKey)) return;
     processingStateRef.current.add(processingKey);
+
+    setClients((prev) =>
+      prev.map((c) => (c.id === client.id ? { ...c, estadoCuenta: 'VENCIDO' } : c))
+    );
+    setActiveTab('vencidos');
+    setNotice(`Acceso devuelto para ${client.razonSocial}. Restaurado a estado VENCIDO.`);
+
     try {
       await adminApi(token).put(`/admin/servicios/cliente/${client.id}/devolver-acceso`);
-      setNotice(`Acceso devuelto para ${client.razonSocial}. Restaurado a estado VENCIDO.`);
-      await loadData(token);
+      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al devolver acceso: ${err.message}`);
-      await loadData(token);
+      void loadData(token);
     } finally {
       processingStateRef.current.delete(processingKey);
     }
@@ -523,10 +549,10 @@ export function useAdminData() {
       });
 
       setNotice(`Operación procesada con éxito para ${client.razonSocial} (${planAUsar} - ${tipoAUsar}).`);
-      await loadData(token);
+      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al procesar la venta: ${err.response?.data?.message || err.message}`);
-      await loadData(token);
+      void loadData(token);
     } finally {
       processingOperationsRef.current.delete(processingKey);
     }
@@ -566,10 +592,10 @@ export function useAdminData() {
 
       const monto = Number(response.data?.data?.montoTotal ?? 0);
       setNotice(`Mejora de plan registrada para ${client.razonSocial}. Diferencia cobrada: S/ ${monto.toFixed(2)}.`);
-      await loadData(token);
+      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al mejorar plan: ${err.response?.data?.message || err.message}`);
-      await loadData(token);
+      void loadData(token);
     } finally {
       processingOperationsRef.current.delete(processingKey);
     }
@@ -682,10 +708,10 @@ export function useAdminData() {
       });
 
       setNotice(`Capacitación guardada con éxito. El plan y el prorrateo han iniciado desde la fecha asignada.`);
-      await loadData(token);
+      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al programar capacitación: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
-      await loadData(token);
+      void loadData(token);
     }
   }
 
@@ -709,10 +735,10 @@ export function useAdminData() {
         url: `/admin/clientes/${client.id}/vendedor?vendedorId=${vendedorId}`,
       });
       setNotice(`Vendedor asignado (${nuevoVendedor}) a ${client.razonSocial}.`);
-      await loadData(token);
+      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al asignar vendedor: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
-      await loadData(token);
+      void loadData(token);
     }
   }
 
