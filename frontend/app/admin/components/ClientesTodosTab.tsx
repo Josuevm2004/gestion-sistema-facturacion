@@ -328,8 +328,10 @@ export default function ClientesTodosTab({
                         }}
                         className="btn btn-sm btn-outline-success"
                         title="Mejorar plan activo sin modificar vencimiento"
+                        aria-label={`Mejorar plan de ${c.razonSocial}`}
                       >
                         <TrendingUp size={14} />
+                        <span className="ms-1">Mejorar</span>
                       </button>
                     )}
                     <button onClick={() => setEditingClient(c)} className="btn btn-sm btn-outline-primary" title="Editar cliente">

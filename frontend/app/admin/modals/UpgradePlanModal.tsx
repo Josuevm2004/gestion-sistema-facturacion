@@ -16,6 +16,7 @@ interface UpgradePlanModalProps {
     precio?: number;
     activo?: boolean;
   }>;
+  loadSubscriptions: () => Promise<void>;
   handleMejorarPlan: (client: Client, subscriptionId: string) => Promise<void>;
 }
 
@@ -25,8 +26,22 @@ export default function UpgradePlanModal({
   mejoraPlanSeleccionado,
   setMejoraPlanSeleccionado,
   subscriptions,
+  loadSubscriptions,
   handleMejorarPlan,
 }: UpgradePlanModalProps) {
+  const loadRequestedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!mejoraPlanClient) {
+      loadRequestedRef.current = false;
+      return;
+    }
+    if (subscriptions.length === 0 && !loadRequestedRef.current) {
+      loadRequestedRef.current = true;
+      void loadSubscriptions();
+    }
+  }, [mejoraPlanClient, subscriptions.length, loadSubscriptions]);
+
   if (!mejoraPlanClient) return null;
 
   const currentType = (mejoraPlanClient.tipoSuscripcion || 'MENSUAL').toUpperCase();

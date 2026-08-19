@@ -258,6 +258,7 @@ export default function AdminPage() {
           mejoraPlanSeleccionado={adminData.mejoraPlanSeleccionado}
           setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
           subscriptions={adminData.subscriptions}
+          loadSubscriptions={adminData.loadSubscriptions}
           handleMejorarPlan={adminData.handleMejorarPlan}
         />
 

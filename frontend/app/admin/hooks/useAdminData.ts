@@ -274,6 +274,16 @@ export function useAdminData() {
     }
   }
 
+  async function loadSubscriptions() {
+    if (!token) return;
+    try {
+      const response = await adminApi(token).get('/admin/planes/suscripciones');
+      setSubscriptions(extractArray(response.data));
+    } catch (err) {
+      console.warn('No se pudieron cargar las tarifas de planes', err);
+    }
+  }
+
   function formatDatePeru(dateInput: Date | string): string {
     const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
     if (isNaN(d.getTime())) return '—';
@@ -990,6 +1000,7 @@ export function useAdminData() {
     setNotice,
     isSyncing,
     loadData,
+    loadSubscriptions,
     handleLogin,
     handleLogout,
     clients: effectiveClients,
