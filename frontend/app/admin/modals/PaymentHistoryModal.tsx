@@ -19,10 +19,9 @@ export default function PaymentHistoryModal({
   historyClient,
   setHistoryClient,
   payments = [],
-  calcularProrrateoEntero,
+  calcularProrrateoEntero: _calcularProrrateoEntero,
 }: PaymentHistoryModalProps) {
   const [dbHistory, setDbHistory] = useState<any[]>([]);
-  const [dbStateHistory, setDbStateHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -38,8 +37,7 @@ export default function PaymentHistoryModal({
       .then((res) => res.json())
       .then((data) => {
         if (data.success && data.data) {
-          setDbHistory(data.data.operacionesHistorial || data.data.ventasHistorial || []);
-          setDbStateHistory(data.data.estadosHistorial || []);
+          setDbHistory(data.data.pagosHistorial || []);
         }
       })
       .catch((err) => console.error('Error fetching client DB history:', err))
@@ -47,13 +45,6 @@ export default function PaymentHistoryModal({
   }, [historyClient]);
 
   if (!historyClient) return null;
-
-  const pro = calcularProrrateoEntero(
-    historyClient.planContratado,
-    historyClient.tipoSuscripcion,
-    historyClient.fechaCapacitacion,
-    historyClient.montoMensual
-  );
 
   // Filtrar pagos en memoria
   const rawPayments = (payments || []).filter((p) => {
@@ -72,71 +63,27 @@ export default function PaymentHistoryModal({
   // Lista consolidada de transacciones
   const transactions: any[] = [];
 
-  if (dbHistory.length > 0) {
-    dbHistory.forEach((v) => {
-      const ventaId = v.ventaId || v.id;
-      const tipo = v.tipoOperacion || v.tipoVenta;
-      const estado = v.estadoPago || v.estadoVenta || 'PENDIENTE_PAGO';
+  [...dbHistory, ...rawPayments].forEach((p) => {
+    const estadoPago = (p.estadoPago || '').toUpperCase();
+    const estadoVenta = (p.venta?.estadoVenta || p.estadoVenta || '').toUpperCase();
+    if (estadoPago !== 'PAGADO' || estadoVenta === 'CANCELADA') return;
 
-      transactions.push({
-        id: `venta-${ventaId}`,
-        fecha: v.fechaPago || v.fechaOperacion || v.fechaVenta || historyClient.fechaRegistro,
-        tipoOperacion: tipo === 'ALTA' ? 'Pago Inicial / Alta' : tipo === 'RENOVACION' ? 'Renovacion' : 'Cambio de Plan',
-        badgeClass: tipo === 'ALTA' ? 'bg-success' : tipo === 'RENOVACION' ? 'bg-info text-dark' : 'bg-warning text-dark',
-        monto: v.montoPagado ?? v.montoVenta ?? v.montoTotal ?? v.precioLista ?? historyClient.montoMensual,
-        estado,
-        observaciones: v.observaciones || (v.montoProrrateado ? 'Prorrateo: S/ ' + v.montoProrrateado : 'Venta en sistema'),
-      });
-    });
-  }
-  dbStateHistory.forEach((h) => {
-    const estadoNuevo = h.estadoNuevo || 'SIN_ESTADO';
-    const estadoAnterior = h.estadoAnterior || 'SIN_ESTADO';
-    transactions.push({
-      id: `estado-${h.id || h.fechaCambio}`,
-      fecha: h.fechaCambio || historyClient.fechaRegistro,
-      tipoOperacion:
-        estadoNuevo === 'BLOQUEADO'
-          ? 'Bloqueo'
-          : estadoNuevo === 'VENCIDO'
-          ? 'Devolucion/Vencimiento'
-          : estadoNuevo === 'HABILITADO'
-          ? 'Habilitacion'
-          : 'Cambio de Estado',
-      badgeClass: estadoNuevo === 'BLOQUEADO' ? 'bg-danger' : 'bg-secondary',
-      monto: null,
-      estado: `${estadoAnterior} -> ${estadoNuevo}`,
-      observaciones: h.motivo || 'Movimiento de estado',
-      isStateMovement: true,
-    });
-  });
-  rawPayments.forEach((p) => {
     const ventaId = p.ventaId || p.venta?.id;
-    if (!transactions.some((t) => t.id === `venta-${ventaId}` || t.id === `pago-${p.id}`)) {
+    const pagoId = p.pagoId || p.id;
+    if (!transactions.some((t) => t.id === `pago-${pagoId}` || (ventaId && t.ventaId === String(ventaId)))) {
+      const tipo = p.venta?.tipoVenta || p.tipoVenta || p.codigoOperacion?.split('-')?.[0] || 'PAGO';
       transactions.push({
-        id: `pago-${p.id || Math.random()}`,
+        id: `pago-${pagoId || `${ventaId}-${p.fechaPago}`}`,
+        ventaId: ventaId ? String(ventaId) : '',
         fecha: p.fechaPago || historyClient.fechaRegistro,
-        tipoOperacion: p.codigoOperacion?.startsWith('RENOVACION') ? 'Renovación' : 'Pago de Servicio',
-        badgeClass: 'bg-primary',
+        tipoOperacion: tipo === 'ALTA' ? 'Pago Inicial / Alta' : tipo === 'RENOVACION' ? 'Renovación' : tipo === 'CAMBIO_PLAN' ? 'Cambio de Plan' : 'Pago de Servicio',
+        badgeClass: tipo === 'ALTA' ? 'bg-success' : tipo === 'RENOVACION' ? 'bg-info text-dark' : tipo === 'CAMBIO_PLAN' ? 'bg-warning text-dark' : 'bg-primary',
         monto: p.monto || historyClient.montoMensual,
         estado: p.estadoPago || 'CONFIRMADO',
         observaciones: p.codigoOperacion || 'Pago verificado',
       });
     }
   });
-
-  // Si no hay ventas en DB ni pagos registrados, crear la transacción inicial de ALTA
-  if (transactions.length === 0) {
-    transactions.push({
-      id: 'initial',
-      fecha: historyClient.fechaRegistro || new Date().toISOString(),
-      tipoOperacion: 'Pago Inicial / Alta',
-      badgeClass: 'bg-success',
-      monto: historyClient.montoMensual,
-      estado: historyClient.estadoCuenta === 'POR_COBRAR' ? 'PENDIENTE' : 'PAGADO',
-      observaciones: 'Venta inicial registrada',
-    });
-  }
 
   transactions.sort((a, b) => {
     const aTime = a.fecha ? new Date(a.fecha).getTime() : 0;
@@ -165,7 +112,7 @@ export default function PaymentHistoryModal({
         <div className="modal-content rounded-3 shadow">
           <div className="modal-header border-bottom bg-light">
             <div>
-              <h5 className="modal-title fw-bold text-dark mb-0">Historial de Transacciones de Base de Datos</h5>
+              <h5 className="modal-title fw-bold text-dark mb-0">Historial de Pagos de Base de Datos</h5>
               <small className="text-muted">
                 {historyClient.razonSocial} | RUC: {historyClient.ruc}
               </small>
@@ -186,14 +133,14 @@ export default function PaymentHistoryModal({
                   Estado de Cuenta: <span className="badge bg-success">{historyClient.estadoCuenta}</span>
                 </div>
                 <div className="col-md-6">
-                  Próximo Cobro Sugerido: <strong className="text-primary fs-6">S/ {pro.montoProrrateado}</strong>
+                  Pagos confirmados: <strong className="text-primary fs-6">{transactions.length}</strong>
                 </div>
               </div>
             </div>
 
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h6 className="fw-bold text-dark mb-0">Operaciones en Base de Datos ({transactions.length})</h6>
-              {loading && <span className="badge bg-warning text-dark">Cargando desde MySQL...</span>}
+              <h6 className="fw-bold text-dark mb-0">Pagos en Base de Datos ({transactions.length})</h6>
+              {loading && <span className="badge bg-warning text-dark">Cargando desde base de datos...</span>}
             </div>
 
             <div className="table-responsive">
@@ -201,26 +148,18 @@ export default function PaymentHistoryModal({
                 <thead className="table-secondary">
                   <tr>
                     <th>#</th>
-                    <th>Fecha Operación</th>
-                    <th>Inicio de Servicio</th>
+                    <th>Fecha Pago</th>
+                    <th>Código / Observación</th>
                     <th>Mes Correspondiente</th>
-                    <th>Tipo Operación</th>
+                    <th>Tipo Pago</th>
                     <th>Estado</th>
-                    <th>Monto Final</th>
+                    <th>Monto Pagado</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.map((t, idx) => {
                     const tDate = t.fecha ? new Date(t.fecha) : new Date();
                     const mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
-                    const fechaInicioPlan = historyClient.fechaCapacitacion
-                      ? new Date(historyClient.fechaCapacitacion).toLocaleDateString('es-PE', {
-                          day: '2-digit',
-                          month: '2-digit',
-                          year: 'numeric',
-                        })
-                      : tDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
                     return (
                       <tr key={t.id || idx}>
                         <td className="text-muted fw-semibold">{transactions.length - idx}</td>
@@ -232,7 +171,7 @@ export default function PaymentHistoryModal({
                           })}
                         </td>
                         <td>
-                          <strong className="text-dark">{fechaInicioPlan}</strong>
+                          <strong className="text-dark">{t.observaciones}</strong>
                         </td>
                         <td>
                           <span className="badge bg-light text-dark border fw-bold">{mesTexto}</span>
@@ -246,7 +185,7 @@ export default function PaymentHistoryModal({
                           </span>
                         </td>
                         <td className="fw-bold text-success fs-6">
-                          {t.isStateMovement ? '—' : `S/ ${Number(t.monto || 0).toFixed(2)}`}
+                          S/ {Number(t.monto || 0).toFixed(2)}
                         </td>
                       </tr>
                     );

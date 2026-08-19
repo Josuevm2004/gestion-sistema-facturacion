@@ -82,7 +82,9 @@ public class PagoServiceImpl implements PagoService {
 
         AjusteCobro ajusteCobro = null;
         if (venta.getTipoVenta() != TipoVenta.ALTA) {
-            ajusteCobro = calcularAjusteCobro(venta, fechaOperacion);
+            ajusteCobro = debeUsarMontoPendienteProgramado(venta, fechaOperacion)
+                    ? construirAjusteDesdeVentaPendiente(venta, fechaOperacion)
+                    : calcularAjusteCobro(venta, fechaOperacion);
             venta.setMontoProrrateado(ajusteCobro.descuentoProrrateo());
             venta.setMontoTotal(ajusteCobro.montoTotal());
         }
@@ -152,6 +154,42 @@ public class PagoServiceImpl implements PagoService {
         int diasProrrateados = Math.max(1, r.diasTotales() - r.diasNoConsumidos());
 
         return new AjusteCobro(fechaInicio, fechaFin, r.descuento(), r.montoFinal(), diasProrrateados);
+    }
+
+    private boolean debeUsarMontoPendienteProgramado(Venta venta, LocalDateTime fechaOperacion) {
+        return venta != null
+                && venta.getMontoTotal() != null
+                && venta.getFechaVenta() != null
+                && !fechaOperacion.toLocalDate().isAfter(venta.getFechaVenta().toLocalDate());
+    }
+
+    private AjusteCobro construirAjusteDesdeVentaPendiente(Venta venta, LocalDateTime fechaOperacion) {
+        LocalDate fechaInicioDate = resolverFechaInicioOperacion(venta, fechaOperacion);
+        LocalDateTime fechaInicio = fechaInicioDate.equals(fechaOperacion.toLocalDate())
+                ? fechaOperacion
+                : LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
+
+        if (venta.getSuscripcion() != null && venta.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
+            return new AjusteCobro(
+                    fechaInicio,
+                    fechaInicio.plusYears(1),
+                    BigDecimal.ZERO,
+                    venta.getMontoTotal(),
+                    365
+            );
+        }
+
+        LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
+        LocalDateTime fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+        int diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
+
+        return new AjusteCobro(
+                fechaInicio,
+                fechaFin,
+                venta.getMontoProrrateado() != null ? venta.getMontoProrrateado() : BigDecimal.ZERO,
+                venta.getMontoTotal(),
+                diasProrrateados
+        );
     }
 
     private LocalDate resolverFechaInicioOperacion(Venta venta, LocalDateTime fechaOperacion) {

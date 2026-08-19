@@ -107,7 +107,7 @@ export default function CentroControlTab({
 
               return filtered.map((c, idx) => {
                 const { _vencDate: vencDate, _diffDays: diffDays } = c;
-                const estadoVisual = diffDays !== 9999 && diffDays <= 0 && c.estadoCuenta === 'HABILITADO'
+                const estadoVisual = diffDays !== 9999 && diffDays < 0 && c.estadoCuenta === 'HABILITADO'
                   ? 'VENCIDO'
                   : c.estadoCuenta;
 
@@ -120,7 +120,7 @@ export default function CentroControlTab({
                 const cobroProximo = Number(c.montoSiguienteCobro ?? prorrateo.montoProrrateado ?? c.montoMensual ?? 0);
 
                 const isNearExpiry = diffDays <= 3 && diffDays >= 0;
-                const isExpired = diffDays <= 0;
+                const isExpired = diffDays < 0;
 
                 return (
                   <tr key={c.id} className={isExpired ? 'table-danger' : isNearExpiry ? 'table-warning' : ''}>

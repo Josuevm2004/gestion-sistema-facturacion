@@ -367,7 +367,7 @@ export function useAdminData() {
 
     const diffTime = expDate.getTime() - today.getTime();
     const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const isExpired = daysRemaining <= 0;
+    const isExpired = daysRemaining < 0;
 
     return {
       fechaStr: expDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),

@@ -270,6 +270,17 @@ public class ClienteServiceImpl implements ClienteService {
                 venta.put("clienteId", p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
                 venta.put("montoTotal", p.getVenta().getMontoTotal());
                 venta.put("estadoVenta", p.getVenta().getEstadoVenta() != null ? p.getVenta().getEstadoVenta().name() : null);
+                venta.put("tipoVenta", p.getVenta().getTipoVenta() != null ? p.getVenta().getTipoVenta().name() : null);
+                venta.put("fechaVenta", p.getVenta().getFechaVenta());
+                if (p.getVenta().getSuscripcion() != null) {
+                    venta.put("tipoSuscripcion", p.getVenta().getSuscripcion().getTipoSuscripcion() != null
+                            ? p.getVenta().getSuscripcion().getTipoSuscripcion().name()
+                            : null);
+                    if (p.getVenta().getSuscripcion().getPlan() != null) {
+                        venta.put("plan", p.getVenta().getSuscripcion().getPlan().getNombrePlan());
+                        venta.put("planNombre", p.getVenta().getSuscripcion().getPlan().getNombrePlan());
+                    }
+                }
                 item.put("venta", venta);
             }
 

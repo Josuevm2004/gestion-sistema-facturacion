@@ -87,6 +87,7 @@ public class VentaServiceImpl implements VentaService {
                 .findFirst()
                 .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
 
+        boolean usarMontoPendienteProgramado = debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
         LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, fechaRef);
         LocalDateTime fechaInicio = fechaInicioDate.equals(fechaRef.toLocalDate())
                 ? fechaRef
@@ -101,6 +102,12 @@ public class VentaServiceImpl implements VentaService {
         if (suscripcion.getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
             fechaFin = fechaInicio.plusYears(1);
             diasProrrateados = 365;
+        } else if (usarMontoPendienteProgramado) {
+            descuentoProrrateo = ventaPendiente.getMontoProrrateado() != null ? ventaPendiente.getMontoProrrateado() : BigDecimal.ZERO;
+            montoTotal = ventaPendiente.getMontoTotal() != null ? ventaPendiente.getMontoTotal() : precioLista;
+            LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
+            fechaFin = LocalDateTime.of(fechaFinMensual, END_OF_BILLING_DAY);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
         } else {
             ProrrateoCalculatorUtil.ResultadoProrrateo r =
                     ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioLista, fechaInicioDate, monthlyBillingDay);
@@ -203,6 +210,13 @@ public class VentaServiceImpl implements VentaService {
                 .filter(v -> v.getFechaVenta() != null && !v.getFechaVenta().isBefore(fechaRef.minusMinutes(2)))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private boolean debeUsarMontoPendienteProgramado(Venta ventaPendiente, LocalDateTime fechaRef) {
+        return ventaPendiente != null
+                && ventaPendiente.getMontoTotal() != null
+                && ventaPendiente.getFechaVenta() != null
+                && !fechaRef.toLocalDate().isAfter(ventaPendiente.getFechaVenta().toLocalDate());
     }
 
     private LocalDate resolverFechaInicioOperacion(Venta ventaPendiente, LocalDateTime fechaRef) {
