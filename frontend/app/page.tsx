@@ -371,7 +371,7 @@ export default function FormularioPublicoPage() {
                   <div className="alert alert-info d-flex align-items-center gap-2 mb-3 border-0 shadow-sm rounded-3" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
                     <Info size={20} className="flex-shrink-0" />
                     <div>
-                      <strong>Requisito Importante:</strong> Ingrese sus credenciales SOL de SUNAT para habilitar su facturación electrónica.
+                      <strong>Importante:</strong> Estas credenciales son necesarias para activar nuestro sistema de facturación electrónica y completar la afiliación con SUNAT.
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-2 mb-2">
@@ -389,6 +389,23 @@ export default function FormularioPublicoPage() {
                       <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required />
                       <div className="invalid-feedback">Ingresa tu clave SOL.</div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-12 mt-3">
+                <div className="alert alert-secondary d-flex align-items-start gap-2 mb-0 small border rounded-3">
+                  <Info size={17} className="flex-shrink-0 mt-1" />
+                  <div>
+                    <strong>Protección de tus datos personales:</strong> la información proporcionada será tratada para gestionar tu afiliación y activar nuestro sistema de facturación electrónica, conforme a la Ley N.° 29733, Ley de Protección de Datos Personales, y su Reglamento aprobado por el D.S. N.° 016-2024-JUS.{' '}
+                    <a
+                      href="https://www.gob.pe/institucion/anpd/normas-legales/2018427-29733-2011"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="fw-semibold"
+                    >
+                      Ver norma oficial
+                    </a>
                   </div>
                 </div>
               </div>
@@ -450,9 +467,7 @@ export default function FormularioPublicoPage() {
                             <span>{details.features}</span>
                           </div>
                           <div className="text-end mt-1">
-                            {subscriptionPrice(plan.id) != null && tipoSuscripcion === 'MENSUAL' && (
-                              <span className="small text-success fw-semibold">Tarifa anual en base de datos disponible al cambiar modalidad</span>
-                            )}
+                            <span className="small text-muted">Precio correspondiente a la modalidad seleccionada</span>
                           </div>
                         </div>
                       </div>

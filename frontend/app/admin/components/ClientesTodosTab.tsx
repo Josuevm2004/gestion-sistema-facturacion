@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Users, Edit, Trash2, Eye, EyeOff, TrendingUp } from 'lucide-react';
+import { Check, Clipboard, Search, Users, Edit, Trash2, Eye, EyeOff, TrendingUp } from 'lucide-react';
 
 export type ColorTagType = 'VERDE' | 'ROJO' | 'AMARILLO' | 'AZUL';
 export type SubscriptionType = 'MENSUAL' | 'ANUAL';
@@ -97,6 +97,7 @@ export default function ClientesTodosTab({
   const handleSearchChange = setSearch || setSearchTerm || (() => {});
   const [activeColorPickerId, setActiveColorPickerId] = React.useState<EntityId | null>(null);
   const [colorPickerPosition, setColorPickerPosition] = React.useState<{ top: number; left: number } | null>(null);
+  const [copiedMessageClientId, setCopiedMessageClientId] = React.useState<EntityId | null>(null);
   const colorPickerRef = React.useRef<HTMLDivElement | null>(null);
   const colorLabels: Record<ColorTagType, string> = {
     VERDE: 'Verde',
@@ -124,6 +125,64 @@ export default function ClientesTodosTab({
       .replace(/^PLAN\s+/, '')
       .trim();
     return normalized === 'INICIAL' ? 'INICIA' : normalized;
+  };
+  const formatRegimen = (value?: string) => {
+    const labels: Record<string, string> = {
+      MYPE_TRIBUTARIO: 'Régimen MYPE Tributario',
+      REGIMEN_GENERAL: 'Régimen General',
+      RER: 'Régimen Especial - RER',
+      NRUS: 'Nuevo RUS - NRUS',
+    };
+    return labels[value || ''] || value || 'No registrado';
+  };
+  const buildAffiliationMessage = (client: Client) => [
+    '📎Te adjuntamos la información necesaria para completar el proceso.',
+    '',
+    '📝 Datos para la afiliación:',
+    '',
+    `🟢 Razón Social : ${client.razonSocial || 'No registrado'}`,
+    `🟢 Nombre del Negocio : ${client.nombreComercial || 'No registrado'}`,
+    `🟢 Régimen Tributario : ${formatRegimen(client.regimenTributario)}`,
+    `🟢 DNI : ${client.dni || 'No registrado'}`,
+    `🟢 Celular : ${client.telefono || 'No registrado'}`,
+    `🟢 Correo : ${client.email || 'No registrado'}`,
+    `🟢 Dirección Fiscal : ${client.direccion || 'No registrado'}`,
+    `🟢 Distrito, Provincia y Departamento : ${[client.distrito, client.provincia, client.departamento].filter(Boolean).join(', ') || 'No registrado'}`,
+    `🟢 Plan Contratado : ${client.planContratado || 'No registrado'}`,
+    '',
+    '🔐 Para el alta en SUNAT:',
+    `🟢 RUC : ${client.ruc || 'No registrado'}`,
+    `🟢 Usuario SOL : ${client.usuarioSol || 'No registrado'}`,
+    `🟢 Clave SOL : ${client.claveSolCifrada || 'No registrada'}`,
+    '',
+    '📌 Adicional:',
+    '1️⃣ ¿Es su primer sistema de facturación? Si',
+    '2️⃣ ¿Emitía comprobantes desde SUNAT? no',
+    '3️⃣ ¿Paga IGV o está exonerado? No estoy exonerado, pago normal',
+  ].join('\n');
+  const copyAffiliationMessage = async (client: Client) => {
+    const message = buildAffiliationMessage(client);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(message);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = message;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+      }
+      setCopiedMessageClientId(client.id);
+      window.setTimeout(() => {
+        setCopiedMessageClientId((current) => (current === client.id ? null : current));
+      }, 1800);
+    } catch {
+      setCopiedMessageClientId(null);
+    }
   };
   const activeColorClient = React.useMemo(
     () => allFilteredClients.find((client) => client.id === activeColorPickerId) || null,
@@ -336,6 +395,15 @@ export default function ClientesTodosTab({
                     )}
                     <button onClick={() => setEditingClient(c)} className="btn btn-sm btn-outline-primary" title="Editar cliente">
                       <Edit size={14} />
+                    </button>
+                    <button
+                      onClick={() => void copyAffiliationMessage(c)}
+                      className={`btn btn-sm ${copiedMessageClientId === c.id ? 'btn-success' : 'btn-outline-secondary'}`}
+                      title="Copiar mensaje de afiliación"
+                      aria-label={`Copiar mensaje de afiliación de ${c.razonSocial}`}
+                    >
+                      {copiedMessageClientId === c.id ? <Check size={14} /> : <Clipboard size={14} />}
+                      <span className="d-none d-xl-inline">{copiedMessageClientId === c.id ? 'Copiado' : 'Ficha'}</span>
                     </button>
                     <button onClick={() => setDeletingClient(c)} className="btn btn-sm btn-outline-danger" title="Eliminar cliente">
                       <Trash2 size={14} />
