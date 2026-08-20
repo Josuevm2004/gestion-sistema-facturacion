@@ -397,7 +397,8 @@ export default function FormularioPublicoPage() {
                 <div className="alert alert-secondary d-flex align-items-start gap-2 mb-0 small border rounded-3">
                   <Info size={17} className="flex-shrink-0 mt-1" />
                   <div>
-                    <strong>Protección de tus datos personales:</strong> la información proporcionada será tratada para gestionar tu afiliación y activar nuestro sistema de facturación electrónica, conforme a la Ley N.° 29733, Ley de Protección de Datos Personales, y su Reglamento aprobado por el D.S. N.° 016-2024-JUS.{' '}
+                    <strong>Importante: tus datos personales están protegidos.</strong>{' '}
+                    Usaremos esta información únicamente para gestionar tu afiliación y activar nuestro sistema de facturación electrónica, conforme a la Ley N.° 29733 y su Reglamento, D.S. N.° 016-2024-JUS.{' '}
                     <a
                       href="https://www.gob.pe/institucion/anpd/normas-legales/2018427-29733-2011"
                       target="_blank"

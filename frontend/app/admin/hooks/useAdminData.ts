@@ -647,9 +647,11 @@ export function useAdminData() {
     if (!editingClient || !token) return;
 
     const formData = new FormData(event.currentTarget);
+    const canEditVendedor =
+      currentUser?.rol?.toUpperCase() === 'ADMIN' || currentUser?.username === 'admin';
     const selectedVendedor = formData.get('vendedor') as string;
     let foundVendedorId: string | number | null = null;
-    if (selectedVendedor && selectedVendedor !== 'Por asignar') {
+    if (canEditVendedor && selectedVendedor && selectedVendedor !== 'Por asignar') {
       const u = usersList.find((usr) => usr.nombre === selectedVendedor || usr.username === selectedVendedor);
       if (u) foundVendedorId = u.id;
       if (!u && selectedVendedor !== editingClient.vendedor) {
@@ -678,7 +680,7 @@ export function useAdminData() {
       usuarioAdminFacturador: formData.get('usuarioSistema') as string,
       claveTemporal: formData.get('claveSistema') as string,
       urlAcceso: formData.get('linkSistema') as string,
-      vendedorId: foundVendedorId,
+      vendedorId: canEditVendedor ? foundVendedorId : null,
     };
 
     setClients((prev) =>
@@ -688,7 +690,7 @@ export function useAdminData() {
 
     try {
       await adminApi(token).put(`/admin/clientes/${editingClient.id}`, apiPayload);
-      if (foundVendedorId) {
+      if (canEditVendedor && foundVendedorId) {
         await adminApi(token).request({
           method: 'PUT',
           url: `/admin/clientes/${editingClient.id}/vendedor?vendedorId=${foundVendedorId}`,
@@ -764,6 +766,22 @@ export function useAdminData() {
       void loadData(token);
     } catch (err: any) {
       setNotice(`Error al asignar vendedor: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
+      void loadData(token);
+    }
+  }
+
+  async function handleSelfAssignVendedor(client: Client) {
+    if (!token) return;
+    setClients((prev) =>
+      prev.map((c) => (c.id === client.id ? { ...c, vendedor: currentUser?.nombre || currentUser?.username || 'Asignado' } : c))
+    );
+
+    try {
+      await adminApi(token).post(`/admin/clientes/${client.id}/vendedor/asignarme`);
+      setNotice(`Te asignaste correctamente el cliente ${client.razonSocial}.`);
+      void loadData(token);
+    } catch (err: any) {
+      setNotice(`No se pudo asignar el cliente: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
       void loadData(token);
     }
   }
@@ -1069,6 +1087,7 @@ export function useAdminData() {
     handleSaveEditClient,
     handleSaveTrainingSchedule,
     handleAssignVendedor,
+    handleSelfAssignVendedor,
     handleColorTagChange,
     handleSaveUser,
     handleDeleteUser,

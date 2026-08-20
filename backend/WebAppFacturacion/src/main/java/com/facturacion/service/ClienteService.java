@@ -14,6 +14,7 @@ public interface ClienteService {
     ClienteDashboardResponse actualizarCliente(Long id, ClienteUpdateRequest request);
     ClienteDashboardResponse cambiarColorTag(Long clienteId, Long colorTagId);
     ClienteDashboardResponse cambiarVendedor(Long clienteId, Long vendedorId);
+    ClienteDashboardResponse asignarmeVendedor(Long clienteId, String username);
     ClienteDashboardResponse cambiarEstadoCliente(Long clienteId, String nuevoEstadoNombre);
     void eliminarClientePermanentemente(Long clienteId);
 }

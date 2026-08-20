@@ -447,6 +447,28 @@ public class ClienteServiceImpl implements ClienteService {
         return mapToDashboardResponse(cliente);
     }
 
+    @Override
+    @Transactional
+    public ClienteDashboardResponse asignarmeVendedor(Long clienteId, String username) {
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+        UsuarioAdmin vendedor = usuarioAdminRepository.findByUsernameAndActivoTrue(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario vendedor no encontrado"));
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+
+        if (ventasCliente.isEmpty()) {
+            throw new IllegalStateException("El cliente todavía no tiene una venta asignable");
+        }
+        boolean yaAsignado = ventasCliente.stream().anyMatch(venta -> venta.getVendedor() != null);
+        if (yaAsignado) {
+            throw new IllegalStateException("Este cliente ya tiene un vendedor asignado");
+        }
+
+        ventasCliente.forEach(venta -> venta.setVendedor(vendedor));
+        ventaRepository.saveAll(ventasCliente);
+        return mapToDashboardResponse(cliente);
+    }
+
     private void asignarVendedorAVentasExistentes(Long clienteId, Long vendedorId) {
         UsuarioAdmin vendedor = usuarioAdminRepository.findById(vendedorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Vendedor no encontrado"));

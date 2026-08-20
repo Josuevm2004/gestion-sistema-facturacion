@@ -59,6 +59,7 @@ interface ClientesTodosTabProps {
   setPlanFilter: (v: string) => void;
   handleColorTagChange: (client: Client, color: ColorTagType) => void;
   handleAssignVendedor: (client: Client, vendedorName: string) => void;
+  handleSelfAssignVendedor: (client: Client) => void;
   usersList?: Array<{ id: EntityId; nombre?: string; username?: string; activo?: boolean }>;
   showSolKeys: Record<string, boolean>;
   setShowSolKeys: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
@@ -83,6 +84,7 @@ export default function ClientesTodosTab({
   setPlanFilter,
   handleColorTagChange,
   handleAssignVendedor,
+  handleSelfAssignVendedor,
   usersList = [],
   showSolKeys,
   setShowSolKeys,
@@ -366,6 +368,15 @@ export default function ClientesTodosTab({
                           return label ? <option key={String(user.id)} value={label}>{label}</option> : null;
                         })}
                     </select>
+                  ) : currentUser?.rol === 'VENDEDOR' ? (
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => handleSelfAssignVendedor(c)}
+                      title="Asignarme este cliente"
+                    >
+                      Asignarme
+                    </button>
                   ) : (
                     <span className="badge bg-light text-muted fw-normal border" style={{ fontSize: '0.75rem' }}>
                       Por asignar

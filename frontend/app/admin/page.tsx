@@ -115,6 +115,7 @@ export default function AdminPage() {
                 setPlanFilter={adminData.setPlanFilter}
                 handleColorTagChange={adminData.handleColorTagChange}
                 handleAssignVendedor={adminData.handleAssignVendedor}
+                handleSelfAssignVendedor={adminData.handleSelfAssignVendedor}
                 usersList={adminData.usersList}
                 showSolKeys={adminData.showSolKeys}
                 setShowSolKeys={adminData.setShowSolKeys}

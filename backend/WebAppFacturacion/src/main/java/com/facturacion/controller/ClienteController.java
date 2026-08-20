@@ -7,6 +7,8 @@ import com.facturacion.response.DetalleClienteResponse;
 import com.facturacion.service.ClienteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +34,7 @@ public class ClienteController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("isAuthenticated() and (hasRole('ADMIN') or #request.vendedorId == null)")
     public ResponseEntity<ApiResponse<ClienteDashboardResponse>> actualizarCliente(
             @PathVariable Long id,
             @RequestBody ClienteUpdateRequest request) {
@@ -48,11 +51,21 @@ public class ClienteController {
     }
 
     @RequestMapping(value = "/{id}/vendedor", method = {RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.POST})
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ClienteDashboardResponse>> cambiarVendedor(
             @PathVariable Long id,
             @RequestParam Long vendedorId) {
         ClienteDashboardResponse cliente = clienteService.cambiarVendedor(id, vendedorId);
         return ResponseEntity.ok(ApiResponse.success("Vendedor asignado correctamente", cliente));
+    }
+
+    @PostMapping("/{id}/vendedor/asignarme")
+    @PreAuthorize("hasAnyRole('ADMIN', 'VENDEDOR')")
+    public ResponseEntity<ApiResponse<ClienteDashboardResponse>> asignarmeVendedor(
+            @PathVariable Long id,
+            Authentication authentication) {
+        ClienteDashboardResponse cliente = clienteService.asignarmeVendedor(id, authentication.getName());
+        return ResponseEntity.ok(ApiResponse.success("Cliente asignado correctamente", cliente));
     }
 
     @RequestMapping(value = "/{id}/estado", method = {RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.POST})
