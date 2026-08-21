@@ -93,6 +93,14 @@ public class VentaServiceImpl implements VentaService {
                 .findFirst()
                 .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
 
+        if (tipo == TipoVenta.RENOVACION
+                && ventaAnterior != null
+                && ventaAnterior.getSuscripcion() != null
+                && !mismaSuscripcion(ventaAnterior, suscripcion)) {
+            throw new ResourceNotFoundException(
+                    "La renovación debe conservar el plan y la modalidad vigentes. Usa Cambio de Plan para modificarlos");
+        }
+
         boolean usarMontoPendienteProgramado = debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
         LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, fechaRef);
         LocalDateTime fechaInicio = fechaInicioDate.equals(fechaRef.toLocalDate())
@@ -235,11 +243,9 @@ public class VentaServiceImpl implements VentaService {
         LocalDate fechaBaseProrrateo = servicioActual.getFechaCapacitacion() != null
                 ? servicioActual.getFechaCapacitacion().toLocalDate()
                 : servicioActual.getFechaInicio().toLocalDate();
-        BigDecimal montoMejora = calcularDiferenciaProrrateadaDesdeCapacitacion(
-                diferenciaLista,
-                fechaBaseProrrateo,
-                nuevaSuscripcion.getTipoSuscripcion()
-        );
+        // La mejora se cobra siempre por la diferencia completa entre planes.
+        // El prorrateo del nuevo plan se actualiza por separado desde la capacitación.
+        BigDecimal montoMejora = diferenciaLista;
 
         Venta mejora = new Venta();
         mejora.setCliente(cliente);
@@ -338,13 +344,6 @@ public class VentaServiceImpl implements VentaService {
         pendiente.setFechaActualizacion(fechaRef);
         pendiente.setObservaciones("Renovacion pendiente actualizada por mejora de plan para " + fechaFinServicio.toLocalDate());
         ventaRepository.save(pendiente);
-    }
-
-    private BigDecimal calcularDiferenciaProrrateadaDesdeCapacitacion(
-            BigDecimal diferenciaLista,
-            LocalDate fechaBaseProrrateo,
-            TipoSuscripcion tipoSuscripcion) {
-        return calcularMontoProrrateadoPlan(diferenciaLista, fechaBaseProrrateo, tipoSuscripcion);
     }
 
     private BigDecimal calcularMontoProrrateadoPlan(

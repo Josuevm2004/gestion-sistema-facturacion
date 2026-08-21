@@ -567,7 +567,12 @@ export function useAdminData() {
       return;
     }
 
-    const isCambio = nuevoPlan && normalizePlanKey(nuevoPlan) !== normalizePlanKey(client.planContratado);
+    const isCambio = Boolean(
+      nuevoPlan && (
+        normalizePlanKey(nuevoPlan) !== normalizePlanKey(client.planContratado) ||
+        tipoAUsar !== (client.tipoSuscripcion || 'MENSUAL').toUpperCase()
+      )
+    );
     const tipoVenta = isCambio ? 'CAMBIO_PLAN' : 'RENOVACION';
     const processingKey = `${client.id}-${tipoVenta}-${planId}-${tipoAUsar}`;
     if (processingOperationsRef.current.has(processingKey)) return;
