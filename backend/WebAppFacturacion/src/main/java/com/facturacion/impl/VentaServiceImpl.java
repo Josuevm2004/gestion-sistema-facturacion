@@ -232,11 +232,13 @@ public class VentaServiceImpl implements VentaService {
         }
 
         BigDecimal diferenciaLista = precioNuevo.subtract(precioActual);
-        BigDecimal montoMejora = calcularDiferenciaProporcional(
+        LocalDate fechaBaseProrrateo = servicioActual.getFechaCapacitacion() != null
+                ? servicioActual.getFechaCapacitacion().toLocalDate()
+                : servicioActual.getFechaInicio().toLocalDate();
+        BigDecimal montoMejora = calcularDiferenciaProrrateadaDesdeCapacitacion(
                 diferenciaLista,
-                fechaRef.toLocalDate(),
-                servicioActual.getFechaInicio().toLocalDate(),
-                servicioActual.getFechaFin().toLocalDate()
+                fechaBaseProrrateo,
+                nuevaSuscripcion.getTipoSuscripcion()
         );
 
         Venta mejora = new Venta();
@@ -270,11 +272,19 @@ public class VentaServiceImpl implements VentaService {
         registrarPagoSiNoExiste(cliente, mejora, TipoVenta.MEJORA_PLAN, montoMejora, fechaRef);
 
         servicioActual.setFechaActualizacion(fechaRef);
+        actualizarProrrateoVigente(servicioActual, precioNuevo, nuevaSuscripcion.getTipoSuscripcion(), fechaBaseProrrateo);
         servicioActual.setObservaciones("Plan mejorado a "
                 + (nuevaSuscripcion.getPlan() != null ? nuevaSuscripcion.getPlan().getNombrePlan() : "nuevo plan")
                 + " sin modificar vencimiento");
         servicioClienteRepository.save(servicioActual);
-        actualizarRenovacionPendientePorMejora(cliente.getId(), nuevaSuscripcion, mejora, servicioActual.getFechaFin(), fechaRef);
+        actualizarRenovacionPendientePorMejora(
+                cliente.getId(),
+                nuevaSuscripcion,
+                mejora,
+                servicioActual,
+                servicioActual.getFechaFin(),
+                fechaRef
+        );
 
         HistorialEstadoCliente h = new HistorialEstadoCliente();
         h.setCliente(cliente);
@@ -292,6 +302,7 @@ public class VentaServiceImpl implements VentaService {
             Long clienteId,
             Suscripcion nuevaSuscripcion,
             Venta mejora,
+            ServicioCliente servicioActual,
             LocalDateTime fechaFinServicio,
             LocalDateTime fechaRef) {
         Venta pendiente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId).stream()
@@ -302,37 +313,69 @@ public class VentaServiceImpl implements VentaService {
                 .orElse(null);
 
         if (pendiente == null) {
-            crearSiguienteRenovacionPendiente(mejora, fechaFinServicio);
-            return;
+            pendiente = new Venta();
+            pendiente.setCliente(mejora.getCliente());
+            pendiente.setTipoVenta(TipoVenta.RENOVACION);
+            pendiente.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
         }
 
         pendiente.setVentaAnterior(mejora);
         pendiente.setSuscripcion(nuevaSuscripcion);
         pendiente.setVendedor(mejora.getVendedor());
-        pendiente.setPrecioLista(nuevaSuscripcion.getPrecio());
-        pendiente.setMontoProrrateado(BigDecimal.ZERO);
-        pendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
+        BigDecimal precioNuevo = nuevaSuscripcion.getPrecio();
+        LocalDate fechaBaseProrrateo = servicioActual.getFechaCapacitacion() != null
+                ? servicioActual.getFechaCapacitacion().toLocalDate()
+                : servicioActual.getFechaInicio().toLocalDate();
+        BigDecimal montoSiguiente = calcularMontoProrrateadoPlan(
+                precioNuevo,
+                fechaBaseProrrateo,
+                nuevaSuscripcion.getTipoSuscripcion()
+        );
+        pendiente.setPrecioLista(precioNuevo);
+        pendiente.setMontoProrrateado(precioNuevo.subtract(montoSiguiente).max(BigDecimal.ZERO));
+        pendiente.setMontoTotal(montoSiguiente);
         pendiente.setFechaVenta(LocalDateTime.of(fechaFinServicio.toLocalDate(), LocalTime.NOON));
         pendiente.setFechaActualizacion(fechaRef);
         pendiente.setObservaciones("Renovacion pendiente actualizada por mejora de plan para " + fechaFinServicio.toLocalDate());
         ventaRepository.save(pendiente);
     }
 
-    private BigDecimal calcularDiferenciaProporcional(
+    private BigDecimal calcularDiferenciaProrrateadaDesdeCapacitacion(
             BigDecimal diferenciaLista,
-            LocalDate fechaOperacion,
-            LocalDate fechaInicioServicio,
-            LocalDate fechaFinServicio) {
-        int diasTotales = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioServicio, fechaFinServicio));
-        int diasRestantes = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaOperacion, fechaFinServicio));
-        if (diasRestantes > diasTotales) {
-            diasRestantes = diasTotales;
+            LocalDate fechaBaseProrrateo,
+            TipoSuscripcion tipoSuscripcion) {
+        return calcularMontoProrrateadoPlan(diferenciaLista, fechaBaseProrrateo, tipoSuscripcion);
+    }
+
+    private BigDecimal calcularMontoProrrateadoPlan(
+            BigDecimal precioPlan,
+            LocalDate fechaBaseProrrateo,
+            TipoSuscripcion tipoSuscripcion) {
+        if (tipoSuscripcion == TipoSuscripcion.ANUAL) {
+            return precioPlan.setScale(0, RoundingMode.HALF_UP);
         }
 
-        return diferenciaLista
-                .divide(BigDecimal.valueOf(diasTotales), 10, RoundingMode.HALF_UP)
-                .multiply(BigDecimal.valueOf(diasRestantes))
-                .setScale(0, RoundingMode.HALF_UP);
+        ProrrateoCalculatorUtil.ResultadoProrrateo resultado =
+                ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioPlan, fechaBaseProrrateo, monthlyBillingDay);
+        return resultado.montoFinal();
+    }
+
+    private void actualizarProrrateoVigente(
+            ServicioCliente servicio,
+            BigDecimal precioNuevo,
+            TipoSuscripcion tipoSuscripcion,
+            LocalDate fechaBaseProrrateo) {
+        ProrrateoCalculatorUtil.ResultadoProrrateo resultado = tipoSuscripcion == TipoSuscripcion.ANUAL
+                ? null
+                : ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioNuevo, fechaBaseProrrateo, monthlyBillingDay);
+        BigDecimal montoProrrateado = tipoSuscripcion == TipoSuscripcion.ANUAL
+                ? precioNuevo.setScale(0, RoundingMode.HALF_UP)
+                : resultado.montoFinal();
+        servicio.setMontoProrrateo(montoProrrateado);
+        servicio.setDiasProrrateados(tipoSuscripcion == TipoSuscripcion.ANUAL
+                ? 365
+                : Math.max(1, resultado.diasTotales() - resultado.diasNoConsumidos()));
+        servicioClienteRepository.save(servicio);
     }
 
     private Venta encontrarVentaPendienteParaOperacion(
