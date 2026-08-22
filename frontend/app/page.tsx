@@ -148,16 +148,19 @@ export default function FormularioPublicoPage() {
 
       if (resultado?.valido) {
         setSunatValidation('valid');
-        setMessage({ type: 'success', text: 'Las credenciales SUNAT fueron verificadas correctamente.' });
+        setMessage({ type: 'success', text: 'Perfil validado correctamente con SUNAT.' });
         return;
       }
 
       const noDisponible = codigo === 'SUNAT_NO_DISPONIBLE' || codigo === 'SUNAT_NO_CONFIGURADA';
-      setSunatValidation(noDisponible ? 'unavailable' : 'invalid');
+      const requiereCaptcha = codigo === 'SUNAT_REQUIERE_CAPTCHA';
+      setSunatValidation(noDisponible || requiereCaptcha ? 'unavailable' : 'invalid');
       setMessage({
-        type: noDisponible ? 'warning' : 'danger',
+        type: noDisponible || requiereCaptcha ? 'warning' : 'danger',
         text: codigo === 'SUNAT_NO_CONFIGURADA'
           ? 'La validación SUNAT aún no está configurada en el servidor.'
+          : requiereCaptcha
+            ? 'SUNAT solicita una verificación adicional. Ingresa directamente al portal de SUNAT para validarte.'
           : codigo === 'SUNAT_NO_DISPONIBLE'
             ? 'SUNAT no está disponible en este momento. Intenta nuevamente más tarde.'
             : 'El RUC, Usuario SOL o Clave SOL no fueron aceptados por SUNAT.',
@@ -451,11 +454,11 @@ export default function FormularioPublicoPage() {
                         disabled={sunatValidation === 'validating'}
                       >
                         <RefreshCw size={15} className={sunatValidation === 'validating' ? 'spin-anim' : ''} />
-                        {sunatValidation === 'validating' ? 'Validando con SUNAT...' : 'Validar credenciales SUNAT'}
+                        {sunatValidation === 'validating' ? 'Validando con SUNAT...' : 'Validar perfil'}
                       </button>
                       {sunatValidation === 'valid' && (
                         <span className="small text-success fw-semibold d-inline-flex align-items-center gap-1" aria-live="polite">
-                          <CheckCircle2 size={15} /> Credenciales válidas
+                          <CheckCircle2 size={15} /> Perfil validado
                         </span>
                       )}
                       {sunatValidation === 'invalid' && (
