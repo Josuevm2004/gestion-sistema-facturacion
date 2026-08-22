@@ -68,6 +68,9 @@ public class Cliente {
     @Column(name = "url_acceso", length = 255)
     private String urlAcceso;
 
+    @Column(name = "usuario_wsp", length = 20)
+    private String usuarioWsp;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "estado_id")
     private EstadoCliente estado;
@@ -75,6 +78,10 @@ public class Cliente {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "color_tag_id")
     private ColorTag colorTag;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "entorno_id")
+    private Entorno entorno;
 
     @Column(nullable = false)
     private Boolean activo = true;
@@ -135,10 +142,14 @@ public class Cliente {
     public void setClaveTemporal(String claveTemporal) { this.claveTemporal = claveTemporal; }
     public String getUrlAcceso() { return urlAcceso; }
     public void setUrlAcceso(String urlAcceso) { this.urlAcceso = urlAcceso; }
+    public String getUsuarioWsp() { return usuarioWsp; }
+    public void setUsuarioWsp(String usuarioWsp) { this.usuarioWsp = usuarioWsp; }
     public EstadoCliente getEstado() { return estado; }
     public void setEstado(EstadoCliente estado) { this.estado = estado; }
     public ColorTag getColorTag() { return colorTag; }
     public void setColorTag(ColorTag colorTag) { this.colorTag = colorTag; }
+    public Entorno getEntorno() { return entorno; }
+    public void setEntorno(Entorno entorno) { this.entorno = entorno; }
     public Boolean getActivo() { return activo; }
     public void setActivo(Boolean activo) { this.activo = activo; }
     public LocalDateTime getFechaEliminacion() { return fechaEliminacion; }

@@ -10,6 +10,7 @@ interface EditClientModalProps {
   currentUser?: any;
   usersList?: any[];
   uniqueSellers?: string[];
+  entornos?: Array<{ id: string | number; nombre: string }>;
 }
 
 export default function EditClientModal({
@@ -19,6 +20,7 @@ export default function EditClientModal({
   currentUser,
   usersList = [],
   uniqueSellers = [],
+  entornos = [],
 }: EditClientModalProps) {
   if (!editingClient) return null;
 
@@ -123,6 +125,15 @@ export default function EditClientModal({
                   <label className="form-label">Correo Personal</label>
                   <input className="form-control" name="emailPersonal" defaultValue={editingClient.emailPersonal || ''} />
                 </div>
+                <div className="col-md-6">
+                  <label className="form-label">Usuario de WhatsApp</label>
+                  <input
+                    className="form-control"
+                    name="usuarioWsp"
+                    defaultValue={editingClient.usuarioWsp || ''}
+                    placeholder="Usuario o número de WhatsApp"
+                  />
+                </div>
 
                 {/* --- Plan y Acceso --- */}
                 <div className="col-12">
@@ -196,6 +207,15 @@ export default function EditClientModal({
                 <div className="col-md-6">
                   <label className="form-label">Link del Sistema Facturador</label>
                   <input className="form-control" name="linkSistema" defaultValue={editingClient.linkSistema || ''} placeholder="https://demo.facturacion.com" />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">Entorno</label>
+                  <select className="form-select" name="entornoId" defaultValue={editingClient.entornoId ? String(editingClient.entornoId) : ''}>
+                    <option value="">Sin entorno seleccionado</option>
+                    {entornos.map((entorno) => (
+                      <option key={String(entorno.id)} value={String(entorno.id)}>{entorno.nombre}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="col-md-3">
                   <label className="form-label">Usuario Sistema</label>

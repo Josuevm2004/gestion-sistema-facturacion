@@ -27,6 +27,7 @@ DROP TABLE IF EXISTS historial_estado_cliente;
 DROP TABLE IF EXISTS venta;
 DROP TABLE IF EXISTS encuesta_inicial;
 DROP TABLE IF EXISTS cliente;
+DROP TABLE IF EXISTS entorno;
 DROP TABLE IF EXISTS color_tag;
 DROP TABLE IF EXISTS estado_cliente;
 DROP TABLE IF EXISTS suscripcion;
@@ -195,6 +196,18 @@ CREATE TABLE color_tag (
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ============================================================
+-- 6. ENTORNOS DEL CLIENTE
+-- ============================================================
+
+CREATE TABLE entorno (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_entorno_activo (activo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 -- ============================================================
 -- 6. CLIENTES
@@ -288,6 +301,8 @@ CREATE TABLE cliente (
 
     url_acceso VARCHAR(255),
 
+    usuario_wsp VARCHAR(20),
+
     -- ========================================================
     -- ESTADO ACTUAL
     -- ========================================================
@@ -299,6 +314,8 @@ CREATE TABLE cliente (
     -- ========================================================
 
     color_tag_id BIGINT NULL,
+
+    entorno_id BIGINT NULL,
 
     -- ========================================================
     -- ELIMINACIÓN LÓGICA
@@ -334,8 +351,15 @@ CREATE TABLE cliente (
         ON DELETE SET NULL
         ON UPDATE CASCADE,
 
+    CONSTRAINT fk_cliente_entorno
+        FOREIGN KEY (entorno_id)
+        REFERENCES entorno(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+
     INDEX idx_cliente_estado (estado_id),
     INDEX idx_cliente_color (color_tag_id),
+    INDEX idx_cliente_entorno (entorno_id),
     INDEX idx_cliente_activo (activo),
     INDEX idx_cliente_razon_social (razon_social),
     INDEX idx_cliente_email (email)
@@ -874,6 +898,11 @@ VALUES
 (2, 'Amarillo', '#FFC107'),
 (3, 'Rojo', '#DC3545'),
 (4, 'Azul', '#0D6EFD');
+
+INSERT INTO entorno (id, nombre)
+VALUES
+(1, 'Producción'),
+(2, 'Control Interno');
 
 
 -- ============================================================

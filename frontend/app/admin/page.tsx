@@ -235,6 +235,7 @@ export default function AdminPage() {
           currentUser={adminData.currentUser}
           usersList={adminData.usersList}
           uniqueSellers={adminData.uniqueSellers}
+          entornos={adminData.entornos}
         />
 
         <DeleteClientModal

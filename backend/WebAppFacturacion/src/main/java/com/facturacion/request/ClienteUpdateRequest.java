@@ -22,8 +22,10 @@ public class ClienteUpdateRequest {
     private String usuarioAdminFacturador;
     private String claveTemporal;
     private String urlAcceso;
+    private String usuarioWsp;
 
     private Long colorTagId;
+    private Long entornoId;
     private Long vendedorId;
     private Long estadoId;
 
@@ -67,8 +69,12 @@ public class ClienteUpdateRequest {
     public void setClaveTemporal(String claveTemporal) { this.claveTemporal = claveTemporal; }
     public String getUrlAcceso() { return urlAcceso; }
     public void setUrlAcceso(String urlAcceso) { this.urlAcceso = urlAcceso; }
+    public String getUsuarioWsp() { return usuarioWsp; }
+    public void setUsuarioWsp(String usuarioWsp) { this.usuarioWsp = usuarioWsp; }
     public Long getColorTagId() { return colorTagId; }
     public void setColorTagId(Long colorTagId) { this.colorTagId = colorTagId; }
+    public Long getEntornoId() { return entornoId; }
+    public void setEntornoId(Long entornoId) { this.entornoId = entornoId; }
     public Long getVendedorId() { return vendedorId; }
     public void setVendedorId(Long vendedorId) { this.vendedorId = vendedorId; }
     public Long getEstadoId() { return estadoId; }

@@ -21,6 +21,7 @@ export type Client = {
   dni?: string;
   emailPersonal?: string;
   telefonoPersonal?: string;
+  usuarioWsp?: string;
   departamento?: string;
   provincia?: string;
   distrito?: string;
@@ -44,6 +45,8 @@ export type Client = {
   linkSistema?: string;
   usuarioSistema?: string;
   claveSistema?: string;
+  entornoId?: EntityId;
+  entornoNombre?: string;
 };
 
 interface ClientesTodosTabProps {
@@ -298,6 +301,7 @@ export default function ClientesTodosTab({
             <tr>
               <th style={{ width: '80px' }}>Color Celular</th>
               <th>RUC / Empresa</th>
+              <th>Usuario WSP</th>
               <th>WhatsApp / Email</th>
               <th>Plan / Suscripción</th>
               <th>Vendedor</th>
@@ -334,6 +338,9 @@ export default function ClientesTodosTab({
                 <td>
                   <strong className="text-dark d-block">{c.razonSocial}</strong>
                   <span className="small text-muted">{c.ruc}</span>
+                </td>
+                <td>
+                  <span className="fw-semibold">{c.usuarioWsp || '—'}</span>
                 </td>
                 <td>
                   <span className="fw-semibold d-block">{c.telefono}</span>

@@ -42,6 +42,8 @@ public class ClienteServiceImpl implements ClienteService {
     @Autowired
     private ColorTagRepository colorTagRepository;
     @Autowired
+    private EntornoRepository entornoRepository;
+    @Autowired
     private UsuarioAdminRepository usuarioAdminRepository;
     @Autowired
     private PlanRepository planRepository;
@@ -400,10 +402,20 @@ public class ClienteServiceImpl implements ClienteService {
         if (request.getUsuarioAdminFacturador() != null) cliente.setUsuarioAdminFacturador(request.getUsuarioAdminFacturador());
         if (request.getClaveTemporal() != null) cliente.setClaveTemporal(request.getClaveTemporal());
         if (request.getUrlAcceso() != null) cliente.setUrlAcceso(request.getUrlAcceso());
+        if (request.getUsuarioWsp() != null) {
+            String usuarioWsp = request.getUsuarioWsp().trim();
+            cliente.setUsuarioWsp(usuarioWsp.isBlank() ? null : usuarioWsp);
+        }
 
         if (request.getColorTagId() != null) {
             ColorTag colorTag = colorTagRepository.findById(request.getColorTagId()).orElse(null);
             cliente.setColorTag(colorTag);
+        }
+
+        if (request.getEntornoId() != null) {
+            Entorno entorno = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Entorno no encontrado"));
+            cliente.setEntorno(entorno);
         }
 
         if (request.getEstadoId() != null) {
@@ -569,6 +581,7 @@ public class ClienteServiceImpl implements ClienteService {
         res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
         res.setClaveTemporal(c.getClaveTemporal());
         res.setUrlAcceso(c.getUrlAcceso());
+        res.setUsuarioWsp(c.getUsuarioWsp());
 
         String estadoNombre = c.getEstado() != null ? c.getEstado().getNombre() : null;
         if (c.getEstado() != null) {
@@ -580,6 +593,11 @@ public class ClienteServiceImpl implements ClienteService {
             res.setColorTagId(c.getColorTag().getId());
             res.setColorCodigo(c.getColorTag().getCodigo());
             res.setColorHex(c.getColorTag().getHex());
+        }
+
+        if (c.getEntorno() != null) {
+            res.setEntornoId(c.getEntorno().getId());
+            res.setEntornoNombre(c.getEntorno().getNombre());
         }
 
         ServicioCliente servicio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(c.getId()).orElse(null);
@@ -681,6 +699,11 @@ public class ClienteServiceImpl implements ClienteService {
         res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
         res.setClaveTemporal(c.getClaveTemporal());
         res.setUrlAcceso(c.getUrlAcceso());
+        res.setUsuarioWsp(c.getUsuarioWsp());
+        if (c.getEntorno() != null) {
+            res.setEntornoId(c.getEntorno().getId());
+            res.setEntornoNombre(c.getEntorno().getNombre());
+        }
         res.setEstadoNombre(c.getEstado() != null ? c.getEstado().getNombre() : null);
         res.setVendedorNombre("Por asignar");
         res.setFechaRegistro(c.getFechaRegistro());

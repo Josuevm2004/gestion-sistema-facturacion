@@ -21,6 +21,7 @@ DROP TABLE IF EXISTS historial_estado_cliente CASCADE;
 DROP TABLE IF EXISTS venta CASCADE;
 DROP TABLE IF EXISTS encuesta_inicial CASCADE;
 DROP TABLE IF EXISTS cliente CASCADE;
+DROP TABLE IF EXISTS entorno CASCADE;
 DROP TABLE IF EXISTS acceso_sistema CASCADE;
 DROP TABLE IF EXISTS credencial_sol CASCADE;
 DROP TABLE IF EXISTS ubigeo CASCADE;
@@ -123,6 +124,19 @@ CREATE TABLE color_tag (
 CREATE INDEX idx_color_activo ON color_tag (activo);
 
 -- ============================================================
+-- 6. ENTORNOS DEL CLIENTE
+-- ============================================================
+
+CREATE TABLE entorno (
+    id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT current_timestamp()
+);
+
+CREATE INDEX idx_entorno_activo ON entorno (activo);
+
+-- ============================================================
 -- 6. CLIENTES
 -- ============================================================
 
@@ -152,9 +166,11 @@ CREATE TABLE cliente (
     usuario_admin_facturador VARCHAR(50),
     clave_temporal VARCHAR(100),
     url_acceso VARCHAR(255),
+    usuario_wsp VARCHAR(20),
 
     estado_id BIGINT NULL,
     color_tag_id BIGINT NULL,
+    entorno_id BIGINT NULL,
 
     activo BOOLEAN NOT NULL DEFAULT TRUE,
     fecha_eliminacion TIMESTAMP NULL,
@@ -171,11 +187,18 @@ CREATE TABLE cliente (
         FOREIGN KEY (color_tag_id)
         REFERENCES color_tag(id)
         ON DELETE SET NULL
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_cliente_entorno
+        FOREIGN KEY (entorno_id)
+        REFERENCES entorno(id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE
 );
 
 CREATE INDEX idx_cliente_estado ON cliente (estado_id);
 CREATE INDEX idx_cliente_color ON cliente (color_tag_id);
+CREATE INDEX idx_cliente_entorno ON cliente (entorno_id);
 CREATE INDEX idx_cliente_activo ON cliente (activo);
 CREATE INDEX idx_cliente_razon_social ON cliente (razon_social);
 CREATE INDEX idx_cliente_email ON cliente (email);
@@ -475,6 +498,11 @@ VALUES
 (2, 'Amarillo', '#FFC107'),
 (3, 'Rojo', '#DC3545'),
 (4, 'Azul', '#0D6EFD');
+
+INSERT INTO entorno (id, nombre)
+VALUES
+(1, 'Producción'),
+(2, 'Control Interno');
 
 INSERT INTO usuario_admin
 (

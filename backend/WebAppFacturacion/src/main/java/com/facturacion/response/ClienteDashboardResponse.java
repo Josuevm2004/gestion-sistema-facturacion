@@ -26,6 +26,7 @@ public class ClienteDashboardResponse {
     private String usuarioAdminFacturador;
     private String claveTemporal;
     private String urlAcceso;
+    private String usuarioWsp;
 
     private Long estadoId;
     private String estadoNombre; // POR_COBRAR, POR_CAPACITAR, HABILITADO, VENCIDO, BLOQUEADO
@@ -33,6 +34,9 @@ public class ClienteDashboardResponse {
     private Long colorTagId;
     private String colorCodigo;
     private String colorHex;
+
+    private Long entornoId;
+    private String entornoNombre;
 
     private Long vendedorId;
     private String vendedorNombre;
@@ -96,6 +100,8 @@ public class ClienteDashboardResponse {
     public void setClaveTemporal(String claveTemporal) { this.claveTemporal = claveTemporal; }
     public String getUrlAcceso() { return urlAcceso; }
     public void setUrlAcceso(String urlAcceso) { this.urlAcceso = urlAcceso; }
+    public String getUsuarioWsp() { return usuarioWsp; }
+    public void setUsuarioWsp(String usuarioWsp) { this.usuarioWsp = usuarioWsp; }
     public Long getEstadoId() { return estadoId; }
     public void setEstadoId(Long estadoId) { this.estadoId = estadoId; }
     public String getEstadoNombre() { return estadoNombre; }
@@ -106,6 +112,10 @@ public class ClienteDashboardResponse {
     public void setColorCodigo(String colorCodigo) { this.colorCodigo = colorCodigo; }
     public String getColorHex() { return colorHex; }
     public void setColorHex(String colorHex) { this.colorHex = colorHex; }
+    public Long getEntornoId() { return entornoId; }
+    public void setEntornoId(Long entornoId) { this.entornoId = entornoId; }
+    public String getEntornoNombre() { return entornoNombre; }
+    public void setEntornoNombre(String entornoNombre) { this.entornoNombre = entornoNombre; }
     public Long getVendedorId() { return vendedorId; }
     public void setVendedorId(Long vendedorId) { this.vendedorId = vendedorId; }
     public String getVendedorNombre() { return vendedorNombre; }

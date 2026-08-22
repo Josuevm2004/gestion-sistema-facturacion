@@ -11,6 +11,18 @@
 
 USE sistema_facturacion;
 
+CREATE TABLE IF NOT EXISTS public.entorno (
+    id BIGINT PRIMARY KEY DEFAULT unique_rowid(),
+    nombre VARCHAR(50) NOT NULL UNIQUE,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    fecha_creacion TIMESTAMP NOT NULL DEFAULT current_timestamp()
+);
+
+CREATE INDEX IF NOT EXISTS idx_entorno_activo ON public.entorno (activo);
+
+UPSERT INTO public.entorno (id, nombre)
+VALUES (1, 'Producción'), (2, 'Control Interno');
+
 -- Tablas heredadas del modelo anterior. En el modelo actual estos
 -- datos viven en cliente / venta / servicio_cliente.
 DROP TABLE IF EXISTS public.acceso_sistema CASCADE;
@@ -37,10 +49,17 @@ ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS clave_temporal VAR
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS url_acceso VARCHAR(255);
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS estado_id BIGINT NULL;
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS color_tag_id BIGINT NULL;
+ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS usuario_wsp VARCHAR(20) NULL;
+ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS entorno_id BIGINT NULL;
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS activo BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS fecha_eliminacion TIMESTAMP NULL;
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS fecha_registro TIMESTAMP NOT NULL DEFAULT current_timestamp();
 ALTER TABLE IF EXISTS public.cliente ADD COLUMN IF NOT EXISTS fecha_actualizacion TIMESTAMP NOT NULL DEFAULT current_timestamp();
+
+ALTER TABLE IF EXISTS public.cliente DROP CONSTRAINT IF EXISTS fk_cliente_entorno;
+ALTER TABLE IF EXISTS public.cliente ADD CONSTRAINT fk_cliente_entorno
+FOREIGN KEY (entorno_id) REFERENCES public.entorno(id)
+ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- Tipo de venta agregado para mejorar un plan activo sin reiniciar fechas.
 ALTER TABLE IF EXISTS public.venta DROP CONSTRAINT IF EXISTS chk_venta_tipo;

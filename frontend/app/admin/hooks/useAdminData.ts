@@ -25,6 +25,7 @@ export function useAdminData() {
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [entornos, setEntornos] = useState<Array<{ id: string | number; nombre: string }>>([]);
   const lastVencimientosReviewRef = useRef<number>(0);
   const vencimientosReviewInFlightRef = useRef(false);
   const loadDataInFlightRef = useRef(false);
@@ -122,6 +123,7 @@ export function useAdminData() {
           dni: c.dni || '',
           emailPersonal: c.emailPersonal || '',
           telefonoPersonal: c.telefonoPersonal || '',
+          usuarioWsp: c.usuarioWsp || '',
           departamento: c.departamento || '',
           provincia: c.provincia || '',
           distrito: c.distrito || '',
@@ -145,6 +147,8 @@ export function useAdminData() {
           linkSistema: c.urlAcceso || c.linkSistema,
           usuarioSistema: c.usuarioAdminFacturador || c.usuarioSistema,
           claveSistema: c.claveTemporal || c.claveSistema,
+          entornoId: c.entornoId,
+          entornoNombre: c.entornoNombre || '',
         }));
 
         setClients(normalizedClients);
@@ -180,12 +184,13 @@ export function useAdminData() {
           });
       }
 
-      const [clientResult, payResult, userResult, notifResult, subscriptionResult] = await Promise.allSettled([
+      const [clientResult, payResult, userResult, notifResult, subscriptionResult, entornoResult] = await Promise.allSettled([
         getClientsWithRetry(),
         clientApi.get('/admin/pagos'),
         clientApi.get('/admin/usuarios'),
         clientApi.get('/admin/notificaciones'),
         clientApi.get('/admin/planes/suscripciones'),
+        clientApi.get('/admin/entornos'),
       ]);
 
       if (clientResult.status === 'rejected') {
@@ -201,6 +206,9 @@ export function useAdminData() {
       if (notifResult.status === 'fulfilled') setNotifications(extractArray(notifResult.value.data));
       if (subscriptionResult.status === 'fulfilled') {
         setSubscriptions(extractArray(subscriptionResult.value.data));
+      }
+      if (entornoResult.status === 'fulfilled') {
+        setEntornos(extractArray(entornoResult.value.data));
       }
       recoveryAttemptsRef.current = 0;
 
@@ -685,6 +693,8 @@ export function useAdminData() {
       usuarioAdminFacturador: formData.get('usuarioSistema') as string,
       claveTemporal: formData.get('claveSistema') as string,
       urlAcceso: formData.get('linkSistema') as string,
+      usuarioWsp: formData.get('usuarioWsp') as string,
+      entornoId: formData.get('entornoId') ? Number(formData.get('entornoId')) : undefined,
       vendedorId: canEditVendedor ? foundVendedorId : null,
     };
 
@@ -1077,6 +1087,7 @@ export function useAdminData() {
     setEditingUser,
     showNewUserModal,
     setShowNewUserModal,
+    entornos,
     calendarSearch,
     setCalendarSearch,
     showNotificationsDropdown,
