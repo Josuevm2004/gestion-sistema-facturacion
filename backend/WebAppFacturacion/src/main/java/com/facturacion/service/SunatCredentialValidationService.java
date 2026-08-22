@@ -73,7 +73,8 @@ public class SunatCredentialValidationService {
                     tokenObtenido ? "CREDENCIALES_VALIDAS" : "RESPUESTA_SUNAT_INVALIDA");
         } catch (RestClientResponseException ex) {
             int status = ex.getStatusCode().value();
-            if (status == 400 || status == 401 || status == 403) {
+            // SUNAT también usa 422 para errores de validación funcional del request.
+            if (status == 400 || status == 401 || status == 403 || status == 422) {
                 return new ValidacionSunatResponse(false, "CREDENCIALES_INVALIDAS");
             }
             return new ValidacionSunatResponse(false, "SUNAT_NO_DISPONIBLE");
