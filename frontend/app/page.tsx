@@ -65,6 +65,7 @@ export default function FormularioPublicoPage() {
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
   const [plansLoading, setPlansLoading] = useState(true);
   const [plansError, setPlansError] = useState<string | null>(null);
+  const [sunatValidation, setSunatValidation] = useState<'idle' | 'validating' | 'valid' | 'invalid' | 'unavailable'>('idle');
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -112,6 +113,59 @@ export default function FormularioPublicoPage() {
 
   function subscriptionPrice(planId: number) {
     return subscriptions.find((subscription) => subscription.planId === planId && subscription.tipoSuscripcion === tipoSuscripcion)?.precio;
+  }
+
+  function resetSunatValidation() {
+    setSunatValidation('idle');
+  }
+
+  async function handleValidateSunat() {
+    const form = formRef.current;
+    if (!form) return;
+
+    const formData = new FormData(form);
+    const ruc = String(formData.get('ruc') || '').trim();
+    const usuarioSol = String(formData.get('usuarioSol') || '').trim();
+    const claveSol = String(formData.get('claveSol') || '');
+
+    if (!/^\d{11}$/.test(ruc) || !usuarioSol || !claveSol) {
+      setSunatValidation('invalid');
+      setMessage({ type: 'warning', text: 'Completa el RUC, Usuario SOL y Clave SOL antes de validar.' });
+      return;
+    }
+
+    setSunatValidation('validating');
+    setMessage(null);
+
+    try {
+      const response = await api.post('/public/sunat/validar-credenciales', {
+        ruc,
+        usuarioSol,
+        claveSol,
+      });
+      const resultado = response.data?.data;
+      const codigo = resultado?.codigo;
+
+      if (resultado?.valido) {
+        setSunatValidation('valid');
+        setMessage({ type: 'success', text: 'Las credenciales SUNAT fueron verificadas correctamente.' });
+        return;
+      }
+
+      const noDisponible = codigo === 'SUNAT_NO_DISPONIBLE' || codigo === 'SUNAT_NO_CONFIGURADA';
+      setSunatValidation(noDisponible ? 'unavailable' : 'invalid');
+      setMessage({
+        type: noDisponible ? 'warning' : 'danger',
+        text: codigo === 'SUNAT_NO_CONFIGURADA'
+          ? 'La validación SUNAT aún no está configurada en el servidor.'
+          : codigo === 'SUNAT_NO_DISPONIBLE'
+            ? 'SUNAT no está disponible en este momento. Intenta nuevamente más tarde.'
+            : 'El RUC, Usuario SOL o Clave SOL no fueron aceptados por SUNAT.',
+      });
+    } catch {
+      setSunatValidation('unavailable');
+      setMessage({ type: 'warning', text: 'No se pudo conectar con SUNAT. Intenta nuevamente.' });
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -271,7 +325,7 @@ export default function FormularioPublicoPage() {
 
               <div className="col-md-4">
                 <label className="form-label">RUC (11 dígitos)</label>
-                <input type="text" name="ruc" className="form-control" placeholder="20601234567" pattern="^(10|20)\d{9}$" maxLength={11} required />
+                <input type="text" name="ruc" className="form-control" placeholder="20601234567" pattern="^(10|20)\d{9}$" maxLength={11} required onChange={resetSunatValidation} />
                 <div className="invalid-feedback">Ingresa un RUC válido de 11 dígitos.</div>
               </div>
 
@@ -381,13 +435,35 @@ export default function FormularioPublicoPage() {
                   <div className="row g-3">
                     <div className="col-md-6">
                       <label className="form-label">Usuario SOL</label>
-                      <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS" required />
+                      <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS" required onChange={resetSunatValidation} />
                       <div className="invalid-feedback">Ingresa tu usuario SOL.</div>
                     </div>
                     <div className="col-md-6">
                       <label className="form-label">Clave SOL</label>
-                      <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required />
+                      <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required onChange={resetSunatValidation} />
                       <div className="invalid-feedback">Ingresa tu clave SOL.</div>
+                    </div>
+                    <div className="col-12 d-flex flex-wrap align-items-center gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2"
+                        onClick={handleValidateSunat}
+                        disabled={sunatValidation === 'validating'}
+                      >
+                        <RefreshCw size={15} className={sunatValidation === 'validating' ? 'spin-anim' : ''} />
+                        {sunatValidation === 'validating' ? 'Validando con SUNAT...' : 'Validar credenciales SUNAT'}
+                      </button>
+                      {sunatValidation === 'valid' && (
+                        <span className="small text-success fw-semibold d-inline-flex align-items-center gap-1" aria-live="polite">
+                          <CheckCircle2 size={15} /> Credenciales válidas
+                        </span>
+                      )}
+                      {sunatValidation === 'invalid' && (
+                        <span className="small text-danger fw-semibold" aria-live="polite">Credenciales no validadas</span>
+                      )}
+                      {sunatValidation === 'unavailable' && (
+                        <span className="small text-warning-emphasis fw-semibold" aria-live="polite">Validación no disponible</span>
+                      )}
                     </div>
                   </div>
                 </div>
