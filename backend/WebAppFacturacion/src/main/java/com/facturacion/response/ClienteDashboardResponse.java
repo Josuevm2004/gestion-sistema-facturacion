@@ -1,10 +1,13 @@
 package com.facturacion.response;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class ClienteDashboardResponse {
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
     private String ruc;
     private String usuarioSol;
@@ -28,25 +31,32 @@ public class ClienteDashboardResponse {
     private String urlAcceso;
     private String usuarioWsp;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long estadoId;
     private String estadoNombre; // POR_COBRAR, POR_CAPACITAR, HABILITADO, VENCIDO, BLOQUEADO
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long colorTagId;
     private String colorCodigo;
     private String colorHex;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long entornoId;
     private String entornoNombre;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long vendedorId;
     private String vendedorNombre;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long planId;
     private String planNombre;
     private String tipoSuscripcion;
     private BigDecimal precioPlan;
 
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long ventaId;
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long servicioId;
 
     private LocalDateTime fechaCapacitacion;

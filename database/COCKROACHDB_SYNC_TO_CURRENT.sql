@@ -9,7 +9,8 @@
 -- cliente.estado_capacitacion NOT NULL bloqueando inserts nuevos.
 -- ============================================================
 
-USE sistema_facturacion;
+-- No se fija una base de datos aquí a propósito. El script debe ejecutarse
+-- sobre la base seleccionada en CockroachDB (en producción: defaultdb).
 
 CREATE TABLE IF NOT EXISTS public.entorno (
     id BIGINT PRIMARY KEY DEFAULT unique_rowid(),

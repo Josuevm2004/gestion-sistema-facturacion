@@ -111,7 +111,9 @@ export function useAdminData() {
       const clientApi = adminApi(tokenToUse);
       const normalizeAndSetClients = (rawClients: any[]) => {
         const normalizedClients: Client[] = rawClients.map((c: any) => ({
-          id: c.id,
+          // Cockroach unique_rowid() supera el limite seguro de Number en JS.
+          // Mantener los IDs como texto evita que PUT/GET apunten a otro cliente.
+          id: String(c.id),
           ruc: c.ruc,
           razonSocial: c.razonSocial || c.ruc,
           nombreComercial: c.nombreComercial || '',
@@ -132,7 +134,7 @@ export function useAdminData() {
           tipoSuscripcion: c.tipoSuscripcion || '',
           montoMensual: c.precioPlan !== undefined && c.precioPlan !== null ? c.precioPlan : (c.montoMensual ?? 0),
           montoSiguienteCobro: c.montoSiguienteCobro,
-          ventaId: c.ventaId,
+          ventaId: c.ventaId !== undefined && c.ventaId !== null ? String(c.ventaId) : undefined,
           diasProrrateados: c.diasProrrateados,
           estadoCuenta: c.estadoNombre || c.estadoCuenta || 'SIN_ESTADO',
           estadoCapacitacion: c.fechaCapacitacion ? 'COMPLETADO' : (c.estadoNombre === 'POR_CAPACITAR' ? 'PENDIENTE' : 'PENDIENTE'),
@@ -147,7 +149,7 @@ export function useAdminData() {
           linkSistema: c.urlAcceso || c.linkSistema,
           usuarioSistema: c.usuarioAdminFacturador || c.usuarioSistema,
           claveSistema: c.claveTemporal || c.claveSistema,
-          entornoId: c.entornoId,
+          entornoId: c.entornoId !== undefined && c.entornoId !== null ? String(c.entornoId) : undefined,
           entornoNombre: c.entornoNombre || '',
         }));
 
