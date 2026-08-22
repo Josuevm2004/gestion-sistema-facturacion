@@ -667,14 +667,49 @@ public class ClienteServiceImpl implements ClienteService {
             res.setFechaInicioServicio(servicio.getFechaInicio());
             res.setFechaFinServicio(servicio.getFechaFin());
             res.setEstadoServicio(servicio.getEstado() != null ? servicio.getEstado().name() : null);
-            if (res.getMontoSiguienteCobro() == null) {
-                res.setMontoSiguienteCobro(servicio.getMontoProrrateo());
+            if (res.getMontoSiguienteCobro() == null
+                    || res.getMontoSiguienteCobro().compareTo(BigDecimal.ZERO) <= 0) {
+                BigDecimal montoServicio = calcularMontoSiguienteCobro(servicio, ventasCliente);
+                res.setMontoSiguienteCobro(montoServicio != null ? montoServicio : servicio.getMontoProrrateo());
             }
             res.setDiasProrrateados(servicio.getDiasProrrateados());
         }
 
         res.setFechaRegistro(c.getFechaRegistro());
         return res;
+    }
+
+    private BigDecimal calcularMontoSiguienteCobro(ServicioCliente servicio, List<Venta> ventasCliente) {
+        if (servicio == null
+                || servicio.getEstado() != EstadoServicio.ACTIVO
+                || ventasCliente == null) {
+            return null;
+        }
+
+        Venta ventaVigente = ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+                .filter(v -> v.getSuscripcion() != null && v.getSuscripcion().getPrecio() != null)
+                .findFirst()
+                .orElse(servicio.getVenta());
+
+        if (ventaVigente == null
+                || ventaVigente.getSuscripcion() == null
+                || ventaVigente.getSuscripcion().getPrecio() == null) {
+            return null;
+        }
+
+        BigDecimal precio = ventaVigente.getSuscripcion().getPrecio();
+        if (ventaVigente.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL
+                || ventaVigente.getTipoVenta() != TipoVenta.ALTA
+                || servicio.getFechaInicio() == null) {
+            return precio;
+        }
+
+        return ProrrateoCalculatorUtil.calcularHastaDiaCobro(
+                precio,
+                servicio.getFechaInicio().toLocalDate(),
+                monthlyBillingDay
+        ).montoFinal();
     }
 
     private ClienteDashboardResponse mapToDashboardResponseBasico(Cliente c) {
