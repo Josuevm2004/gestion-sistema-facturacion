@@ -493,10 +493,12 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             servicio.setFechaActualizacion(ahora);
             servicioClienteRepository.save(servicio);
         } else {
-            BigDecimal montoSiguiente = servicio.getMontoProrrateo() != null
-                    && servicio.getMontoProrrateo().compareTo(BigDecimal.ZERO) > 0
-                    && servicio.getMontoProrrateo().compareTo(precioBase) < 0
-                    ? servicio.getMontoProrrateo()
+            // La venta pendiente es la fuente de verdad del siguiente cobro.
+            // Así un prorrateo importado se conserva, pero una nueva
+            // renovación normal ya creada por el sistema conserva su tarifa.
+            BigDecimal montoSiguiente = pendiente.getMontoTotal() != null
+                    && pendiente.getMontoTotal().compareTo(BigDecimal.ZERO) > 0
+                    ? pendiente.getMontoTotal()
                     : precioBase;
             pendiente.setMontoProrrateado(precioBase.subtract(montoSiguiente).max(BigDecimal.ZERO));
             pendiente.setMontoTotal(montoSiguiente);
