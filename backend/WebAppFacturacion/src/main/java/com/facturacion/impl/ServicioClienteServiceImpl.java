@@ -426,6 +426,18 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             descuentoProrrateo = resultado.descuento();
             montoTotal = resultado.montoFinal();
             diasProrrateados = Math.max(1, resultado.diasTotales() - resultado.diasNoConsumidos());
+        } else if (ventaServicio.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL
+                && servicio.getMontoProrrateo() != null
+                && servicio.getMontoProrrateo().compareTo(BigDecimal.ZERO) > 0
+                && servicio.getMontoProrrateo().compareTo(precioBase) < 0) {
+            // Una renovación pagada tarde puede dejar un siguiente cobro
+            // prorrateado ya registrado en el servicio. No lo sobrescribas
+            // con la tarifa completa durante la sincronización automática.
+            montoTotal = servicio.getMontoProrrateo();
+            descuentoProrrateo = precioBase.subtract(montoTotal).max(BigDecimal.ZERO);
+            if (servicio.getDiasProrrateados() != null && servicio.getDiasProrrateados() > 0) {
+                diasProrrateados = servicio.getDiasProrrateados();
+            }
         }
 
         Venta siguiente = new Venta();
@@ -481,9 +493,14 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             servicio.setFechaActualizacion(ahora);
             servicioClienteRepository.save(servicio);
         } else {
-            pendiente.setMontoProrrateado(BigDecimal.ZERO);
-            pendiente.setMontoTotal(precioBase);
-            servicio.setMontoProrrateo(precioBase);
+            BigDecimal montoSiguiente = servicio.getMontoProrrateo() != null
+                    && servicio.getMontoProrrateo().compareTo(BigDecimal.ZERO) > 0
+                    && servicio.getMontoProrrateo().compareTo(precioBase) < 0
+                    ? servicio.getMontoProrrateo()
+                    : precioBase;
+            pendiente.setMontoProrrateado(precioBase.subtract(montoSiguiente).max(BigDecimal.ZERO));
+            pendiente.setMontoTotal(montoSiguiente);
+            servicio.setMontoProrrateo(montoSiguiente);
             servicio.setDiasProrrateados(Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(
                     servicio.getFechaInicio().toLocalDate(),
                     fechaCobro
