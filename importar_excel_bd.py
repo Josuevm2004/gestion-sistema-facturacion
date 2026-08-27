@@ -45,13 +45,15 @@ EXCEL_FILE = "plantilla_importacion_clientes.xlsx"
 OUTPUT_SQL_FILE = "importacion_cockroachdb.sql"
 
 
-def sql_val(val):
-    """Convierte cualquier valor a formato seguro SQL (o NULL)."""
+def sql_val(val, max_len=None):
+    """Convierte cualquier valor a formato seguro SQL (o NULL) y trunca si supera el límite VARCHAR."""
     if val is None or pd.isna(val):
         return "NULL"
-    val_str = str(val).strip()
+    val_str = str(val).strip().replace(".0", "")
     if val_str == "" or val_str.upper() in ["NONE", "NAN", "NULL"]:
         return "NULL"
+    if max_len and len(val_str) > max_len:
+        val_str = val_str[:max_len].strip()
     val_str = val_str.replace("'", "''")
     return f"'{val_str}'"
 
@@ -200,30 +202,87 @@ def normalizar_monto(val, plan_nombre=""):
         return 59.00
 
 
-def generar_bloques_sql(row):
+def generar_bloques_sql(row, idx=0):
     """
     Genera la lista de sentencias SQL exactas según la especificación de CockroachDB.
     """
-    ruc = str(row.get("RUC", "")).strip()
-    if not ruc or ruc.lower() in ["nan", "null", "none"]:
+    # 1. Obtener y limpiar DNI
+    dni_raw = str(row.get("DNI", "")).strip().replace(".0", "")
+    dni_clean = re.sub(r"[^\d]", "", dni_raw) if not pd.isna(dni_raw) and dni_raw.lower() not in ["", "nan", "none", "null"] else ""
+
+    # 2. Obtener y limpiar RUC con lógica de fallback
+    ruc_raw = str(row.get("RUC", "")).strip()
+    ruc_clean = re.sub(r"[^\d]", "", ruc_raw.split(".")[0]) if not pd.isna(ruc_raw) and ruc_raw.lower() not in ["", "nan", "none", "null"] else ""
+
+    # Comprobar si la fila tiene algún dato relevante
+    razon_social_raw = row.get("RAZÓN SOCIAL", row.get("RAZON SOCIAL", row.get("NOMBRE COMERCIAL")))
+    telefono_raw = row.get("TELEFONO")
+    correo_raw = row.get("CORREO", row.get("EMAIL"))
+    
+    tiene_datos = bool(
+        ruc_clean or dni_clean or 
+        (pd.notna(razon_social_raw) and str(razon_social_raw).strip() not in ["", "nan", "NAN"]) or
+        (pd.notna(telefono_raw) and str(telefono_raw).strip() not in ["", "nan", "NAN"]) or
+        (pd.notna(correo_raw) and str(correo_raw).strip() not in ["", "nan", "NAN"])
+    )
+
+    if not tiene_datos:
         return None, []
 
-    usuario_sol = sql_val(row.get("USUARIO"))
-    clave_sol = sql_val(row.get("CLAVE SOL", "__CLAVE_SOL__"))
-    razon_social = sql_val(row.get("RAZÓN SOCIAL", row.get("RAZON SOCIAL")))
-    nombre_comercial = sql_val(row.get("NOMBRE COMERCIAL"))
-    direccion = sql_val(row.get("DIRECCION FISCAL", row.get("DIRECCION")))
-    departamento = sql_val(row.get("DEPARTAMENTO"))
-    provincia = sql_val(row.get("PROVINCIA"))
-    distrito = sql_val(row.get("DISTRITO"))
-    telefono = sql_val(row.get("TELEFONO"))
-    email = sql_val(row.get("CORREO", row.get("EMAIL")))
-    dni = sql_val(row.get("DNI"))
+    # Aplicar regla:
+    # A) Si hay RUC -> Usar RUC
+    # B) Si no hay RUC -> Usar DNI
+    # C) Si no hay ninguno -> Asignar ID por defecto único (ej. CLI00000001)
+    if ruc_clean and len(ruc_clean) >= 8:
+        ruc = ruc_clean[:11]
+    elif dni_clean:
+        ruc = dni_clean[:11]
+    else:
+        ruc = f"CLI{idx + 1:08d}"
+
+    # Sanitizar DNI final (máximo 8 caracteres en BD)
+    if dni_clean:
+        if len(dni_clean) == 11 and dni_clean.startswith("10"):
+            dni = f"'{dni_clean[2:10]}'"
+        else:
+            dni = f"'{dni_clean[:8]}'"
+    elif ruc.startswith("10") and len(ruc) == 11:
+        dni = f"'{ruc[2:10]}'"
+    elif len(ruc) == 8 and ruc.isdigit():
+        dni = f"'{ruc}'"
+    else:
+        dni = "NULL"
+
+    # 3. Campos obligatorios NOT NULL con fallbacks seguros
+    usuario_sol_raw = row.get("USUARIO")
+    if pd.isna(usuario_sol_raw) or str(usuario_sol_raw).strip() in ["", "nan", "NAN", "None", "NONE", "NULL"]:
+        usuario_sol = "'SIN_USUARIO'"
+    else:
+        usuario_sol = sql_val(usuario_sol_raw, max_len=50)
+
+    clave_sol_raw = row.get("CLAVE SOL", row.get("CLAVE_SOL"))
+    if pd.isna(clave_sol_raw) or str(clave_sol_raw).strip() in ["", "nan", "NAN", "None", "NONE", "NULL"]:
+        clave_sol = "'__CLAVE_SOL__'"
+    else:
+        clave_sol = sql_val(clave_sol_raw, max_len=500)
+
+    if pd.isna(razon_social_raw) or str(razon_social_raw).strip() in ["", "nan", "NAN", "None", "NONE", "NULL"]:
+        razon_social = sql_val(f"CLIENTE {ruc}", max_len=150)
+    else:
+        razon_social = sql_val(razon_social_raw, max_len=150)
+
+    nombre_comercial = sql_val(row.get("NOMBRE COMERCIAL"), max_len=150)
+    direccion = sql_val(row.get("DIRECCION FISCAL", row.get("DIRECCION")), max_len=255)
+    departamento = sql_val(row.get("DEPARTAMENTO"), max_len=50)
+    provincia = sql_val(row.get("PROVINCIA"), max_len=50)
+    distrito = sql_val(row.get("DISTRITO"), max_len=50)
+    telefono = sql_val(row.get("TELEFONO"), max_len=20)
+    email = sql_val(row.get("CORREO", row.get("EMAIL")), max_len=100)
     telefono_personal = telefono
     email_personal = email
-    usuario_admin = sql_val(row.get("ACCESO", email))
-    clave_temp = sql_val(row.get("CONTRASEÑA", row.get("CONTRASE\u00d1A", "__CLAVE_SISTEMA__")))
-    url_acceso = sql_val(row.get("LINK"))
+    usuario_admin = sql_val(row.get("ACCESO", email), max_len=50)
+    clave_temp = sql_val(row.get("CONTRASEÑA", row.get("CONTRASE\u00d1A", "__CLAVE_SISTEMA__")), max_len=100)
+    url_acceso = sql_val(row.get("LINK"), max_len=255)
 
     # Normalización inteligente y tolerante a fallos
     color_tag = normalizar_color(row.get("COLOR CELULAR"))
@@ -231,9 +290,11 @@ def generar_bloques_sql(row):
     plan_nombre = normalizar_plan(row.get("PLAN"), row.get("MONTO"))
     monto_plan = normalizar_monto(row.get("MONTO"), plan_nombre)
 
-    medio_pago = str(row.get("PAGOS", "YAPE")).strip()
-    if not medio_pago or medio_pago.lower() == "nan":
+    medio_pago_raw = str(row.get("PAGOS", "YAPE")).strip()
+    if not medio_pago_raw or medio_pago_raw.lower() == "nan":
         medio_pago = "YAPE"
+    else:
+        medio_pago = medio_pago_raw[:20].strip()
 
     f_inicio, meses_pagados = extraer_meses_pagados(row)
     f_inicio_str = f_inicio.strftime("%Y-%m-%d 00:00:00")
@@ -637,7 +698,25 @@ def obtener_conexion():
     return None
 
 
-def ejecutar_importacion(ejecutar_en_bd=True):
+def obtener_rucs_existentes(conn):
+    """Consulta los RUCs que ya están registrados en la BD."""
+    if not conn:
+        return set()
+    try:
+        if hasattr(conn, "cursor"):
+            with conn.cursor() as cur:
+                cur.execute("SELECT ruc FROM public.cliente WHERE activo = true;")
+                rows = cur.fetchall()
+                return {str(r[0]).strip() for r in rows if r and r[0]}
+        elif hasattr(conn, "run"):
+            rows = conn.run("SELECT ruc FROM public.cliente WHERE activo = true;")
+            return {str(r[0]).strip() for r in rows if r and r[0]}
+    except Exception as e:
+        print(f"⚠️ No se pudo consultar RUCs existentes: {e}")
+    return set()
+
+
+def ejecutar_importacion(ejecutar_en_bd=True, omitir_existentes=True):
     """Procesa el archivo Excel y aplica los cambios en CockroachDB."""
     if not os.path.exists(EXCEL_FILE):
         print(f"❌ Error: No se encontró el archivo '{EXCEL_FILE}' en la raíz del proyecto.")
@@ -649,10 +728,13 @@ def ejecutar_importacion(ejecutar_en_bd=True):
     print(f"📊 Registros encontrados en el Excel: {total_filas}\n")
 
     conn = None
+    rucs_en_bd = set()
     if ejecutar_en_bd:
         conn = obtener_conexion()
         if conn:
-            print("✅ Conexión establecida exitosamente con CockroachDB.\n")
+            print("✅ Conexión establecida exitosamente con CockroachDB.")
+            rucs_en_bd = obtener_rucs_existentes(conn)
+            print(f"🔍 Clientes ya registrados previamente en BD: {len(rucs_en_bd)}\n")
         else:
             print("⚠️ No se pudo conectar directamente a la BD (o faltan drivers). Se generará el script .SQL de respaldo.")
 
@@ -664,14 +746,24 @@ def ejecutar_importacion(ejecutar_en_bd=True):
     ]
 
     exitosos = 0
+    omitidos = 0
     errores = 0
 
+    filas_pendientes = []
+
     for idx, row in df.iterrows():
-        ruc, statements = generar_bloques_sql(row)
+        ruc, statements = generar_bloques_sql(row, idx)
         if not ruc or not statements:
             continue
 
         razon = str(row.get("RAZÓN SOCIAL", row.get("RAZON SOCIAL", "")))
+
+        # Omitir si ya está en la base de datos
+        if omitir_existentes and ruc in rucs_en_bd:
+            print(f"⏭️ [{idx + 1}/{total_filas}] RUC: {ruc} | {razon} ➔ YA EXISTE EN BD (Omitido)")
+            omitidos += 1
+            continue
+
         print(f"⚡ [{idx + 1}/{total_filas}] Procesando RUC: {ruc} | {razon}")
 
         cliente_sql_text = f"\n-- ============================================================\n-- CLIENTE: {ruc} - {razon}\n-- ============================================================\n"
@@ -683,7 +775,6 @@ def ejecutar_importacion(ejecutar_en_bd=True):
         if conn:
             try:
                 for label, stmt in statements:
-                    # Dividir en sub-sentencias si contiene varias separadas por punto y coma
                     for single_query in stmt.strip().split(";"):
                         sq = single_query.strip()
                         if sq:
@@ -697,6 +788,7 @@ def ejecutar_importacion(ejecutar_en_bd=True):
             except Exception as e:
                 print(f"   ❌ Error importando RUC {ruc}: {e}")
                 errores += 1
+                filas_pendientes.append(row)
         else:
             exitosos += 1
 
@@ -706,7 +798,8 @@ def ejecutar_importacion(ejecutar_en_bd=True):
 
     print(f"\n============================================================")
     print(f"🎉 Proceso finalizado:")
-    print(f"   - Clientes procesados: {exitosos}")
+    print(f"   - Nuevos clientes importados: {exitosos}")
+    print(f"   - Clientes omitidos (ya existían): {omitidos}")
     if errores > 0:
         print(f"   - Clientes con error: {errores}")
     print(f"   - Archivo SQL generado: {OUTPUT_SQL_FILE}")
