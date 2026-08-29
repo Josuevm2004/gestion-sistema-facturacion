@@ -117,6 +117,15 @@ public class VentaServiceImpl implements VentaService {
         if (suscripcion.getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
             fechaFin = fechaInicio.plusYears(1);
             diasProrrateados = 365;
+            descuentoProrrateo = BigDecimal.ZERO;
+            montoTotal = precioLista;
+        } else if (tipo == TipoVenta.CAMBIO_PLAN) {
+            // Un cambio de plan cobra la tarifa completa del nuevo plan seleccionado (ej. S/ 39.00)
+            // y otorga el mes completo de servicio a partir de la fecha de inicio.
+            fechaFin = fechaInicio.plusMonths(1);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            descuentoProrrateo = BigDecimal.ZERO;
+            montoTotal = precioLista;
         } else if (usarMontoPendienteProgramado) {
             descuentoProrrateo = ventaPendiente.getMontoProrrateado() != null ? ventaPendiente.getMontoProrrateado() : BigDecimal.ZERO;
             montoTotal = ventaPendiente.getMontoTotal() != null ? ventaPendiente.getMontoTotal() : precioLista;
@@ -124,13 +133,11 @@ public class VentaServiceImpl implements VentaService {
             fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
         } else {
-            ProrrateoCalculatorUtil.ResultadoProrrateo r =
-                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioLista, fechaInicioDate, monthlyBillingDay);
-            descuentoProrrateo = r.descuento();
-            montoTotal = r.montoFinal();
-            LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
-            fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
-            diasProrrateados = Math.max(1, r.diasTotales() - r.diasNoConsumidos());
+            // Renovación mensual regular por el mes completo
+            fechaFin = fechaInicio.plusMonths(1);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            descuentoProrrateo = BigDecimal.ZERO;
+            montoTotal = precioLista;
         }
 
         if (tipo == TipoVenta.CAMBIO_PLAN) {

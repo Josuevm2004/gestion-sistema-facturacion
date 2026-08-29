@@ -90,7 +90,6 @@ export default function PaymentHistoryModal({
     const bTime = b.fecha ? new Date(b.fecha).getTime() : 0;
     return bTime - aTime;
   });
-
   const MESES = [
     'Enero',
     'Febrero',
@@ -120,11 +119,10 @@ export default function PaymentHistoryModal({
             <button type="button" className="btn-close" onClick={() => setHistoryClient(null)}></button>
           </div>
           <div className="modal-body p-4">
-            <div className="p-3 bg-light rounded-3 border mb-4">
+            <div className="card bg-light border-0 rounded-3 p-3 mb-4">
               <div className="row g-2 small">
                 <div className="col-md-6">
-                  Plan Contratado: <strong>{historyClient.planContratado}</strong> (
-                  {historyClient.tipoSuscripcion || 'MENSUAL'})
+                  Plan Contratado: <strong>{historyClient.planContratado}</strong> ({historyClient.tipoSuscripcion || 'MENSUAL'})
                 </div>
                 <div className="col-md-6">
                   Monto Base del Plan: <strong>S/ {Number(historyClient.montoMensual || 0).toFixed(2)}</strong>
@@ -160,6 +158,7 @@ export default function PaymentHistoryModal({
                   {transactions.map((t, idx) => {
                     const tDate = t.fecha ? new Date(t.fecha) : new Date();
                     const mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
+
                     return (
                       <tr key={t.id || idx}>
                         <td className="text-muted fw-semibold">{transactions.length - idx}</td>
