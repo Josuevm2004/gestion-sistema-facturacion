@@ -77,11 +77,8 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             fechaFinCalculada = fechaCap.plusYears(1);
             diasProrrateados = 365;
         } else if (correspondeSegundoProrrateo(fechaCapDate)) {
-            // The current service expiration remains governed by the existing
-            // cutoff logic. The second proration is an additional charge tied
-            // to the anniversary and does not move that expiration date.
             resultadoSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioBase, fechaCapDate);
-            LocalDate fechaFin = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaCapDate, monthlyBillingDay);
+            LocalDate fechaFin = fechaCapDate.plusMonths(1);
             fechaFinCalculada = LocalDateTime.of(fechaFin, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(
                     fechaCapDate,
@@ -439,10 +436,14 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             }
 
             Optional<Venta> pendiente = encontrarRenovacionPendienteExistente(ventaServicio.getId());
-            if (pendiente.isPresent()
-                    && pendiente.get().getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
-                // The second proration is an issued amount for the next bill.
-                // Automatic alignment must not replace it with the regular fee.
+            if (correspondeSegundoProrrateo(fechaInicio)) {
+                LocalDate fechaFinMesCompleto = fechaInicio.plusMonths(1);
+                LocalDateTime fechaFinCalculada = LocalDateTime.of(fechaFinMesCompleto, BILLING_CUTOFF_TIME);
+                if (!fechaFinCalculada.equals(servicio.getFechaFin())) {
+                    servicio.setFechaFin(fechaFinCalculada);
+                    servicio.setFechaActualizacion(ahora);
+                    servicioClienteRepository.save(servicio);
+                }
                 continue;
             }
 

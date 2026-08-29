@@ -157,6 +157,12 @@ public class PagoServiceImpl implements PagoService {
             return new AjusteCobro(fechaInicio, fechaFinMes, BigDecimal.ZERO, precioLista, dias);
         }
 
+        if (correspondeSegundoProrrateo(fechaInicioDate)) {
+            LocalDateTime fechaFinMes = fechaInicio.plusMonths(1);
+            int dias = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMes.toLocalDate()));
+            return new AjusteCobro(fechaInicio, fechaFinMes, BigDecimal.ZERO, precioLista, dias);
+        }
+
         ProrrateoCalculatorUtil.ResultadoProrrateo r =
                 ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioLista, fechaInicioDate, monthlyBillingDay);
         LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
