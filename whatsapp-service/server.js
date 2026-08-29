@@ -151,14 +151,33 @@ app.post('/send', async (req, res) => {
     const fullPhone = cleanPhone.startsWith('51') ? cleanPhone : `51${cleanPhone}`;
     const jid = `${fullPhone}@s.whatsapp.net`;
 
-    // 1. Si viene una ruta de imagen válida
+    // 1. Resolver ruta de la imagen
+    let targetImageFile = null;
     if (imagePath && fs.existsSync(imagePath)) {
-      const imageBuffer = fs.readFileSync(imagePath);
+      targetImageFile = imagePath;
+    } else {
+      const candidates = [
+        path.join(__dirname, 'soporte-miquipu.jpeg'),
+        path.join(__dirname, 'soporte-miquipu.png'),
+        path.join(__dirname, '..', 'frontend', 'public', 'soporte-miquipu.jpeg'),
+        path.join(__dirname, '..', 'frontend', 'public', 'soporte-miquipu.png'),
+        path.join(__dirname, 'public', 'soporte-miquipu.jpeg'),
+      ];
+      for (const c of candidates) {
+        if (fs.existsSync(c)) {
+          targetImageFile = c;
+          break;
+        }
+      }
+    }
+
+    if (targetImageFile && (imagePath || req.body.imageUrl)) {
+      const imageBuffer = fs.readFileSync(targetImageFile);
       await sock.sendMessage(jid, {
         image: imageBuffer,
         caption: message,
       });
-      console.log(`📤 Imagen + Texto enviado con éxito a ${fullPhone}`);
+      console.log(`📤 Flyer e Imagen + Texto enviado con éxito a ${fullPhone}`);
       return res.json({ success: true, method: 'BAILEYS_IMAGE', to: fullPhone });
     }
 

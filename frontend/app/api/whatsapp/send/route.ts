@@ -21,10 +21,11 @@ export async function POST(req: NextRequest) {
     const metaToken = process.env.WHATSAPP_ACCESS_TOKEN;
     const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID;
 
-    // 1. Intentar con el Microservicio Baileys (Nube en Docker o Local)
+    // 1. Intentar con el Microservicio Baileys en la Nube (146.181.58.160:3001) o Local
     try {
       const candidateUrls = [
         process.env.WHATSAPP_LOCAL_SERVICE_URL,
+        'http://146.181.58.160:3001/send',
         'http://whatsapp-service:3001/send',
         'http://127.0.0.1:3001/send',
         'http://localhost:3001/send',
