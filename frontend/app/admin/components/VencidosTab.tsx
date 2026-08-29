@@ -141,7 +141,7 @@ export default function VencidosTab({
                             <button
                               onClick={() => {
                                 setCambioPlanClient(c);
-                                setCambioPlanSeleccionado(c.planContratado);
+                                setCambioPlanSeleccionado(c.planContratado || '');
                                 if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
                               }}
                               className="btn btn-sm btn-warning text-dark px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
