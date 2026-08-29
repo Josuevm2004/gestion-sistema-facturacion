@@ -190,10 +190,36 @@ public class ClienteServiceImpl implements ClienteService {
     @Transactional(readOnly = true)
     public List<ClienteDashboardResponse> listarClientes() {
         List<Cliente> clientes = clienteRepository.findByActivoTrue();
+        if (clientes.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> clienteIds = clientes.stream()
+                .map(Cliente::getId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        Map<Long, ServicioCliente> servicioPorCliente = new HashMap<>();
+        for (ServicioCliente servicio : servicioClienteRepository.findByClienteIdInOrderByFechaFinDesc(clienteIds)) {
+            if (servicio.getCliente() != null && servicio.getCliente().getId() != null) {
+                servicioPorCliente.putIfAbsent(servicio.getCliente().getId(), servicio);
+            }
+        }
+
+        Map<Long, List<Venta>> ventasPorCliente = new HashMap<>();
+        for (Venta venta : ventaRepository.findByClienteIdInOrderByFechaVentaDesc(clienteIds)) {
+            if (venta.getCliente() != null && venta.getCliente().getId() != null) {
+                ventasPorCliente.computeIfAbsent(venta.getCliente().getId(), ignored -> new ArrayList<>()).add(venta);
+            }
+        }
+
         List<ClienteDashboardResponse> list = new ArrayList<>();
         for (Cliente c : clientes) {
             try {
-                list.add(mapToDashboardResponse(c));
+                list.add(mapToDashboardResponse(
+                        c,
+                        servicioPorCliente.get(c.getId()),
+                        ventasPorCliente.getOrDefault(c.getId(), List.of())
+                ));
             } catch (RuntimeException ex) {
                 list.add(mapToDashboardResponseBasico(c));
             }
@@ -577,6 +603,15 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     public ClienteDashboardResponse mapToDashboardResponse(Cliente c) {
+        ServicioCliente servicio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(c.getId()).orElse(null);
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(c.getId());
+        return mapToDashboardResponse(c, servicio, ventasCliente);
+    }
+
+    private ClienteDashboardResponse mapToDashboardResponse(
+            Cliente c,
+            ServicioCliente servicio,
+            List<Venta> ventasCliente) {
         ClienteDashboardResponse res = new ClienteDashboardResponse();
         res.setId(c.getId());
         res.setRuc(c.getRuc());
@@ -618,8 +653,6 @@ public class ClienteServiceImpl implements ClienteService {
             res.setEntornoNombre(c.getEntorno().getNombre());
         }
 
-        ServicioCliente servicio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(c.getId()).orElse(null);
-        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(c.getId());
         LocalDateTime ahora = LocalDateTime.now();
         Venta ventaPendiente = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)

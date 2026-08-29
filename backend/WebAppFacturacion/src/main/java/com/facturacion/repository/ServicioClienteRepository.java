@@ -20,6 +20,8 @@ public interface ServicioClienteRepository extends JpaRepository<ServicioCliente
 
     List<ServicioCliente> findByClienteIdOrderByFechaInicioDesc(Long clienteId);
 
+    List<ServicioCliente> findByClienteIdInOrderByFechaFinDesc(List<Long> clienteIds);
+
     List<ServicioCliente> findByEstado(EstadoServicio estado);
 
     @Query("SELECT s FROM ServicioCliente s WHERE s.estado = 'ACTIVO' AND s.fechaFin BETWEEN :start AND :end")

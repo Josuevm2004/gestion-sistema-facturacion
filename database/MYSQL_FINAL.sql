@@ -540,7 +540,9 @@ CREATE TABLE venta (
     INDEX idx_venta_suscripcion (suscripcion_id),
     INDEX idx_venta_tipo (tipo_venta),
     INDEX idx_venta_estado (estado_venta),
-    INDEX idx_venta_fecha (fecha_venta)
+    INDEX idx_venta_fecha (fecha_venta),
+    INDEX idx_venta_cliente_fecha (cliente_id, fecha_venta),
+    INDEX idx_venta_estado_fecha (estado_venta, fecha_venta)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -639,7 +641,9 @@ CREATE TABLE servicio_cliente (
     INDEX idx_servicio_cliente (cliente_id),
     INDEX idx_servicio_estado (estado),
     INDEX idx_servicio_fecha_inicio (fecha_inicio),
-    INDEX idx_servicio_fecha_fin (fecha_fin)
+    INDEX idx_servicio_fecha_fin (fecha_fin),
+    INDEX idx_servicio_cliente_fecha_fin (cliente_id, fecha_fin),
+    INDEX idx_servicio_estado_fecha_fin (estado, fecha_fin)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -710,7 +714,8 @@ CREATE TABLE historial_estado_cliente (
         ON UPDATE CASCADE,
 
     INDEX idx_historial_cliente (cliente_id),
-    INDEX idx_historial_fecha (fecha_cambio)
+    INDEX idx_historial_fecha (fecha_cambio),
+    INDEX idx_historial_cliente_fecha (cliente_id, fecha_cambio)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -767,7 +772,8 @@ CREATE TABLE pago (
     INDEX idx_pago_venta (venta_id),
     INDEX idx_pago_estado (estado_pago),
     INDEX idx_pago_fecha (fecha_pago),
-    INDEX idx_pago_codigo_operacion (codigo_operacion)
+    INDEX idx_pago_codigo_operacion (codigo_operacion),
+    INDEX idx_pago_venta_fecha_registro (venta_id, fecha_registro)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -825,7 +831,8 @@ CREATE TABLE notificacion (
     INDEX idx_notificacion_usuario (usuario_admin_id),
     INDEX idx_notificacion_cliente (cliente_id),
     INDEX idx_notificacion_leida (leida),
-    INDEX idx_notificacion_fecha (fecha_creacion)
+    INDEX idx_notificacion_fecha (fecha_creacion),
+    INDEX idx_notificacion_cliente_tipo_fecha (cliente_id, tipo, fecha_creacion)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

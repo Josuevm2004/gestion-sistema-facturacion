@@ -12,6 +12,7 @@ import java.util.Optional;
 @Repository
 public interface VentaRepository extends JpaRepository<Venta, Long> {
     List<Venta> findByClienteIdOrderByFechaVentaDesc(Long clienteId);
+    List<Venta> findByClienteIdInOrderByFechaVentaDesc(List<Long> clienteIds);
     List<Venta> findByVentaAnteriorId(Long ventaAnteriorId);
     Optional<Venta> findTopByClienteIdOrderByFechaVentaDesc(Long clienteId);
     Optional<Venta> findByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, TipoVenta tipoVenta);

@@ -3,6 +3,7 @@
 import React from 'react';
 import { CreditCard, CheckCircle, X } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
+import PaginationControls from './PaginationControls';
 
 interface PorCobrarTabProps {
   clientesPorCobrarList: Client[];
@@ -15,6 +16,22 @@ export default function PorCobrarTab({
   handleRegisterPayment,
   handleEstadoCuentaChange,
 }: PorCobrarTabProps) {
+  const pageSize = 10;
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.max(1, Math.ceil(clientesPorCobrarList.length / pageSize));
+  const visibleClients = React.useMemo(
+    () => clientesPorCobrarList.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [clientesPorCobrarList, currentPage]
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [clientesPorCobrarList.length]);
+
+  React.useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
   return (
     <div className="custom-card p-4 shadow-sm">
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
@@ -52,7 +69,7 @@ export default function PorCobrarTab({
                 </td>
               </tr>
             ) : (
-              clientesPorCobrarList.map((c) => (
+              visibleClients.map((c) => (
                 <tr key={c.id}>
                   <td>
                     <strong className="text-dark d-block">{c.razonSocial}</strong>
@@ -100,6 +117,12 @@ export default function PorCobrarTab({
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalItems={clientesPorCobrarList.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

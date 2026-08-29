@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi, api } from '@/lib/api';
 import { MONTHLY_BILLING_DAY } from '@/lib/billing';
 import { Client, ColorTagType, SubscriptionType } from '../components/ClientesTodosTab';
@@ -10,6 +10,56 @@ function extractArray(resData: any): any[] {
   if (Array.isArray(resData)) return resData;
   if (resData && Array.isArray(resData.data)) return resData.data;
   return [];
+}
+
+function normalizeClientData(c: any): Client {
+  return {
+    // Cockroach unique_rowid() supera el limite seguro de Number en JS.
+    // Mantener los IDs como texto evita que PUT/GET apunten a otro cliente.
+    id: String(c.id),
+    ruc: c.ruc,
+    razonSocial: c.razonSocial || c.ruc,
+    nombreComercial: c.nombreComercial || '',
+    direccion: c.direccion || '',
+    telefono: c.telefono || '',
+    email: c.email || '',
+    nombres: c.nombres || '',
+    apellidos: c.apellidos || '',
+    dni: c.dni || '',
+    emailPersonal: c.emailPersonal || '',
+    telefonoPersonal: c.telefonoPersonal || '',
+    usuarioWsp: c.usuarioWsp || '',
+    departamento: c.departamento || '',
+    provincia: c.provincia || '',
+    distrito: c.distrito || '',
+    regimenTributario: c.regimenTributario || 'GENERAL',
+    planContratado: c.planNombre || c.planContratado || '',
+    tipoSuscripcion: c.tipoSuscripcion || '',
+    montoMensual: c.precioPlan !== undefined && c.precioPlan !== null ? c.precioPlan : (c.montoMensual ?? 0),
+    montoSiguienteCobro: c.montoSiguienteCobro,
+    ventaId: c.ventaId !== undefined && c.ventaId !== null ? String(c.ventaId) : undefined,
+    diasProrrateados: c.diasProrrateados,
+    tipoProrrateo: c.tipoProrrateo || 'NINGUNO',
+    montoProrrateoAdicional: c.montoProrrateoAdicional,
+    diasProrrateoAdicional: c.diasProrrateoAdicional,
+    fechaInicioProrrateoAdicional: c.fechaInicioProrrateoAdicional,
+    fechaFinProrrateoAdicional: c.fechaFinProrrateoAdicional,
+    estadoCuenta: c.estadoNombre || c.estadoCuenta || 'SIN_ESTADO',
+    estadoCapacitacion: c.fechaCapacitacion ? 'COMPLETADO' : (c.estadoNombre === 'POR_CAPACITAR' ? 'PENDIENTE' : 'PENDIENTE'),
+    colorTag: (c.colorCodigo || c.colorTag || 'VERDE') as ColorTagType,
+    fechaRegistro: c.fechaRegistro,
+    fechaCreacion: c.fechaRegistro,
+    fechaVencimientoMensual: c.fechaFinServicio || c.fechaVencimientoMensual,
+    fechaCapacitacion: c.fechaCapacitacion,
+    usuarioSol: c.usuarioSol,
+    claveSolCifrada: c.claveSolCifrada,
+    vendedor: c.vendedorNombre || c.vendedor || 'Por asignar',
+    linkSistema: c.urlAcceso || c.linkSistema,
+    usuarioSistema: c.usuarioAdminFacturador || c.usuarioSistema,
+    claveSistema: c.claveTemporal || c.claveSistema,
+    entornoId: c.entornoId !== undefined && c.entornoId !== null ? String(c.entornoId) : undefined,
+    entornoNombre: c.entornoNombre || '',
+  };
 }
 
 export function useAdminData() {
@@ -26,8 +76,6 @@ export function useAdminData() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [entornos, setEntornos] = useState<Array<{ id: string | number; nombre: string }>>([]);
-  const lastVencimientosReviewRef = useRef<number>(0);
-  const vencimientosReviewInFlightRef = useRef(false);
   const loadDataInFlightRef = useRef(false);
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recoveryAttemptsRef = useRef(0);
@@ -47,6 +95,7 @@ export function useAdminData() {
   const [periodoIngresoTipo, setPeriodoIngresoTipo] = useState('');
   const [fechaCustomFilter, setFechaCustomFilter] = useState('');
   const [showSolKeys, setShowSolKeys] = useState<Record<string, boolean>>({});
+  const deferredSearch = useDeferredValue(search);
 
   // Modales
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -110,55 +159,7 @@ export function useAdminData() {
     try {
       const clientApi = adminApi(tokenToUse);
       const normalizeAndSetClients = (rawClients: any[]) => {
-        const normalizedClients: Client[] = rawClients.map((c: any) => ({
-          // Cockroach unique_rowid() supera el limite seguro de Number en JS.
-          // Mantener los IDs como texto evita que PUT/GET apunten a otro cliente.
-          id: String(c.id),
-          ruc: c.ruc,
-          razonSocial: c.razonSocial || c.ruc,
-          nombreComercial: c.nombreComercial || '',
-          direccion: c.direccion || '',
-          telefono: c.telefono || '',
-          email: c.email || '',
-          nombres: c.nombres || '',
-          apellidos: c.apellidos || '',
-          dni: c.dni || '',
-          emailPersonal: c.emailPersonal || '',
-          telefonoPersonal: c.telefonoPersonal || '',
-          usuarioWsp: c.usuarioWsp || '',
-          departamento: c.departamento || '',
-          provincia: c.provincia || '',
-          distrito: c.distrito || '',
-          regimenTributario: c.regimenTributario || 'GENERAL',
-          planContratado: c.planNombre || c.planContratado || '',
-          tipoSuscripcion: c.tipoSuscripcion || '',
-          montoMensual: c.precioPlan !== undefined && c.precioPlan !== null ? c.precioPlan : (c.montoMensual ?? 0),
-          montoSiguienteCobro: c.montoSiguienteCobro,
-          ventaId: c.ventaId !== undefined && c.ventaId !== null ? String(c.ventaId) : undefined,
-          diasProrrateados: c.diasProrrateados,
-          tipoProrrateo: c.tipoProrrateo || 'NINGUNO',
-          montoProrrateoAdicional: c.montoProrrateoAdicional,
-          diasProrrateoAdicional: c.diasProrrateoAdicional,
-          fechaInicioProrrateoAdicional: c.fechaInicioProrrateoAdicional,
-          fechaFinProrrateoAdicional: c.fechaFinProrrateoAdicional,
-          estadoCuenta: c.estadoNombre || c.estadoCuenta || 'SIN_ESTADO',
-          estadoCapacitacion: c.fechaCapacitacion ? 'COMPLETADO' : (c.estadoNombre === 'POR_CAPACITAR' ? 'PENDIENTE' : 'PENDIENTE'),
-          colorTag: (c.colorCodigo || c.colorTag || 'VERDE') as ColorTagType,
-          fechaRegistro: c.fechaRegistro,
-          fechaCreacion: c.fechaRegistro,
-          fechaVencimientoMensual: c.fechaFinServicio || c.fechaVencimientoMensual,
-          fechaCapacitacion: c.fechaCapacitacion,
-          usuarioSol: c.usuarioSol,
-          claveSolCifrada: c.claveSolCifrada,
-          vendedor: c.vendedorNombre || c.vendedor || 'Por asignar',
-          linkSistema: c.urlAcceso || c.linkSistema,
-          usuarioSistema: c.usuarioAdminFacturador || c.usuarioSistema,
-          claveSistema: c.claveTemporal || c.claveSistema,
-          entornoId: c.entornoId !== undefined && c.entornoId !== null ? String(c.entornoId) : undefined,
-          entornoNombre: c.entornoNombre || '',
-        }));
-
-        setClients(normalizedClients);
+        setClients(rawClients.map(normalizeClientData));
       };
 
       const getClientsWithRetry = async () => {
@@ -176,19 +177,15 @@ export function useAdminData() {
         throw lastError;
       };
 
-      const nowMs = Date.now();
-      let vencimientosReview: Promise<void> | null = null;
-      if (nowMs - lastVencimientosReviewRef.current > 60000 && !vencimientosReviewInFlightRef.current) {
-        lastVencimientosReviewRef.current = nowMs;
-        vencimientosReviewInFlightRef.current = true;
-        vencimientosReview = clientApi.post('/admin/servicios/revisar-vencimientos')
-          .then(() => undefined)
-          .catch((re) => {
-            console.warn('No se pudo revisar vencimientos automaticamente', re);
-          })
-          .finally(() => {
-            vencimientosReviewInFlightRef.current = false;
-          });
+      // La revisión automática ya se ejecuta en el scheduler del backend
+      // (00:00 y 08:00 Lima). Solo se fuerza desde el botón de sincronización
+      // manual para no duplicar trabajo ni disparar una segunda carga completa.
+      if (showSyncMsg) {
+        try {
+          await clientApi.post('/admin/servicios/revisar-vencimientos');
+        } catch (re) {
+          console.warn('No se pudo revisar vencimientos manualmente', re);
+        }
       }
 
       const [clientResult, payResult, userResult, notifResult, subscriptionResult, entornoResult] = await Promise.allSettled([
@@ -219,15 +216,6 @@ export function useAdminData() {
       }
       recoveryAttemptsRef.current = 0;
 
-      vencimientosReview?.then(async () => {
-        try {
-          const refreshedClients = await getClientsWithRetry();
-          normalizeAndSetClients(extractArray(refreshedClients.data));
-        } catch (e) {
-          console.warn('No se pudo refrescar clientes despues de revisar vencimientos', e);
-        }
-      });
-
       if (showSyncMsg) {
         setNotice('¡Datos sincronizados con éxito!');
         setTimeout(() => setNotice(null), 3000);
@@ -257,6 +245,20 @@ export function useAdminData() {
     localStorage.removeItem('miquipu_admin_user');
     setToken(null);
     setCurrentUser(null);
+  }
+
+  async function loadClientsOnly(authToken?: string | null) {
+    const tokenToUse = authToken || token;
+    if (!tokenToUse) return;
+    const response = await adminApi(tokenToUse).get('/admin/clientes');
+    setClients(extractArray(response.data).map(normalizeClientData));
+  }
+
+  async function loadPaymentsOnly(authToken?: string | null) {
+    const tokenToUse = authToken || token;
+    if (!tokenToUse) return;
+    const response = await adminApi(tokenToUse).get('/admin/pagos');
+    setPayments(extractArray(response.data));
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -535,20 +537,26 @@ export function useAdminData() {
 
     try {
       if (client.ventaId) {
-        await adminApi(token).post('/admin/pagos/registrar', {
+        const paymentResponse = await adminApi(token).post('/admin/pagos/registrar', {
           ventaId: client.ventaId,
           codigoOperacion: `PAGO-${client.id}-${Date.now()}`,
           monto: client.montoSiguienteCobro ?? client.montoMensual,
           medioPago: 'OTRO',
           observaciones: `Pago inicial verificado desde dashboard para ${client.razonSocial}`,
         });
+        const registeredPayment = paymentResponse.data?.data;
+        if (registeredPayment) {
+          setPayments((prev) => [
+            registeredPayment,
+            ...prev.filter((payment) => String(payment.id ?? payment.pagoId) !== String(registeredPayment.id ?? registeredPayment.pagoId)),
+          ]);
+        }
       } else {
         await adminApi(token).put(`/admin/clientes/${client.id}/estado?nuevoEstado=POR_CAPACITAR`);
       }
-      await loadData(token);
     } catch (err: any) {
       setNotice(`Error al registrar el pago: ${err.response?.data?.message || err.message}`);
-      await loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     } finally {
       processingPaymentsRef.current.delete(processingKey);
     }
@@ -571,10 +579,9 @@ export function useAdminData() {
       } else {
         await adminApi(token).put(`/admin/clientes/${client.id}/estado?nuevoEstado=${nuevoEstado}`);
       }
-      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al actualizar estado: ${err.message}`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     } finally {
       processingStateRef.current.delete(processingKey);
     }
@@ -594,10 +601,9 @@ export function useAdminData() {
 
     try {
       await adminApi(token).put(`/admin/servicios/cliente/${client.id}/devolver-acceso`);
-      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al devolver acceso: ${err.message}`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     } finally {
       processingStateRef.current.delete(processingKey);
     }
@@ -643,10 +649,10 @@ export function useAdminData() {
       });
 
       setNotice(`Operación procesada con éxito para ${client.razonSocial} (${planAUsar} - ${tipoAUsar}).`);
-      void loadData(token);
+      void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
       setNotice(`Error al procesar la venta: ${err.response?.data?.message || err.message}`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     } finally {
       processingOperationsRef.current.delete(processingKey);
     }
@@ -678,10 +684,10 @@ export function useAdminData() {
 
       const monto = Number(response.data?.data?.montoTotal ?? 0);
       setNotice(`Mejora de plan registrada para ${client.razonSocial}. Diferencia cobrada: S/ ${monto.toFixed(2)}.`);
-      void loadData(token);
+      void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
       setNotice(`Error al mejorar plan: ${err.response?.data?.message || err.message}`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     } finally {
       processingOperationsRef.current.delete(processingKey);
     }
@@ -696,9 +702,9 @@ export function useAdminData() {
     try {
       await adminApi(token).delete(`/admin/clientes/${idToDelete}`);
       setNotice(`El cliente ha sido eliminado permanentemente.`);
-      await loadData(token);
     } catch (err: any) {
       setNotice(`Error al eliminar cliente: ${err.message}`);
+      void loadClientsOnly(token).catch(() => undefined);
     }
   }
 
@@ -752,16 +758,10 @@ export function useAdminData() {
 
     try {
       await adminApi(token).put(`/admin/clientes/${editingClient.id}`, apiPayload);
-      if (canEditVendedor && foundVendedorId) {
-        await adminApi(token).request({
-          method: 'PUT',
-          url: `/admin/clientes/${editingClient.id}/vendedor?vendedorId=${foundVendedorId}`,
-        });
-      }
       setNotice(`Los datos de ${editingClient.razonSocial} se han actualizado correctamente.`);
-      await loadData(token);
     } catch (err: any) {
       setNotice(`Error al actualizar el cliente: ${err.response?.data?.message || err.message}`);
+      void loadClientsOnly(token).catch(() => undefined);
     }
   }
 
@@ -798,10 +798,10 @@ export function useAdminData() {
       });
 
       setNotice(`Capacitación guardada con éxito. El plan y el prorrateo han iniciado desde la fecha asignada.`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     } catch (err: any) {
       setNotice(`Error al programar capacitación: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     }
   }
 
@@ -825,10 +825,9 @@ export function useAdminData() {
         url: `/admin/clientes/${client.id}/vendedor?vendedorId=${vendedorId}`,
       });
       setNotice(`Vendedor asignado (${nuevoVendedor}) a ${client.razonSocial}.`);
-      void loadData(token);
     } catch (err: any) {
       setNotice(`Error al asignar vendedor: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     }
   }
 
@@ -841,10 +840,9 @@ export function useAdminData() {
     try {
       await adminApi(token).post(`/admin/clientes/${client.id}/vendedor/asignarme`);
       setNotice(`Te asignaste correctamente el cliente ${client.razonSocial}.`);
-      void loadData(token);
     } catch (err: any) {
       setNotice(`No se pudo asignar el cliente: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
-      void loadData(token);
+      void loadClientsOnly(token).catch(() => undefined);
     }
   }
 
@@ -864,9 +862,9 @@ export function useAdminData() {
         url: `/admin/clientes/${client.id}/color-tag?colorTagId=${colorId}`,
       });
       setNotice(`Etiqueta de color cambiada a ${nuevoColor} para ${client.razonSocial}.`);
-      loadData(token);
     } catch (err: any) {
       setNotice(`Error al cambiar etiqueta de color: ${err.message}`);
+      void loadClientsOnly(token).catch(() => undefined);
     }
   }
 
@@ -892,7 +890,8 @@ export function useAdminData() {
       }
       setEditingUser(null);
       setShowNewUserModal(false);
-      loadData(token);
+      const usersResponse = await adminApi(token).get('/admin/usuarios');
+      setUsersList(extractArray(usersResponse.data));
     } catch (err: any) {
       setNotice(`Error en la gestión de usuario: ${err.response?.data?.error || err.message}`);
     }
@@ -904,7 +903,8 @@ export function useAdminData() {
     try {
       await adminApi(token).delete(`/admin/usuarios/${user.id}`);
       setNotice(`Usuario ${user.nombre} eliminado del sistema.`);
-      loadData(token);
+      const usersResponse = await adminApi(token).get('/admin/usuarios');
+      setUsersList(extractArray(usersResponse.data));
     } catch (err: any) {
       setNotice(`Error al eliminar usuario: ${err.message}`);
     }
@@ -912,11 +912,15 @@ export function useAdminData() {
 
   async function handleMarkNotificationAsRead(notificationId: string | number) {
     if (!token || !notificationId) return;
-    setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, leida: true } : n)));
+    setNotifications((prev) => prev.map((n) => (
+      String(n.id) === String(notificationId) ? { ...n, leida: true } : n
+    )));
     try {
       await adminApi(token).put(`/admin/notificaciones/${notificationId}/leida`);
     } catch (err) {
-      await loadData(token);
+      setNotifications((prev) => prev.map((n) => (
+        String(n.id) === String(notificationId) ? { ...n, leida: false } : n
+      )));
     }
   }
 
@@ -960,9 +964,9 @@ export function useAdminData() {
     return Array.from(s);
   }, [safeClients, safeUsersList]);
 
-  function filterClientUnified(c: Client): boolean {
-    if (search.trim()) {
-      const q = search.toLowerCase();
+  function filterClientUnified(c: Client, searchValue: string = deferredSearch): boolean {
+    if (searchValue.trim()) {
+      const q = searchValue.toLowerCase();
       const matchRuc = c.ruc?.toLowerCase().includes(q);
       const matchRazon = c.razonSocial?.toLowerCase().includes(q);
       const matchComercial = c.nombreComercial?.toLowerCase().includes(q);
@@ -1034,8 +1038,8 @@ export function useAdminData() {
   }, [safeClients]);
 
   const allFilteredClients = useMemo(() => {
-    return effectiveClients.filter(filterClientUnified);
-  }, [effectiveClients, search, regimenFilter, planFilter, suscripcionFilter, colorFilter, capacitacionFilter, estadoCuentaFilter, sellerFilter, periodoIngresoTipo, fechaCustomFilter]);
+    return effectiveClients.filter((client) => filterClientUnified(client, deferredSearch));
+  }, [effectiveClients, deferredSearch, regimenFilter, planFilter, suscripcionFilter, colorFilter, capacitacionFilter, estadoCuentaFilter, sellerFilter, periodoIngresoTipo, fechaCustomFilter]);
 
   const clientesActivos = useMemo(() => {
     return effectiveClients.filter((c) => c.estadoCuenta === 'HABILITADO').length;

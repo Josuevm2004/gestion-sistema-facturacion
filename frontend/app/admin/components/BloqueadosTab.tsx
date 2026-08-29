@@ -3,6 +3,7 @@
 import React from 'react';
 import { ShieldCheck, CheckCircle, Trash2 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
+import PaginationControls from './PaginationControls';
 
 interface BloqueadosTabProps {
   clientesBloqueadosList: Client[];
@@ -17,6 +18,22 @@ export default function BloqueadosTab({
   handleDevolverAcceso,
   setDeletingClient,
 }: BloqueadosTabProps) {
+  const pageSize = 10;
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.max(1, Math.ceil(clientesBloqueadosList.length / pageSize));
+  const visibleClients = React.useMemo(
+    () => clientesBloqueadosList.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [clientesBloqueadosList, currentPage]
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [clientesBloqueadosList.length]);
+
+  React.useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
   return (
     <div className="custom-card p-4 shadow-sm">
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
@@ -54,7 +71,7 @@ export default function BloqueadosTab({
                 </td>
               </tr>
             ) : (
-              clientesBloqueadosList.map((c) => (
+              visibleClients.map((c) => (
                 <tr key={c.id}>
                   <td>
                     <strong className="text-dark d-block">{c.razonSocial}</strong>
@@ -97,6 +114,12 @@ export default function BloqueadosTab({
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalItems={clientesBloqueadosList.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

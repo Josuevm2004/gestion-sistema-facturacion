@@ -3,6 +3,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { Check, Clipboard, Search, Users, Edit, Trash2, Eye, EyeOff, TrendingUp } from 'lucide-react';
+import PaginationControls from './PaginationControls';
 
 export type ColorTagType = 'VERDE' | 'ROJO' | 'AMARILLO' | 'AZUL';
 export type SubscriptionType = 'MENSUAL' | 'ANUAL';
@@ -108,7 +109,9 @@ export default function ClientesTodosTab({
   const [activeColorPickerId, setActiveColorPickerId] = React.useState<EntityId | null>(null);
   const [colorPickerPosition, setColorPickerPosition] = React.useState<{ top: number; left: number } | null>(null);
   const [copiedMessageClientId, setCopiedMessageClientId] = React.useState<EntityId | null>(null);
+  const [currentPage, setCurrentPage] = React.useState(1);
   const colorPickerRef = React.useRef<HTMLDivElement | null>(null);
+  const pageSize = 10;
   const colorLabels: Record<ColorTagType, string> = {
     VERDE: 'Verde',
     ROJO: 'Rojo',
@@ -198,6 +201,19 @@ export default function ClientesTodosTab({
     () => allFilteredClients.find((client) => client.id === activeColorPickerId) || null,
     [activeColorPickerId, allFilteredClients]
   );
+  const totalPages = Math.max(1, Math.ceil(allFilteredClients.length / pageSize));
+  const visibleClients = React.useMemo(
+    () => allFilteredClients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [allFilteredClients, currentPage]
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [currentSearch, allFilteredClients.length]);
+
+  React.useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const toggleColorPicker = (event: React.MouseEvent<HTMLButtonElement>, clientId: EntityId) => {
     if (activeColorPickerId === clientId) {
@@ -315,7 +331,7 @@ export default function ClientesTodosTab({
             </tr>
           </thead>
           <tbody>
-            {allFilteredClients.map((c, idx) => (
+            {visibleClients.map((c) => (
               <tr key={c.id}>
                 <td style={{ position: 'relative', zIndex: activeColorPickerId === c.id ? 99999 : 1 }}>
                   <div className="position-relative d-inline-block">
@@ -438,6 +454,12 @@ export default function ClientesTodosTab({
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalItems={allFilteredClients.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
       {activeColorClient &&
         colorPickerPosition &&
         typeof document !== 'undefined' &&

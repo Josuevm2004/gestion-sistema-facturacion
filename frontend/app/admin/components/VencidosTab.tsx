@@ -3,6 +3,7 @@
 import React from 'react';
 import { AlertCircle, RefreshCw, Settings, X, Unlock, ShieldAlert } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
+import PaginationControls from './PaginationControls';
 
 interface VencidosTabProps {
   clientesVencidosList: Client[];
@@ -23,6 +24,22 @@ export default function VencidosTab({
   handleEstadoCuentaChange,
   handleDevolverAcceso,
 }: VencidosTabProps) {
+  const pageSize = 10;
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.max(1, Math.ceil(clientesVencidosList.length / pageSize));
+  const visibleClients = React.useMemo(
+    () => clientesVencidosList.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [clientesVencidosList, currentPage]
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [clientesVencidosList.length]);
+
+  React.useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
   return (
     <div className="custom-card p-4 border-danger shadow-sm">
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
@@ -61,7 +78,7 @@ export default function VencidosTab({
                 </td>
               </tr>
             ) : (
-              clientesVencidosList.map((c) => {
+              visibleClients.map((c) => {
                 const vencDate = c.fechaVencimientoMensual ? new Date(c.fechaVencimientoMensual) : null;
                 const isBloqueado = c.estadoCuenta === 'BLOQUEADO';
 
@@ -158,6 +175,12 @@ export default function VencidosTab({
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalItems={clientesVencidosList.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

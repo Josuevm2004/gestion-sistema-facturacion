@@ -3,6 +3,7 @@
 import React from 'react';
 import { Activity, Search, Eye } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
+import PaginationControls from './PaginationControls';
 
 interface CentroControlTabProps {
   clients: Client[];
@@ -24,6 +25,49 @@ export default function CentroControlTab({
   calcularProrrateoEntero: _calcularProrrateoEntero,
   setHistoryClient,
 }: CentroControlTabProps) {
+  const pageSize = 10;
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const filteredClients = React.useMemo(() => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    return clients
+      .filter((c) => {
+        if (!calendarSearch.trim()) return true;
+        const q = calendarSearch.toLowerCase();
+        return (
+          c.razonSocial?.toLowerCase().includes(q) ||
+          c.ruc?.includes(q) ||
+          (c.dni || '').includes(q) ||
+          (c.nombres || '').toLowerCase().includes(q) ||
+          (c.apellidos || '').toLowerCase().includes(q) ||
+          (c.telefono || '').includes(q) ||
+          (c.email || '').toLowerCase().includes(q)
+        );
+      })
+      .map((c) => {
+        const vencDate = c.fechaVencimientoMensual ? new Date(c.fechaVencimientoMensual) : null;
+        if (vencDate) vencDate.setHours(0, 0, 0, 0);
+        const diffTime = vencDate ? vencDate.getTime() - now.getTime() : Infinity;
+        const diffDays = vencDate ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 9999;
+        return { ...c, _vencDate: vencDate, _diffDays: diffDays };
+      })
+      .sort((a, b) => a._diffDays - b._diffDays);
+  }, [clients, calendarSearch]);
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
+  const visibleClients = React.useMemo(
+    () => filteredClients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredClients, currentPage]
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [calendarSearch, filteredClients.length]);
+
+  React.useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
+
   return (
     <div className="custom-card p-4 shadow-sm">
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
@@ -68,44 +112,13 @@ export default function CentroControlTab({
             </tr>
           </thead>
           <tbody>
-            {(() => {
-              const now = new Date();
-              now.setHours(0, 0, 0, 0);
-
-              const filtered = clients
-                .filter((c) => {
-                  if (!calendarSearch.trim()) return true;
-                  const q = calendarSearch.toLowerCase();
-                  return (
-                    c.razonSocial?.toLowerCase().includes(q) ||
-                    c.ruc?.includes(q) ||
-                    (c.dni || '').includes(q) ||
-                    (c.nombres || '').toLowerCase().includes(q) ||
-                    (c.apellidos || '').toLowerCase().includes(q) ||
-                    (c.telefono || '').includes(q) ||
-                    (c.email || '').toLowerCase().includes(q)
-                  );
-                })
-                .map((c) => {
-                  const vencDate = c.fechaVencimientoMensual ? new Date(c.fechaVencimientoMensual) : null;
-                  if (vencDate) vencDate.setHours(0, 0, 0, 0);
-                  const diffTime = vencDate ? vencDate.getTime() - now.getTime() : Infinity;
-                  const diffDays = vencDate ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 9999;
-                  return { ...c, _vencDate: vencDate, _diffDays: diffDays };
-                })
-                .sort((a, b) => a._diffDays - b._diffDays);
-
-              if (filtered.length === 0) {
-                return (
-                  <tr>
-                    <td colSpan={12} className="text-center text-muted py-4">
-                      No se encontraron clientes en el Centro de Control.
-                    </td>
-                  </tr>
-                );
-              }
-
-              return filtered.map((c, idx) => {
+            {filteredClients.length === 0 ? (
+              <tr>
+                <td colSpan={12} className="text-center text-muted py-4">
+                  No se encontraron clientes en el Centro de Control.
+                </td>
+              </tr>
+            ) : visibleClients.map((c, idx) => {
                 const { _vencDate: vencDate, _diffDays: diffDays } = c;
                 const estadoVisual = diffDays !== 9999 && diffDays <= 0 && c.estadoCuenta === 'HABILITADO'
                   ? 'VENCIDO'
@@ -118,7 +131,7 @@ export default function CentroControlTab({
 
                 return (
                   <tr key={c.id} className={isExpired ? 'table-danger' : isNearExpiry ? 'table-warning' : ''}>
-                    <td className="text-muted fw-semibold py-2">{idx + 1}</td>
+                    <td className="text-muted fw-semibold py-2">{(currentPage - 1) * pageSize + idx + 1}</td>
                     <td className="py-2">
                       {c.nombres || c.apellidos ? (
                         <strong className="text-dark">
@@ -202,11 +215,16 @@ export default function CentroControlTab({
                     </td>
                   </tr>
                 );
-              });
-            })()}
+              })}
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalItems={filteredClients.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

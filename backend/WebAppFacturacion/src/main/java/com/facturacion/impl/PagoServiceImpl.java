@@ -314,6 +314,6 @@ public class PagoServiceImpl implements PagoService {
     @Override
     @Transactional(readOnly = true)
     public List<Pago> listarTodosPagos() {
-        return pagoRepository.findAll();
+        return pagoRepository.findAllWithDetails();
     }
 }

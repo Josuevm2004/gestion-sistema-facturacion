@@ -3,6 +3,7 @@
 import React from 'react';
 import { GraduationCap, CheckCircle, Calendar } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
+import PaginationControls from './PaginationControls';
 
 interface CapacitacionesTabProps {
   clients?: Client[];
@@ -27,6 +28,21 @@ export default function CapacitacionesTab({
       c.estadoCapacitacion === 'PENDIENTE' ||
       c.fechaCapacitacion
   );
+  const pageSize = 10;
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const totalPages = Math.max(1, Math.ceil(targetList.length / pageSize));
+  const visibleClients = React.useMemo(
+    () => targetList.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [targetList, currentPage]
+  );
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [targetList.length]);
+
+  React.useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages));
+  }, [totalPages]);
 
   const formatPeruDate = (dateStr?: string | null): string => {
     if (formatDatePeru) return formatDatePeru(dateStr);
@@ -73,7 +89,7 @@ export default function CapacitacionesTab({
                 </td>
               </tr>
             ) : (
-              targetList.map((c: Client) => {
+              visibleClients.map((c: Client) => {
                 const isCapacitado = Boolean(c.fechaCapacitacion || c.estadoCapacitacion === 'COMPLETADO' || c.estadoCapacitacion === 'COMPLETADA' || (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion));
 
                 return (
@@ -124,6 +140,12 @@ export default function CapacitacionesTab({
           </tbody>
         </table>
       </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalItems={targetList.length}
+        pageSize={pageSize}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 }

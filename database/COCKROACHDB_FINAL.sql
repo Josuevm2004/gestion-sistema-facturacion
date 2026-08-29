@@ -304,6 +304,8 @@ CREATE INDEX idx_venta_suscripcion ON venta (suscripcion_id);
 CREATE INDEX idx_venta_tipo ON venta (tipo_venta);
 CREATE INDEX idx_venta_estado ON venta (estado_venta);
 CREATE INDEX idx_venta_fecha ON venta (fecha_venta);
+CREATE INDEX idx_venta_cliente_fecha ON venta (cliente_id, fecha_venta);
+CREATE INDEX idx_venta_estado_fecha ON venta (estado_venta, fecha_venta);
 
 -- ============================================================
 -- 9. SERVICIOS DEL CLIENTE
@@ -351,6 +353,8 @@ CREATE INDEX idx_servicio_cliente ON servicio_cliente (cliente_id);
 CREATE INDEX idx_servicio_estado ON servicio_cliente (estado);
 CREATE INDEX idx_servicio_fecha_inicio ON servicio_cliente (fecha_inicio);
 CREATE INDEX idx_servicio_fecha_fin ON servicio_cliente (fecha_fin);
+CREATE INDEX idx_servicio_cliente_fecha_fin ON servicio_cliente (cliente_id, fecha_fin);
+CREATE INDEX idx_servicio_estado_fecha_fin ON servicio_cliente (estado, fecha_fin);
 
 -- ============================================================
 -- 10. HISTORIAL DE ESTADOS
@@ -392,6 +396,7 @@ CREATE TABLE historial_estado_cliente (
 
 CREATE INDEX idx_historial_cliente ON historial_estado_cliente (cliente_id);
 CREATE INDEX idx_historial_fecha ON historial_estado_cliente (fecha_cambio);
+CREATE INDEX idx_historial_cliente_fecha ON historial_estado_cliente (cliente_id, fecha_cambio);
 
 -- ============================================================
 -- 11. PAGOS
@@ -429,6 +434,7 @@ CREATE INDEX idx_pago_venta ON pago (venta_id);
 CREATE INDEX idx_pago_estado ON pago (estado_pago);
 CREATE INDEX idx_pago_fecha ON pago (fecha_pago);
 CREATE INDEX idx_pago_codigo_operacion ON pago (codigo_operacion);
+CREATE INDEX idx_pago_venta_fecha_registro ON pago (venta_id, fecha_registro);
 
 -- ============================================================
 -- 12. NOTIFICACIONES
@@ -465,6 +471,7 @@ CREATE INDEX idx_notificacion_usuario ON notificacion (usuario_admin_id);
 CREATE INDEX idx_notificacion_cliente ON notificacion (cliente_id);
 CREATE INDEX idx_notificacion_leida ON notificacion (leida);
 CREATE INDEX idx_notificacion_fecha ON notificacion (fecha_creacion);
+CREATE INDEX idx_notificacion_cliente_tipo_fecha ON notificacion (cliente_id, tipo, fecha_creacion);
 
 -- ============================================================
 -- 13. DATOS SEMILLA
