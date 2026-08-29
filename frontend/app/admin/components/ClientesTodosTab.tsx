@@ -18,6 +18,8 @@ import {
 import PaginationControls from './PaginationControls';
 
 export type EntityId = number | string;
+export type ColorTagType = 'VERDE' | 'ROJO' | 'AMARILLO' | 'AZUL' | string;
+export type SubscriptionType = 'MENSUAL' | 'ANUAL' | string;
 
 export type Client = {
   id: EntityId;
