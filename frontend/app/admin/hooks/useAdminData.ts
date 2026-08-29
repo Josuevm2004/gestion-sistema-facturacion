@@ -132,12 +132,45 @@ export function useAdminData() {
       }
       loadData(savedToken);
 
-      // Sincronización periódica sin solapar cargas ni saturar el backend.
+      // Auto-sincronización periódica rápida cada 8 segundos
       const intervalId = setInterval(() => {
         loadData(savedToken);
-      }, 60000);
+      }, 8000);
 
-      return () => clearInterval(intervalId);
+      // Escuchar cuando el usuario vuelve a la pestaña o cambia de ventana
+      const handleVisibilityOrFocus = () => {
+        if (document.visibilityState === 'visible') {
+          loadData(savedToken);
+        }
+      };
+      window.addEventListener('focus', handleVisibilityOrFocus);
+      document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+      // Escuchar eventos en tiempo real entre pestañas (ej. nuevo registro en el formulario público)
+      let bc: BroadcastChannel | null = null;
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        bc = new BroadcastChannel('miquipu_events');
+        bc.onmessage = (event) => {
+          if (event.data?.type === 'NEW_CLIENT_REGISTERED' || event.data?.type === 'USER_UPDATED' || event.data?.type === 'DATA_CHANGED') {
+            loadData(savedToken);
+          }
+        };
+      }
+
+      const handleStorage = (e: StorageEvent) => {
+        if (e.key === 'miquipu_last_registration' || e.key === 'miquipu_sync_trigger') {
+          loadData(savedToken);
+        }
+      };
+      window.addEventListener('storage', handleStorage);
+
+      return () => {
+        clearInterval(intervalId);
+        window.removeEventListener('focus', handleVisibilityOrFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+        window.removeEventListener('storage', handleStorage);
+        if (bc) bc.close();
+      };
     }
   }, []);
 
@@ -757,7 +790,11 @@ export function useAdminData() {
     setEditingClient(null);
 
     try {
-      await adminApi(token).put(`/admin/clientes/${editingClient.id}`, apiPayload);
+      const response = await adminApi(token).put(`/admin/clientes/${editingClient.id}`, apiPayload);
+      const updatedClient = response.data?.data;
+      if (updatedClient) {
+        setClients((prev) => prev.map((c) => (c.id === String(updatedClient.id) ? normalizeClientData(updatedClient) : c)));
+      }
       setNotice(`Los datos de ${editingClient.razonSocial} se han actualizado correctamente.`);
     } catch (err: any) {
       setNotice(`Error al actualizar el cliente: ${err.response?.data?.message || err.message}`);
@@ -798,7 +835,7 @@ export function useAdminData() {
       });
 
       setNotice(`Capacitación guardada con éxito. El plan y el prorrateo han iniciado desde la fecha asignada.`);
-      void loadClientsOnly(token).catch(() => undefined);
+      void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
       setNotice(`Error al programar capacitación: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
@@ -833,8 +870,9 @@ export function useAdminData() {
 
   async function handleSelfAssignVendedor(client: Client) {
     if (!token) return;
+    const myName = currentUser?.nombre || currentUser?.username || 'Asignado';
     setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, vendedor: currentUser?.nombre || currentUser?.username || 'Asignado' } : c))
+      prev.map((c) => (c.id === client.id ? { ...c, vendedor: myName } : c))
     );
 
     try {
@@ -872,41 +910,103 @@ export function useAdminData() {
     event.preventDefault();
     if (!token) return;
     const formData = new FormData(event.currentTarget);
-    const payload = {
-      nombre: formData.get('nombre') as string,
-      username: formData.get('username') as string,
-      email: formData.get('email') as string,
-      password: formData.get('password') as string,
-      rol: formData.get('rol') as string,
+    const nombre = formData.get('nombre') as string;
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const rol = (formData.get('rol') as string) || 'VENDEDOR';
+    const username = (formData.get('username') as string) || (editingUser ? editingUser.username : '');
+
+    const payload: any = {
+      nombre,
+      username,
+      email,
+      rol,
     };
+    if (password && password.trim().length > 0) {
+      payload.password = password;
+    }
 
     try {
       if (editingUser) {
-        await adminApi(token).put(`/admin/usuarios/${editingUser.id}`, payload);
+        // 1. Actualización optimista de la lista de usuarios
+        setUsersList((prev) =>
+          prev.map((u) =>
+            String(u.id) === String(editingUser.id)
+              ? { ...u, nombre, email, rol, username: u.username || username }
+              : u
+          )
+        );
+
+        // 2. Actualización optimista del usuario actual en sesión (para actualizar el Navbar y Menú)
+        if (currentUser && (String(currentUser.id) === String(editingUser.id) || currentUser.username === editingUser.username)) {
+          const updatedCurrent = { ...currentUser, nombre, email, rol };
+          setCurrentUser(updatedCurrent);
+          localStorage.setItem('miquipu_admin_user', JSON.stringify(updatedCurrent));
+        }
+
+        // 3. Actualización de nombre de vendedor en la tabla de clientes
+        if (editingUser.nombre && editingUser.nombre !== nombre) {
+          setClients((prev) =>
+            prev.map((c) => (c.vendedor === editingUser.nombre ? { ...c, vendedor: nombre } : c))
+          );
+        }
+
+        const res = await adminApi(token).put(`/admin/usuarios/${editingUser.id}`, payload);
+        const savedData = res.data?.data;
+        if (savedData) {
+          setUsersList((prev) =>
+            prev.map((u) => (String(u.id) === String(editingUser.id) ? { ...u, ...savedData } : u))
+          );
+          if (currentUser && (String(currentUser.id) === String(editingUser.id) || currentUser.username === savedData.username)) {
+            const updatedCurrent = { ...currentUser, ...savedData };
+            setCurrentUser(updatedCurrent);
+            localStorage.setItem('miquipu_admin_user', JSON.stringify(updatedCurrent));
+          }
+        }
         setNotice(`Usuario ${editingUser.username} actualizado con éxito.`);
       } else {
-        await adminApi(token).post('/admin/usuarios', payload);
+        const res = await adminApi(token).post('/admin/usuarios', payload);
+        const newUser = res.data?.data;
+        if (newUser) {
+          setUsersList((prev) => [newUser, ...prev.filter((u) => String(u.id) !== String(newUser.id))]);
+        }
         setNotice(`Nuevo vendedor/usuario (${payload.nombre}) registrado correctamente.`);
       }
       setEditingUser(null);
       setShowNewUserModal(false);
-      const usersResponse = await adminApi(token).get('/admin/usuarios');
-      setUsersList(extractArray(usersResponse.data));
+
+      // Sincronizar en segundo plano
+      void adminApi(token)
+        .get('/admin/usuarios')
+        .then((resp) => setUsersList(extractArray(resp.data)))
+        .catch(() => undefined);
     } catch (err: any) {
       setNotice(`Error en la gestión de usuario: ${err.response?.data?.error || err.message}`);
+      void adminApi(token)
+        .get('/admin/usuarios')
+        .then((resp) => setUsersList(extractArray(resp.data)))
+        .catch(() => undefined);
     }
   }
 
   async function handleDeleteUser(user: UserAccount) {
     if (!token) return;
     if (!confirm(`¿Eliminar definitivamente al usuario ${user.nombre} (${user.username})?`)) return;
+
+    // Optimista
+    setUsersList((prev) => prev.filter((u) => String(u.id) !== String(user.id)));
+    setNotice(`Usuario ${user.nombre} eliminado del sistema.`);
+
     try {
       await adminApi(token).delete(`/admin/usuarios/${user.id}`);
-      setNotice(`Usuario ${user.nombre} eliminado del sistema.`);
       const usersResponse = await adminApi(token).get('/admin/usuarios');
       setUsersList(extractArray(usersResponse.data));
     } catch (err: any) {
       setNotice(`Error al eliminar usuario: ${err.message}`);
+      void adminApi(token)
+        .get('/admin/usuarios')
+        .then((resp) => setUsersList(extractArray(resp.data)))
+        .catch(() => undefined);
     }
   }
 

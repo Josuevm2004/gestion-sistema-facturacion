@@ -79,6 +79,7 @@ export default function UserModal({
               </div>
               <form onSubmit={handleSaveUser}>
                 <div className="modal-body">
+                  <input type="hidden" name="username" value={editingUser.username} />
                   <div className="mb-3">
                     <label className="form-label">Nombre Completo</label>
                     <input className="form-control" name="nombre" defaultValue={editingUser.nombre} required />

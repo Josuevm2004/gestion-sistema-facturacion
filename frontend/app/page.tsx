@@ -230,8 +230,20 @@ export default function FormularioPublicoPage() {
       });
       setStep(2);
       setMessage({ type: 'success', text: 'Datos registrados correctamente. Revisa los datos de pago a continuación.' });
+
+      // Notificar en tiempo real al panel administrativo si está abierto en otra pestaña o ventana
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('miquipu_last_registration', Date.now().toString());
+          if ('BroadcastChannel' in window) {
+            const bc = new BroadcastChannel('miquipu_events');
+            bc.postMessage({ type: 'NEW_CLIENT_REGISTERED', client: registeredData });
+            bc.close();
+          }
+        }
+      } catch (e) {}
     } catch (err: any) {
-      const errorMsg = err.response?.data?.message || err.message || 'Error al conectar con la base de datos Azure SQL';
+      const errorMsg = err.response?.data?.message || err.message || 'Error al procesar el registro del cliente';
       setMessage({ type: 'danger', text: `Error en el servidor: ${errorMsg}` });
     } finally {
       setIsSubmitting(false);
