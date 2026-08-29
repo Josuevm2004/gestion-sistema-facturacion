@@ -7,6 +7,7 @@ import { Client } from '../components/ClientesTodosTab';
 interface BillingMessageModalProps {
   client: Client | null;
   onClose: () => void;
+  onAvisado?: () => void;
 }
 
 export type MessageType = 'AUTO' | 'REGULAR' | 'PRIMER_PRORRATEO' | 'SEGUNDO_PRORRATEO' | 'ANUAL';
@@ -34,13 +35,58 @@ Espero que estés teniendo un excelente día.
 
 Me contacto contigo para estar alineados y apoyarte a potenciar el uso de tu cuenta, resolver dudas de la plataforma o revisar cualquier detalle pendiente de tu servicio. 👍`;
 
-export default function BillingMessageModal({ client, onClose }: BillingMessageModalProps) {
+async function copyImageBlobToClipboard(imageUrl: string): Promise<boolean> {
+  try {
+    const res = await fetch(imageUrl);
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const blobUrl = URL.createObjectURL(blob);
+    img.src = blobUrl;
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+    });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return false;
+    ctx.drawImage(img, 0, 0);
+
+    return await new Promise((resolve) => {
+      canvas.toBlob(async (pngBlob) => {
+        if (pngBlob && navigator.clipboard && navigator.clipboard.write) {
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': pngBlob })
+            ]);
+            resolve(true);
+          } catch (e) {
+            resolve(false);
+          }
+        } else {
+          resolve(false);
+        }
+      }, 'image/png');
+    });
+  } catch (err) {
+    console.warn('Auto-copy de imagen omitido:', err);
+    return false;
+  }
+}
+
+export default function BillingMessageModal({ client, onClose, onAvisado }: BillingMessageModalProps) {
   const [activeStep, setActiveStep] = useState<ModalStep>('PRESENTACION');
   const [presentationText, setPresentationText] = useState<string>(DEFAULT_PRESENTATION_TEXT);
   const [selectedType, setSelectedType] = useState<MessageType>('AUTO');
   const [copied, setCopied] = useState(false);
+  const [copiedImage, setCopiedImage] = useState(false);
   const [customMessage, setCustomMessage] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
   const monthNames = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
@@ -184,48 +230,38 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
     } catch (e) { console.error(e); }
   };
 
-  const [isSending, setIsSending] = useState(false);
-  const [statusNotice, setStatusNotice] = useState<string | null>(null);
-
-  const handleSendAutomatic = async () => {
-    if (!client) return;
-    setIsSending(true);
-    setStatusNotice(null);
-    try {
-      const rawPhone = client.usuarioWsp || client.telefono || client.telefonoPersonal || '';
-      const res = await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: rawPhone,
-          message: currentActiveText,
-          imageUrl: activeStep === 'PRESENTACION' ? '/soporte-miquipu.png' : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStatusNotice('✅ ¡Mensaje enviado automáticamente con éxito!');
-        setTimeout(() => setStatusNotice(null), 4000);
-      } else {
-        handleSendWhatsApp();
-      }
-    } catch (err) {
-      handleSendWhatsApp();
-    } finally {
-      setIsSending(false);
+  const handleCopyImage = async () => {
+    const ok = await copyImageBlobToClipboard('/soporte-miquipu.jpeg');
+    if (ok) {
+      setCopiedImage(true);
+      setTimeout(() => setCopiedImage(false), 2500);
     }
   };
 
-  const handleSendWhatsApp = (textToSend?: string) => {
+  const handleSendWhatsApp = async () => {
     if (!client) return;
-    const text = textToSend || currentActiveText;
+    const text = currentActiveText;
     const rawPhone = client.usuarioWsp || client.telefono || client.telefonoPersonal || '';
     const cleanPhone = rawPhone.replace(/\D/g, '');
     const fullPhone = cleanPhone.startsWith('51') ? cleanPhone : `51${cleanPhone}`;
     const url = `https://web.whatsapp.com/send?phone=${cleanPhone ? fullPhone : ''}&text=${encodeURIComponent(text)}`;
+
+    // 1. Copiar texto al portapapeles
     void handleCopy(text);
-    const wspWindow = window.open(url, 'whatsapp_web_window');
-    if (wspWindow) wspWindow.focus();
+
+    // 2. Si es paso 1, auto-copiar la imagen al portapapeles para que baste con presionar Ctrl + V en WhatsApp
+    if (activeStep === 'PRESENTACION') {
+      void copyImageBlobToClipboard('/soporte-miquipu.jpeg');
+    }
+
+    // 3. Notificar persistencia de avisado en BD
+    onAvisado?.();
+
+    // 4. Abrir o reutilizar la misma pestaña única de WhatsApp Web
+    const wspWindow = window.open(url, 'whatsapp_tab_singleton');
+    if (wspWindow) {
+      wspWindow.focus();
+    }
   };
 
   if (!client) return null;
@@ -239,7 +275,7 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
               <div className="p-2 bg-primary text-white rounded-3 shadow-sm"><MessageSquare size={18} /></div>
               <div>
                 <h5 className="modal-title fw-bold text-dark mb-0">Mensajería Inteligente</h5>
-                <small className="text-muted fw-semibold">Cliente: <strong className="text-primary">{client.razonSocial}</strong></small>
+                <small className="text-muted fw-semibold">Cliente: <strong className="text-primary">{client.razonSocial}</strong> ({client.ruc})</small>
               </div>
             </div>
             <button type="button" className="btn-close" onClick={onClose}></button>
@@ -249,12 +285,12 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
             <ul className="nav nav-tabs border-0 gap-2">
               <li className="nav-item">
                 <button className={`nav-link border-0 fw-bold px-3.5 py-2 rounded-top-3 d-flex align-items-center gap-2 ${activeStep === 'PRESENTACION' ? 'active text-primary bg-light border-bottom-0 shadow-sm' : 'text-muted'}`} onClick={() => setActiveStep('PRESENTACION')}>
-                  <span className="badge bg-primary rounded-circle">1</span> Presentación
+                  <span className="badge bg-primary rounded-circle">1</span> 1. Presentación y Foto
                 </button>
               </li>
               <li className="nav-item">
                 <button className={`nav-link border-0 fw-bold px-3.5 py-2 rounded-top-3 d-flex align-items-center gap-2 ${activeStep === 'COBRANZA' ? 'active text-success bg-light border-bottom-0 shadow-sm' : 'text-muted'}`} onClick={() => setActiveStep('COBRANZA')}>
-                  <span className="badge bg-success rounded-circle">2</span> Cobranza
+                  <span className="badge bg-success rounded-circle">2</span> 2. Detalle de Cobro
                 </button>
               </li>
             </ul>
@@ -262,57 +298,86 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
 
           <div className="modal-body p-4 bg-light">
             {activeStep === 'PRESENTACION' ? (
-              <div className="row g-3">
-                <div className="col-md-4 text-center">
-                  <div className="p-2 bg-white rounded-3 border shadow-sm h-100 d-flex flex-column align-items-center justify-content-center">
-                    <img
-                      src="/soporte-miquipu.png"
-                      alt="Flyer Soporte MiQuipu"
-                      className="rounded-3 img-fluid mb-2 shadow-sm"
-                      style={{ maxHeight: '180px', objectFit: 'contain' }}
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    <small className="text-muted fw-bold" style={{ fontSize: '0.75rem' }}>
-                      Flyer Soporte MiQuipu
+              <div>
+                <div className="alert alert-primary border-0 rounded-3 py-2 px-3 mb-3 d-flex align-items-center justify-content-between">
+                  <div className="d-flex align-items-center gap-2">
+                    <UserCheck size={16} className="text-primary" />
+                    <small className="fw-semibold text-dark">
+                      <strong>Mensaje 1 (Foto + Saludo):</strong> Al pulsar <em>«1. Enviar Presentación»</em> se abre el chat y se copia la foto. En WhatsApp presiona <strong>Ctrl + V</strong> y dale <strong>Enter</strong>.
                     </small>
                   </div>
                 </div>
-                <div className="col-md-8">
-                  <textarea className="form-control" rows={8} value={presentationText} onChange={(e) => setPresentationText(e.target.value)} />
+
+                <div className="row g-3">
+                  <div className="col-md-4 text-center">
+                    <div className="p-2 bg-white rounded-3 border shadow-sm h-100 d-flex flex-column align-items-center justify-content-center">
+                      <img
+                        src="/soporte-miquipu.jpeg"
+                        alt="Flyer Soporte MiQuipu"
+                        className="rounded-3 img-fluid mb-2 shadow-sm border"
+                        style={{ maxHeight: '180px', objectFit: 'contain' }}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (target.src.endsWith('.jpeg')) {
+                            target.src = '/soporte-miquipu.png';
+                          } else {
+                            target.style.display = 'none';
+                          }
+                        }}
+                      />
+                      <small className="text-muted fw-bold mb-2" style={{ fontSize: '0.75rem' }}>
+                        Flyer Soporte MiQuipu
+                      </small>
+                      <button
+                        type="button"
+                        className={`btn btn-sm w-100 fw-bold d-inline-flex align-items-center justify-content-center gap-1 ${copiedImage ? 'btn-success text-white' : 'btn-outline-primary'}`}
+                        onClick={handleCopyImage}
+                      >
+                        {copiedImage ? <Check size={13} /> : <Copy size={13} />}
+                        <span>{copiedImage ? '¡Foto Copiada!' : 'Copiar Foto'}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="col-md-8">
+                    <label className="form-label fw-bold text-dark mb-1.5 small">
+                      Texto del Saludo / Presentación:
+                    </label>
+                    <textarea className="form-control font-monospace p-3 bg-white text-dark border rounded-3" rows={8} style={{ fontSize: '0.86rem', lineHeight: '1.45' }} value={presentationText} onChange={(e) => setPresentationText(e.target.value)} />
+                  </div>
                 </div>
               </div>
             ) : (
               <div>
                 <div className="d-flex flex-wrap gap-2 mb-3">
-                  <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelectedType('AUTO'); setIsEditing(false); }}>Auto</button>
-                  <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelectedType('REGULAR'); setIsEditing(false); }}>Regular</button>
-                  <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelectedType('SEGUNDO_PRORRATEO'); setIsEditing(false); }}>2.° Prorrateo</button>
+                  <span className="small text-muted fw-bold align-self-center me-1">Formato:</span>
+                  <button className={`btn btn-sm px-2.5 py-1 fw-bold rounded-2 ${selectedType === 'AUTO' ? 'btn-success text-white shadow-sm' : 'btn-outline-secondary bg-white'}`} onClick={() => { setSelectedType('AUTO'); setIsEditing(false); }}>
+                    Automático ({detectedType === 'SEGUNDO_PRORRATEO' ? '2.° Prorrateo' : detectedType === 'PRIMER_PRORRATEO' ? '1.° Prorrateo' : detectedType === 'ANUAL' ? 'Plan Anual' : 'Regular'})
+                  </button>
+                  <button className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${selectedType === 'REGULAR' ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary bg-white'}`} onClick={() => { setSelectedType('REGULAR'); setIsEditing(false); }}>Regular (Día 1)</button>
+                  <button className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${selectedType === 'SEGUNDO_PRORRATEO' ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary bg-white'}`} onClick={() => { setSelectedType('SEGUNDO_PRORRATEO'); setIsEditing(false); }}>2.° Prorrateo</button>
+                  <button className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${selectedType === 'PRIMER_PRORRATEO' ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary bg-white'}`} onClick={() => { setSelectedType('PRIMER_PRORRATEO'); setIsEditing(false); }}>1.° Prorrateo</button>
+                  <button className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${selectedType === 'ANUAL' ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary bg-white'}`} onClick={() => { setSelectedType('ANUAL'); setIsEditing(false); }}>Anual</button>
                 </div>
-                <textarea className="form-control" rows={11} value={currentBillingText} onChange={(e) => { setIsEditing(true); setCustomMessage(e.target.value); }} />
+                <textarea className="form-control font-monospace p-3 bg-white text-dark border rounded-3" rows={11} style={{ fontSize: '0.86rem', lineHeight: '1.45', whiteSpace: 'pre-wrap' }} value={currentBillingText} onChange={(e) => { setIsEditing(true); setCustomMessage(e.target.value); }} />
               </div>
             )}
           </div>
 
-          <div className="modal-footer px-4 py-3 d-flex justify-content-between align-items-center">
-            <div>
-              {statusNotice && (
-                <span className="badge bg-success text-white px-2.5 py-1.5 fw-bold shadow-sm">
-                  {statusNotice}
-                </span>
-              )}
+          <div className="modal-footer px-4 py-3 d-flex justify-content-between align-items-center border-top bg-white">
+            <div className="small text-muted">
+              Destinatario WhatsApp: <strong className="text-dark">{client.usuarioWsp || client.telefono || client.telefonoPersonal || 'Sin número'}</strong>
             </div>
             <div className="d-flex gap-2">
-              <button className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold" onClick={() => handleCopy()}>
-                {copied ? '¡Copiado!' : 'Copiar'}
+              <button className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" onClick={() => handleCopy()}>
+                {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+                <span>{copied ? '¡Copiado!' : activeStep === 'PRESENTACION' ? 'Copiar Saludo' : 'Copiar Cobranza'}</span>
               </button>
               <button
-                className={`btn ${activeStep === 'PRESENTACION' ? 'btn-primary' : 'btn-success'} px-4 py-1.5 fw-bold text-white shadow-sm`}
-                onClick={() => handleSendAutomatic()}
-                disabled={isSending}
+                className={`btn ${activeStep === 'PRESENTACION' ? 'btn-primary' : 'btn-success'} px-4 py-1.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1.5`}
+                onClick={() => handleSendWhatsApp()}
               >
-                {isSending ? 'Enviando...' : activeStep === 'PRESENTACION' ? '1. Enviar Presentación' : '2. Enviar Cobranza'}
+                <ExternalLink size={15} />
+                <span>{activeStep === 'PRESENTACION' ? '1. Enviar Presentación' : '2. Enviar Cobranza'}</span>
               </button>
             </div>
           </div>
