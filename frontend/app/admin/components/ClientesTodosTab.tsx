@@ -15,6 +15,7 @@ import {
   MessageCircle,
   RotateCcw,
 } from 'lucide-react';
+import PaginationControls from './PaginationControls';
 
 export type EntityId = number | string;
 
