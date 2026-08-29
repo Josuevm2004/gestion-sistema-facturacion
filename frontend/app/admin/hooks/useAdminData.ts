@@ -312,7 +312,9 @@ export function useAdminData() {
     try {
       const response = await adminApi(tokenToUse).get('/admin/clientes');
       const rawClients = extractArray(response.data);
-      const normalized = rawClients.map(normalizeClientData);
+      const normalized = rawClients
+        .filter((c) => !deletedClientIdsRef.current.has(String(c?.id)))
+        .map(normalizeClientData);
       setClients(
         normalized.map((freshClient) => {
           const override = pendingOverridesRef.current.get(String(freshClient.id));
@@ -633,7 +635,6 @@ export function useAdminData() {
       } else {
         await adminApi(token).put(`/admin/clientes/${client.id}/estado?nuevoEstado=POR_CAPACITAR`);
       }
-      pendingOverridesRef.current.delete(clientIdStr);
     } catch (err: any) {
       pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al registrar el pago: ${err.response?.data?.message || err.message}`);
@@ -666,7 +667,6 @@ export function useAdminData() {
       } else {
         await adminApi(token).put(`/admin/clientes/${client.id}/estado?nuevoEstado=${nuevoEstado}`);
       }
-      pendingOverridesRef.current.delete(clientIdStr);
     } catch (err: any) {
       pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al actualizar estado: ${err.message}`);
@@ -696,7 +696,6 @@ export function useAdminData() {
 
     try {
       await adminApi(token).put(`/admin/servicios/cliente/${client.id}/devolver-acceso`);
-      pendingOverridesRef.current.delete(clientIdStr);
     } catch (err: any) {
       pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al devolver acceso: ${err.message}`);
@@ -768,7 +767,6 @@ export function useAdminData() {
         observaciones: `Operación de ${tipoVenta}: ${planAUsar} (${tipoAUsar})`,
       });
 
-      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Operación procesada con éxito para ${client.razonSocial} (${planAUsar} - ${tipoAUsar}).`);
       void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
@@ -825,7 +823,6 @@ export function useAdminData() {
         observaciones: `Mejora de plan activa a ${planAUsar} (${tipoAUsar}) sin reiniciar vencimiento`,
       });
 
-      pendingOverridesRef.current.delete(clientIdStr);
       const monto = Number(response.data?.data?.montoTotal ?? 0);
       setNotice(`Mejora de plan registrada para ${client.razonSocial}. Diferencia cobrada: S/ ${monto.toFixed(2)}.`);
       void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
@@ -913,7 +910,6 @@ export function useAdminData() {
 
     try {
       const response = await adminApi(token).put(`/admin/clientes/${editingClient.id}`, apiPayload);
-      pendingOverridesRef.current.delete(clientIdStr);
       const updatedClient = response.data?.data;
       if (updatedClient) {
         setClients((prev) => prev.map((c) => (String(c.id) === String(updatedClient.id) ? normalizeClientData(updatedClient) : c)));
@@ -968,7 +964,6 @@ export function useAdminData() {
         fechaCapacitacion,
       });
 
-      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Capacitación guardada con éxito. El plan y el prorrateo han iniciado desde la fecha asignada.`);
       void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
@@ -1003,7 +998,6 @@ export function useAdminData() {
         method: 'PUT',
         url: `/admin/clientes/${client.id}/vendedor?vendedorId=${vendedorId}`,
       });
-      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Vendedor asignado (${nuevoVendedor}) a ${client.razonSocial}.`);
     } catch (err: any) {
       pendingOverridesRef.current.delete(clientIdStr);
@@ -1028,7 +1022,6 @@ export function useAdminData() {
 
     try {
       await adminApi(token).post(`/admin/clientes/${client.id}/vendedor/asignarme`);
-      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Te asignaste correctamente el cliente ${client.razonSocial}.`);
     } catch (err: any) {
       pendingOverridesRef.current.delete(clientIdStr);
@@ -1058,7 +1051,6 @@ export function useAdminData() {
         method: 'PUT',
         url: `/admin/clientes/${client.id}/color-tag?colorTagId=${colorId}`,
       });
-      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Etiqueta de color cambiada a ${nuevoColor} para ${client.razonSocial}.`);
     } catch (err: any) {
       pendingOverridesRef.current.delete(clientIdStr);
