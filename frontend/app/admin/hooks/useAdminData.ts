@@ -82,6 +82,11 @@ export function useAdminData() {
   const processingPaymentsRef = useRef<Set<string>>(new Set());
   const processingOperationsRef = useRef<Set<string>>(new Set());
   const processingStateRef = useRef<Set<string>>(new Set());
+  const pendingOverridesRef = useRef<Map<string, { data: Partial<Client>; timestamp: number }>>(new Map());
+  const deletedClientIdsRef = useRef<Set<string>>(new Set());
+  const deletedUserIdsRef = useRef<Set<string>>(new Set());
+  const readNotificationIdsRef = useRef<Set<string>>(new Set());
+  const lastSyncTimeRef = useRef<number>(Date.now());
 
   // Filtros unificados
   const [search, setSearch] = useState('');
@@ -132,19 +137,21 @@ export function useAdminData() {
       }
       loadData(savedToken);
 
-      // Auto-sincronización periódica rápida cada 8 segundos
+      // Auto-sincronización periódica en segundo plano cada 15 segundos
       const intervalId = setInterval(() => {
         loadData(savedToken);
-      }, 8000);
+      }, 15000);
 
-      // Escuchar cuando el usuario vuelve a la pestaña o cambia de ventana
-      const handleVisibilityOrFocus = () => {
+      // Escuchar cuando el usuario vuelve a la pestaña del navegador (con protección para no solapar)
+      const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
-          loadData(savedToken);
+          const now = Date.now();
+          if (now - lastSyncTimeRef.current > 10000) {
+            loadData(savedToken);
+          }
         }
       };
-      window.addEventListener('focus', handleVisibilityOrFocus);
-      document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
 
       // Escuchar eventos en tiempo real entre pestañas (ej. nuevo registro en el formulario público)
       let bc: BroadcastChannel | null = null;
@@ -166,8 +173,7 @@ export function useAdminData() {
 
       return () => {
         clearInterval(intervalId);
-        window.removeEventListener('focus', handleVisibilityOrFocus);
-        document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
         window.removeEventListener('storage', handleStorage);
         if (bc) bc.close();
       };
@@ -188,11 +194,23 @@ export function useAdminData() {
     if (!tokenToUse) return;
     if (loadDataInFlightRef.current) return;
     loadDataInFlightRef.current = true;
+    lastSyncTimeRef.current = Date.now();
     if (showSyncMsg) setIsSyncing(true);
     try {
       const clientApi = adminApi(tokenToUse);
       const normalizeAndSetClients = (rawClients: any[]) => {
-        setClients(rawClients.map(normalizeClientData));
+        const normalized = rawClients
+          .filter((c) => !deletedClientIdsRef.current.has(String(c?.id)))
+          .map(normalizeClientData);
+        setClients(
+          normalized.map((freshClient) => {
+            const override = pendingOverridesRef.current.get(String(freshClient.id));
+            if (override && Date.now() - override.timestamp < 15000) {
+              return { ...freshClient, ...override.data };
+            }
+            return freshClient;
+          })
+        );
       };
 
       const getClientsWithRetry = async () => {
@@ -239,8 +257,16 @@ export function useAdminData() {
       normalizeAndSetClients(rawClients);
 
       if (payResult.status === 'fulfilled') setPayments(extractArray(payResult.value.data));
-      if (userResult.status === 'fulfilled') setUsersList(extractArray(userResult.value.data));
-      if (notifResult.status === 'fulfilled') setNotifications(extractArray(notifResult.value.data));
+      if (userResult.status === 'fulfilled') {
+        setUsersList(extractArray(userResult.value.data).filter((u) => !deletedUserIdsRef.current.has(String(u?.id))));
+      }
+      if (notifResult.status === 'fulfilled') {
+        setNotifications(
+          extractArray(notifResult.value.data).map((n) =>
+            readNotificationIdsRef.current.has(String(n?.id)) ? { ...n, leida: true } : n
+          )
+        );
+      }
       if (subscriptionResult.status === 'fulfilled') {
         setSubscriptions(extractArray(subscriptionResult.value.data));
       }
@@ -283,15 +309,29 @@ export function useAdminData() {
   async function loadClientsOnly(authToken?: string | null) {
     const tokenToUse = authToken || token;
     if (!tokenToUse) return;
-    const response = await adminApi(tokenToUse).get('/admin/clientes');
-    setClients(extractArray(response.data).map(normalizeClientData));
+    try {
+      const response = await adminApi(tokenToUse).get('/admin/clientes');
+      const rawClients = extractArray(response.data);
+      const normalized = rawClients.map(normalizeClientData);
+      setClients(
+        normalized.map((freshClient) => {
+          const override = pendingOverridesRef.current.get(String(freshClient.id));
+          if (override && Date.now() - override.timestamp < 15000) {
+            return { ...freshClient, ...override.data };
+          }
+          return freshClient;
+        })
+      );
+    } catch (e) {}
   }
 
   async function loadPaymentsOnly(authToken?: string | null) {
     const tokenToUse = authToken || token;
     if (!tokenToUse) return;
-    const response = await adminApi(tokenToUse).get('/admin/pagos');
-    setPayments(extractArray(response.data));
+    try {
+      const response = await adminApi(tokenToUse).get('/admin/pagos');
+      setPayments(extractArray(response.data));
+    } catch (e) {}
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -555,10 +595,16 @@ export function useAdminData() {
     if (processingPaymentsRef.current.has(processingKey)) return;
     processingPaymentsRef.current.add(processingKey);
 
+    const clientIdStr = String(client.id);
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { estadoCuenta: 'POR_CAPACITAR', estadoCapacitacion: 'PENDIENTE' },
+      timestamp: Date.now(),
+    });
+
     // 1. Actualización optimista instantánea a POR_CAPACITAR
     setClients((prev) =>
       prev.map((c) =>
-        c.id === client.id
+        String(c.id) === clientIdStr
           ? { ...c, estadoCuenta: 'POR_CAPACITAR', estadoCapacitacion: 'PENDIENTE' }
           : c
       )
@@ -587,7 +633,9 @@ export function useAdminData() {
       } else {
         await adminApi(token).put(`/admin/clientes/${client.id}/estado?nuevoEstado=POR_CAPACITAR`);
       }
+      pendingOverridesRef.current.delete(clientIdStr);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al registrar el pago: ${err.response?.data?.message || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     } finally {
@@ -601,8 +649,14 @@ export function useAdminData() {
     if (processingStateRef.current.has(processingKey)) return;
     processingStateRef.current.add(processingKey);
 
+    const clientIdStr = String(client.id);
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { estadoCuenta: nuevoEstado },
+      timestamp: Date.now(),
+    });
+
     setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, estadoCuenta: nuevoEstado } : c))
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, estadoCuenta: nuevoEstado } : c))
     );
     setNotice(`Estado de cuenta de ${client.razonSocial} actualizado a ${nuevoEstado}.`);
 
@@ -612,7 +666,9 @@ export function useAdminData() {
       } else {
         await adminApi(token).put(`/admin/clientes/${client.id}/estado?nuevoEstado=${nuevoEstado}`);
       }
+      pendingOverridesRef.current.delete(clientIdStr);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al actualizar estado: ${err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     } finally {
@@ -626,15 +682,23 @@ export function useAdminData() {
     if (processingStateRef.current.has(processingKey)) return;
     processingStateRef.current.add(processingKey);
 
+    const clientIdStr = String(client.id);
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { estadoCuenta: 'VENCIDO' },
+      timestamp: Date.now(),
+    });
+
     setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, estadoCuenta: 'VENCIDO' } : c))
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, estadoCuenta: 'VENCIDO' } : c))
     );
     setActiveTab('vencidos');
     setNotice(`Acceso devuelto para ${client.razonSocial}. Restaurado a estado VENCIDO.`);
 
     try {
       await adminApi(token).put(`/admin/servicios/cliente/${client.id}/devolver-acceso`);
+      pendingOverridesRef.current.delete(clientIdStr);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al devolver acceso: ${err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     } finally {
@@ -672,6 +736,29 @@ export function useAdminData() {
     if (processingOperationsRef.current.has(processingKey)) return;
     processingOperationsRef.current.add(processingKey);
 
+    const clientIdStr = String(client.id);
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: {
+        planContratado: planAUsar,
+        tipoSuscripcion: tipoAUsar,
+        estadoCuenta: 'POR_COBRAR',
+      },
+      timestamp: Date.now(),
+    });
+
+    setClients((prev) =>
+      prev.map((c) =>
+        String(c.id) === clientIdStr
+          ? {
+              ...c,
+              planContratado: planAUsar,
+              tipoSuscripcion: tipoAUsar,
+              estadoCuenta: 'POR_COBRAR',
+            }
+          : c
+      )
+    );
+
     try {
       await adminApi(token).post(`/admin/ventas/procesar-operacion`, {
         clienteId: client.id,
@@ -681,9 +768,11 @@ export function useAdminData() {
         observaciones: `Operación de ${tipoVenta}: ${planAUsar} (${tipoAUsar})`,
       });
 
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Operación procesada con éxito para ${client.razonSocial} (${planAUsar} - ${tipoAUsar}).`);
       void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al procesar la venta: ${err.response?.data?.message || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     } finally {
@@ -706,6 +795,27 @@ export function useAdminData() {
     if (processingOperationsRef.current.has(processingKey)) return;
     processingOperationsRef.current.add(processingKey);
 
+    const clientIdStr = String(client.id);
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: {
+        planContratado: planAUsar,
+        tipoSuscripcion: tipoAUsar,
+      },
+      timestamp: Date.now(),
+    });
+
+    setClients((prev) =>
+      prev.map((c) =>
+        String(c.id) === clientIdStr
+          ? {
+              ...c,
+              planContratado: planAUsar,
+              tipoSuscripcion: tipoAUsar,
+            }
+          : c
+      )
+    );
+
     try {
       const response = await adminApi(token).post(`/admin/ventas/procesar-operacion`, {
         clienteId: client.id,
@@ -715,10 +825,12 @@ export function useAdminData() {
         observaciones: `Mejora de plan activa a ${planAUsar} (${tipoAUsar}) sin reiniciar vencimiento`,
       });
 
+      pendingOverridesRef.current.delete(clientIdStr);
       const monto = Number(response.data?.data?.montoTotal ?? 0);
       setNotice(`Mejora de plan registrada para ${client.razonSocial}. Diferencia cobrada: S/ ${monto.toFixed(2)}.`);
       void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al mejorar plan: ${err.response?.data?.message || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     } finally {
@@ -729,13 +841,17 @@ export function useAdminData() {
   async function handleDeleteClientConfirm() {
     if (!deletingClient || !token) return;
     const idToDelete = deletingClient.id;
-    setClients((prev) => prev.filter((c) => c.id !== idToDelete));
+    const clientIdStr = String(idToDelete);
+
+    deletedClientIdsRef.current.add(clientIdStr);
+    setClients((prev) => prev.filter((c) => String(c.id) !== clientIdStr));
     setDeletingClient(null);
 
     try {
       await adminApi(token).delete(`/admin/clientes/${idToDelete}`);
       setNotice(`El cliente ha sido eliminado permanentemente.`);
     } catch (err: any) {
+      deletedClientIdsRef.current.delete(clientIdStr);
       setNotice(`Error al eliminar cliente: ${err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     }
@@ -784,19 +900,27 @@ export function useAdminData() {
       vendedorId: canEditVendedor ? foundVendedorId : null,
     };
 
+    const clientIdStr = String(editingClient.id);
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { ...apiPayload, vendedor: selectedVendedor || editingClient.vendedor },
+      timestamp: Date.now(),
+    });
+
     setClients((prev) =>
-      prev.map((c) => (c.id === editingClient.id ? { ...c, ...apiPayload, vendedor: selectedVendedor || c.vendedor } : c))
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, ...apiPayload, vendedor: selectedVendedor || c.vendedor } : c))
     );
     setEditingClient(null);
 
     try {
       const response = await adminApi(token).put(`/admin/clientes/${editingClient.id}`, apiPayload);
+      pendingOverridesRef.current.delete(clientIdStr);
       const updatedClient = response.data?.data;
       if (updatedClient) {
-        setClients((prev) => prev.map((c) => (c.id === String(updatedClient.id) ? normalizeClientData(updatedClient) : c)));
+        setClients((prev) => prev.map((c) => (String(c.id) === String(updatedClient.id) ? normalizeClientData(updatedClient) : c)));
       }
       setNotice(`Los datos de ${editingClient.razonSocial} se han actualizado correctamente.`);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al actualizar el cliente: ${err.response?.data?.message || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     }
@@ -812,10 +936,20 @@ export function useAdminData() {
       ? (dateVal.length === 16 ? `${dateVal}:00` : dateVal)
       : `${dateVal}T12:00:00`;
 
+    const clientIdStr = String(targetId);
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: {
+        fechaCapacitacion: dateVal,
+        estadoCapacitacion: 'COMPLETADA',
+        estadoCuenta: 'HABILITADO',
+      },
+      timestamp: Date.now(),
+    });
+
     // Actualización instantánea en pantalla
     setClients((prev) =>
       prev.map((c) =>
-        c.id === targetId
+        String(c.id) === clientIdStr
           ? {
               ...c,
               fechaCapacitacion: dateVal,
@@ -834,9 +968,11 @@ export function useAdminData() {
         fechaCapacitacion,
       });
 
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Capacitación guardada con éxito. El plan y el prorrateo han iniciado desde la fecha asignada.`);
       void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al programar capacitación: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     }
@@ -850,10 +986,16 @@ export function useAdminData() {
       return;
     }
     const vendedorId = foundUser.id;
+    const clientIdStr = String(client.id);
+
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { vendedor: nuevoVendedor },
+      timestamp: Date.now(),
+    });
 
     // Optimista
     setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, vendedor: nuevoVendedor } : c))
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, vendedor: nuevoVendedor } : c))
     );
 
     try {
@@ -861,8 +1003,10 @@ export function useAdminData() {
         method: 'PUT',
         url: `/admin/clientes/${client.id}/vendedor?vendedorId=${vendedorId}`,
       });
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Vendedor asignado (${nuevoVendedor}) a ${client.razonSocial}.`);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al asignar vendedor: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     }
@@ -871,14 +1015,23 @@ export function useAdminData() {
   async function handleSelfAssignVendedor(client: Client) {
     if (!token) return;
     const myName = currentUser?.nombre || currentUser?.username || 'Asignado';
+    const clientIdStr = String(client.id);
+
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { vendedor: myName },
+      timestamp: Date.now(),
+    });
+
     setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, vendedor: myName } : c))
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, vendedor: myName } : c))
     );
 
     try {
       await adminApi(token).post(`/admin/clientes/${client.id}/vendedor/asignarme`);
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Te asignaste correctamente el cliente ${client.razonSocial}.`);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`No se pudo asignar el cliente: ${err.response?.data?.message || err.response?.data?.error || err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     }
@@ -888,10 +1041,16 @@ export function useAdminData() {
     if (!token) return;
     const colorMap: Record<string, number> = { VERDE: 1, AMARILLO: 2, ROJO: 3, AZUL: 4 };
     const colorId = colorMap[nuevoColor] || 1;
+    const clientIdStr = String(client.id);
+
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { colorTag: nuevoColor },
+      timestamp: Date.now(),
+    });
 
     // Optimista
     setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, colorTag: nuevoColor } : c))
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, colorTag: nuevoColor } : c))
     );
 
     try {
@@ -899,8 +1058,10 @@ export function useAdminData() {
         method: 'PUT',
         url: `/admin/clientes/${client.id}/color-tag?colorTagId=${colorId}`,
       });
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Etiqueta de color cambiada a ${nuevoColor} para ${client.razonSocial}.`);
     } catch (err: any) {
+      pendingOverridesRef.current.delete(clientIdStr);
       setNotice(`Error al cambiar etiqueta de color: ${err.message}`);
       void loadClientsOnly(token).catch(() => undefined);
     }
@@ -993,33 +1154,41 @@ export function useAdminData() {
     if (!token) return;
     if (!confirm(`¿Eliminar definitivamente al usuario ${user.nombre} (${user.username})?`)) return;
 
+    const userIdStr = String(user.id);
+    deletedUserIdsRef.current.add(userIdStr);
+
     // Optimista
-    setUsersList((prev) => prev.filter((u) => String(u.id) !== String(user.id)));
+    setUsersList((prev) => prev.filter((u) => String(u.id) !== userIdStr));
     setNotice(`Usuario ${user.nombre} eliminado del sistema.`);
 
     try {
       await adminApi(token).delete(`/admin/usuarios/${user.id}`);
       const usersResponse = await adminApi(token).get('/admin/usuarios');
-      setUsersList(extractArray(usersResponse.data));
+      setUsersList(extractArray(usersResponse.data).filter((u) => !deletedUserIdsRef.current.has(String(u?.id))));
     } catch (err: any) {
+      deletedUserIdsRef.current.delete(userIdStr);
       setNotice(`Error al eliminar usuario: ${err.message}`);
       void adminApi(token)
         .get('/admin/usuarios')
-        .then((resp) => setUsersList(extractArray(resp.data)))
+        .then((resp) => setUsersList(extractArray(resp.data).filter((u) => !deletedUserIdsRef.current.has(String(u?.id)))))
         .catch(() => undefined);
     }
   }
 
   async function handleMarkNotificationAsRead(notificationId: string | number) {
     if (!token || !notificationId) return;
+    const notifIdStr = String(notificationId);
+    readNotificationIdsRef.current.add(notifIdStr);
+
     setNotifications((prev) => prev.map((n) => (
-      String(n.id) === String(notificationId) ? { ...n, leida: true } : n
+      String(n.id) === notifIdStr ? { ...n, leida: true } : n
     )));
     try {
       await adminApi(token).put(`/admin/notificaciones/${notificationId}/leida`);
     } catch (err) {
+      readNotificationIdsRef.current.delete(notifIdStr);
       setNotifications((prev) => prev.map((n) => (
-        String(n.id) === String(notificationId) ? { ...n, leida: false } : n
+        String(n.id) === notifIdStr ? { ...n, leida: false } : n
       )));
     }
   }
