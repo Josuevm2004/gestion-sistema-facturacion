@@ -74,18 +74,18 @@ export default function CapacitacionesTab({
           <thead>
             <tr>
               <th>RUC / Empresa</th>
-              <th>Contacto</th>
-              <th>Plan</th>
+              <th>Contacto WhatsApp</th>
+              <th>Plan / Suscripción</th>
               <th>Estado Capacitación</th>
-              <th>Fecha Capacitación</th>
+              <th>Fecha Programada</th>
               <th>Acción</th>
             </tr>
           </thead>
           <tbody>
             {targetList.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-4">
-                  No hay empresas para capacitación.
+                <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
+                  ✨ No hay empresas para capacitación en este momento.
                 </td>
               </tr>
             ) : (
@@ -95,41 +95,51 @@ export default function CapacitacionesTab({
                 return (
                   <tr key={c.id}>
                     <td>
-                      <strong className="text-dark d-block">{c.razonSocial}</strong>
-                      <span className="small text-muted">{c.ruc}</span>
+                      <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
+                      <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                     </td>
-                    <td>{c.telefono}</td>
                     <td>
-                      <span className="badge bg-light text-dark me-1">{c.planContratado}</span>
-                      <span className="badge bg-secondary">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                      <span className="fw-bold text-dark">{c.telefono}</span>
+                    </td>
+                    <td>
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                        <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                      </div>
                     </td>
                     <td>
                       {isCapacitado ? (
-                        <span className="badge bg-success text-white">Capacitado</span>
+                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                          🟢 Capacitado
+                        </span>
                       ) : (
-                        <span className="badge bg-warning text-dark">Pendiente de Capacitación</span>
+                        <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
+                          ⏳ Pendiente de Capacitación
+                        </span>
                       )}
                     </td>
                     <td>
                       {c.fechaCapacitacion ? (
-                        <span className="badge bg-info text-dark">{formatPeruDate(c.fechaCapacitacion)}</span>
+                        <span className="badge bg-light text-primary border border-primary border-opacity-25 fw-bold">
+                          📅 {formatPeruDate(c.fechaCapacitacion)}
+                        </span>
                       ) : (
-                        <span className="text-muted small">Sin programar</span>
+                        <span className="text-muted small fw-semibold">Sin programar</span>
                       )}
                     </td>
                     <td>
                       {!isCapacitado ? (
                         <button
                           onClick={() => setTrainingClient(c)}
-                          className="btn btn-sm btn-primary rounded-pill px-3 py-1.5 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                          className="btn btn-sm btn-primary px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                         >
                           <Calendar size={14} />
-                          <span>Programar capacitación</span>
+                          <span>Programar Capacitación</span>
                         </button>
                       ) : (
-                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1">
+                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1">
                           <CheckCircle size={14} />
-                          <span>Ya capacitado</span>
+                          <span>Capacitación Realizada</span>
                         </span>
                       )}
                     </td>

@@ -282,8 +282,8 @@ export default function ClientesTodosTab({
       <div className="row g-3 mb-4 p-3 bg-light rounded-3 border">
         <div className="col-md-5">
           <div className="input-group">
-            <span className="input-group-text bg-white border-end-0">
-              <Search size={16} className="text-muted" />
+            <span className="input-group-text bg-white border-end-0 text-muted">
+              <Search size={16} />
             </span>
             <input
               type="text"
@@ -295,7 +295,7 @@ export default function ClientesTodosTab({
           </div>
         </div>
         <div className="col-md-3">
-          <select className="form-select" value={regimenFilter} onChange={(e) => setRegimenFilter(e.target.value)}>
+          <select className="form-select fw-semibold" value={regimenFilter} onChange={(e) => setRegimenFilter(e.target.value)}>
             <option value="">Todos los Regímenes</option>
             <option value="MYPE_TRIBUTARIO">MYPE Tributario</option>
             <option value="REGIMEN_GENERAL">Régimen General</option>
@@ -304,7 +304,7 @@ export default function ClientesTodosTab({
           </select>
         </div>
         <div className="col-md-4">
-          <select className="form-select" value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
+          <select className="form-select fw-semibold" value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
             <option value="">Todos los Planes</option>
             <option value="INICIA">Plan Inicia (S/ 19)</option>
             <option value="EMPRENDE">Plan Emprende (S/ 29)</option>
@@ -320,20 +320,19 @@ export default function ClientesTodosTab({
         <table className="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th style={{ width: '80px' }}>Color Celular</th>
+              <th style={{ width: '70px' }} className="text-center">Tag</th>
               <th>RUC / Empresa</th>
-              <th>Usuario WSP</th>
-              <th>WhatsApp / Email</th>
+              <th>WhatsApp / Contacto</th>
               <th>Plan / Suscripción</th>
               <th>Vendedor</th>
-              <th>Estado Cuenta</th>
-              <th>Acciones</th>
+              <th>Estado</th>
+              <th className="text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {visibleClients.map((c) => (
               <tr key={c.id}>
-                <td style={{ position: 'relative', zIndex: activeColorPickerId === c.id ? 99999 : 1 }}>
+                <td className="text-center" style={{ position: 'relative', zIndex: activeColorPickerId === c.id ? 99999 : 1 }}>
                   <div className="position-relative d-inline-block">
                     <button
                       type="button"
@@ -349,33 +348,32 @@ export default function ClientesTodosTab({
                           height: '22px',
                           backgroundColor: getColorInfo(c.colorTag)?.hex || '#198754',
                           cursor: 'pointer',
-                          transform: activeColorPickerId === c.id ? 'scale(1.2)' : 'scale(1)',
+                          transform: activeColorPickerId === c.id ? 'scale(1.25)' : 'scale(1)',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
                         }}
                       ></span>
                     </button>
-
                   </div>
                 </td>
                 <td>
-                  <strong className="text-dark d-block">{c.razonSocial}</strong>
-                  <span className="small text-muted">{c.ruc}</span>
+                  <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
+                  <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                 </td>
                 <td>
-                  <span className="fw-semibold">{c.usuarioWsp || '—'}</span>
+                  <span className="fw-bold text-dark d-block">{c.telefono}</span>
+                  <span className="small text-muted">{c.email || c.usuarioWsp || '—'}</span>
                 </td>
                 <td>
-                  <span className="fw-semibold d-block">{c.telefono}</span>
-                  <span className="small text-muted">{c.email || '—'}</span>
-                </td>
-                <td>
-                  <span className="badge bg-light text-dark me-1">{c.planContratado}</span>
-                  <span className={`badge ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-info text-dark'}`}>
-                    {c.tipoSuscripcion || 'MENSUAL'}
-                  </span>
+                  <div className="d-flex align-items-center gap-1">
+                    <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                    <span className={`badge ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}`}>
+                      {c.tipoSuscripcion || 'MENSUAL'}
+                    </span>
+                  </div>
                 </td>
                 <td>
                   {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (
-                    <span className="badge bg-secondary text-white fw-semibold" style={{ fontSize: '0.75rem' }} title="Vendedor asignado (Bloqueado)">
+                    <span className="badge bg-secondary text-white fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
                       👤 {c.vendedor}
                     </span>
                   ) : currentUser?.rol === 'ADMIN' ? (
@@ -399,7 +397,7 @@ export default function ClientesTodosTab({
                   ) : currentUser?.rol === 'VENDEDOR' ? (
                     <button
                       type="button"
-                      className="btn btn-sm btn-outline-primary"
+                      className="btn btn-sm btn-outline-primary fw-bold"
                       onClick={() => handleSelfAssignVendedor(c)}
                       title="Asignarme este cliente"
                     >
@@ -413,38 +411,39 @@ export default function ClientesTodosTab({
                 </td>
                 <td>
                   <span className={`badge ${c.estadoCuenta === 'HABILITADO' ? 'badge-habilitado' : 'badge-bloqueado'}`}>
-                    {c.estadoCuenta}
+                    {c.estadoCuenta === 'HABILITADO' ? '🟢 HABILITADO' : '🔴 ' + c.estadoCuenta}
                   </span>
                 </td>
                 <td>
-                  <div className="d-flex gap-1">
+                  <div className="d-flex gap-1.5 justify-content-center align-items-center">
                     {c.estadoCuenta === 'HABILITADO' && normalizePlanKey(c.planContratado) !== 'LIDER' && (
                       <button
                         onClick={() => {
                           setMejoraPlanSeleccionado('');
                           setMejoraPlanClient(c);
                         }}
-                        className="btn btn-sm btn-outline-success"
-                        title="Mejorar plan activo sin modificar vencimiento"
+                        className="btn btn-sm btn-outline-success px-2.5 py-1 fw-bold"
+                        title="Mejorar plan activo"
                         aria-label={`Mejorar plan de ${c.razonSocial}`}
                       >
                         <TrendingUp size={14} />
-                        <span className="ms-1">Mejorar</span>
+                        <span className="ms-1 d-none d-lg-inline">Mejorar</span>
                       </button>
                     )}
-                    <button onClick={() => setEditingClient(c)} className="btn btn-sm btn-outline-primary" title="Editar cliente">
+                    <button onClick={() => setEditingClient(c)} className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold" title="Editar cliente">
                       <Edit size={14} />
+                      <span className="ms-1 d-none d-xl-inline">Editar</span>
                     </button>
                     <button
                       onClick={() => void copyAffiliationMessage(c)}
-                      className={`btn btn-sm ${copiedMessageClientId === c.id ? 'btn-success' : 'btn-outline-secondary'}`}
-                      title="Copiar mensaje de afiliación"
+                      className={`btn btn-sm ${copiedMessageClientId === c.id ? 'btn-success text-white' : 'btn-outline-secondary'} px-2.5 py-1 fw-semibold`}
+                      title="Copiar ficha de afiliación"
                       aria-label={`Copiar mensaje de afiliación de ${c.razonSocial}`}
                     >
                       {copiedMessageClientId === c.id ? <Check size={14} /> : <Clipboard size={14} />}
-                      <span className="d-none d-xl-inline">{copiedMessageClientId === c.id ? 'Copiado' : 'Ficha'}</span>
+                      <span className="ms-1 d-none d-xl-inline">{copiedMessageClientId === c.id ? 'Copiado' : 'Ficha'}</span>
                     </button>
-                    <button onClick={() => setDeletingClient(c)} className="btn btn-sm btn-outline-danger" title="Eliminar cliente">
+                    <button onClick={() => setDeletingClient(c)} className="btn btn-sm btn-outline-danger px-2.5 py-1" title="Eliminar cliente">
                       <Trash2 size={14} />
                     </button>
                   </div>

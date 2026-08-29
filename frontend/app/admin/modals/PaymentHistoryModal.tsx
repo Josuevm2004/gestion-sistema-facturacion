@@ -106,95 +106,105 @@ export default function PaymentHistoryModal({
   ];
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1}>
+    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div className="modal-content rounded-3 shadow">
-          <div className="modal-header border-bottom bg-light">
+        <div className="modal-content rounded-4 shadow-lg border-0">
+          <div className="modal-header border-bottom bg-light px-4 py-3">
             <div>
               <h5 className="modal-title fw-bold text-dark mb-0">Historial de Pagos de Base de Datos</h5>
-              <small className="text-muted">
+              <small className="text-muted fw-semibold">
                 {historyClient.razonSocial} | RUC: {historyClient.ruc}
               </small>
             </div>
             <button type="button" className="btn-close" onClick={() => setHistoryClient(null)}></button>
           </div>
           <div className="modal-body p-4">
-            <div className="card bg-light border-0 rounded-3 p-3 mb-4">
-              <div className="row g-2 small">
+            <div className="card bg-light border rounded-3 p-3 mb-4">
+              <div className="row g-3 small">
                 <div className="col-md-6">
-                  Plan Contratado: <strong>{historyClient.planContratado}</strong> ({historyClient.tipoSuscripcion || 'MENSUAL'})
+                  <span className="text-muted">Plan Contratado:</span> <strong className="text-dark">{historyClient.planContratado}</strong> ({historyClient.tipoSuscripcion || 'MENSUAL'})
                 </div>
                 <div className="col-md-6">
-                  Monto Base del Plan: <strong>S/ {Number(historyClient.montoMensual || 0).toFixed(2)}</strong>
+                  <span className="text-muted">Monto Base del Plan:</span> <strong className="text-dark">S/ {Number(historyClient.montoMensual || 0).toFixed(2)}</strong>
                 </div>
                 <div className="col-md-6">
-                  Estado de Cuenta: <span className="badge bg-success">{historyClient.estadoCuenta}</span>
+                  <span className="text-muted">Estado de Cuenta:</span> <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 ms-1">{historyClient.estadoCuenta}</span>
                 </div>
                 <div className="col-md-6">
-                  Pagos confirmados: <strong className="text-primary fs-6">{transactions.length}</strong>
+                  <span className="text-muted">Pagos confirmados:</span> <strong className="text-primary fs-6 ms-1">{transactions.length}</strong>
                 </div>
               </div>
             </div>
 
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h6 className="fw-bold text-dark mb-0">Pagos en Base de Datos ({transactions.length})</h6>
+              <h6 className="fw-bold text-dark mb-0">Transacciones Registradas ({transactions.length})</h6>
               {loading && <span className="badge bg-warning text-dark">Cargando desde base de datos...</span>}
             </div>
 
             <div className="table-responsive">
-              <table className="table table-sm table-hover align-middle mb-0 small">
-                <thead className="table-secondary">
+              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.88rem' }}>
+                <thead>
                   <tr>
                     <th>#</th>
                     <th>Fecha Pago</th>
-                    <th>Código / Observación</th>
-                    <th>Mes Correspondiente</th>
-                    <th>Tipo Pago</th>
+                    <th>Código / Operación</th>
+                    <th>Período</th>
+                    <th>Tipo</th>
                     <th>Estado</th>
-                    <th>Monto Pagado</th>
+                    <th className="text-end">Monto</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((t, idx) => {
-                    const tDate = t.fecha ? new Date(t.fecha) : new Date();
-                    const mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
+                  {transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
+                        No hay pagos registrados para este cliente.
+                      </td>
+                    </tr>
+                  ) : (
+                    transactions.map((t, idx) => {
+                      const tDate = t.fecha ? new Date(t.fecha) : new Date();
+                      const mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
 
-                    return (
-                      <tr key={t.id || idx}>
-                        <td className="text-muted fw-semibold">{transactions.length - idx}</td>
-                        <td>
-                          {tDate.toLocaleDateString('es-PE', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                          })}
-                        </td>
-                        <td>
-                          <strong className="text-dark">{t.observaciones}</strong>
-                        </td>
-                        <td>
-                          <span className="badge bg-light text-dark border fw-bold">{mesTexto}</span>
-                        </td>
-                        <td>
-                          <span className={`badge ${t.badgeClass}`}>{t.tipoOperacion}</span>
-                        </td>
-                        <td>
-                          <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
-                            {t.estado}
-                          </span>
-                        </td>
-                        <td className="fw-bold text-success fs-6">
-                          S/ {Number(t.monto || 0).toFixed(2)}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                      return (
+                        <tr key={t.id || idx}>
+                          <td className="text-muted fw-semibold">{transactions.length - idx}</td>
+                          <td>
+                            <strong className="text-dark">
+                              {tDate.toLocaleDateString('es-PE', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                              })}
+                            </strong>
+                          </td>
+                          <td>
+                            <code className="text-dark fw-semibold">{t.observaciones}</code>
+                          </td>
+                          <td>
+                            <span className="badge bg-light text-dark border fw-bold">{mesTexto}</span>
+                          </td>
+                          <td>
+                            <span className={`badge ${t.badgeClass}`}>{t.tipoOperacion}</span>
+                          </td>
+                          <td>
+                            <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                              {t.estado}
+                            </span>
+                          </td>
+                          <td className="fw-bold text-success fs-6 text-end">
+                            S/ {Number(t.monto || 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
-          <div className="modal-footer border-top">
-            <button type="button" className="btn btn-secondary" onClick={() => setHistoryClient(null)}>
+          <div className="modal-footer border-top bg-light px-4 py-3">
+            <button type="button" className="btn btn-outline-secondary px-4 fw-semibold" onClick={() => setHistoryClient(null)}>
               Cerrar Historial
             </button>
           </div>

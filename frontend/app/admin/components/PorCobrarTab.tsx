@@ -58,42 +58,46 @@ export default function PorCobrarTab({
               <th>Plan / Suscripción</th>
               <th>Monto a Cobrar</th>
               <th>Estado Cuenta</th>
-              <th>Acciones</th>
+              <th>Acciones Comerciales</th>
             </tr>
           </thead>
           <tbody>
             {clientesPorCobrarList.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-3">
-                  No hay registros pendientes por cobrar.
+                <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
+                  ✨ No hay registros pendientes por cobrar en este momento.
                 </td>
               </tr>
             ) : (
               visibleClients.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <strong className="text-dark d-block">{c.razonSocial}</strong>
-                    <span className="small text-muted">{c.ruc}</span>
+                    <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
+                    <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                   </td>
                   <td>
-                    <span className="fw-semibold">{c.telefono}</span>
+                    <span className="fw-bold text-dark">{c.telefono}</span>
                   </td>
                   <td>
-                    <span className="badge bg-light text-dark me-1">{c.planContratado}</span>
-                    <span className="badge bg-info text-dark">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                    <div className="d-flex align-items-center gap-1">
+                      <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                      <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                    </div>
                   </td>
-                  <td className="fw-bold text-primary">S/ {Number(c.montoSiguienteCobro ?? c.montoMensual).toFixed(2)}</td>
+                  <td className="fw-bold text-primary fs-6">S/ {Number(c.montoSiguienteCobro ?? c.montoMensual).toFixed(2)}</td>
                   <td>
-                    <span className="badge bg-warning text-dark">POR_COBRAR</span>
+                    <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
+                      ⏳ POR COBRAR
+                    </span>
                   </td>
                   <td>
                     <div className="d-flex gap-2">
                       <button
                         onClick={() => handleRegisterPayment(c)}
-                        className="btn btn-sm btn-success rounded-pill px-3 py-1.5 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                        className="btn btn-sm btn-success px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                       >
                         <CheckCircle size={14} />
-                        <span>Marcar como Pagado</span>
+                        <span>Confirmar Pago</span>
                       </button>
                       <button
                         onClick={() => {
@@ -104,7 +108,7 @@ export default function PorCobrarTab({
                             handleEstadoCuentaChange(c, 'BLOQUEADO');
                           }
                         }}
-                        className="btn btn-sm btn-outline-danger rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1"
+                        className="btn btn-sm btn-outline-danger px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
                       >
                         <X size={14} />
                         <span>Cancelar Plan</span>

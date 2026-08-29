@@ -66,15 +66,15 @@ export default function VencidosTab({
               <th>Plan Actual</th>
               <th>Estado</th>
               <th>Monto</th>
-              <th>Venció / Inicio</th>
+              <th>Fecha Vencimiento</th>
               <th>Acciones Comerciales</th>
             </tr>
           </thead>
           <tbody>
             {clientesVencidosList.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-3">
-                  No hay clientes vencidos.
+                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
+                  🎉 No hay clientes vencidos en este momento.
                 </td>
               </tr>
             ) : (
@@ -83,39 +83,43 @@ export default function VencidosTab({
                 const isBloqueado = c.estadoCuenta === 'BLOQUEADO';
 
                 return (
-                  <tr key={c.id} className={isBloqueado ? 'bg-light bg-opacity-50' : ''}>
+                  <tr key={c.id} className={isBloqueado ? 'bg-light bg-opacity-75' : ''}>
                     <td>
-                      <strong className="text-dark d-block">{c.razonSocial}</strong>
-                      <span className="small text-muted">{c.ruc}</span>
+                      <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
+                      <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                     </td>
                     <td>
-                      <span className="fw-semibold">{c.telefono}</span>
+                      <span className="fw-bold text-dark">{c.telefono}</span>
                     </td>
                     <td>
-                      <span className="badge bg-light text-dark me-1">{c.planContratado}</span>
-                      <span className="badge bg-secondary">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                        <span className="badge bg-secondary text-white">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                      </div>
                     </td>
                     <td>
                       {isBloqueado ? (
-                        <span className="badge bg-dark text-white d-inline-flex align-items-center gap-1">
+                        <span className="badge bg-secondary text-white d-inline-flex align-items-center gap-1">
                           <ShieldAlert size={12} /> Bloqueado
                         </span>
                       ) : (
-                        <span className="badge bg-danger text-white">Vencido</span>
+                        <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                          ⚠️ Vencido
+                        </span>
                       )}
                     </td>
-                    <td className="fw-bold text-danger">S/ {c.montoMensual?.toFixed(2)}</td>
+                    <td className="fw-bold text-danger fs-6">S/ {c.montoMensual?.toFixed(2)}</td>
                     <td>
                       {vencDate ? (
-                        <span className={`badge ${isBloqueado ? 'bg-secondary' : 'bg-danger'}`}>
-                          {vencDate.toLocaleDateString()}
+                        <span className="badge bg-light text-danger border border-danger border-opacity-25 fw-bold">
+                          {vencDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                         </span>
                       ) : (
-                        <span className="badge bg-secondary">Sin fecha</span>
+                        <span className="badge bg-light text-muted border">Sin fecha</span>
                       )}
                     </td>
                     <td>
-                      <div className="d-flex gap-1.5 flex-wrap">
+                      <div className="d-flex gap-2 flex-wrap align-items-center">
                         {!isBloqueado ? (
                           <>
                             <button
@@ -125,10 +129,10 @@ export default function VencidosTab({
                                 );
                                 if (ok) handleRenovarPlan(c);
                               }}
-                              className="btn btn-sm btn-info text-white rounded-pill px-3 py-1 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                              className="btn btn-sm btn-primary text-white px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                             >
                               <RefreshCw size={13} />
-                              <span>Renovación</span>
+                              <span>Renovar</span>
                             </button>
                             <button
                               onClick={() => {
@@ -136,10 +140,10 @@ export default function VencidosTab({
                                 setCambioPlanSeleccionado(c.planContratado);
                                 if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
                               }}
-                              className="btn btn-sm btn-warning text-dark rounded-pill px-3 py-1 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                              className="btn btn-sm btn-warning text-dark px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                             >
                               <Settings size={13} />
-                              <span>Cambio de Plan</span>
+                              <span>Cambiar Plan</span>
                             </button>
                             <button
                               onClick={() => {
@@ -148,7 +152,7 @@ export default function VencidosTab({
                                 );
                                 if (ok && handleEstadoCuentaChange) handleEstadoCuentaChange(c, 'BLOQUEADO');
                               }}
-                              className="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1"
+                              className="btn btn-sm btn-outline-danger px-3 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
                             >
                               <X size={13} />
                               <span>Bloquear</span>
@@ -157,13 +161,13 @@ export default function VencidosTab({
                         ) : (
                           <button
                             onClick={() => {
-                              const ok = window.confirm('Reactivar a ' + c.razonSocial + '? Se registrara una renovacion con prorrateo si corresponde.');
+                              const ok = window.confirm('Reactivar a ' + c.razonSocial + '? Se registrará una renovación.');
                               if (ok) handleRenovarPlan(c);
                             }}
-                            className="btn btn-sm btn-success text-white rounded-pill px-3 py-1 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                            className="btn btn-sm btn-success text-white px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                           >
                             <Unlock size={13} />
-                            <span>Reactivar</span>
+                            <span>Reactivar Acceso</span>
                           </button>
                         )}
                       </div>

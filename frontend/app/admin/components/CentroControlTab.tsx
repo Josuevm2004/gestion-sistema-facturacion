@@ -95,28 +95,28 @@ export default function CentroControlTab({
       </div>
 
       <div className="table-responsive">
-        <table className="table table-sm table-hover align-middle mb-0" style={{ fontSize: '0.82rem' }}>
-          <thead className="table-light">
+        <table className="table table-sm table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+          <thead>
             <tr>
-              <th className="py-2">#</th>
-              <th className="py-2">Representante</th>
-              <th className="py-2">DNI</th>
-              <th className="py-2">RUC</th>
-              <th className="py-2">Empresa</th>
-              <th className="py-2">Correo</th>
-              <th className="py-2">Plan Actual</th>
-              <th className="py-2">Cobro Próximo Mes</th>
-              <th className="py-2">Vencimiento</th>
-              <th className="py-2">Días Restantes</th>
-              <th className="py-2">Estado</th>
-              <th className="py-2">Historial</th>
+              <th className="py-2.5">#</th>
+              <th className="py-2.5">Representante</th>
+              <th className="py-2.5">DNI</th>
+              <th className="py-2.5">RUC</th>
+              <th className="py-2.5">Empresa</th>
+              <th className="py-2.5">Contacto</th>
+              <th className="py-2.5">Plan Actual</th>
+              <th className="py-2.5">Próximo Cobro</th>
+              <th className="py-2.5">Vencimiento</th>
+              <th className="py-2.5">Plazo</th>
+              <th className="py-2.5">Estado</th>
+              <th className="py-2.5 text-center">Historial</th>
             </tr>
           </thead>
           <tbody>
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={12} className="text-center text-muted py-4">
-                  No se encontraron clientes en el Centro de Control.
+                <td colSpan={12} className="text-center text-muted py-4 fw-semibold">
+                  ✨ No se encontraron clientes en el Centro de Control.
                 </td>
               </tr>
             ) : visibleClients.map((c, idx) => {
@@ -131,9 +131,9 @@ export default function CentroControlTab({
                 const isExpired = diffDays <= 0;
 
                 return (
-                  <tr key={c.id} className={isExpired ? 'table-danger' : isNearExpiry ? 'table-warning' : ''}>
-                    <td className="text-muted fw-semibold py-2">{(currentPage - 1) * pageSize + idx + 1}</td>
-                    <td className="py-2">
+                  <tr key={c.id} className={isExpired ? 'bg-danger bg-opacity-10' : isNearExpiry ? 'bg-warning bg-opacity-10' : ''}>
+                    <td className="text-muted fw-semibold py-2.5">{(currentPage - 1) * pageSize + idx + 1}</td>
+                    <td className="py-2.5">
                       {c.nombres || c.apellidos ? (
                         <strong className="text-dark">
                           {c.nombres} {c.apellidos || ''}
@@ -142,76 +142,76 @@ export default function CentroControlTab({
                         <span className="text-muted small">Sin especificar</span>
                       )}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2.5">
                       {c.dni ? (
-                        <span className="fw-semibold text-dark">{c.dni}</span>
+                        <span className="fw-bold text-dark">{c.dni}</span>
                       ) : (
                         <span className="text-muted small">Sin DNI</span>
                       )}
                     </td>
-                    <td className="py-2">
-                      <code>{c.ruc}</code>
+                    <td className="py-2.5">
+                      <span className="fw-bold text-dark font-monospace">{c.ruc}</span>
                     </td>
-                    <td className="py-2">
-                      <strong className="text-dark">{c.razonSocial}</strong>
+                    <td className="py-2.5">
+                      <strong className="text-dark fs-6">{c.razonSocial}</strong>
                     </td>
-                    <td className="py-2">
-                      <span className="text-dark">{c.email || 'Sin correo'}</span>
-                      {c.telefono && <small className="text-muted d-block">{c.telefono}</small>}
+                    <td className="py-2.5">
+                      <span className="fw-bold text-dark d-block">{c.telefono}</span>
+                      <small className="text-muted">{c.email || 'Sin correo'}</small>
                     </td>
-                    <td className="py-2">
-                      <span className="badge bg-primary me-1">{c.planContratado}</span>
-                      <span className="badge bg-light text-dark border">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                    <td className="py-2.5">
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                        <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                      </div>
                     </td>
-                    <td className="py-2">
-                      <strong className="text-success fs-6">S/ {cobroProximo.toFixed(2)}</strong>
+                    <td className="py-2.5">
+                      <strong className="text-primary fs-6">S/ {cobroProximo.toFixed(2)}</strong>
                     </td>
-                    <td className="py-2">
-                      <strong className={isExpired ? 'text-danger' : isNearExpiry ? 'text-warning' : 'text-dark'}>
+                    <td className="py-2.5">
+                      <strong className={isExpired ? 'text-danger' : isNearExpiry ? 'text-warning text-dark' : 'text-dark'}>
                         {vencDate
                           ? vencDate.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
                           : 'Sin fecha'}
                       </strong>
                     </td>
-                    <td className="py-2">
+                    <td className="py-2.5">
                       {diffDays === 9999 ? (
                         <span className="badge bg-light text-muted border">Sin fecha</span>
                       ) : diffDays > 0 ? (
                         <span
                           className={`badge fw-bold ${
-                            diffDays <= 3 ? 'bg-warning text-dark' : diffDays <= 7 ? 'bg-info text-dark' : 'bg-success'
+                            diffDays <= 3 ? 'bg-warning bg-opacity-25 text-dark border border-warning' : diffDays <= 7 ? 'bg-info bg-opacity-25 text-dark border border-info' : 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
                           }`}
                         >
                           {diffDays === 1 ? 'Mañana' : `${diffDays} días`}
                         </span>
                       ) : diffDays === 0 ? (
-                        <span className="badge bg-danger fw-bold">HOY</span>
+                        <span className="badge bg-danger text-white fw-bold">HOY</span>
                       ) : (
-                        <span className="badge bg-danger">Vencido {Math.abs(diffDays)}d</span>
+                        <span className="badge bg-danger text-white">Vencido {Math.abs(diffDays)}d</span>
                       )}
                     </td>
-                    <td className="py-2">
+                    <td className="py-2.5">
                       <span
                         className={`badge ${
                           estadoVisual === 'HABILITADO'
-                            ? 'bg-success'
+                            ? 'badge-habilitado'
                             : estadoVisual === 'POR_COBRAR'
-                            ? 'bg-warning text-dark'
-                            : estadoVisual === 'PAGO_REALIZADO'
-                            ? 'bg-info text-dark'
-                            : 'bg-danger'
+                            ? 'badge-pendiente'
+                            : 'badge-vencido'
                         }`}
                       >
                         {estadoVisual}
                       </span>
                     </td>
-                    <td className="py-2">
+                    <td className="py-2.5 text-center">
                       <button
-                        className="btn btn-sm btn-primary rounded-pill px-3 py-1 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                        className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
                         onClick={() => setHistoryClient(c)}
                       >
                         <Eye size={13} />
-                        <span>Ver Historial</span>
+                        <span>Historial</span>
                       </button>
                     </td>
                   </tr>

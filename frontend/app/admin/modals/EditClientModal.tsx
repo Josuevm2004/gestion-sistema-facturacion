@@ -48,36 +48,41 @@ export default function EditClientModal({
   };
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1}>
-      <div className="modal-dialog modal-lg modal-dialog-centered">
-        <div className="modal-content rounded-3 shadow">
-          <div className="modal-header border-bottom">
-            <h5 className="modal-title fw-bold">Editar Cliente: {editingClient.razonSocial}</h5>
+    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
+      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div className="modal-content rounded-4 shadow-lg border-0">
+          <div className="modal-header border-bottom bg-light px-4 py-3">
+            <div>
+              <h5 className="modal-title fw-bold text-dark mb-0">Editar Cliente: {editingClient.razonSocial}</h5>
+              <small className="text-muted fw-semibold">RUC: {editingClient.ruc} | Estado: {editingClient.estadoCuenta}</small>
+            </div>
             <button type="button" className="btn-close" onClick={() => setEditingClient(null)}></button>
           </div>
           <form onSubmit={handleSaveEditClient}>
-            <div className="modal-body">
+            <div className="modal-body p-4">
               <div className="row g-3">
                 {/* --- Datos de la Empresa --- */}
                 <div className="col-12">
-                  <hr className="my-1" />
-                  <small className="text-muted fw-semibold text-uppercase">Datos de la Empresa</small>
+                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                    <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>1</span>
+                    <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Datos de la Empresa</h6>
+                  </div>
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">RUC</label>
-                  <input className="form-control" name="ruc" defaultValue={editingClient.ruc} required />
+                  <label className="form-label">RUC <span className="text-danger">*</span></label>
+                  <input className="form-control fw-bold text-dark" name="ruc" defaultValue={editingClient.ruc} required />
                 </div>
                 <div className="col-md-8">
-                  <label className="form-label">Razón Social</label>
-                  <input className="form-control" name="razonSocial" defaultValue={editingClient.razonSocial} required />
+                  <label className="form-label">Razón Social <span className="text-danger">*</span></label>
+                  <input className="form-control fw-semibold" name="razonSocial" defaultValue={editingClient.razonSocial} required />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">Nombre Comercial</label>
-                  <input className="form-control" name="nombreComercial" defaultValue={editingClient.nombreComercial || ''} />
+                  <input className="form-control" name="nombreComercial" defaultValue={editingClient.nombreComercial || ''} placeholder="Ej. Mi Negocio SAC" />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">Dirección Fiscal</label>
-                  <input className="form-control" name="direccion" defaultValue={editingClient.direccion || ''} />
+                  <input className="form-control" name="direccion" defaultValue={editingClient.direccion || ''} placeholder="Av. Principal 123" />
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Departamento</label>
@@ -93,9 +98,11 @@ export default function EditClientModal({
                 </div>
 
                 {/* --- Datos del Representante --- */}
-                <div className="col-12">
-                  <hr className="my-1" />
-                  <small className="text-muted fw-semibold text-uppercase">Representante Legal</small>
+                <div className="col-12 mt-4">
+                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                    <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>2</span>
+                    <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Representante Legal y Contacto</h6>
+                  </div>
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Nombres</label>
@@ -110,11 +117,11 @@ export default function EditClientModal({
                   <input className="form-control" name="dni" defaultValue={editingClient.dni || ''} maxLength={8} />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">WhatsApp Empresa</label>
-                  <input className="form-control" name="telefono" defaultValue={editingClient.telefono} required />
+                  <label className="form-label">WhatsApp Empresa <span className="text-danger">*</span></label>
+                  <input className="form-control fw-semibold" name="telefono" defaultValue={editingClient.telefono} required />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">Email Empresa</label>
+                  <label className="form-label">Email Empresa <span className="text-danger">*</span></label>
                   <input className="form-control" name="email" defaultValue={editingClient.email || ''} required />
                 </div>
                 <div className="col-md-4">
@@ -136,9 +143,11 @@ export default function EditClientModal({
                 </div>
 
                 {/* --- Plan y Acceso --- */}
-                <div className="col-12">
-                  <hr className="my-1" />
-                  <small className="text-muted fw-semibold text-uppercase">Plan y Acceso</small>
+                <div className="col-12 mt-4">
+                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                    <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>3</span>
+                    <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Plan, Asignación y Credenciales</h6>
+                  </div>
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Régimen Tributario</label>
@@ -172,7 +181,7 @@ export default function EditClientModal({
                 </div>
 
                 <div className="col-md-6">
-                  <label className="form-label font-weight-bold text-primary">Vendedor Asignado</label>
+                  <label className="form-label text-primary fw-bold">Vendedor Asignado</label>
                   {isAdmin ? (
                     <select
                       className="form-select border-primary fw-semibold"
@@ -235,11 +244,11 @@ export default function EditClientModal({
                 </div>
               </div>
             </div>
-            <div className="modal-footer border-top">
-              <button type="button" className="btn btn-secondary" onClick={() => setEditingClient(null)}>
+            <div className="modal-footer border-top bg-light px-4 py-3">
+              <button type="button" className="btn btn-outline-secondary px-4 fw-semibold" onClick={() => setEditingClient(null)}>
                 Cancelar
               </button>
-              <button type="submit" className="btn btn-primary">
+              <button type="submit" className="btn btn-primary px-4 fw-bold">
                 Guardar Cambios
               </button>
             </div>

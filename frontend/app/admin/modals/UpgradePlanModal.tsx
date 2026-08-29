@@ -56,21 +56,29 @@ export default function UpgradePlanModal({
   const canUpgrade = Boolean(selectedSubscription && Number(selectedSubscription.precio || 0) > currentPrice);
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1}>
+    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-dialog-centered">
-        <div className="modal-content rounded-3 shadow">
-          <div className="modal-header border-bottom">
-            <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
-              <TrendingUp size={18} className="text-success" />
-              <span>Mejorar Plan: {mejoraPlanClient.razonSocial}</span>
-            </h5>
+        <div className="modal-content rounded-4 shadow-lg border-0">
+          <div className="modal-header border-bottom bg-light px-4 py-3">
+            <div>
+              <h5 className="modal-title fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+                <TrendingUp size={20} className="text-success" />
+                <span>Mejorar Plan (Upgrade)</span>
+              </h5>
+              <small className="text-muted fw-semibold">{mejoraPlanClient.razonSocial} | RUC: {mejoraPlanClient.ruc}</small>
+            </div>
             <button type="button" className="btn-close" onClick={() => setMejoraPlanClient(null)}></button>
           </div>
 
-          <div className="modal-body">
-            <p className="small text-muted mb-3">
-              Plan actual: <strong>{mejoraPlanClient.planContratado}</strong> ({mejoraPlanClient.tipoSuscripcion || 'MENSUAL'})
-            </p>
+          <div className="modal-body p-4">
+            <div className="p-3 bg-light rounded-3 border mb-3">
+              <div className="small text-muted mb-1">Plan Actual Contratado:</div>
+              <div className="d-flex align-items-center gap-2">
+                <span className="badge bg-secondary text-white px-2.5 py-1.5 fs-6">{mejoraPlanClient.planContratado}</span>
+                <span className="badge bg-light text-dark border fw-bold">{currentType}</span>
+                <span className="fw-bold text-dark ms-auto">S/ {currentPrice.toFixed(2)}</span>
+              </div>
+            </div>
 
             {planOptions.length === 0 ? (
               <div className="alert alert-warning mb-0 small">
@@ -78,9 +86,9 @@ export default function UpgradePlanModal({
               </div>
             ) : (
               <>
-                <label className="form-label fw-semibold">Planes disponibles ({currentType})</label>
+                <label className="form-label fw-bold text-dark">Selecciona el Plan Superior ({currentType})</label>
                 <select
-                  className="form-select"
+                  className="form-select fw-semibold"
                   value={selectedSubscription ? String(selectedSubscription.id) : ''}
                   onChange={(e) => setMejoraPlanSeleccionado(e.target.value)}
                 >
@@ -88,27 +96,27 @@ export default function UpgradePlanModal({
                     const planName = subscription.plan?.nombrePlan || 'Plan sin nombre';
                     const isHigher = Number(subscription.precio || 0) > currentPrice;
                     return (
-                    <option key={String(subscription.id)} value={String(subscription.id)} disabled={!isHigher}>
-                      {planName} - S/ {Number(subscription.precio || 0).toFixed(2)}{isHigher ? '' : ' (no disponible para mejora)'}
-                    </option>
+                      <option key={String(subscription.id)} value={String(subscription.id)} disabled={!isHigher}>
+                        {planName} - S/ {Number(subscription.precio || 0).toFixed(2)}{isHigher ? '' : ' (Tarifa menor o igual - no aplica mejora)'}
+                      </option>
                     );
                   })}
                 </select>
 
-                <div className="alert alert-info mt-3 mb-0 small">
-                  Se registrará una venta por la diferencia proporcional. La fecha de inicio y vencimiento no se modifican, incluso para planes anuales.
+                <div className="alert alert-success mt-3 mb-0 small border-success border-opacity-25 bg-success bg-opacity-10 text-dark">
+                  💡 <strong>Cálculo Automático:</strong> Se registrará el cobro proporcional únicamente por la diferencia del plan. Las fechas de vigencia y aniversario de cobro se conservan intactas.
                 </div>
               </>
             )}
           </div>
 
-          <div className="modal-footer border-top">
-            <button type="button" className="btn btn-secondary" onClick={() => setMejoraPlanClient(null)}>
+          <div className="modal-footer border-top bg-light px-4 py-3">
+            <button type="button" className="btn btn-outline-secondary px-4 fw-semibold" onClick={() => setMejoraPlanClient(null)}>
               Cancelar
             </button>
             <button
               type="button"
-              className="btn btn-success fw-semibold"
+              className="btn btn-success fw-bold px-4 shadow-sm"
               disabled={!canUpgrade}
               onClick={async () => {
                 if (!selectedSubscription) return;
@@ -116,7 +124,7 @@ export default function UpgradePlanModal({
                 setMejoraPlanClient(null);
               }}
             >
-              Confirmar Mejora
+              Confirmar Mejora de Plan
             </button>
           </div>
         </div>

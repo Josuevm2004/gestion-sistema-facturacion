@@ -56,55 +56,59 @@ export default function BloqueadosTab({
           <thead>
             <tr>
               <th>RUC / Empresa</th>
-              <th>Telefono</th>
+              <th>Teléfono</th>
               <th>Email</th>
               <th>Plan</th>
               <th>Estado</th>
-              <th>Acciones</th>
+              <th>Acciones Comerciales</th>
             </tr>
           </thead>
           <tbody>
             {clientesBloqueadosList.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-4">
-                  No hay clientes en estado bloqueado.
+                <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
+                  ✨ No hay clientes en estado bloqueado.
                 </td>
               </tr>
             ) : (
               visibleClients.map((c) => (
                 <tr key={c.id}>
                   <td>
-                    <strong className="text-dark d-block">{c.razonSocial}</strong>
-                    <span className="small text-muted">{c.ruc}</span>
-                  </td>
-                  <td>{c.telefono}</td>
-                  <td>{c.email || 'N/A'}</td>
-                  <td>
-                    <span className="badge bg-light text-dark">{c.planContratado}</span>
+                    <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
+                    <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                   </td>
                   <td>
-                    <span className="badge bg-danger">BLOQUEADO</span>
+                    <span className="fw-bold text-dark">{c.telefono}</span>
+                  </td>
+                  <td>
+                    <span className="text-dark">{c.email || 'N/A'}</span>
+                  </td>
+                  <td>
+                    <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                  </td>
+                  <td>
+                    <span className="badge bg-secondary text-white">🔒 BLOQUEADO</span>
                   </td>
                   <td>
                     <div className="d-flex gap-2">
                       <button
                         onClick={() => {
                           const ok = window.confirm(
-                            `Habilitar acceso para ${c.razonSocial}? Pasara a VENCIDO para gestionar renovacion o cambio de plan.`
+                            `¿Habilitar acceso para ${c.razonSocial}? Pasará a VENCIDO para gestionar renovación o cambio de plan.`
                           );
                           if (ok) handleDevolverAcceso(c);
                         }}
-                        className="btn btn-sm btn-success rounded-pill px-3 py-1.5 fw-semibold shadow-sm d-inline-flex align-items-center gap-1"
+                        className="btn btn-sm btn-success px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                       >
                         <CheckCircle size={14} />
                         <span>Habilitar Accesos</span>
                       </button>
                       <button
                         onClick={() => setDeletingClient(c)}
-                        className="btn btn-sm btn-outline-danger rounded-pill px-3 py-1.5 fw-semibold d-inline-flex align-items-center gap-1"
+                        className="btn btn-sm btn-outline-danger px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
                       >
                         <Trash2 size={14} />
-                        <span>Eliminar Definitivamente</span>
+                        <span>Eliminar</span>
                       </button>
                     </div>
                   </td>
