@@ -494,19 +494,38 @@ body {
 }
 
 .table-responsive {
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  box-shadow: 0 4px 16px -12px rgba(15, 23, 42, 0.3);
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px -12px rgba(15, 23, 42, 0.2);
 }
 
 .table-responsive > .table,
 .table-responsive > table {
-  margin-bottom: 0;
+  width: 100% !important;
+  min-width: 100% !important;
+  margin-bottom: 0 !important;
+  table-layout: auto !important;
 }
 
 .table thead th {
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  font-weight: 700;
+  background-color: #F8FAFC !important;
+  color: #1E293B;
+  padding: 0.65rem 0.85rem !important;
+}
+
+.table tbody td {
+  vertical-align: middle !important;
   white-space: nowrap;
-  vertical-align: middle;
+  padding: 0.65rem 0.85rem !important;
 }
 
 .table tbody tr:last-child td {
@@ -515,12 +534,30 @@ body {
 
 .table td,
 .table th {
-  max-width: 280px;
+  max-width: none !important;
 }
 
 .table td .btn-group,
 .table td > .d-flex {
-  flex-wrap: wrap;
+  flex-wrap: nowrap !important;
+}
+
+.table-responsive::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #F1F5F9;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 4px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 .modal-backdrop {
