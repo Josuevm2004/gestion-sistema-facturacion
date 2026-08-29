@@ -15,6 +15,12 @@ backend/WebAppFacturacion/target/
 *.jar
 *.war
 
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
 # Environment variables & OS files
 .env
 .env.local

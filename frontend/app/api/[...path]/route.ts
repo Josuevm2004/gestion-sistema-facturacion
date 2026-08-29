@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const BACKEND_API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://146.181.58.160:8080/api').replace(/\/$/, '');
 
 const HOP_BY_HOP_HEADERS = new Set([
+  'accept-encoding',
   'connection',
   'content-length',
   'host',
@@ -15,9 +16,7 @@ const HOP_BY_HOP_HEADERS = new Set([
   'upgrade',
 ]);
 
-// Node fetch descomprime automáticamente las respuestas gzip/br del backend.
-// Si se reenvía Content-Encoding, el navegador intenta descomprimirlas otra vez
-// y produce ERR_CONTENT_DECODING_FAILED.
+// Headers de respuesta que no deben propagarse al cliente directamente
 const RESPONSE_HEADERS_TO_REMOVE = new Set([
   'content-encoding',
   'content-length',

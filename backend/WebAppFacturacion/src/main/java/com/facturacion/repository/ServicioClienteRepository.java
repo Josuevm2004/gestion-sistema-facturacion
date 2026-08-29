@@ -2,6 +2,7 @@ package com.facturacion.repository;
 
 import com.facturacion.entity.ServicioCliente;
 import com.facturacion.enums.EstadoServicio;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,12 +15,16 @@ import java.util.Optional;
 @Repository
 public interface ServicioClienteRepository extends JpaRepository<ServicioCliente, Long> {
 
+    @EntityGraph(attributePaths = {"cliente", "venta", "venta.suscripcion", "venta.suscripcion.plan"})
     Optional<ServicioCliente> findByVentaId(Long ventaId);
 
+    @EntityGraph(attributePaths = {"cliente", "venta", "venta.suscripcion", "venta.suscripcion.plan"})
     Optional<ServicioCliente> findTopByClienteIdOrderByFechaFinDesc(Long clienteId);
 
+    @EntityGraph(attributePaths = {"cliente", "venta", "venta.suscripcion", "venta.suscripcion.plan"})
     List<ServicioCliente> findByClienteIdOrderByFechaInicioDesc(Long clienteId);
 
+    @EntityGraph(attributePaths = {"cliente", "venta", "venta.suscripcion", "venta.suscripcion.plan"})
     List<ServicioCliente> findByClienteIdInOrderByFechaFinDesc(List<Long> clienteIds);
 
     List<ServicioCliente> findByEstado(EstadoServicio estado);
