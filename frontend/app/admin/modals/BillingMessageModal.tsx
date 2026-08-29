@@ -184,6 +184,38 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
     } catch (e) { console.error(e); }
   };
 
+  const [isSending, setIsSending] = useState(false);
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
+
+  const handleSendAutomatic = async () => {
+    if (!client) return;
+    setIsSending(true);
+    setStatusNotice(null);
+    try {
+      const rawPhone = client.usuarioWsp || client.telefono || client.telefonoPersonal || '';
+      const res = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: rawPhone,
+          message: currentActiveText,
+          imageUrl: activeStep === 'PRESENTACION' ? '/soporte-miquipu.png' : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusNotice('✅ ¡Mensaje enviado automáticamente con éxito!');
+        setTimeout(() => setStatusNotice(null), 4000);
+      } else {
+        handleSendWhatsApp();
+      }
+    } catch (err) {
+      handleSendWhatsApp();
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const handleSendWhatsApp = (textToSend?: string) => {
     if (!client) return;
     const text = textToSend || currentActiveText;
@@ -231,10 +263,20 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
           <div className="modal-body p-4 bg-light">
             {activeStep === 'PRESENTACION' ? (
               <div className="row g-3">
-                <div className="col-md-4">
-                  <div className="p-3 bg-primary rounded-3 text-white text-center shadow-sm">
-                    <UserCheck size={40} className="mb-2" />
-                    <p className="fw-bold mb-0">Soporte MiQuipu</p>
+                <div className="col-md-4 text-center">
+                  <div className="p-2 bg-white rounded-3 border shadow-sm h-100 d-flex flex-column align-items-center justify-content-center">
+                    <img
+                      src="/soporte-miquipu.png"
+                      alt="Flyer Soporte MiQuipu"
+                      className="rounded-3 img-fluid mb-2 shadow-sm"
+                      style={{ maxHeight: '180px', objectFit: 'contain' }}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <small className="text-muted fw-bold" style={{ fontSize: '0.75rem' }}>
+                      Flyer Soporte MiQuipu
+                    </small>
                   </div>
                 </div>
                 <div className="col-md-8">
@@ -253,9 +295,26 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
             )}
           </div>
 
-          <div className="modal-footer px-4 py-3">
-            <button className="btn btn-outline-secondary" onClick={() => handleCopy()}>{copied ? '¡Copiado!' : 'Copiar'}</button>
-            <button className={`btn ${activeStep === 'PRESENTACION' ? 'btn-primary' : 'btn-success'}`} onClick={() => handleSendWhatsApp()}>Enviar por WhatsApp</button>
+          <div className="modal-footer px-4 py-3 d-flex justify-content-between align-items-center">
+            <div>
+              {statusNotice && (
+                <span className="badge bg-success text-white px-2.5 py-1.5 fw-bold shadow-sm">
+                  {statusNotice}
+                </span>
+              )}
+            </div>
+            <div className="d-flex gap-2">
+              <button className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold" onClick={() => handleCopy()}>
+                {copied ? '¡Copiado!' : 'Copiar'}
+              </button>
+              <button
+                className={`btn ${activeStep === 'PRESENTACION' ? 'btn-primary' : 'btn-success'} px-4 py-1.5 fw-bold text-white shadow-sm`}
+                onClick={() => handleSendAutomatic()}
+                disabled={isSending}
+              >
+                {isSending ? 'Enviando...' : activeStep === 'PRESENTACION' ? '1. Enviar Presentación' : '2. Enviar Cobranza'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
