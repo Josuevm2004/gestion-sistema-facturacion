@@ -755,7 +755,6 @@ public class ClienteServiceImpl implements ClienteService {
 
         BigDecimal precio = ventaVigente.getSuscripcion().getPrecio();
         if (ventaVigente.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL
-                || ventaVigente.getTipoVenta() != TipoVenta.ALTA
                 || servicio.getFechaInicio() == null) {
             return precio;
         }
