@@ -48,18 +48,28 @@ export default function EditClientModal({
   };
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
-      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div className="modal-content rounded-4 shadow-lg border-0">
-          <div className="modal-header border-bottom bg-light px-4 py-3">
+    <div
+      className="modal d-block bg-dark bg-opacity-50"
+      tabIndex={-1}
+      style={{ backdropFilter: 'blur(6px)', overflowY: 'auto' }}
+    >
+      <div className="modal-dialog modal-lg modal-dialog-centered my-3" style={{ maxWidth: '820px' }}>
+        <div
+          className="modal-content rounded-4 shadow-lg border-0"
+          style={{ maxHeight: 'calc(100vh - 3rem)', display: 'flex', flexDirection: 'column' }}
+        >
+          <div className="modal-header border-bottom bg-light px-4 py-3 flex-shrink-0">
             <div>
               <h5 className="modal-title fw-bold text-dark mb-0">Editar Cliente: {editingClient.razonSocial}</h5>
               <small className="text-muted fw-semibold">RUC: {editingClient.ruc} | Estado: {editingClient.estadoCuenta}</small>
             </div>
             <button type="button" className="btn-close" onClick={() => setEditingClient(null)}></button>
           </div>
-          <form onSubmit={handleSaveEditClient}>
-            <div className="modal-body p-4">
+          <form
+            onSubmit={handleSaveEditClient}
+            style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}
+          >
+            <div className="modal-body p-4" style={{ overflowY: 'auto', flex: 1 }}>
               <div className="row g-3">
                 {/* --- Datos de la Empresa --- */}
                 <div className="col-12">
@@ -244,7 +254,7 @@ export default function EditClientModal({
                 </div>
               </div>
             </div>
-            <div className="modal-footer border-top bg-light px-4 py-3">
+            <div className="modal-footer border-top bg-light px-4 py-3 flex-shrink-0">
               <button type="button" className="btn btn-outline-secondary px-4 fw-semibold" onClick={() => setEditingClient(null)}>
                 Cancelar
               </button>

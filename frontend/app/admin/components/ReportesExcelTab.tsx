@@ -259,6 +259,9 @@ export default function ReportesExcelTab({
       const registroKey = monthKeyFromDate(c.fechaRegistro);
       if (registroKey) addMonthRangeToSet(registroKey, currentMonthKey);
 
+      const vencKey = monthKeyFromDate(c.fechaVencimientoMensual);
+      if (vencKey) monthKeysSet.add(vencKey);
+
       const operaciones = (operacionesByClient.get(idKey(c.id)) || []).filter(isPaidOperation);
       operaciones.forEach((op) => {
         const key = monthKeyFromDate(operationMonthSource(op, c));
@@ -445,6 +448,10 @@ export default function ReportesExcelTab({
         )
         .join('');
 
+      const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+      const pendingMonthKey = !isAnual ? monthKeyFromDate(c.fechaVencimientoMensual) : null;
+      const pendingExpectedAmount = Number(c.montoSiguienteCobro || c.montoMensual || 0);
+
       const monthCellsXml: string[] = [];
       for (let i = 0; i < monthKeys.length; i += 1) {
         const key = monthKeys[i];
@@ -458,11 +465,25 @@ export default function ReportesExcelTab({
           i += mergeCount;
         } else {
           const amount = monthlySums.get(key) || 0;
-          monthCellsXml.push(
-            amount > 0
-              ? `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
-              : '<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>'
-          );
+          if (amount > 0) {
+            monthCellsXml.push(
+              `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
+            );
+          } else if (
+            !isAnual &&
+            key === pendingMonthKey &&
+            pendingExpectedAmount > 0 &&
+            (c.estadoCuenta || '').toUpperCase() !== 'BLOQUEADO'
+          ) {
+            // Siguiente mes pendiente en color rojo con el monto que supuestamente deberían pagar
+            monthCellsXml.push(
+              `<Cell ss:StyleID="PendingRedStyle"><Data ss:Type="Number">${pendingExpectedAmount.toFixed(2)}</Data></Cell>`
+            );
+          } else {
+            monthCellsXml.push(
+              '<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>'
+            );
+          }
         }
       }
 
@@ -499,6 +520,18 @@ export default function ReportesExcelTab({
    <NumberFormat ss:Format="#,##0.00"/>
    <Borders>
     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="PendingRedStyle">
+   <Font ss:Size="10" ss:FontName="Calibri" ss:Bold="1" ss:Color="#991B1B"/>
+   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="#,##0.00"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
    </Borders>
   </Style>
   <Style ss:ID="AnnualStyle">
