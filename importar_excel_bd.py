@@ -28,14 +28,23 @@ def cargar_env_local():
 
 cargar_env_local()
 
-# Conexión vía variables de entorno o archivo .env
-COCKROACH_URL = os.environ.get("COCKROACH_URL", os.environ.get("DB_URL", os.environ.get("DATABASE_URL", "")))
+# Conexión vía variables de entorno o archivo .env con las credenciales por defecto configuradas
+COCKROACH_URL = os.environ.get(
+    "COCKROACH_URL", 
+    os.environ.get(
+        "DB_URL", 
+        os.environ.get(
+            "DATABASE_URL", 
+            "postgresql://josuevm18:yK9b7gYvRHi6oZMYCKQllw@brass-ogress-19371.jxf.gcp-us-east1.cockroachlabs.cloud:26257/defaultdb?sslmode=require"
+        )
+    )
+)
 
 DB_CONFIG = {
-    "host": os.environ.get("DB_HOST", "localhost"),
+    "host": os.environ.get("DB_HOST", "brass-ogress-19371.jxf.gcp-us-east1.cockroachlabs.cloud"),
     "port": int(os.environ.get("DB_PORT", "26257")),
-    "user": os.environ.get("DB_USER", "root"),
-    "password": os.environ.get("DB_PASS", ""),
+    "user": os.environ.get("DB_USER", "josuevm18"),
+    "password": os.environ.get("DB_PASS", "yK9b7gYvRHi6oZMYCKQllw"),
     "database": os.environ.get("DB_NAME", "defaultdb"),
     "sslmode": os.environ.get("DB_SSLMODE", "require")
 }
