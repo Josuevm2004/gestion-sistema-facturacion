@@ -458,6 +458,19 @@ CREATE TABLE venta (
     -- Monto descontado por prorrateo
     monto_prorrateado DECIMAL(10,2) NOT NULL DEFAULT 0,
 
+    -- Clasificación del cálculo aplicado a la venta
+    tipo_prorrateo ENUM(
+        'NINGUNO',
+        'PRIMER_PRORRATEO',
+        'SEGUNDO_PRORRATEO'
+    ) NOT NULL DEFAULT 'NINGUNO',
+
+    -- Cargo adicional del segundo prorrateo
+    monto_prorrateo_adicional DECIMAL(10,2) NOT NULL DEFAULT 0,
+    dias_prorrateo_adicional INT NOT NULL DEFAULT 0,
+    fecha_inicio_prorrateo_adicional DATETIME NULL,
+    fecha_fin_prorrateo_adicional DATETIME NULL,
+
     -- Total final a cobrar
     monto_total DECIMAL(10,2) NOT NULL,
 
@@ -512,6 +525,12 @@ CREATE TABLE venta (
 
     CONSTRAINT chk_venta_prorrateo
         CHECK (monto_prorrateado >= 0),
+
+    CONSTRAINT chk_venta_prorrateo_adicional
+        CHECK (monto_prorrateo_adicional >= 0),
+
+    CONSTRAINT chk_venta_dias_prorrateo_adicional
+        CHECK (dias_prorrateo_adicional >= 0),
 
     CONSTRAINT chk_venta_total
         CHECK (monto_total >= 0),

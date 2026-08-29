@@ -3,6 +3,7 @@ package com.facturacion.impl;
 import com.facturacion.entity.*;
 import com.facturacion.enums.EstadoServicio;
 import com.facturacion.enums.EstadoVenta;
+import com.facturacion.enums.TipoProrrateo;
 import com.facturacion.enums.TipoSuscripcion;
 import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
@@ -240,6 +241,11 @@ public class ClienteServiceImpl implements ClienteService {
             item.put("montoTotal", v.getMontoTotal());
             item.put("montoVenta", v.getMontoTotal());
             item.put("montoProrrateado", v.getMontoProrrateado());
+            item.put("tipoProrrateo", v.getTipoProrrateo() != null ? v.getTipoProrrateo().name() : TipoProrrateo.NINGUNO.name());
+            item.put("montoProrrateoAdicional", v.getMontoProrrateoAdicional());
+            item.put("diasProrrateoAdicional", v.getDiasProrrateoAdicional());
+            item.put("fechaInicioProrrateoAdicional", v.getFechaInicioProrrateoAdicional());
+            item.put("fechaFinProrrateoAdicional", v.getFechaFinProrrateoAdicional());
             item.put("observaciones", v.getObservaciones());
             if (v.getSuscripcion() != null) {
                 item.put("suscripcionId", v.getSuscripcion().getId());
@@ -277,6 +283,13 @@ public class ClienteServiceImpl implements ClienteService {
                 venta.put("id", p.getVenta().getId());
                 venta.put("clienteId", p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
                 venta.put("montoTotal", p.getVenta().getMontoTotal());
+                venta.put("tipoProrrateo", p.getVenta().getTipoProrrateo() != null
+                        ? p.getVenta().getTipoProrrateo().name()
+                        : TipoProrrateo.NINGUNO.name());
+                venta.put("montoProrrateoAdicional", p.getVenta().getMontoProrrateoAdicional());
+                venta.put("diasProrrateoAdicional", p.getVenta().getDiasProrrateoAdicional());
+                venta.put("fechaInicioProrrateoAdicional", p.getVenta().getFechaInicioProrrateoAdicional());
+                venta.put("fechaFinProrrateoAdicional", p.getVenta().getFechaFinProrrateoAdicional());
                 venta.put("estadoVenta", p.getVenta().getEstadoVenta() != null ? p.getVenta().getEstadoVenta().name() : null);
                 venta.put("tipoVenta", p.getVenta().getTipoVenta() != null ? p.getVenta().getTipoVenta().name() : null);
                 venta.put("fechaVenta", p.getVenta().getFechaVenta());
@@ -343,6 +356,11 @@ public class ClienteServiceImpl implements ClienteService {
             op.setPrecioLista(v.getPrecioLista());
             op.setMontoVenta(v.getMontoTotal());
             op.setDescuentoProrrateo(v.getMontoProrrateado());
+            op.setTipoProrrateo(v.getTipoProrrateo() != null ? v.getTipoProrrateo().name() : TipoProrrateo.NINGUNO.name());
+            op.setMontoProrrateoAdicional(v.getMontoProrrateoAdicional());
+            op.setDiasProrrateoAdicional(v.getDiasProrrateoAdicional());
+            op.setFechaInicioProrrateoAdicional(v.getFechaInicioProrrateoAdicional());
+            op.setFechaFinProrrateoAdicional(v.getFechaFinProrrateoAdicional());
             op.setObservaciones(v.getObservaciones());
 
             if (v.getSuscripcion() != null) {
@@ -625,6 +643,7 @@ public class ClienteServiceImpl implements ClienteService {
         if (ventaParaCobro != null) {
             res.setVentaId(ventaParaCobro.getId());
             res.setMontoSiguienteCobro(ventaParaCobro.getMontoTotal());
+            mapProrrateoVenta(ventaParaCobro, res);
             if (ventaPendienteVencida != null
                     && !"BLOQUEADO".equals(estadoNombre)
                     && !"POR_CAPACITAR".equals(estadoNombre)
@@ -673,6 +692,9 @@ public class ClienteServiceImpl implements ClienteService {
                 res.setMontoSiguienteCobro(montoServicio != null ? montoServicio : servicio.getMontoProrrateo());
             }
             res.setDiasProrrateados(servicio.getDiasProrrateados());
+            if (res.getTipoProrrateo() == null && servicio.getVenta() != null) {
+                mapProrrateoVenta(servicio.getVenta(), res);
+            }
         }
 
         res.setFechaRegistro(c.getFechaRegistro());
@@ -705,11 +727,29 @@ public class ClienteServiceImpl implements ClienteService {
             return precio;
         }
 
+        if (servicio.getFechaInicio().getDayOfMonth()
+                >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
+            return precio.add(ProrrateoCalculatorUtil.calcularSegundoProrrateo(
+                    precio,
+                    servicio.getFechaInicio().toLocalDate()
+            ).montoAdicional());
+        }
+
         return ProrrateoCalculatorUtil.calcularHastaDiaCobro(
                 precio,
                 servicio.getFechaInicio().toLocalDate(),
                 monthlyBillingDay
         ).montoFinal();
+    }
+
+    private void mapProrrateoVenta(Venta venta, ClienteDashboardResponse response) {
+        response.setTipoProrrateo(venta.getTipoProrrateo() != null
+                ? venta.getTipoProrrateo().name()
+                : TipoProrrateo.NINGUNO.name());
+        response.setMontoProrrateoAdicional(venta.getMontoProrrateoAdicional());
+        response.setDiasProrrateoAdicional(venta.getDiasProrrateoAdicional());
+        response.setFechaInicioProrrateoAdicional(venta.getFechaInicioProrrateoAdicional());
+        response.setFechaFinProrrateoAdicional(venta.getFechaFinProrrateoAdicional());
     }
 
     private ClienteDashboardResponse mapToDashboardResponseBasico(Cliente c) {

@@ -10,6 +10,7 @@ import com.facturacion.enums.EstadoPago;
 import com.facturacion.enums.EstadoServicio;
 import com.facturacion.enums.EstadoVenta;
 import com.facturacion.enums.MedioPago;
+import com.facturacion.enums.TipoProrrateo;
 import com.facturacion.enums.TipoSuscripcion;
 import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
@@ -163,7 +164,8 @@ public class PagoServiceImpl implements PagoService {
         return venta != null
                 && venta.getMontoTotal() != null
                 && venta.getFechaVenta() != null
-                && !fechaOperacion.toLocalDate().isAfter(venta.getFechaVenta().toLocalDate());
+                && (venta.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO
+                    || !fechaOperacion.toLocalDate().isAfter(venta.getFechaVenta().toLocalDate()));
     }
 
     private AjusteCobro construirAjusteDesdeVentaPendiente(Venta venta, LocalDateTime fechaOperacion) {

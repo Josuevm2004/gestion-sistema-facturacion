@@ -32,6 +32,11 @@ export type Client = {
   montoSiguienteCobro?: number;
   ventaId?: EntityId;
   diasProrrateados?: number;
+  tipoProrrateo?: string;
+  montoProrrateoAdicional?: number;
+  diasProrrateoAdicional?: number;
+  fechaInicioProrrateoAdicional?: string;
+  fechaFinProrrateoAdicional?: string;
   estadoCuenta: string;
   estadoCapacitacion: string;
   colorTag?: ColorTagType;

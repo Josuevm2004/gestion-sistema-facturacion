@@ -1,6 +1,7 @@
 package com.facturacion.entity;
 
 import com.facturacion.enums.EstadoVenta;
+import com.facturacion.enums.TipoProrrateo;
 import com.facturacion.enums.TipoVenta;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -39,6 +40,22 @@ public class Venta {
 
     @Column(name = "monto_prorrateado", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoProrrateado = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_prorrateo", nullable = false, length = 30)
+    private TipoProrrateo tipoProrrateo = TipoProrrateo.NINGUNO;
+
+    @Column(name = "monto_prorrateo_adicional", nullable = false, precision = 10, scale = 2)
+    private BigDecimal montoProrrateoAdicional = BigDecimal.ZERO;
+
+    @Column(name = "dias_prorrateo_adicional", nullable = false)
+    private Integer diasProrrateoAdicional = 0;
+
+    @Column(name = "fecha_inicio_prorrateo_adicional")
+    private LocalDateTime fechaInicioProrrateoAdicional;
+
+    @Column(name = "fecha_fin_prorrateo_adicional")
+    private LocalDateTime fechaFinProrrateoAdicional;
 
     @Column(name = "monto_total", nullable = false, precision = 10, scale = 2)
     private BigDecimal montoTotal;
@@ -79,6 +96,16 @@ public class Venta {
     public void setPrecioLista(BigDecimal precioLista) { this.precioLista = precioLista; }
     public BigDecimal getMontoProrrateado() { return montoProrrateado; }
     public void setMontoProrrateado(BigDecimal montoProrrateado) { this.montoProrrateado = montoProrrateado; }
+    public TipoProrrateo getTipoProrrateo() { return tipoProrrateo; }
+    public void setTipoProrrateo(TipoProrrateo tipoProrrateo) { this.tipoProrrateo = tipoProrrateo; }
+    public BigDecimal getMontoProrrateoAdicional() { return montoProrrateoAdicional; }
+    public void setMontoProrrateoAdicional(BigDecimal montoProrrateoAdicional) { this.montoProrrateoAdicional = montoProrrateoAdicional; }
+    public Integer getDiasProrrateoAdicional() { return diasProrrateoAdicional; }
+    public void setDiasProrrateoAdicional(Integer diasProrrateoAdicional) { this.diasProrrateoAdicional = diasProrrateoAdicional; }
+    public LocalDateTime getFechaInicioProrrateoAdicional() { return fechaInicioProrrateoAdicional; }
+    public void setFechaInicioProrrateoAdicional(LocalDateTime fechaInicioProrrateoAdicional) { this.fechaInicioProrrateoAdicional = fechaInicioProrrateoAdicional; }
+    public LocalDateTime getFechaFinProrrateoAdicional() { return fechaFinProrrateoAdicional; }
+    public void setFechaFinProrrateoAdicional(LocalDateTime fechaFinProrrateoAdicional) { this.fechaFinProrrateoAdicional = fechaFinProrrateoAdicional; }
     public BigDecimal getMontoTotal() { return montoTotal; }
     public void setMontoTotal(BigDecimal montoTotal) { this.montoTotal = montoTotal; }
     public EstadoVenta getEstadoVenta() { return estadoVenta; }

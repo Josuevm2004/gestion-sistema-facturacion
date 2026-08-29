@@ -25,6 +25,11 @@ public class OperacionHistorialResponse {
     private BigDecimal descuentoProrrateo;
     private BigDecimal montoProrrateado;
     private Integer diasProrrateados;
+    private String tipoProrrateo;
+    private BigDecimal montoProrrateoAdicional;
+    private Integer diasProrrateoAdicional;
+    private LocalDateTime fechaInicioProrrateoAdicional;
+    private LocalDateTime fechaFinProrrateoAdicional;
     private String observaciones;
 
     public OperacionHistorialResponse() {}
@@ -69,6 +74,16 @@ public class OperacionHistorialResponse {
     public void setMontoProrrateado(BigDecimal montoProrrateado) { this.montoProrrateado = montoProrrateado; }
     public Integer getDiasProrrateados() { return diasProrrateados; }
     public void setDiasProrrateados(Integer diasProrrateados) { this.diasProrrateados = diasProrrateados; }
+    public String getTipoProrrateo() { return tipoProrrateo; }
+    public void setTipoProrrateo(String tipoProrrateo) { this.tipoProrrateo = tipoProrrateo; }
+    public BigDecimal getMontoProrrateoAdicional() { return montoProrrateoAdicional; }
+    public void setMontoProrrateoAdicional(BigDecimal montoProrrateoAdicional) { this.montoProrrateoAdicional = montoProrrateoAdicional; }
+    public Integer getDiasProrrateoAdicional() { return diasProrrateoAdicional; }
+    public void setDiasProrrateoAdicional(Integer diasProrrateoAdicional) { this.diasProrrateoAdicional = diasProrrateoAdicional; }
+    public LocalDateTime getFechaInicioProrrateoAdicional() { return fechaInicioProrrateoAdicional; }
+    public void setFechaInicioProrrateoAdicional(LocalDateTime fechaInicioProrrateoAdicional) { this.fechaInicioProrrateoAdicional = fechaInicioProrrateoAdicional; }
+    public LocalDateTime getFechaFinProrrateoAdicional() { return fechaFinProrrateoAdicional; }
+    public void setFechaFinProrrateoAdicional(LocalDateTime fechaFinProrrateoAdicional) { this.fechaFinProrrateoAdicional = fechaFinProrrateoAdicional; }
     public String getObservaciones() { return observaciones; }
     public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
 }

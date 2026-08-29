@@ -12,6 +12,7 @@ import com.facturacion.enums.EstadoPago;
 import com.facturacion.enums.EstadoServicio;
 import com.facturacion.enums.EstadoVenta;
 import com.facturacion.enums.MedioPago;
+import com.facturacion.enums.TipoProrrateo;
 import com.facturacion.enums.TipoSuscripcion;
 import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
@@ -332,15 +333,45 @@ public class VentaServiceImpl implements VentaService {
         LocalDate fechaBaseProrrateo = servicioActual.getFechaCapacitacion() != null
                 ? servicioActual.getFechaCapacitacion().toLocalDate()
                 : servicioActual.getFechaInicio().toLocalDate();
-        BigDecimal montoSiguiente = calcularMontoProrrateadoPlan(
-                precioNuevo,
-                fechaBaseProrrateo,
-                nuevaSuscripcion.getTipoSuscripcion()
-        );
+        BigDecimal montoSiguiente;
+        if (nuevaSuscripcion.getTipoSuscripcion() == TipoSuscripcion.MENSUAL
+                && correspondeSegundoProrrateo(fechaBaseProrrateo)) {
+            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
+                    ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioNuevo, fechaBaseProrrateo);
+            montoSiguiente = precioNuevo.add(resultado.montoAdicional());
+            pendiente.setTipoProrrateo(TipoProrrateo.SEGUNDO_PRORRATEO);
+            pendiente.setMontoProrrateado(BigDecimal.ZERO);
+            pendiente.setMontoProrrateoAdicional(resultado.montoAdicional());
+            pendiente.setDiasProrrateoAdicional(resultado.diasProrrateados());
+            pendiente.setFechaInicioProrrateoAdicional(LocalDateTime.of(resultado.fechaInicio(), LocalTime.NOON));
+            pendiente.setFechaFinProrrateoAdicional(LocalDateTime.of(resultado.fechaFin(), LocalTime.NOON));
+        } else {
+            montoSiguiente = calcularMontoProrrateadoPlan(
+                    precioNuevo,
+                    fechaBaseProrrateo,
+                    nuevaSuscripcion.getTipoSuscripcion()
+            );
+            pendiente.setTipoProrrateo(nuevaSuscripcion.getTipoSuscripcion() == TipoSuscripcion.MENSUAL
+                    ? TipoProrrateo.PRIMER_PRORRATEO
+                    : TipoProrrateo.NINGUNO);
+            pendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
+            pendiente.setDiasProrrateoAdicional(0);
+            pendiente.setFechaInicioProrrateoAdicional(null);
+            pendiente.setFechaFinProrrateoAdicional(null);
+        }
         pendiente.setPrecioLista(precioNuevo);
-        pendiente.setMontoProrrateado(precioNuevo.subtract(montoSiguiente).max(BigDecimal.ZERO));
+        if (pendiente.getTipoProrrateo() != TipoProrrateo.SEGUNDO_PRORRATEO) {
+            pendiente.setMontoProrrateado(precioNuevo.subtract(montoSiguiente).max(BigDecimal.ZERO));
+        }
         pendiente.setMontoTotal(montoSiguiente);
-        pendiente.setFechaVenta(LocalDateTime.of(fechaFinServicio.toLocalDate(), LocalTime.NOON));
+        if (pendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
+            pendiente.setFechaVenta(LocalDateTime.of(
+                    pendiente.getFechaFinProrrateoAdicional().toLocalDate().plusDays(1),
+                    LocalTime.NOON
+            ));
+        } else {
+            pendiente.setFechaVenta(LocalDateTime.of(fechaFinServicio.toLocalDate(), LocalTime.NOON));
+        }
         pendiente.setFechaActualizacion(fechaRef);
         pendiente.setObservaciones("Renovacion pendiente actualizada por mejora de plan para " + fechaFinServicio.toLocalDate());
         ventaRepository.save(pendiente);
@@ -359,6 +390,12 @@ public class VentaServiceImpl implements VentaService {
         return resultado.montoFinal();
     }
 
+    private boolean correspondeSegundoProrrateo(LocalDate fechaBaseProrrateo) {
+        return fechaBaseProrrateo != null
+                && fechaBaseProrrateo.getDayOfMonth()
+                >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY;
+    }
+
     private void actualizarProrrateoVigente(
             ServicioCliente servicio,
             BigDecimal precioNuevo,
@@ -367,12 +404,20 @@ public class VentaServiceImpl implements VentaService {
         ProrrateoCalculatorUtil.ResultadoProrrateo resultado = tipoSuscripcion == TipoSuscripcion.ANUAL
                 ? null
                 : ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioNuevo, fechaBaseProrrateo, monthlyBillingDay);
+        ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultadoSegundo = tipoSuscripcion == TipoSuscripcion.MENSUAL
+                && correspondeSegundoProrrateo(fechaBaseProrrateo)
+                ? ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioNuevo, fechaBaseProrrateo)
+                : null;
         BigDecimal montoProrrateado = tipoSuscripcion == TipoSuscripcion.ANUAL
                 ? precioNuevo.setScale(0, RoundingMode.HALF_UP)
+                : resultadoSegundo != null
+                ? precioNuevo.add(resultadoSegundo.montoAdicional())
                 : resultado.montoFinal();
         servicio.setMontoProrrateo(montoProrrateado);
         servicio.setDiasProrrateados(tipoSuscripcion == TipoSuscripcion.ANUAL
                 ? 365
+                : resultadoSegundo != null
+                ? resultadoSegundo.diasProrrateados()
                 : Math.max(1, resultado.diasTotales() - resultado.diasNoConsumidos()));
         servicioClienteRepository.save(servicio);
     }
@@ -442,7 +487,8 @@ public class VentaServiceImpl implements VentaService {
         return ventaPendiente != null
                 && ventaPendiente.getMontoTotal() != null
                 && ventaPendiente.getFechaVenta() != null
-                && !fechaRef.toLocalDate().isAfter(ventaPendiente.getFechaVenta().toLocalDate());
+                && (ventaPendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO
+                    || !fechaRef.toLocalDate().isAfter(ventaPendiente.getFechaVenta().toLocalDate()));
     }
 
     private LocalDate resolverFechaInicioOperacion(Venta ventaPendiente, LocalDateTime fechaRef) {

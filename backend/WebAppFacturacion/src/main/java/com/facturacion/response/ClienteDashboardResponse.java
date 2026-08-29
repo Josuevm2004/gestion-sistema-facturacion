@@ -66,6 +66,11 @@ public class ClienteDashboardResponse {
 
     private BigDecimal montoSiguienteCobro;
     private Integer diasProrrateados;
+    private String tipoProrrateo;
+    private BigDecimal montoProrrateoAdicional;
+    private Integer diasProrrateoAdicional;
+    private LocalDateTime fechaInicioProrrateoAdicional;
+    private LocalDateTime fechaFinProrrateoAdicional;
     private LocalDateTime fechaRegistro;
 
     public ClienteDashboardResponse() {}
@@ -154,6 +159,16 @@ public class ClienteDashboardResponse {
     public void setMontoSiguienteCobro(BigDecimal montoSiguienteCobro) { this.montoSiguienteCobro = montoSiguienteCobro; }
     public Integer getDiasProrrateados() { return diasProrrateados; }
     public void setDiasProrrateados(Integer diasProrrateados) { this.diasProrrateados = diasProrrateados; }
+    public String getTipoProrrateo() { return tipoProrrateo; }
+    public void setTipoProrrateo(String tipoProrrateo) { this.tipoProrrateo = tipoProrrateo; }
+    public BigDecimal getMontoProrrateoAdicional() { return montoProrrateoAdicional; }
+    public void setMontoProrrateoAdicional(BigDecimal montoProrrateoAdicional) { this.montoProrrateoAdicional = montoProrrateoAdicional; }
+    public Integer getDiasProrrateoAdicional() { return diasProrrateoAdicional; }
+    public void setDiasProrrateoAdicional(Integer diasProrrateoAdicional) { this.diasProrrateoAdicional = diasProrrateoAdicional; }
+    public LocalDateTime getFechaInicioProrrateoAdicional() { return fechaInicioProrrateoAdicional; }
+    public void setFechaInicioProrrateoAdicional(LocalDateTime fechaInicioProrrateoAdicional) { this.fechaInicioProrrateoAdicional = fechaInicioProrrateoAdicional; }
+    public LocalDateTime getFechaFinProrrateoAdicional() { return fechaFinProrrateoAdicional; }
+    public void setFechaFinProrrateoAdicional(LocalDateTime fechaFinProrrateoAdicional) { this.fechaFinProrrateoAdicional = fechaFinProrrateoAdicional; }
     public LocalDateTime getFechaRegistro() { return fechaRegistro; }
     public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
 }

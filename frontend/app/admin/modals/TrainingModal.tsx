@@ -46,25 +46,56 @@ export default function TrainingModal({
 
               {prorrateoCalculado && (
                 <div className="p-3 bg-light rounded-3 border">
-                  <h6 className="fw-bold text-primary mb-2">Cálculo de Prorrateo con Corte Día {MONTHLY_BILLING_DAY} (Fórmula Mcobro)</h6>
+                  <h6 className="fw-bold text-primary mb-2">
+                    {prorrateoCalculado.tipoProrrateo === 'SEGUNDO_PRORRATEO'
+                      ? 'Segundo prorrateo adicional'
+                      : `Primer prorrateo con corte Día ${MONTHLY_BILLING_DAY} (Fórmula Mcobro)`}
+                  </h6>
                   <div className="small">
                     <div>
                       Plan contratado: <strong>{trainingClient.planContratado} (S/ {trainingClient.montoMensual})</strong>
                     </div>
-                    <div>
-                      Días del ciclo (Dtotal): <strong>{prorrateoCalculado.diasTotales} días</strong>
-                    </div>
-                    <div>
-                      Día de capacitación (Dcap): <strong>Día {prorrateoCalculado.diaCapacitacion}</strong>
-                    </div>
-                    {!prorrateoCalculado.isAnual && (
-                      <div>
-                        Días no consumidos a descontar: <strong>{prorrateoCalculado.diaCapacitacion - 1} días</strong>
-                      </div>
+                    {prorrateoCalculado.tipoProrrateo === 'SEGUNDO_PRORRATEO' ? (
+                      <>
+                        <div>
+                          Período del segundo prorrateo: <strong>
+                            {prorrateoCalculado.fechaInicioProrrateoAdicional
+                              ? new Date(prorrateoCalculado.fechaInicioProrrateoAdicional).toLocaleDateString('es-PE')
+                              : '—'}
+                            {' '}al{' '}
+                            {prorrateoCalculado.fechaFinProrrateoAdicional
+                              ? new Date(prorrateoCalculado.fechaFinProrrateoAdicional).toLocaleDateString('es-PE')
+                              : '—'}
+                          </strong>
+                        </div>
+                        <div>
+                          Días adicionales: <strong>{prorrateoCalculado.diasProrrateoAdicional} días</strong>
+                        </div>
+                        <div>
+                          Prorrateo adicional: <strong>S/ {Number(prorrateoCalculado.montoProrrateoAdicional || 0).toFixed(2)}</strong>
+                        </div>
+                        <div className="fs-5 fw-bold text-success mt-2">
+                          Próximo cobro: S/ {prorrateoCalculado.montoProrrateado.toFixed(2)}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          Días del ciclo (Dtotal): <strong>{prorrateoCalculado.diasTotales} días</strong>
+                        </div>
+                        <div>
+                          Día de capacitación (Dcap): <strong>Día {prorrateoCalculado.diaCapacitacion}</strong>
+                        </div>
+                        {!prorrateoCalculado.isAnual && (
+                          <div>
+                            Días no consumidos a descontar: <strong>{prorrateoCalculado.diaCapacitacion - 1} días</strong>
+                          </div>
+                        )}
+                        <div className="fs-5 fw-bold text-success mt-2">
+                          Cobro al corte del día {MONTHLY_BILLING_DAY}: S/ {prorrateoCalculado.montoProrrateado.toFixed(2)}
+                        </div>
+                      </>
                     )}
-                    <div className="fs-5 fw-bold text-success mt-2">
-                      Cobro al corte del día {MONTHLY_BILLING_DAY}: S/ {prorrateoCalculado.montoProrrateado.toFixed(2)}
-                    </div>
                     <div className="text-muted small">Fecha límite de pago ajustada: {prorrateoCalculado.fechaVencimiento}</div>
                   </div>
                 </div>

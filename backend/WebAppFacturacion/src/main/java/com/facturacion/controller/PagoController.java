@@ -58,6 +58,13 @@ public class PagoController {
             venta.put("id", pago.getVenta().getId());
             venta.put("clienteId", pago.getVenta().getCliente() != null ? pago.getVenta().getCliente().getId() : null);
             venta.put("montoTotal", pago.getVenta().getMontoTotal());
+            venta.put("tipoProrrateo", pago.getVenta().getTipoProrrateo() != null
+                    ? pago.getVenta().getTipoProrrateo().name()
+                    : null);
+            venta.put("montoProrrateoAdicional", pago.getVenta().getMontoProrrateoAdicional());
+            venta.put("diasProrrateoAdicional", pago.getVenta().getDiasProrrateoAdicional());
+            venta.put("fechaInicioProrrateoAdicional", pago.getVenta().getFechaInicioProrrateoAdicional());
+            venta.put("fechaFinProrrateoAdicional", pago.getVenta().getFechaFinProrrateoAdicional());
             venta.put("estadoVenta", pago.getVenta().getEstadoVenta() != null ? pago.getVenta().getEstadoVenta().name() : null);
             if (pago.getVenta().getVendedor() != null) {
                 Map<String, Object> vendedor = new LinkedHashMap<>();

@@ -30,6 +30,11 @@ public class VentaController {
         data.put("clienteId", venta.getCliente() != null ? venta.getCliente().getId() : null);
         data.put("tipoVenta", venta.getTipoVenta() != null ? venta.getTipoVenta().name() : null);
         data.put("estadoVenta", venta.getEstadoVenta() != null ? venta.getEstadoVenta().name() : null);
+        data.put("tipoProrrateo", venta.getTipoProrrateo() != null ? venta.getTipoProrrateo().name() : null);
+        data.put("montoProrrateoAdicional", venta.getMontoProrrateoAdicional());
+        data.put("diasProrrateoAdicional", venta.getDiasProrrateoAdicional());
+        data.put("fechaInicioProrrateoAdicional", venta.getFechaInicioProrrateoAdicional());
+        data.put("fechaFinProrrateoAdicional", venta.getFechaFinProrrateoAdicional());
         data.put("montoTotal", venta.getMontoTotal());
         data.put("fechaVenta", venta.getFechaVenta());
 
@@ -58,6 +63,11 @@ public class VentaController {
         data.put("estadoVenta", venta.getEstadoVenta() != null ? venta.getEstadoVenta().name() : null);
         data.put("precioLista", venta.getPrecioLista());
         data.put("montoProrrateado", venta.getMontoProrrateado());
+        data.put("tipoProrrateo", venta.getTipoProrrateo() != null ? venta.getTipoProrrateo().name() : null);
+        data.put("montoProrrateoAdicional", venta.getMontoProrrateoAdicional());
+        data.put("diasProrrateoAdicional", venta.getDiasProrrateoAdicional());
+        data.put("fechaInicioProrrateoAdicional", venta.getFechaInicioProrrateoAdicional());
+        data.put("fechaFinProrrateoAdicional", venta.getFechaFinProrrateoAdicional());
         data.put("montoTotal", venta.getMontoTotal());
         data.put("fechaVenta", venta.getFechaVenta());
         data.put("observaciones", venta.getObservaciones());

@@ -240,6 +240,11 @@ CREATE TABLE venta (
 
     precio_lista DECIMAL(10,2) NOT NULL,
     monto_prorrateado DECIMAL(10,2) NOT NULL DEFAULT 0,
+    tipo_prorrateo VARCHAR(30) NOT NULL DEFAULT 'NINGUNO',
+    monto_prorrateo_adicional DECIMAL(10,2) NOT NULL DEFAULT 0,
+    dias_prorrateo_adicional INT NOT NULL DEFAULT 0,
+    fecha_inicio_prorrateo_adicional TIMESTAMP NULL,
+    fecha_fin_prorrateo_adicional TIMESTAMP NULL,
     monto_total DECIMAL(10,2) NOT NULL,
 
     estado_venta VARCHAR(30) NOT NULL DEFAULT 'PENDIENTE_PAGO',
@@ -282,6 +287,12 @@ CREATE TABLE venta (
 
     CONSTRAINT chk_venta_prorrateo
         CHECK (monto_prorrateado >= 0),
+    CONSTRAINT chk_venta_tipo_prorrateo
+        CHECK (tipo_prorrateo IN ('NINGUNO', 'PRIMER_PRORRATEO', 'SEGUNDO_PRORRATEO')),
+    CONSTRAINT chk_venta_prorrateo_adicional
+        CHECK (monto_prorrateo_adicional >= 0),
+    CONSTRAINT chk_venta_dias_prorrateo_adicional
+        CHECK (dias_prorrateo_adicional >= 0),
 
     CONSTRAINT chk_venta_total
         CHECK (monto_total >= 0)

@@ -4,6 +4,7 @@ import com.facturacion.entity.*;
 import com.facturacion.enums.EstadoServicio;
 import com.facturacion.enums.EstadoVenta;
 import com.facturacion.enums.TipoNotificacion;
+import com.facturacion.enums.TipoProrrateo;
 import com.facturacion.enums.TipoSuscripcion;
 import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
@@ -70,10 +71,22 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         int diasProrrateados = fechaCapDate.getDayOfMonth() - 1;
         LocalDateTime fechaFinCalculada;
         BigDecimal descuentoProrrateo = BigDecimal.ZERO;
+        ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultadoSegundo = null;
 
         if (tipoSub == TipoSuscripcion.ANUAL) {
             fechaFinCalculada = fechaCap.plusYears(1);
             diasProrrateados = 365;
+        } else if (correspondeSegundoProrrateo(fechaCapDate)) {
+            // The current service expiration remains governed by the existing
+            // cutoff logic. The second proration is an additional charge tied
+            // to the anniversary and does not move that expiration date.
+            resultadoSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioBase, fechaCapDate);
+            LocalDate fechaFin = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaCapDate, monthlyBillingDay);
+            fechaFinCalculada = LocalDateTime.of(fechaFin, BILLING_CUTOFF_TIME);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(
+                    fechaCapDate,
+                    fechaFin
+            ));
         } else {
             ProrrateoCalculatorUtil.ResultadoProrrateo r = ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioBase, fechaCapDate, monthlyBillingDay);
             montoProrrateado = r.montoFinal();
@@ -97,7 +110,21 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
 
         if (servicio.getVenta() != null) {
             if (tipoSub == TipoSuscripcion.MENSUAL) {
-                crearOActualizarRenovacionProrrateada(servicio.getVenta(), fechaCapDate, precioBase, descuentoProrrateo, montoProrrateado);
+                if (resultadoSegundo != null) {
+                    crearOActualizarRenovacionSegundoProrrateo(
+                            servicio.getVenta(),
+                            precioBase,
+                            resultadoSegundo
+                    );
+                } else {
+                    crearOActualizarRenovacionProrrateada(
+                            servicio.getVenta(),
+                            fechaCapDate,
+                            precioBase,
+                            descuentoProrrateo,
+                            montoProrrateado
+                    );
+                }
             } else if (tipoSub == TipoSuscripcion.ANUAL) {
                 crearOActualizarRenovacionAnual(servicio.getVenta(), fechaCapDate.plusYears(1), precioBase);
             }
@@ -145,12 +172,60 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         ventaProrrateada.setVentaAnterior(ventaInicial);
         ventaProrrateada.setPrecioLista(precioBase);
         ventaProrrateada.setMontoProrrateado(descuentoProrrateo);
+        ventaProrrateada.setTipoProrrateo(TipoProrrateo.PRIMER_PRORRATEO);
+        ventaProrrateada.setMontoProrrateoAdicional(BigDecimal.ZERO);
+        ventaProrrateada.setDiasProrrateoAdicional(0);
+        ventaProrrateada.setFechaInicioProrrateoAdicional(null);
+        ventaProrrateada.setFechaFinProrrateoAdicional(null);
         ventaProrrateada.setMontoTotal(montoProrrateado);
         ventaProrrateada.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
         ventaProrrateada.setObservaciones("Renovacion prorrateada generada por capacitacion del " + fechaCapacitacion);
         ventaProrrateada.setFechaVenta(fechaCobro);
         ventaProrrateada.setFechaActualizacion(LocalDateTime.now());
         ventaRepository.save(ventaProrrateada);
+    }
+
+    private void crearOActualizarRenovacionSegundoProrrateo(
+            Venta ventaInicial,
+            BigDecimal precioBase,
+            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado) {
+        // The additional period finishes at the end of the calendar month;
+        // the combined charge is scheduled for the first day of the next one.
+        LocalDate fechaCobro = resultado.fechaFin().plusDays(1);
+        Venta ventaSegundo = encontrarRenovacionPendienteExistente(ventaInicial.getId())
+                .orElseGet(Venta::new);
+
+        ventaSegundo.setCliente(ventaInicial.getCliente());
+        ventaSegundo.setVendedor(ventaInicial.getVendedor());
+        ventaSegundo.setSuscripcion(ventaInicial.getSuscripcion());
+        ventaSegundo.setTipoVenta(TipoVenta.RENOVACION);
+        ventaSegundo.setVentaAnterior(ventaInicial);
+        ventaSegundo.setPrecioLista(precioBase);
+        ventaSegundo.setMontoProrrateado(BigDecimal.ZERO);
+        ventaSegundo.setTipoProrrateo(TipoProrrateo.SEGUNDO_PRORRATEO);
+        ventaSegundo.setMontoProrrateoAdicional(resultado.montoAdicional());
+        ventaSegundo.setDiasProrrateoAdicional(resultado.diasProrrateados());
+        ventaSegundo.setFechaInicioProrrateoAdicional(
+                LocalDateTime.of(resultado.fechaInicio(), LocalTime.NOON)
+        );
+        ventaSegundo.setFechaFinProrrateoAdicional(
+                LocalDateTime.of(resultado.fechaFin(), LocalTime.NOON)
+        );
+        ventaSegundo.setMontoTotal(precioBase.add(resultado.montoAdicional()));
+        ventaSegundo.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
+        ventaSegundo.setObservaciones(
+                "Renovacion con segundo prorrateo del "
+                        + resultado.fechaInicio() + " al " + resultado.fechaFin()
+        );
+        ventaSegundo.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+        ventaSegundo.setFechaActualizacion(LocalDateTime.now());
+        ventaRepository.save(ventaSegundo);
+    }
+
+    private boolean correspondeSegundoProrrateo(LocalDate fechaCapacitacion) {
+        return fechaCapacitacion != null
+                && fechaCapacitacion.getDayOfMonth()
+                >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY;
     }
 
     private void crearOActualizarRenovacionAnual(
@@ -168,6 +243,11 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         ventaAnual.setVentaAnterior(ventaInicial);
         ventaAnual.setPrecioLista(precioAnual);
         ventaAnual.setMontoProrrateado(BigDecimal.ZERO);
+        ventaAnual.setTipoProrrateo(TipoProrrateo.NINGUNO);
+        ventaAnual.setMontoProrrateoAdicional(BigDecimal.ZERO);
+        ventaAnual.setDiasProrrateoAdicional(0);
+        ventaAnual.setFechaInicioProrrateoAdicional(null);
+        ventaAnual.setFechaFinProrrateoAdicional(null);
         ventaAnual.setMontoTotal(precioAnual);
         ventaAnual.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
         ventaAnual.setObservaciones("Renovacion anual generada por capacitacion para " + fechaCobroAnual);
@@ -358,6 +438,14 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 continue;
             }
 
+            Optional<Venta> pendiente = encontrarRenovacionPendienteExistente(ventaServicio.getId());
+            if (pendiente.isPresent()
+                    && pendiente.get().getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
+                // The second proration is an issued amount for the next bill.
+                // Automatic alignment must not replace it with the regular fee.
+                continue;
+            }
+
             LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicio, monthlyBillingDay);
             LocalDateTime fechaFinCalculada = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
 
@@ -367,7 +455,6 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 servicioClienteRepository.save(servicio);
             }
 
-            Optional<Venta> pendiente = encontrarRenovacionPendienteExistente(ventaServicio.getId());
             if (pendiente.isPresent()) {
                 realinearVentaPendienteMensual(servicio, pendiente.get(), fechaFinMensual, ahora);
             } else {
@@ -417,15 +504,24 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         if (ventaServicio.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL
                 && ventaServicio.getTipoVenta() == TipoVenta.ALTA
                 && servicio.getFechaInicio() != null) {
-            ProrrateoCalculatorUtil.ResultadoProrrateo resultado =
-                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(
-                            precioBase,
-                            servicio.getFechaInicio().toLocalDate(),
-                            monthlyBillingDay
-                    );
-            descuentoProrrateo = resultado.descuento();
-            montoTotal = resultado.montoFinal();
-            diasProrrateados = Math.max(1, resultado.diasTotales() - resultado.diasNoConsumidos());
+            LocalDate fechaBase = servicio.getFechaInicio().toLocalDate();
+            if (correspondeSegundoProrrateo(fechaBase)) {
+                ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
+                        ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioBase, fechaBase);
+                montoTotal = precioBase.add(resultado.montoAdicional());
+                diasProrrateados = resultado.diasProrrateados();
+                descuentoProrrateo = BigDecimal.ZERO;
+            } else {
+                ProrrateoCalculatorUtil.ResultadoProrrateo resultado =
+                        ProrrateoCalculatorUtil.calcularHastaDiaCobro(
+                                precioBase,
+                                fechaBase,
+                                monthlyBillingDay
+                        );
+                descuentoProrrateo = resultado.descuento();
+                montoTotal = resultado.montoFinal();
+                diasProrrateados = Math.max(1, resultado.diasTotales() - resultado.diasNoConsumidos());
+            }
         } else if (ventaServicio.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL
                 && servicio.getMontoProrrateo() != null
                 && servicio.getMontoProrrateo().compareTo(BigDecimal.ZERO) > 0
@@ -448,10 +544,44 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         siguiente.setVentaAnterior(ventaServicio);
         siguiente.setPrecioLista(precioBase);
         siguiente.setMontoProrrateado(descuentoProrrateo);
+        LocalDate fechaBaseServicio = servicio.getFechaInicio() != null
+                ? servicio.getFechaInicio().toLocalDate()
+                : null;
+        boolean segundo = fechaBaseServicio != null
+                && correspondeSegundoProrrateo(fechaBaseServicio)
+                && ventaServicio.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL;
+        boolean anual = ventaServicio.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL;
+        siguiente.setTipoProrrateo(anual
+                ? TipoProrrateo.NINGUNO
+                : segundo ? TipoProrrateo.SEGUNDO_PRORRATEO : TipoProrrateo.PRIMER_PRORRATEO);
+        if (segundo) {
+            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
+                    ProrrateoCalculatorUtil.calcularSegundoProrrateo(
+                            precioBase,
+                            fechaBaseServicio
+                    );
+            siguiente.setMontoProrrateoAdicional(resultado.montoAdicional());
+            siguiente.setDiasProrrateoAdicional(resultado.diasProrrateados());
+            siguiente.setFechaInicioProrrateoAdicional(LocalDateTime.of(resultado.fechaInicio(), LocalTime.NOON));
+            siguiente.setFechaFinProrrateoAdicional(LocalDateTime.of(resultado.fechaFin(), LocalTime.NOON));
+            siguiente.setFechaVenta(LocalDateTime.of(resultado.fechaFin().plusDays(1), LocalTime.NOON));
+        } else {
+            siguiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
+            siguiente.setDiasProrrateoAdicional(0);
+            siguiente.setFechaInicioProrrateoAdicional(null);
+            siguiente.setFechaFinProrrateoAdicional(null);
+        }
         siguiente.setMontoTotal(montoTotal);
         siguiente.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
-        siguiente.setObservaciones("Renovacion pendiente sincronizada para " + fechaCobro);
-        siguiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+        siguiente.setObservaciones(segundo
+                ? "Renovacion pendiente con segundo prorrateo del "
+                        + siguiente.getFechaInicioProrrateoAdicional().toLocalDate()
+                        + " al "
+                        + siguiente.getFechaFinProrrateoAdicional().toLocalDate()
+                : "Renovacion pendiente sincronizada para " + fechaCobro);
+        if (!segundo) {
+            siguiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+        }
         siguiente.setFechaActualizacion(ahora);
         ventaRepository.save(siguiente);
 
@@ -476,6 +606,10 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             Venta pendiente,
             LocalDate fechaCobro,
             LocalDateTime ahora) {
+        if (pendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
+            return;
+        }
+
         Venta ventaServicio = servicio.getVenta();
         BigDecimal precioBase = pendiente.getPrecioLista() != null
                 ? pendiente.getPrecioLista()

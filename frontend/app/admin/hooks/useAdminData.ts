@@ -136,6 +136,11 @@ export function useAdminData() {
           montoSiguienteCobro: c.montoSiguienteCobro,
           ventaId: c.ventaId !== undefined && c.ventaId !== null ? String(c.ventaId) : undefined,
           diasProrrateados: c.diasProrrateados,
+          tipoProrrateo: c.tipoProrrateo || 'NINGUNO',
+          montoProrrateoAdicional: c.montoProrrateoAdicional,
+          diasProrrateoAdicional: c.diasProrrateoAdicional,
+          fechaInicioProrrateoAdicional: c.fechaInicioProrrateoAdicional,
+          fechaFinProrrateoAdicional: c.fechaFinProrrateoAdicional,
           estadoCuenta: c.estadoNombre || c.estadoCuenta || 'SIN_ESTADO',
           estadoCapacitacion: c.fechaCapacitacion ? 'COMPLETADO' : (c.estadoNombre === 'POR_CAPACITAR' ? 'PENDIENTE' : 'PENDIENTE'),
           colorTag: (c.colorCodigo || c.colorTag || 'VERDE') as ColorTagType,
@@ -326,21 +331,56 @@ export function useAdminData() {
     }
 
     if (isAnual) {
-      return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 365 };
+      return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 365, tipoProrrateo: 'NINGUNO' };
     }
 
     if (!fechaCapacitacionStr) {
-      return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 30 };
+      return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 30, tipoProrrateo: 'PRIMER_PRORRATEO' };
     }
 
     const dCap = new Date(fechaCapacitacionStr);
     if (isNaN(dCap.getTime())) {
-      return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 30 };
+      return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 30, tipoProrrateo: 'PRIMER_PRORRATEO' };
     }
 
     const diaCap = dCap.getDate();
     const year = dCap.getFullYear();
     const month = dCap.getMonth();
+
+    if (diaCap >= 10) {
+      const nextMonthLastDay = new Date(year, month + 2, 0).getDate();
+      const fechaInicioAdicional = new Date(year, month + 1, Math.min(diaCap, nextMonthLastDay), 12);
+      const fechaFinAdicional = new Date(
+        fechaInicioAdicional.getFullYear(),
+        fechaInicioAdicional.getMonth() + 1,
+        0,
+        12
+      );
+      const fechaFinExclusiva = new Date(
+        fechaFinAdicional.getFullYear(),
+        fechaFinAdicional.getMonth(),
+        fechaFinAdicional.getDate() + 1,
+        12
+      );
+      const msDia = 24 * 60 * 60 * 1000;
+      const diasAdicionales = Math.max(
+        0,
+        Math.round((fechaFinExclusiva.getTime() - fechaInicioAdicional.getTime()) / msDia)
+      );
+      const montoAdicional = Number(
+        ((montoPlan / nextMonthLastDay) * diasAdicionales).toFixed(2)
+      );
+      return {
+        montoProrrateado: Number((montoPlan + montoAdicional).toFixed(2)),
+        montoProrrateoAdicional: montoAdicional,
+        diasProrrateados: diasAdicionales,
+        diasProrrateoAdicional: diasAdicionales,
+        fechaInicioProrrateoAdicional: fechaInicioAdicional.toISOString(),
+        fechaFinProrrateoAdicional: fechaFinAdicional.toISOString(),
+        tipoProrrateo: 'SEGUNDO_PRORRATEO',
+      };
+    }
+
     const billingDate = (base: Date) => {
       const y = base.getFullYear();
       const m = base.getMonth();
@@ -357,7 +397,7 @@ export function useAdminData() {
 
     const diasUsados = Math.max(1, Math.round((fechaFin.getTime() - dCap.getTime()) / msDia));
     const montoCalculado = (montoPlan / dTotal) * diasUsados;
-    return { montoProrrateado: Math.round(montoCalculado), diasProrrateados: diasUsados };
+    return { montoProrrateado: Math.round(montoCalculado), diasProrrateados: diasUsados, tipoProrrateo: 'PRIMER_PRORRATEO' };
   }
 
   const prorrateoCalculado = useMemo(() => {
@@ -396,6 +436,11 @@ export function useAdminData() {
       diasTotales: dTotal,
       diaCapacitacion: diaCap,
       montoProrrateado: res.montoProrrateado,
+      montoProrrateoAdicional: res.montoProrrateoAdicional || 0,
+      diasProrrateoAdicional: res.diasProrrateoAdicional || 0,
+      fechaInicioProrrateoAdicional: res.fechaInicioProrrateoAdicional,
+      fechaFinProrrateoAdicional: res.fechaFinProrrateoAdicional,
+      tipoProrrateo: res.tipoProrrateo || (isAnual ? 'NINGUNO' : 'PRIMER_PRORRATEO'),
       fechaVencimiento: fechaVencimientoStr,
       isAnual,
     };

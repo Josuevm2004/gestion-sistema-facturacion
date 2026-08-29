@@ -316,6 +316,11 @@ export default function ReportesExcelTab({
       'Fecha Vencimiento',
       'Monto Prorrateado Vigente (S/)',
       'Dias Prorrateados',
+      'Tipo Prorrateo',
+      'Prorrateo Adicional (S/)',
+      'Dias Prorrateo Adicional',
+      'Inicio Prorrateo Adicional',
+      'Fin Prorrateo Adicional',
       'Fecha Alta / Registro',
       'Usuario SOL',
       'Usuario Sistema',
@@ -409,6 +414,11 @@ export default function ReportesExcelTab({
         c.fechaVencimientoMensual || '',
         Number(c.montoSiguienteCobro || 0).toFixed(2),
         c.diasProrrateados || 0,
+        c.tipoProrrateo || 'NINGUNO',
+        Number(c.montoProrrateoAdicional || 0).toFixed(2),
+        c.diasProrrateoAdicional || 0,
+        c.fechaInicioProrrateoAdicional || '',
+        c.fechaFinProrrateoAdicional || '',
         c.fechaRegistro || '',
         c.usuarioSol || '',
         c.usuarioSistema || '',
@@ -416,7 +426,7 @@ export default function ReportesExcelTab({
         c.linkSistema || '',
       ];
 
-      const numericBaseCellIndexes = new Set([16, 23, 24]);
+      const numericBaseCellIndexes = new Set([16, 23, 24, 26, 27]);
       const baseCellsXml = cells
         .map(
           (val, idx) => {
