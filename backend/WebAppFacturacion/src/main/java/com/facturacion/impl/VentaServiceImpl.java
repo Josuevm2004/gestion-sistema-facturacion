@@ -120,10 +120,16 @@ public class VentaServiceImpl implements VentaService {
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
         } else if (tipo == TipoVenta.CAMBIO_PLAN) {
-            // Un cambio de plan cobra la tarifa completa del nuevo plan seleccionado (ej. S/ 39.00)
-            // y otorga el mes completo de servicio a partir de la fecha de inicio.
-            fechaFin = fechaInicio.plusMonths(1);
-            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            if (correspondeSegundoProrrateo(fechaInicioDate)) {
+                ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
+                        ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioLista, fechaInicioDate);
+                LocalDate fechaCobroSegundo = resultado.fechaFin().plusDays(1);
+                fechaFin = LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME);
+                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaCobroSegundo));
+            } else {
+                fechaFin = fechaInicio.plusMonths(1);
+                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            }
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
         } else if (usarMontoPendienteProgramado) {
@@ -133,9 +139,16 @@ public class VentaServiceImpl implements VentaService {
             fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
         } else {
-            // Renovación mensual regular por el mes completo
-            fechaFin = fechaInicio.plusMonths(1);
-            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            if (correspondeSegundoProrrateo(fechaInicioDate)) {
+                ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
+                        ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioLista, fechaInicioDate);
+                LocalDate fechaCobroSegundo = resultado.fechaFin().plusDays(1);
+                fechaFin = LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME);
+                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaCobroSegundo));
+            } else {
+                fechaFin = fechaInicio.plusMonths(1);
+                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            }
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
         }

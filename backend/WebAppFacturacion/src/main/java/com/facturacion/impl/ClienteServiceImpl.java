@@ -153,7 +153,11 @@ public class ClienteServiceImpl implements ClienteService {
         if (tipoSub == TipoSuscripcion.ANUAL) {
             servicio.setFechaFin(fechaOperacion.plusYears(1));
         } else if (fechaOperacion.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
-            servicio.setFechaFin(fechaOperacion.plusMonths(1));
+            LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
+                    suscripcion.getPrecio(),
+                    fechaOperacion.toLocalDate()
+            ).fechaFin().plusDays(1);
+            servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
         } else {
             LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaOperacion.toLocalDate(), monthlyBillingDay);
             servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));

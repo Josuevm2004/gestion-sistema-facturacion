@@ -501,9 +501,17 @@ export function useAdminData() {
       trainingClient.montoMensual
     );
 
-    let fVenc = isAnual ? new Date(dCap.getFullYear() + 1, dCap.getMonth(), dCap.getDate()) : billingDate(dCap);
-    if (!isAnual && dCap >= fVenc) {
-      fVenc = billingDate(new Date(year, month + 1, 1));
+    let fVenc: Date;
+    if (isAnual) {
+      fVenc = new Date(dCap.getFullYear() + 1, dCap.getMonth(), dCap.getDate());
+    } else if (res.tipoProrrateo === 'SEGUNDO_PRORRATEO' && res.fechaFinProrrateoAdicional) {
+      const dFin = new Date(res.fechaFinProrrateoAdicional);
+      fVenc = new Date(dFin.getFullYear(), dFin.getMonth(), dFin.getDate() + 1);
+    } else {
+      fVenc = billingDate(dCap);
+      if (dCap >= fVenc) {
+        fVenc = billingDate(new Date(year, month + 1, 1));
+      }
     }
     const fechaInicioCiclo = billingDate(new Date(fVenc.getFullYear(), fVenc.getMonth() - 1, 1));
     const dTotal = isAnual ? 365 : Math.max(1, Math.round((fVenc.getTime() - fechaInicioCiclo.getTime()) / (24 * 60 * 60 * 1000)));

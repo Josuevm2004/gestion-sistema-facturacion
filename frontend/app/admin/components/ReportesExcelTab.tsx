@@ -388,6 +388,13 @@ export default function ReportesExcelTab({
       const totalOperaciones = operaciones.reduce((acc, op) => acc + excelOperationAmount(op, c), 0);
       const totalCobros = totalOperaciones + fallbackPaymentsTotal;
 
+      const formatExcelDate = (val?: string) => {
+        if (!val) return '';
+        const d = new Date(val);
+        if (isNaN(d.getTime())) return String(val);
+        return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      };
+
       const cells = [
         c.ruc,
         c.razonSocial || '',
@@ -410,16 +417,16 @@ export default function ReportesExcelTab({
         c.colorTag || '',
         c.estadoCuenta || '',
         c.estadoCapacitacion || '',
-        c.fechaCapacitacion || '',
-        c.fechaVencimientoMensual || '',
+        formatExcelDate(c.fechaCapacitacion),
+        formatExcelDate(c.fechaVencimientoMensual),
         Number(c.montoSiguienteCobro || 0).toFixed(2),
         c.diasProrrateados || 0,
         c.tipoProrrateo || 'NINGUNO',
         Number(c.montoProrrateoAdicional || 0).toFixed(2),
         c.diasProrrateoAdicional || 0,
-        c.fechaInicioProrrateoAdicional || '',
-        c.fechaFinProrrateoAdicional || '',
-        c.fechaRegistro || '',
+        formatExcelDate(c.fechaInicioProrrateoAdicional),
+        formatExcelDate(c.fechaFinProrrateoAdicional),
+        formatExcelDate(c.fechaRegistro),
         c.usuarioSol || '',
         c.usuarioSistema || '',
         c.claveSistema || '',

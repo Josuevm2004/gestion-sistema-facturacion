@@ -78,7 +78,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             diasProrrateados = 365;
         } else if (correspondeSegundoProrrateo(fechaCapDate)) {
             resultadoSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioBase, fechaCapDate);
-            LocalDate fechaFin = fechaCapDate.plusMonths(1);
+            LocalDate fechaFin = resultadoSegundo.fechaFin().plusDays(1);
             fechaFinCalculada = LocalDateTime.of(fechaFin, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(
                     fechaCapDate,
@@ -437,8 +437,10 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
 
             Optional<Venta> pendiente = encontrarRenovacionPendienteExistente(ventaServicio.getId());
             if (correspondeSegundoProrrateo(fechaInicio)) {
-                LocalDate fechaFinMesCompleto = fechaInicio.plusMonths(1);
-                LocalDateTime fechaFinCalculada = LocalDateTime.of(fechaFinMesCompleto, BILLING_CUTOFF_TIME);
+                ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
+                        ProrrateoCalculatorUtil.calcularSegundoProrrateo(ventaServicio.getSuscripcion().getPrecio(), fechaInicio);
+                LocalDate fechaCobroSegundo = resultado.fechaFin().plusDays(1);
+                LocalDateTime fechaFinCalculada = LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME);
                 if (!fechaFinCalculada.equals(servicio.getFechaFin())) {
                     servicio.setFechaFin(fechaFinCalculada);
                     servicio.setFechaActualizacion(ahora);

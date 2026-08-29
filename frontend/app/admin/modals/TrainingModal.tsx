@@ -46,57 +46,83 @@ export default function TrainingModal({
 
               {prorrateoCalculado && (
                 <div className="p-3 bg-light rounded-3 border">
-                  <h6 className="fw-bold text-primary mb-2">
-                    {prorrateoCalculado.tipoProrrateo === 'SEGUNDO_PRORRATEO'
-                      ? 'Segundo prorrateo adicional'
-                      : `Primer prorrateo con corte Día ${MONTHLY_BILLING_DAY} (Fórmula Mcobro)`}
-                  </h6>
-                  <div className="small">
-                    <div>
-                      Plan contratado: <strong>{trainingClient.planContratado} (S/ {trainingClient.montoMensual})</strong>
+                  <div className="d-flex align-items-center justify-content-between mb-2">
+                    <span className="badge bg-primary bg-opacity-10 text-primary border border-primary fw-semibold px-2 py-1">
+                      {prorrateoCalculado.tipoProrrateo === 'SEGUNDO_PRORRATEO'
+                        ? 'Segundo Prorrateo (Días 10 al 31)'
+                        : prorrateoCalculado.isAnual
+                        ? 'Plan Anual'
+                        : `Primer Prorrateo (Días 1 al 9)`}
+                    </span>
+                    <span className="text-muted small fw-semibold">
+                      Plan: {trainingClient.planContratado}
+                    </span>
+                  </div>
+
+                  <div className="p-2 bg-white rounded-2 border mb-3 small">
+                    <div className="d-flex justify-content-between py-1 border-bottom">
+                      <span className="text-muted">Tarifa Mensual Base:</span>
+                      <strong className="text-dark">S/ {Number(trainingClient.montoMensual || 0).toFixed(2)}</strong>
                     </div>
+
                     {prorrateoCalculado.tipoProrrateo === 'SEGUNDO_PRORRATEO' ? (
                       <>
-                        <div>
-                          Período del segundo prorrateo: <strong>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Tramo de Ajuste Adicional:</span>
+                          <span className="fw-semibold text-dark">
                             {prorrateoCalculado.fechaInicioProrrateoAdicional
                               ? new Date(prorrateoCalculado.fechaInicioProrrateoAdicional).toLocaleDateString('es-PE')
                               : '—'}
-                            {' '}al{' '}
+                            {' al '}
                             {prorrateoCalculado.fechaFinProrrateoAdicional
                               ? new Date(prorrateoCalculado.fechaFinProrrateoAdicional).toLocaleDateString('es-PE')
                               : '—'}
-                          </strong>
+                            {' '}({prorrateoCalculado.diasProrrateoAdicional} días)
+                          </span>
                         </div>
-                        <div>
-                          Días adicionales: <strong>{prorrateoCalculado.diasProrrateoAdicional} días</strong>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Prorrateo Adicional:</span>
+                          <strong className="text-primary">+ S/ {Number(prorrateoCalculado.montoProrrateoAdicional || 0).toFixed(2)}</strong>
                         </div>
-                        <div>
-                          Prorrateo adicional: <strong>S/ {Number(prorrateoCalculado.montoProrrateoAdicional || 0).toFixed(2)}</strong>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Fecha del Próximo Cobro:</span>
+                          <strong className="text-dark">{prorrateoCalculado.fechaVencimiento} (00:00 am)</strong>
                         </div>
-                        <div className="fs-5 fw-bold text-success mt-2">
-                          Próximo cobro: S/ {prorrateoCalculado.montoProrrateado.toFixed(2)}
+                        <div className="d-flex justify-content-between align-items-center pt-2">
+                          <span className="fw-bold text-dark">Próximo Cobro Unificado:</span>
+                          <span className="fs-5 fw-bold text-success">
+                            S/ {Number(prorrateoCalculado.montoProrrateado || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="text-muted mt-2 pt-1 border-top" style={{ fontSize: '0.75rem' }}>
+                          * Incluye la siguiente mensualidad regular (S/ {Number(trainingClient.montoMensual || 0).toFixed(2)}) + los {prorrateoCalculado.diasProrrateoAdicional} días de ajuste. A partir del mes siguiente, el cobro continuará en S/ {Number(trainingClient.montoMensual || 0).toFixed(2)} el día 1 de cada mes.
                         </div>
                       </>
                     ) : (
                       <>
-                        <div>
-                          Días del ciclo (Dtotal): <strong>{prorrateoCalculado.diasTotales} días</strong>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Día de Capacitación:</span>
+                          <span className="fw-semibold text-dark">Día {prorrateoCalculado.diaCapacitacion}</span>
                         </div>
-                        <div>
-                          Día de capacitación (Dcap): <strong>Día {prorrateoCalculado.diaCapacitacion}</strong>
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Días Cobrados hasta Fin de Mes:</span>
+                          <span className="fw-semibold text-dark">{prorrateoCalculado.diasTotales - (prorrateoCalculado.diaCapacitacion - 1)} días</span>
                         </div>
-                        {!prorrateoCalculado.isAnual && (
-                          <div>
-                            Días no consumidos a descontar: <strong>{prorrateoCalculado.diaCapacitacion - 1} días</strong>
-                          </div>
-                        )}
-                        <div className="fs-5 fw-bold text-success mt-2">
-                          Cobro al corte del día {MONTHLY_BILLING_DAY}: S/ {prorrateoCalculado.montoProrrateado.toFixed(2)}
+                        <div className="d-flex justify-content-between py-1 border-bottom">
+                          <span className="text-muted">Fecha del Próximo Cobro:</span>
+                          <strong className="text-dark">{prorrateoCalculado.fechaVencimiento} (00:00 am)</strong>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center pt-2">
+                          <span className="fw-bold text-dark">Monto Inicial Prorrateado:</span>
+                          <span className="fs-5 fw-bold text-success">
+                            S/ {Number(prorrateoCalculado.montoProrrateado || 0).toFixed(2)}
+                          </span>
+                        </div>
+                        <div className="text-muted mt-2 pt-1 border-top" style={{ fontSize: '0.75rem' }}>
+                          * Al llegar el día {MONTHLY_BILLING_DAY} ({prorrateoCalculado.fechaVencimiento}), la siguiente renovación será por la mensualidad completa de S/ {Number(trainingClient.montoMensual || 0).toFixed(2)}.
                         </div>
                       </>
                     )}
-                    <div className="text-muted small">Fecha límite de pago ajustada: {prorrateoCalculado.fechaVencimiento}</div>
                   </div>
                 </div>
               )}
