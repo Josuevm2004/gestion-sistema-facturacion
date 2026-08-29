@@ -85,7 +85,7 @@ export default function ChangePlanModal({
             </div>
 
             <div className="alert alert-info mt-3 mb-0 small border-info border-opacity-25 bg-info bg-opacity-10 text-dark">
-              💡 <strong>Regla Comercial:</strong> Al procesar el cambio a <strong>{cambioPlanSeleccionado} ({cambioPlanTipo})</strong>, el cliente pagará la tarifa completa y se le otorgará el período completo de servicio correspondiente.
+              <strong>Regla Comercial:</strong> Al procesar el cambio a <strong>{cambioPlanSeleccionado} ({cambioPlanTipo})</strong>, el cliente pagará la tarifa completa y se le otorgará el período completo de servicio correspondiente.
             </div>
           </div>
           <div className="modal-footer border-top bg-light px-4 py-3">

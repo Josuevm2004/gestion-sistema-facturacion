@@ -74,7 +74,7 @@ export default function VencidosTab({
             {clientesVencidosList.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
-                  🎉 No hay clientes vencidos en este momento.
+                  No hay clientes vencidos en este momento.
                 </td>
               </tr>
             ) : (
@@ -104,7 +104,7 @@ export default function VencidosTab({
                         </span>
                       ) : (
                         <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
-                          ⚠️ Vencido
+                          Vencido
                         </span>
                       )}
                     </td>

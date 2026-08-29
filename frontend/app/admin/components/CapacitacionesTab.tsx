@@ -85,7 +85,7 @@ export default function CapacitacionesTab({
             {targetList.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
-                  ✨ No hay empresas para capacitación en este momento.
+                  No hay empresas para capacitación en este momento.
                 </td>
               </tr>
             ) : (
@@ -110,18 +110,18 @@ export default function CapacitacionesTab({
                     <td>
                       {isCapacitado ? (
                         <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
-                          🟢 Capacitado
+                          Capacitado
                         </span>
                       ) : (
                         <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
-                          ⏳ Pendiente de Capacitación
+                          Pendiente de Capacitación
                         </span>
                       )}
                     </td>
                     <td>
                       {c.fechaCapacitacion ? (
                         <span className="badge bg-light text-primary border border-primary border-opacity-25 fw-bold">
-                          📅 {formatPeruDate(c.fechaCapacitacion)}
+                          {formatPeruDate(c.fechaCapacitacion)}
                         </span>
                       ) : (
                         <span className="text-muted small fw-semibold">Sin programar</span>

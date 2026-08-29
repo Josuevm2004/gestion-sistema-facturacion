@@ -104,7 +104,7 @@ export default function UpgradePlanModal({
                 </select>
 
                 <div className="alert alert-success mt-3 mb-0 small border-success border-opacity-25 bg-success bg-opacity-10 text-dark">
-                  💡 <strong>Cálculo Automático:</strong> Se registrará el cobro proporcional únicamente por la diferencia del plan. Las fechas de vigencia y aniversario de cobro se conservan intactas.
+                  <strong>Cálculo Automático:</strong> Se registrará el cobro proporcional únicamente por la diferencia del plan. Las fechas de vigencia y aniversario de cobro se conservan intactas.
                 </div>
               </>
             )}

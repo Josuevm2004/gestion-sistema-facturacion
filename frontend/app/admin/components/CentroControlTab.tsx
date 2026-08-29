@@ -116,7 +116,7 @@ export default function CentroControlTab({
             {filteredClients.length === 0 ? (
               <tr>
                 <td colSpan={12} className="text-center text-muted py-4 fw-semibold">
-                  ✨ No se encontraron clientes en el Centro de Control.
+                  No se encontraron clientes en el Centro de Control.
                 </td>
               </tr>
             ) : visibleClients.map((c, idx) => {

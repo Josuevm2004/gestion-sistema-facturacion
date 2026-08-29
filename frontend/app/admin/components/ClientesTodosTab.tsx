@@ -119,10 +119,10 @@ export default function ClientesTodosTab({
     AZUL: 'Azul',
   };
   const defaultColorMap: Record<string, { hex: string; label: string }> = {
-    VERDE: { hex: '#198754', label: '🟢 Verde' },
-    ROJO: { hex: '#dc3545', label: '🔴 Rojo' },
-    AMARILLO: { hex: '#ffc107', label: '🟡 Amarillo' },
-    AZUL: { hex: '#0d6efd', label: '🔵 Azul' },
+    VERDE: { hex: '#198754', label: 'Verde' },
+    ROJO: { hex: '#dc3545', label: 'Rojo' },
+    AMARILLO: { hex: '#ffc107', label: 'Amarillo' },
+    AZUL: { hex: '#0d6efd', label: 'Azul' },
   };
 
   const getColorInfo = (tag?: string) => {
@@ -373,8 +373,8 @@ export default function ClientesTodosTab({
                 </td>
                 <td>
                   {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (
-                    <span className="badge bg-secondary text-white fw-bold d-inline-flex align-items-center gap-1" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
-                      👤 {c.vendedor}
+                    <span className="badge bg-secondary text-white fw-bold" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
+                      {c.vendedor}
                     </span>
                   ) : currentUser?.rol === 'ADMIN' ? (
                     <select
@@ -411,7 +411,7 @@ export default function ClientesTodosTab({
                 </td>
                 <td>
                   <span className={`badge ${c.estadoCuenta === 'HABILITADO' ? 'badge-habilitado' : 'badge-bloqueado'}`}>
-                    {c.estadoCuenta === 'HABILITADO' ? '🟢 HABILITADO' : '🔴 ' + c.estadoCuenta}
+                    {c.estadoCuenta}
                   </span>
                 </td>
                 <td>

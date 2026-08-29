@@ -65,7 +65,7 @@ export default function PorCobrarTab({
             {clientesPorCobrarList.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
-                  ✨ No hay registros pendientes por cobrar en este momento.
+                  No hay registros pendientes por cobrar en este momento.
                 </td>
               </tr>
             ) : (
@@ -87,7 +87,7 @@ export default function PorCobrarTab({
                   <td className="fw-bold text-primary fs-6">S/ {Number(c.montoSiguienteCobro ?? c.montoMensual).toFixed(2)}</td>
                   <td>
                     <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
-                      ⏳ POR COBRAR
+                      POR COBRAR
                     </span>
                   </td>
                   <td>

@@ -580,10 +580,10 @@ export default function ReportesExcelTab({
   }, [clients, payments, sellerMetrics]);
 
   const defaultColorMap: Record<string, { hex: string; label: string }> = {
-    VERDE: { hex: '#198754', label: '🟢 Verde' },
-    ROJO: { hex: '#dc3545', label: '🔴 Rojo' },
-    AMARILLO: { hex: '#ffc107', label: '🟡 Amarillo' },
-    AZUL: { hex: '#0d6efd', label: '🔵 Azul' },
+    VERDE: { hex: '#198754', label: 'Verde' },
+    ROJO: { hex: '#dc3545', label: 'Rojo' },
+    AMARILLO: { hex: '#ffc107', label: 'Amarillo' },
+    AZUL: { hex: '#0d6efd', label: 'Azul' },
   };
 
   const getColorInfo = (tag?: string) => {
@@ -705,10 +705,10 @@ export default function ReportesExcelTab({
           <label className="form-label small fw-semibold text-muted mb-1">Color Atención</label>
           <select className="form-select form-select-sm" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)}>
             <option value="">Todos los Colores</option>
-            <option value="VERDE">🟢 Verde</option>
-            <option value="ROJO">🔴 Rojo</option>
-            <option value="AMARILLO">🟡 Amarillo</option>
-            <option value="AZUL">🔵 Azul</option>
+            <option value="VERDE">Verde</option>
+            <option value="ROJO">Rojo</option>
+            <option value="AMARILLO">Amarillo</option>
+            <option value="AZUL">Azul</option>
           </select>
         </div>
         <div className="col-md-2">

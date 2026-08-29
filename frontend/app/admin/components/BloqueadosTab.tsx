@@ -67,7 +67,7 @@ export default function BloqueadosTab({
             {clientesBloqueadosList.length === 0 ? (
               <tr>
                 <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
-                  ✨ No hay clientes en estado bloqueado.
+                  No hay clientes en estado bloqueado.
                 </td>
               </tr>
             ) : (
@@ -87,7 +87,7 @@ export default function BloqueadosTab({
                     <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
                   </td>
                   <td>
-                    <span className="badge bg-secondary text-white">🔒 BLOQUEADO</span>
+                    <span className="badge bg-secondary text-white">BLOQUEADO</span>
                   </td>
                   <td>
                     <div className="d-flex gap-2">
