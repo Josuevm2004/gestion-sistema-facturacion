@@ -100,24 +100,28 @@ export default function BillingMessageModal({ client, onClose }: BillingMessageM
 
     // 1. Caso: Cliente con Segundo Prorrateo Vigente (Días 10 al 31)
     if (activeType === 'SEGUNDO_PRORRATEO') {
-      const dInit = parseLocalDate(client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion) || now;
-      const diaInit = String(dInit.getDate()).padStart(2, '0');
-      const mesInit = String(dInit.getMonth() + 1).padStart(2, '0');
-
-      // Fechas de ajuste desde BD si existen, o calculadas
       let dInicioProrr = parseLocalDate(client.fechaInicioProrrateoAdicional);
       let dFinProrr = parseLocalDate(client.fechaFinProrrateoAdicional);
       let dCobro = parseLocalDate(client.fechaVencimientoMensual);
+      let dInit: Date;
 
-      if (!dInicioProrr) {
+      if (dInicioProrr) {
+        // La fecha de activación inicial corresponde a 1 mes exacto antes del inicio del tramo de ajuste
+        dInit = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() - 1, dInicioProrr.getDate());
+      } else {
+        dInit = parseLocalDate(client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion) || now;
         dInicioProrr = new Date(dInit.getFullYear(), dInit.getMonth() + 1, dInit.getDate());
       }
+
       if (!dFinProrr) {
         dFinProrr = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() + 1, 0);
       }
       if (!dCobro) {
         dCobro = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() + 1, 1);
       }
+
+      const diaInit = String(dInit.getDate()).padStart(2, '0');
+      const mesInit = String(dInit.getMonth() + 1).padStart(2, '0');
 
       const diaAniv = String(dInicioProrr.getDate()).padStart(2, '0');
       const mesAniv = String(dInicioProrr.getMonth() + 1).padStart(2, '0');
