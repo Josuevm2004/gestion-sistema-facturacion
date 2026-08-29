@@ -59,6 +59,8 @@ export type Client = {
   linkSistema?: string;
   usuarioSistema?: string;
   claveSistema?: string;
+  colorTag?: string;
+  colorCodigo?: string;
   entornoId?: EntityId;
   entornoNombre?: string;
 };
