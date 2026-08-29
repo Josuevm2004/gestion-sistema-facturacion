@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MessageSquare, Copy, Check, ExternalLink, RefreshCw, X } from 'lucide-react';
-import { Client } from '../components/ClientesTodosTab';
+import { MessageSquare, Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
+import { Client, ColorTagType } from '../components/ClientesTodosTab';
 
 interface BillingMessageModalProps {
   client: Client | null;
@@ -10,6 +10,23 @@ interface BillingMessageModalProps {
 }
 
 export type MessageType = 'AUTO' | 'REGULAR' | 'PRIMER_PRORRATEO' | 'SEGUNDO_PRORRATEO' | 'ANUAL';
+
+// Helper seguro para parsear fechas evitando desfasajes de zona horaria UTC
+function parseLocalDate(dateStr?: string): Date | null {
+  if (!dateStr) return null;
+  const clean = String(dateStr).replace('Z', '').split('T')[0];
+  const parts = clean.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return new Date(year, month, day);
+    }
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 export default function BillingMessageModal({ client, onClose }: BillingMessageModalProps) {
   const [selectedType, setSelectedType] = useState<MessageType>('AUTO');
@@ -47,31 +64,27 @@ export default function BillingMessageModal({ client, onClose }: BillingMessageM
     'Diciembre',
   ];
 
-  // Identificar automáticamente el tipo de cliente
+  // Identificar automáticamente el tipo de mensaje vigente para el cliente
   const detectedType = useMemo<MessageType>(() => {
     if (!client) return 'REGULAR';
     const isAnual = (client.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
     if (isAnual) return 'ANUAL';
 
     const tipoProrrateo = (client.tipoProrrateo || '').toUpperCase();
-    if (tipoProrrateo === 'SEGUNDO_PRORRATEO') return 'SEGUNDO_PRORRATEO';
-    if (tipoProrrateo === 'PRIMER_PRORRATEO') return 'PRIMER_PRORRATEO';
+    const montoSiguiente = Number(client.montoSiguienteCobro || 0);
+    const montoMensual = Number(client.montoMensual || 0);
 
-    // Detección basada en fecha de registro/capacitación si no tiene tag de prorrateo
-    const rawDate = client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion;
-    if (rawDate) {
-      const d = new Date(rawDate);
-      if (!isNaN(d.getTime())) {
-        const day = d.getDate();
-        if (day >= 10 && (client.montoSiguienteCobro || 0) > (client.montoMensual || 0)) {
-          return 'SEGUNDO_PRORRATEO';
-        }
-        if (day < 10 && (client.montoSiguienteCobro || 0) > 0 && (client.montoSiguienteCobro || 0) < (client.montoMensual || 0)) {
-          return 'PRIMER_PRORRATEO';
-        }
-      }
+    // Solo es Segundo Prorrateo si tiene monto prorrateado pendiente acumulado (mayor a la tarifa regular)
+    if (tipoProrrateo === 'SEGUNDO_PRORRATEO' && montoSiguiente > montoMensual) {
+      return 'SEGUNDO_PRORRATEO';
     }
 
+    // Solo es Primer Prorrateo si tiene pendiente cobro menor a la tarifa regular por ajuste de días iniciales
+    if (tipoProrrateo === 'PRIMER_PRORRATEO' && montoSiguiente > 0 && montoSiguiente < montoMensual) {
+      return 'PRIMER_PRORRATEO';
+    }
+
+    // Si ya pagó el prorrateo inicial o es un cliente regularizado que paga los días 1:
     return 'REGULAR';
   }, [client]);
 
@@ -85,31 +98,38 @@ export default function BillingMessageModal({ client, onClose }: BillingMessageM
     const planName = client.planContratado || 'Plan Estándar';
     const now = new Date();
 
-    // 1. Caso: Cliente con Segundo Prorrateo (Días 10 al 31)
+    // 1. Caso: Cliente con Segundo Prorrateo Vigente (Días 10 al 31)
     if (activeType === 'SEGUNDO_PRORRATEO') {
-      const rawDate = client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion || now.toISOString();
-      const dInit = new Date(rawDate);
+      const dInit = parseLocalDate(client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion) || now;
       const diaInit = String(dInit.getDate()).padStart(2, '0');
       const mesInit = String(dInit.getMonth() + 1).padStart(2, '0');
 
-      // Fecha fin del primer mes cubierto (aniversario)
-      const dAniv = new Date(dInit.getFullYear(), dInit.getMonth() + 1, dInit.getDate());
-      const diaAniv = String(dAniv.getDate()).padStart(2, '0');
-      const mesAniv = String(dAniv.getMonth() + 1).padStart(2, '0');
-      const nombreMesAniv = monthNames[dAniv.getMonth()];
+      // Fechas de ajuste desde BD si existen, o calculadas
+      let dInicioProrr = parseLocalDate(client.fechaInicioProrrateoAdicional);
+      let dFinProrr = parseLocalDate(client.fechaFinProrrateoAdicional);
+      let dCobro = parseLocalDate(client.fechaVencimientoMensual);
 
-      // Tramo adicional de ajuste
-      const dFinMesAniv = new Date(dAniv.getFullYear(), dAniv.getMonth() + 1, 0);
-      const diaFinMesAniv = String(dFinMesAniv.getDate()).padStart(2, '0');
+      if (!dInicioProrr) {
+        dInicioProrr = new Date(dInit.getFullYear(), dInit.getMonth() + 1, dInit.getDate());
+      }
+      if (!dFinProrr) {
+        dFinProrr = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() + 1, 0);
+      }
+      if (!dCobro) {
+        dCobro = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() + 1, 1);
+      }
 
-      const montoAdicional = Number(client.montoProrrateoAdicional || ((Number(tarifaBase) / dFinMesAniv.getDate()) * (dFinMesAniv.getDate() - dAniv.getDate()))).toFixed(2);
+      const diaAniv = String(dInicioProrr.getDate()).padStart(2, '0');
+      const mesAniv = String(dInicioProrr.getMonth() + 1).padStart(2, '0');
+      const nombreMesAniv = monthNames[dInicioProrr.getMonth()];
 
-      // Mes en que se cobrará
-      const dCobro = new Date(dAniv.getFullYear(), dAniv.getMonth() + 1, 1);
+      const diaSiguienteAniv = String(Math.min(dInicioProrr.getDate() + 1, dFinProrr.getDate())).padStart(2, '0');
+      const diaFinMesAniv = String(dFinProrr.getDate()).padStart(2, '0');
+
+      const montoAdicional = Number(client.montoProrrateoAdicional || (Number(tarifaBase) / dFinProrr.getDate()) * (dFinProrr.getDate() - dInicioProrr.getDate())).toFixed(2);
       const nombreMesCobro = monthNamesCapital[dCobro.getMonth()];
       const montoTotalCobro = Number(client.montoSiguienteCobro || (Number(tarifaBase) + Number(montoAdicional))).toFixed(2);
 
-      // Mes subsiguiente normalizado
       const dSiguienteNormal = new Date(dCobro.getFullYear(), dCobro.getMonth() + 1, 1);
       const nombreMesSiguienteNormal = monthNames[dSiguienteNormal.getMonth()];
 
@@ -121,7 +141,7 @@ Para alinearte a nuestro ciclo de cobro de los días 01 de cada mes, los días r
 📌 *Ejemplo de tus fechas:*
 
 • *${diaInit}/${mesInit} al ${diaAniv}/${mesAniv}:* Cubierto con tu pago inicial.
-• *${diaAniv}/${mesAniv} al ${diaFinMesAniv}/${mesAniv}:* Días restantes de ${nombreMesAniv} (Prorrateo: S/ ${montoAdicional} aprox.).
+• *${diaSiguienteAniv}/${mesAniv} al ${diaFinMesAniv}/${mesAniv}:* Días restantes de ${nombreMesAniv} (Prorrateo: S/ ${montoAdicional} aprox.).
 • *01 de ${nombreMesCobro}:* Pagas la diferencia de ${nombreMesAniv} + tu mes de ${monthNames[dCobro.getMonth()]} completo (S/ ${tarifaBase}).
 
 👉 *TOTAL A PAGAR EL 01 DE ${nombreMesCobro.toUpperCase()}: S/ ${montoTotalCobro}*
@@ -139,19 +159,20 @@ Para alinearte a nuestro ciclo de cobro de los días 01 de cada mes, los días r
 (Cualquier duda que tengas, avísanos con confianza y te ayudamos 🙌)`;
     }
 
-    // 2. Caso: Cliente con Primer Prorrateo (Días 1 al 9)
+    // 2. Caso: Cliente con Primer Prorrateo Vigente (Días 1 al 9)
     if (activeType === 'PRIMER_PRORRATEO') {
-      const rawDate = client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion || now.toISOString();
-      const dInit = new Date(rawDate);
+      const dInit = parseLocalDate(client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion) || now;
       const diaInit = String(dInit.getDate()).padStart(2, '0');
       const nombreMesInit = monthNames[dInit.getMonth()];
 
-      // Siguiente mes de cobro proporcional
-      const dCobro = new Date(dInit.getFullYear(), dInit.getMonth() + 1, 1);
+      let dCobro = parseLocalDate(client.fechaVencimientoMensual);
+      if (!dCobro) {
+        dCobro = new Date(dInit.getFullYear(), dInit.getMonth() + 1, 1);
+      }
+
       const nombreMesCobro = monthNamesCapital[dCobro.getMonth()];
       const montoProrrateado = Number(client.montoSiguienteCobro || client.montoMensual || 15).toFixed(2);
 
-      // Mes subsiguiente normal
       const dNormal = new Date(dCobro.getFullYear(), dCobro.getMonth() + 1, 1);
       const nombreMesNormal = monthNamesCapital[dNormal.getMonth()];
 
@@ -182,9 +203,7 @@ Como tú te inscribiste el *${diaInit} de ${nombreMesInit}*, tu primer pago ya t
 
     // 3. Caso: Cliente con Plan Anual
     if (activeType === 'ANUAL') {
-      const vencDate = client.fechaVencimientoMensual
-        ? new Date(client.fechaVencimientoMensual)
-        : new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+      const vencDate = parseLocalDate(client.fechaVencimientoMensual) || new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
 
       const fechaVencStr = vencDate.toLocaleDateString('es-PE', {
         day: '2-digit',
@@ -216,10 +235,7 @@ Queremos recordarte que tu suscripción anual de tu Sistema de Facturación (*${
     }
 
     // 4. Caso: Cliente Regularizado (Cobro normal del día 1)
-    const vencDate = client.fechaVencimientoMensual
-      ? new Date(client.fechaVencimientoMensual)
-      : new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
+    const vencDate = parseLocalDate(client.fechaVencimientoMensual) || new Date(now.getFullYear(), now.getMonth() + 1, 1);
     const nombreMes = monthNamesCapital[vencDate.getMonth()];
 
     return `👋 *¡Hola!*
