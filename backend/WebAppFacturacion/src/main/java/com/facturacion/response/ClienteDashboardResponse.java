@@ -34,6 +34,7 @@ public class ClienteDashboardResponse {
     @JsonSerialize(using = ToStringSerializer.class)
     private Long estadoId;
     private String estadoNombre; // POR_COBRAR, POR_CAPACITAR, HABILITADO, VENCIDO, BLOQUEADO
+    private Boolean avisado = false;
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long colorTagId;
@@ -171,4 +172,6 @@ public class ClienteDashboardResponse {
     public void setFechaFinProrrateoAdicional(LocalDateTime fechaFinProrrateoAdicional) { this.fechaFinProrrateoAdicional = fechaFinProrrateoAdicional; }
     public LocalDateTime getFechaRegistro() { return fechaRegistro; }
     public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
+    public Boolean getAvisado() { return avisado != null ? avisado : false; }
+    public void setAvisado(Boolean avisado) { this.avisado = avisado; }
 }

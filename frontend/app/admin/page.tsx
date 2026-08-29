@@ -180,6 +180,7 @@ export default function AdminPage() {
                 setCalendarSearch={adminData.setCalendarSearch}
                 calcularProrrateoEntero={adminData.calcularProrrateoEntero}
                 setHistoryClient={adminData.setHistoryClient}
+                handleToggleAvisado={adminData.handleToggleAvisado}
               />
             )}
 
@@ -239,7 +240,6 @@ export default function AdminPage() {
           uniqueSellers={adminData.uniqueSellers}
           entornos={adminData.entornos}
         />
-
         <DeleteClientModal
           deletingClient={adminData.deletingClient}
           setDeletingClient={adminData.setDeletingClient}

@@ -592,6 +592,8 @@ public class VentaServiceImpl implements VentaService {
                 });
 
         cliente.setEstado(estadoHabilitado);
+        cliente.setAvisado(false);
+        cliente.setFechaActualizacion(fechaRef);
         clienteRepository.save(cliente);
 
         HistorialEstadoCliente h = new HistorialEstadoCliente();

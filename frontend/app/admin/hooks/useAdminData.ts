@@ -47,6 +47,7 @@ function normalizeClientData(c: any): Client {
     estadoCuenta: c.estadoNombre || c.estadoCuenta || 'SIN_ESTADO',
     estadoCapacitacion: c.fechaCapacitacion ? 'COMPLETADO' : (c.estadoNombre === 'POR_CAPACITAR' ? 'PENDIENTE' : 'PENDIENTE'),
     colorTag: (c.colorCodigo || c.colorTag || 'VERDE') as ColorTagType,
+    avisado: Boolean(c.avisado),
     fechaRegistro: c.fechaRegistro,
     fechaCreacion: c.fechaRegistro,
     fechaVencimientoMensual: c.fechaFinServicio || c.fechaVencimientoMensual,
@@ -1067,6 +1068,29 @@ export function useAdminData() {
     }
   }
 
+  async function handleToggleAvisado(client: Client, nextAvisado?: boolean) {
+    if (!client) return;
+    const clientIdStr = String(client.id);
+    const targetState = nextAvisado !== undefined ? nextAvisado : !client.avisado;
+
+    pendingOverridesRef.current.set(clientIdStr, {
+      data: { avisado: targetState },
+      timestamp: Date.now(),
+    });
+
+    setClients((prev) =>
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, avisado: targetState } : c))
+    );
+
+    if (token) {
+      try {
+        await adminApi(token).put(`/admin/clientes/${client.id}/avisado?avisado=${targetState}`);
+      } catch (err: any) {
+        console.error('Error al actualizar estado avisado en BD:', err);
+      }
+    }
+  }
+
   async function handleSaveUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!token) return;
@@ -1426,6 +1450,7 @@ export function useAdminData() {
     handleAssignVendedor,
     handleSelfAssignVendedor,
     handleColorTagChange,
+    handleToggleAvisado,
     handleSaveUser,
     handleDeleteUser,
     handleMarkNotificationAsRead,

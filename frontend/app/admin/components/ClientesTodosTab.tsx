@@ -64,6 +64,7 @@ export type Client = {
   claveSistema?: string;
   colorTag?: ColorTagType;
   colorCodigo?: string;
+  avisado?: boolean;
   entornoId?: EntityId;
   entornoNombre?: string;
   [key: string]: any;

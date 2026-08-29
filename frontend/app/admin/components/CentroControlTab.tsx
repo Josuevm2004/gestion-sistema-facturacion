@@ -17,6 +17,7 @@ interface CentroControlTabProps {
     montoMensualBase?: number
   ) => { montoProrrateado: number; diasProrrateados: number };
   setHistoryClient: (client: Client) => void;
+  handleToggleAvisado?: (client: Client, nextAvisado?: boolean) => void;
 }
 
 export default function CentroControlTab({
@@ -25,34 +26,12 @@ export default function CentroControlTab({
   setCalendarSearch,
   calcularProrrateoEntero: _calcularProrrateoEntero,
   setHistoryClient,
+  handleToggleAvisado,
 }: CentroControlTabProps) {
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
-  const [avisadosMap, setAvisadosMap] = React.useState<Record<string, boolean>>({});
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
 
-  React.useEffect(() => {
-    try {
-      const stored = localStorage.getItem('centro_control_avisados');
-      if (stored) setAvisadosMap(JSON.parse(stored));
-    } catch (e) {}
-  }, []);
-
-  const getClientCycleKey = (c: Client) =>
-    `${c.id}_${c.fechaVencimientoMensual || ''}_${c.planContratado || ''}_${c.estadoCuenta || ''}`;
-
-  const isClientAvisado = (c: Client) => Boolean(avisadosMap[getClientCycleKey(c)]);
-
-  const handleToggleAvisado = (c: Client) => {
-    const key = getClientCycleKey(c);
-    setAvisadosMap((prev) => {
-      const next = { ...prev, [key]: !prev[key] };
-      try {
-        localStorage.setItem('centro_control_avisados', JSON.stringify(next));
-      } catch (e) {}
-      return next;
-    });
-  };
   const filteredClients = React.useMemo(() => {
     const now = new Date();
     now.setHours(0, 0, 0, 0);
@@ -244,11 +223,11 @@ export default function CentroControlTab({
                     </td>
                     <td className="py-2.5 text-center">
                       <div className="d-flex justify-content-center align-items-center gap-1.5">
-                        {isClientAvisado(c) ? (
+                        {c.avisado ? (
                           <button
                             className="btn btn-sm btn-success px-2.5 py-1 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1"
-                            onClick={() => handleToggleAvisado(c)}
-                            title="Cliente marcado como avisado. Clic para desmarcar."
+                            onClick={() => handleToggleAvisado?.(c, false)}
+                            title="Cliente marcado como avisado en la Base de Datos. Clic para desmarcar."
                           >
                             <CheckCircle2 size={13} />
                             <span>Avisado</span>
@@ -256,8 +235,8 @@ export default function CentroControlTab({
                         ) : (
                           <button
                             className="btn btn-sm btn-outline-secondary px-2.5 py-1 fw-semibold d-inline-flex align-items-center gap-1"
-                            onClick={() => handleToggleAvisado(c)}
-                            title="Marcar cliente como avisado para su cobranza"
+                            onClick={() => handleToggleAvisado?.(c, true)}
+                            title="Marcar cliente como avisado para su cobranza (guardado en BD)"
                           >
                             <BellRing size={13} />
                             <span>Avisar</span>
@@ -298,6 +277,11 @@ export default function CentroControlTab({
       <BillingMessageModal
         client={billingMessageClient}
         onClose={() => setBillingMessageClient(null)}
+        onAvisado={() => {
+          if (billingMessageClient) {
+            handleToggleAvisado?.(billingMessageClient, true);
+          }
+        }}
       />
     </div>
   );

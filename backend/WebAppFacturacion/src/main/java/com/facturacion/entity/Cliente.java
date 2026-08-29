@@ -86,6 +86,9 @@ public class Cliente {
     @Column(nullable = false)
     private Boolean activo = true;
 
+    @Column(nullable = false)
+    private Boolean avisado = false;
+
     @Column(name = "fecha_eliminacion")
     private LocalDateTime fechaEliminacion;
 
@@ -152,6 +155,8 @@ public class Cliente {
     public void setEntorno(Entorno entorno) { this.entorno = entorno; }
     public Boolean getActivo() { return activo; }
     public void setActivo(Boolean activo) { this.activo = activo; }
+    public Boolean getAvisado() { return avisado != null ? avisado : false; }
+    public void setAvisado(Boolean avisado) { this.avisado = avisado; }
     public LocalDateTime getFechaEliminacion() { return fechaEliminacion; }
     public void setFechaEliminacion(LocalDateTime fechaEliminacion) { this.fechaEliminacion = fechaEliminacion; }
     public LocalDateTime getFechaRegistro() { return fechaRegistro; }

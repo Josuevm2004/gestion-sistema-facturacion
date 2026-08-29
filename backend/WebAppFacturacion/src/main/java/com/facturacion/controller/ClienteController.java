@@ -76,6 +76,14 @@ public class ClienteController {
         return ResponseEntity.ok(ApiResponse.success("Estado del cliente actualizado a " + nuevoEstado, cliente));
     }
 
+    @RequestMapping(value = "/{id}/avisado", method = {RequestMethod.PUT, RequestMethod.PATCH, RequestMethod.POST})
+    public ResponseEntity<ApiResponse<ClienteDashboardResponse>> toggleAvisado(
+            @PathVariable Long id,
+            @RequestParam(required = false) Boolean avisado) {
+        ClienteDashboardResponse cliente = clienteService.toggleAvisado(id, avisado);
+        return ResponseEntity.ok(ApiResponse.success("Estado de aviso actualizado", cliente));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> eliminarCliente(@PathVariable Long id) {
         clienteService.eliminarClientePermanentemente(id);

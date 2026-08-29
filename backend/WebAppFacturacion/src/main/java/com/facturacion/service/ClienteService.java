@@ -16,5 +16,6 @@ public interface ClienteService {
     ClienteDashboardResponse cambiarVendedor(Long clienteId, Long vendedorId);
     ClienteDashboardResponse asignarmeVendedor(Long clienteId, String username);
     ClienteDashboardResponse cambiarEstadoCliente(Long clienteId, String nuevoEstadoNombre);
+    ClienteDashboardResponse toggleAvisado(Long clienteId, Boolean avisado);
     void eliminarClientePermanentemente(Long clienteId);
 }

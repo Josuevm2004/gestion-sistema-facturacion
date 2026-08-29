@@ -558,6 +558,8 @@ public class ClienteServiceImpl implements ClienteService {
                 });
 
         cliente.setEstado(nuevoEstado);
+        cliente.setAvisado(false);
+        cliente.setFechaActualizacion(LocalDateTime.now());
         clienteRepository.save(cliente);
 
         HistorialEstadoCliente h = new HistorialEstadoCliente();
@@ -568,6 +570,18 @@ public class ClienteServiceImpl implements ClienteService {
         h.setFechaCambio(LocalDateTime.now());
         historialEstadoClienteRepository.save(h);
 
+        return mapToDashboardResponse(cliente);
+    }
+
+    @Override
+    @Transactional
+    public ClienteDashboardResponse toggleAvisado(Long clienteId, Boolean avisado) {
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + clienteId));
+        boolean nuevoEstado = avisado != null ? avisado : !cliente.getAvisado();
+        cliente.setAvisado(nuevoEstado);
+        cliente.setFechaActualizacion(LocalDateTime.now());
+        clienteRepository.save(cliente);
         return mapToDashboardResponse(cliente);
     }
 
@@ -641,6 +655,7 @@ public class ClienteServiceImpl implements ClienteService {
         res.setClaveTemporal(c.getClaveTemporal());
         res.setUrlAcceso(c.getUrlAcceso());
         res.setUsuarioWsp(c.getUsuarioWsp());
+        res.setAvisado(c.getAvisado());
 
         String estadoNombre = c.getEstado() != null ? c.getEstado().getNombre() : null;
         if (c.getEstado() != null) {
