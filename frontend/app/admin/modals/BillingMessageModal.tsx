@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MessageSquare, Copy, Check, ExternalLink, RefreshCw } from 'lucide-react';
-import { Client, ColorTagType } from '../components/ClientesTodosTab';
+import { MessageSquare, Copy, Check, ExternalLink, RefreshCw, UserCheck } from 'lucide-react';
+import { Client } from '../components/ClientesTodosTab';
 
 interface BillingMessageModalProps {
   client: Client | null;
@@ -10,6 +10,7 @@ interface BillingMessageModalProps {
 }
 
 export type MessageType = 'AUTO' | 'REGULAR' | 'PRIMER_PRORRATEO' | 'SEGUNDO_PRORRATEO' | 'ANUAL';
+export type ModalStep = 'PRESENTACION' | 'COBRANZA';
 
 // Helper seguro para parsear fechas evitando desfasajes de zona horaria UTC
 function parseLocalDate(dateStr?: string): Date | null {
@@ -28,43 +29,27 @@ function parseLocalDate(dateStr?: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
+const DEFAULT_PRESENTATION_TEXT = `Hola, ¿qué tal? 👋 Te saluda Josué V., del *Área de Soporte y Capacitador del Sistema de Facturación Electrónica de MiQuipu*.
+Espero que estés teniendo un excelente día.
+
+Me contacto contigo para estar alineados y apoyarte a potenciar el uso de tu cuenta, resolver dudas de la plataforma o revisar cualquier detalle pendiente de tu servicio. 👍`;
+
 export default function BillingMessageModal({ client, onClose }: BillingMessageModalProps) {
+  const [activeStep, setActiveStep] = useState<ModalStep>('PRESENTACION');
+  const [presentationText, setPresentationText] = useState<string>(DEFAULT_PRESENTATION_TEXT);
   const [selectedType, setSelectedType] = useState<MessageType>('AUTO');
   const [copied, setCopied] = useState(false);
   const [customMessage, setCustomMessage] = useState<string>('');
   const [isEditing, setIsEditing] = useState(false);
 
   const monthNames = [
-    'enero',
-    'febrero',
-    'marzo',
-    'abril',
-    'mayo',
-    'junio',
-    'julio',
-    'agosto',
-    'septiembre',
-    'octubre',
-    'noviembre',
-    'diciembre',
+    'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
   ];
 
   const monthNamesCapital = [
-    'Enero',
-    'Febrero',
-    'Marzo',
-    'Abril',
-    'Mayo',
-    'Junio',
-    'Julio',
-    'Agosto',
-    'Septiembre',
-    'Octubre',
-    'Noviembre',
-    'Diciembre',
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
   ];
 
-  // Identificar automáticamente el tipo de mensaje vigente para el cliente
   const detectedType = useMemo<MessageType>(() => {
     if (!client) return 'REGULAR';
     const isAnual = (client.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
@@ -74,23 +59,13 @@ export default function BillingMessageModal({ client, onClose }: BillingMessageM
     const montoSiguiente = Number(client.montoSiguienteCobro || 0);
     const montoMensual = Number(client.montoMensual || 0);
 
-    // Solo es Segundo Prorrateo si tiene monto prorrateado pendiente acumulado (mayor a la tarifa regular)
-    if (tipoProrrateo === 'SEGUNDO_PRORRATEO' && montoSiguiente > montoMensual) {
-      return 'SEGUNDO_PRORRATEO';
-    }
-
-    // Solo es Primer Prorrateo si tiene pendiente cobro menor a la tarifa regular por ajuste de días iniciales
-    if (tipoProrrateo === 'PRIMER_PRORRATEO' && montoSiguiente > 0 && montoSiguiente < montoMensual) {
-      return 'PRIMER_PRORRATEO';
-    }
-
-    // Si ya pagó el prorrateo inicial o es un cliente regularizado que paga los días 1:
+    if (tipoProrrateo === 'SEGUNDO_PRORRATEO' && montoSiguiente > montoMensual) return 'SEGUNDO_PRORRATEO';
+    if (tipoProrrateo === 'PRIMER_PRORRATEO' && montoSiguiente > 0 && montoSiguiente < montoMensual) return 'PRIMER_PRORRATEO';
     return 'REGULAR';
   }, [client]);
 
   const activeType = selectedType === 'AUTO' ? detectedType : selectedType;
 
-  // Generador de Mensajes Inteligentes
   const generatedMessage = useMemo(() => {
     if (!client) return '';
 
@@ -98,370 +73,189 @@ export default function BillingMessageModal({ client, onClose }: BillingMessageM
     const planName = client.planContratado || 'Plan Estándar';
     const now = new Date();
 
-    // 1. Caso: Cliente con Segundo Prorrateo Vigente (Días 10 al 31)
     if (activeType === 'SEGUNDO_PRORRATEO') {
       let dInicioProrr = parseLocalDate(client.fechaInicioProrrateoAdicional);
       let dFinProrr = parseLocalDate(client.fechaFinProrrateoAdicional);
       let dCobro = parseLocalDate(client.fechaVencimientoMensual);
-      let dInit: Date;
-
-      if (dInicioProrr) {
-        // La fecha de activación inicial corresponde a 1 mes exacto antes del inicio del tramo de ajuste
-        dInit = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() - 1, dInicioProrr.getDate());
-      } else {
-        dInit = parseLocalDate(client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion) || now;
-        dInicioProrr = new Date(dInit.getFullYear(), dInit.getMonth() + 1, dInit.getDate());
+      
+      if (!dInicioProrr || !dFinProrr || !dCobro) {
+        const dCap = parseLocalDate(client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion) || now;
+        dInicioProrr = new Date(dCap.getFullYear(), dCap.getMonth() + 1, dCap.getDate());
+        dFinProrr = new Date(dCap.getFullYear(), dCap.getMonth() + 2, 0);
+        dCobro = new Date(dCap.getFullYear(), dCap.getMonth() + 2, 1);
       }
 
-      if (!dFinProrr) {
-        dFinProrr = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() + 1, 0);
-      }
-      if (!dCobro) {
-        dCobro = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() + 1, 1);
-      }
-
+      const dInit = new Date(dInicioProrr.getFullYear(), dInicioProrr.getMonth() - 1, dInicioProrr.getDate());
       const diaInit = String(dInit.getDate()).padStart(2, '0');
       const mesInit = String(dInit.getMonth() + 1).padStart(2, '0');
-
       const diaAniv = String(dInicioProrr.getDate()).padStart(2, '0');
       const mesAniv = String(dInicioProrr.getMonth() + 1).padStart(2, '0');
       const nombreMesAniv = monthNames[dInicioProrr.getMonth()];
-
       const diaSiguienteAniv = String(Math.min(dInicioProrr.getDate() + 1, dFinProrr.getDate())).padStart(2, '0');
       const diaFinMesAniv = String(dFinProrr.getDate()).padStart(2, '0');
-
       const montoAdicional = Number(client.montoProrrateoAdicional || (Number(tarifaBase) / dFinProrr.getDate()) * (dFinProrr.getDate() - dInicioProrr.getDate())).toFixed(2);
       const nombreMesCobro = monthNamesCapital[dCobro.getMonth()];
       const montoTotalCobro = Number(client.montoSiguienteCobro || (Number(tarifaBase) + Number(montoAdicional))).toFixed(2);
-
-      const dSiguienteNormal = new Date(dCobro.getFullYear(), dCobro.getMonth() + 1, 1);
-      const nombreMesSiguienteNormal = monthNames[dSiguienteNormal.getMonth()];
+      const nombreMesSiguienteNormal = monthNames[new Date(dCobro.getFullYear(), dCobro.getMonth() + 1, 1).getMonth()];
 
       return `💳 *¿CÓMO FUNCIONA TU PRÓXIMO PAGO?*
 
-Al activar tu cuenta el *${diaInit}/${mesInit}* con tu plan de *S/ ${tarifaBase} mensual*, tu primer pago cubre un mes completo (del ${diaInit}/${mesInit} al ${diaAniv}/${mesAniv}).
-Para alinearte a nuestro ciclo de cobro de los días 01 de cada mes, los días restantes de ${nombreMesAniv} se juntan con el mes siguiente:
+Al activar tu cuenta el *${diaInit}/${mesInit}*, tu primer pago cubre un mes completo.
+Para alinearte a nuestro ciclo de cobro de los días 01, los días restantes de ${nombreMesAniv} se juntan con el mes siguiente:
 
-📌 *Ejemplo de tus fechas:*
-
-• *${diaInit}/${mesInit} al ${diaAniv}/${mesAniv}:* Cubierto con tu pago inicial.
-• *${diaSiguienteAniv}/${mesAniv} al ${diaFinMesAniv}/${mesAniv}:* Días restantes de ${nombreMesAniv} (Prorrateo: S/ ${montoAdicional} aprox.).
-• *01 de ${nombreMesCobro}:* Pagas la diferencia de ${nombreMesAniv} + tu mes de ${monthNames[dCobro.getMonth()]} completo (S/ ${tarifaBase}).
+📌 *Tus fechas:*
+• *${diaInit}/${mesInit} al ${diaAniv}/${mesAniv}:* Cubierto.
+• *${diaSiguienteAniv}/${mesAniv} al ${diaFinMesAniv}/${mesAniv}:* Prorrateo (S/ ${montoAdicional} aprox.).
+• *01 de ${nombreMesCobro}:* Pagas diferencia de ${nombreMesAniv} + mes de ${monthNames[dCobro.getMonth()]} completo.
 
 👉 *TOTAL A PAGAR EL 01 DE ${nombreMesCobro.toUpperCase()}: S/ ${montoTotalCobro}*
 
-*(A partir del 01 de ${nombreMesSiguienteNormal} en adelante, tus pagos se normalizan a tus S/ ${tarifaBase} de siempre)*
-
-🏦 *CUENTAS DE PAGO:*
-*BCP:* 194-9357265-026
-*CCI:* 00219400935726502690
+🏦 *CUENTAS:*
+*BCP:* 194-9357265-026 | *CCI:* 00219400935726502690
 *CORPORACIÓN ONE EIRL*
+*Yape:* 928 355 469 (Judith Macedo)
 
-📲 *Yape:* 928 355 469
-*Judith Macedo Vargas*
-
-(Cualquier duda que tengas, avísanos con confianza y te ayudamos 🙌)`;
+(Cualquier duda, nos avisas y te ayudamos 🙌)`;
     }
 
-    // 2. Caso: Cliente con Primer Prorrateo Vigente (Días 1 al 9)
     if (activeType === 'PRIMER_PRORRATEO') {
       const dInit = parseLocalDate(client.fechaCapacitacion || client.fechaRegistro || client.fechaCreacion) || now;
       const diaInit = String(dInit.getDate()).padStart(2, '0');
-      const nombreMesInit = monthNames[dInit.getMonth()];
-
-      let dCobro = parseLocalDate(client.fechaVencimientoMensual);
-      if (!dCobro) {
-        dCobro = new Date(dInit.getFullYear(), dInit.getMonth() + 1, 1);
-      }
-
+      const dCobro = parseLocalDate(client.fechaVencimientoMensual) || new Date(dInit.getFullYear(), dInit.getMonth() + 1, 1);
       const nombreMesCobro = monthNamesCapital[dCobro.getMonth()];
       const montoProrrateado = Number(client.montoSiguienteCobro || client.montoMensual || 15).toFixed(2);
 
-      const dNormal = new Date(dCobro.getFullYear(), dCobro.getMonth() + 1, 1);
-      const nombreMesNormal = monthNamesCapital[dNormal.getMonth()];
-
       return `💳 *¿CÓMO SERÁ TU PRÓXIMO PAGO?*
 
-Para que no te compliques con las fechas, todos nuestros clientes pagan los días 1 de cada mes.
+Como te inscribiste el *${diaInit} de ${monthNames[dInit.getMonth()]}*, tu primer pago cubrió hasta el ${diaInit} de ${monthNames[dCobro.getMonth()]}.
 
-Como tú te inscribiste el *${diaInit} de ${nombreMesInit}*, tu primer pago ya te cubrió un mes completo (hasta el ${diaInit} de ${monthNames[dCobro.getMonth()]}). Por eso, el 1 de ${monthNames[dCobro.getMonth()]} no te toca pagar el mes entero, solo pagas la diferencia.
+1. *El 01 de ${nombreMesCobro.toUpperCase()} pagas solo:* S/ ${montoProrrateado} (ajuste de días).
+2. *El 01 de ${monthNamesCapital[(dCobro.getMonth() + 1) % 12].toUpperCase()} en adelante:* S/ ${tarifaBase} normal.
 
-📌 *Míralo así de fácil:*
+👉 *En resumen: Este 01 de ${monthNames[dCobro.getMonth()]} solo abonas S/ ${montoProrrateado}.*
 
-1. *Tu primer pago ya cubrió:* Del ${diaInit} de ${nombreMesInit} al ${diaInit} de ${monthNames[dCobro.getMonth()]}.
-2. *El 01 de ${nombreMesCobro.toUpperCase()} pagas solo:* S/ ${montoProrrateado} (que son los días que faltan para terminar ${monthNames[dCobro.getMonth()]}).
-3. *El 01 de ${nombreMesNormal.toUpperCase()} en adelante:* Ya pagas tu cuota normal de S/ ${tarifaBase} todos los 1 de cada mes.
-
-👉 *En resumen: Este 01 de ${monthNames[dCobro.getMonth()]} solo vas a abonar S/ ${montoProrrateado}.*
-
-🏦 *CUENTAS DE PAGO:*
-*BCP:* 194-9357265-026
-*CCI:* 00219400935726502690
+🏦 *CUENTAS:*
+*BCP:* 194-9357265-026 | *CCI:* 00219400935726502690
 *CORPORACIÓN ONE EIRL*
+*Yape:* 928 355 469 (Judith Macedo)
 
-📲 *Yape:* 928 355 469
-*Judith Macedo Vargas*
-
-(Cualquier duda que tengas, avísanos con confianza y te ayudamos 🙌)`;
+(Cualquier duda, nos avisas y te ayudamos 🙌)`;
     }
 
-    // 3. Caso: Cliente con Plan Anual
     if (activeType === 'ANUAL') {
       const vencDate = parseLocalDate(client.fechaVencimientoMensual) || new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
-
-      const fechaVencStr = vencDate.toLocaleDateString('es-PE', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      });
-
       return `👋 *¡Hola!*
+Tu suscripción anual (*${planName}*) está lista para renovar. Mantener tu pago al día garantiza tu servicio sin interrupciones 🚀
 
-Queremos recordarte que tu suscripción anual de tu Sistema de Facturación (*${planName} - Plan Anual*) está lista para su renovación.
-*Mantener tu pago al día garantiza que sigas emitiendo comprobantes de manera ilimitada y sin interrupciones 🚀*
-
-📊 *DETALLE DE TU CUENTA ANUAL:*
-📅 *Plan:* ${planName} (Anual)
-⏰ *Vencimiento:* ${fechaVencStr}
-💳 *Monto de Renovación:* S/ ${tarifaBase}
-🗓️ *Cobertura:* 12 meses completos
-
-🏦 *CUENTAS DE PAGO:*
-*BCP:* 194-9357265-026
-*CCI:* 00219400935726502690
-*CORPORACIÓN ONE EIRL*
-
-📲 *Yape:* 928 355 469
-*Judith Macedo Vargas*
-
-📌 *Realiza tu pago a tiempo para evitar la suspensión del servicio.*
-*¡Gracias por tu preferencia! 🙌*`;
-    }
-
-    // 4. Caso: Cliente Regularizado (Cobro normal del día 1)
-    const vencDate = parseLocalDate(client.fechaVencimientoMensual) || new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const nombreMes = monthNamesCapital[vencDate.getMonth()];
-
-    return `👋 *¡Hola!*
-
-Queremos recordarte que tu cuota de *${nombreMes} de tu Sistema de Facturación* está lista para ser abonada.
-*Mantener tu pago al día garantiza que sigas emitiendo comprobantes sin interrupciones 🚀*
-
-📊 *DETALLE DE TU CUENTA:*
-📅 *Mes:* ${nombreMes}
-⏰ *Vencimiento:* 01 de ${nombreMes}
+📅 *Vencimiento:* ${vencDate.toLocaleDateString('es-PE')}
 💳 *Monto:* S/ ${tarifaBase}
 
-🏦 *CUENTAS DE PAGO:*
-*BCP:* 194-9357265-026
-*CCI:* 00219400935726502690
+🏦 *BCP:* 194-9357265-026 | *CCI:* 00219400935726502690
 *CORPORACIÓN ONE EIRL*
+*Yape:* 928 355 469 (Judith Macedo)
 
-📲 *Yape:* 928 355 469
-*Judith Macedo Vargas*
+¡Gracias por tu preferencia! 🙌`;
+    }
 
-📌 *Realiza tu pago a tiempo para evitar la suspensión del servicio.*
-*¡Gracias por tu preferencia! 🙌*`;
-  }, [client, activeType]);
+    const vencDate = parseLocalDate(client.fechaVencimientoMensual) || new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nombreMes = monthNamesCapital[vencDate.getMonth()];
+    return `👋 *¡Hola!*
 
-  const currentMessageText = isEditing ? customMessage : generatedMessage;
+Tu cuota de *${nombreMes}* está lista para ser abonada.
+📅 *Mes:* ${nombreMes}
+💳 *Monto:* S/ ${tarifaBase}
 
-  const handleCopy = async () => {
+🏦 *BCP:* 194-9357265-026 | *CCI:* 00219400935726502690
+*CORPORACIÓN ONE EIRL*
+*Yape:* 928 355 469 (Judith Macedo)
+
+¡Gracias por tu preferencia! 🙌`;
+  }, [client, activeType, monthNames, monthNamesCapital]);
+
+  const currentBillingText = isEditing ? customMessage : generatedMessage;
+  const currentActiveText = activeStep === 'PRESENTACION' ? presentationText : currentBillingText;
+
+  const handleCopy = async (textToCopy?: string) => {
+    const text = textToCopy || currentActiveText;
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(currentMessageText);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = currentMessageText;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
-    } catch (e) {
-      console.error(e);
-    }
+    } catch (e) { console.error(e); }
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = (textToSend?: string) => {
     if (!client) return;
+    const text = textToSend || currentActiveText;
     const rawPhone = client.usuarioWsp || client.telefono || client.telefonoPersonal || '';
     const cleanPhone = rawPhone.replace(/\D/g, '');
     const fullPhone = cleanPhone.startsWith('51') ? cleanPhone : `51${cleanPhone}`;
-    const encodedText = encodeURIComponent(currentMessageText);
-    const url = cleanPhone
-      ? `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodedText}`
-      : `https://api.whatsapp.com/send?text=${encodedText}`;
-    window.open(url, '_blank');
+    const url = `https://web.whatsapp.com/send?phone=${cleanPhone ? fullPhone : ''}&text=${encodeURIComponent(text)}`;
+    void handleCopy(text);
+    const wspWindow = window.open(url, 'whatsapp_web_window');
+    if (wspWindow) wspWindow.focus();
   };
 
   if (!client) return null;
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1}>
-      <div className="modal-dialog modal-dialog-centered modal-lg">
-        <div className="modal-content rounded-3 shadow">
-          <div className="modal-header border-bottom">
-            <div className="d-flex align-items-center gap-2">
-              <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
-                <MessageSquare size={20} />
-              </div>
+    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', overflowY: 'auto' }}>
+      <div className="modal-dialog modal-dialog-centered modal-lg my-3">
+        <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
+          <div className="modal-header border-bottom bg-light px-4 py-3">
+            <div className="d-flex align-items-center gap-2.5">
+              <div className="p-2 bg-primary text-white rounded-3 shadow-sm"><MessageSquare size={18} /></div>
               <div>
-                <h5 className="modal-title fw-bold mb-0">Mensaje de Cobranza Inteligente</h5>
-                <small className="text-muted">
-                  Empresa: <strong className="text-dark">{client.razonSocial}</strong> ({client.ruc})
-                </small>
+                <h5 className="modal-title fw-bold text-dark mb-0">Mensajería Inteligente</h5>
+                <small className="text-muted fw-semibold">Cliente: <strong className="text-primary">{client.razonSocial}</strong></small>
               </div>
             </div>
             <button type="button" className="btn-close" onClick={onClose}></button>
           </div>
 
-          <div className="modal-body p-4">
-            {/* Barra de Selección de Tipo de Mensaje */}
-            <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 pb-2 border-bottom">
-              <div className="d-flex align-items-center gap-1.5 flex-wrap">
-                <span className="small text-muted fw-bold me-1">Formato:</span>
-                <button
-                  type="button"
-                  className={`btn btn-sm px-2.5 py-1 fw-bold rounded-2 ${
-                    selectedType === 'AUTO'
-                      ? 'btn-primary shadow-sm'
-                      : 'btn-outline-secondary'
-                  }`}
-                  onClick={() => {
-                    setSelectedType('AUTO');
-                    setIsEditing(false);
-                  }}
-                >
-                  Automático ({detectedType === 'SEGUNDO_PRORRATEO' ? '2.° Prorrateo' : detectedType === 'PRIMER_PRORRATEO' ? '1.° Prorrateo' : detectedType === 'ANUAL' ? 'Plan Anual' : 'Regularizado'})
+          <div className="bg-white border-bottom px-4 pt-2.5">
+            <ul className="nav nav-tabs border-0 gap-2">
+              <li className="nav-item">
+                <button className={`nav-link border-0 fw-bold px-3.5 py-2 rounded-top-3 d-flex align-items-center gap-2 ${activeStep === 'PRESENTACION' ? 'active text-primary bg-light border-bottom-0 shadow-sm' : 'text-muted'}`} onClick={() => setActiveStep('PRESENTACION')}>
+                  <span className="badge bg-primary rounded-circle">1</span> Presentación
                 </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${
-                    selectedType === 'REGULAR'
-                      ? 'btn-dark shadow-sm'
-                      : 'btn-outline-secondary'
-                  }`}
-                  onClick={() => {
-                    setSelectedType('REGULAR');
-                    setIsEditing(false);
-                  }}
-                >
-                  Regularizado (Día 1)
+              </li>
+              <li className="nav-item">
+                <button className={`nav-link border-0 fw-bold px-3.5 py-2 rounded-top-3 d-flex align-items-center gap-2 ${activeStep === 'COBRANZA' ? 'active text-success bg-light border-bottom-0 shadow-sm' : 'text-muted'}`} onClick={() => setActiveStep('COBRANZA')}>
+                  <span className="badge bg-success rounded-circle">2</span> Cobranza
                 </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${
-                    selectedType === 'SEGUNDO_PRORRATEO'
-                      ? 'btn-dark shadow-sm'
-                      : 'btn-outline-secondary'
-                  }`}
-                  onClick={() => {
-                    setSelectedType('SEGUNDO_PRORRATEO');
-                    setIsEditing(false);
-                  }}
-                >
-                  Segundo Prorrateo (Días 10-31)
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${
-                    selectedType === 'PRIMER_PRORRATEO'
-                      ? 'btn-dark shadow-sm'
-                      : 'btn-outline-secondary'
-                  }`}
-                  onClick={() => {
-                    setSelectedType('PRIMER_PRORRATEO');
-                    setIsEditing(false);
-                  }}
-                >
-                  Primer Prorrateo (Días 1-9)
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm px-2.5 py-1 fw-semibold rounded-2 ${
-                    selectedType === 'ANUAL'
-                      ? 'btn-dark shadow-sm'
-                      : 'btn-outline-secondary'
-                  }`}
-                  onClick={() => {
-                    setSelectedType('ANUAL');
-                    setIsEditing(false);
-                  }}
-                >
-                  Plan Anual
-                </button>
-              </div>
-
-              {isEditing && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-link text-muted p-0 d-inline-flex align-items-center gap-1"
-                  onClick={() => {
-                    setIsEditing(false);
-                    setCustomMessage('');
-                  }}
-                >
-                  <RefreshCw size={12} />
-                  <span>Restablecer Original</span>
-                </button>
-              )}
-            </div>
-
-            {/* Vista Previa del Mensaje */}
-            <div className="position-relative">
-              <textarea
-                className="form-control font-monospace p-3 bg-light text-dark border rounded-3"
-                rows={14}
-                style={{ fontSize: '0.86rem', lineHeight: '1.45', whiteSpace: 'pre-wrap' }}
-                value={currentMessageText}
-                onChange={(e) => {
-                  setIsEditing(true);
-                  setCustomMessage(e.target.value);
-                }}
-              />
-            </div>
+              </li>
+            </ul>
           </div>
 
-          <div className="modal-footer border-top bg-light d-flex justify-content-between align-items-center py-2.5">
-            <div className="small text-muted">
-              Destinatario:{' '}
-              <strong className="text-dark">
-                {client.telefono || client.telefonoPersonal || client.usuarioWsp || 'Sin número registrado'}
-              </strong>
-            </div>
+          <div className="modal-body p-4 bg-light">
+            {activeStep === 'PRESENTACION' ? (
+              <div className="row g-3">
+                <div className="col-md-4">
+                  <div className="p-3 bg-primary rounded-3 text-white text-center shadow-sm">
+                    <UserCheck size={40} className="mb-2" />
+                    <p className="fw-bold mb-0">Soporte MiQuipu</p>
+                  </div>
+                </div>
+                <div className="col-md-8">
+                  <textarea className="form-control" rows={8} value={presentationText} onChange={(e) => setPresentationText(e.target.value)} />
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="d-flex flex-wrap gap-2 mb-3">
+                  <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelectedType('AUTO'); setIsEditing(false); }}>Auto</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelectedType('REGULAR'); setIsEditing(false); }}>Regular</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={() => { setSelectedType('SEGUNDO_PRORRATEO'); setIsEditing(false); }}>2.° Prorrateo</button>
+                </div>
+                <textarea className="form-control" rows={11} value={currentBillingText} onChange={(e) => { setIsEditing(true); setCustomMessage(e.target.value); }} />
+              </div>
+            )}
+          </div>
 
-            <div className="d-flex gap-2">
-              <button
-                type="button"
-                className="btn btn-secondary px-3 py-1.5 fw-semibold"
-                onClick={onClose}
-              >
-                Cerrar
-              </button>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className={`btn px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5 ${
-                  copied ? 'btn-success text-white' : 'btn-outline-primary'
-                }`}
-              >
-                {copied ? <Check size={16} /> : <Copy size={16} />}
-                <span>{copied ? '¡Copiado!' : 'Copiar Mensaje'}</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleSendWhatsApp}
-                className="btn btn-success px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-              >
-                <ExternalLink size={16} />
-                <span>Enviar por WhatsApp</span>
-              </button>
-            </div>
+          <div className="modal-footer px-4 py-3">
+            <button className="btn btn-outline-secondary" onClick={() => handleCopy()}>{copied ? '¡Copiado!' : 'Copiar'}</button>
+            <button className={`btn ${activeStep === 'PRESENTACION' ? 'btn-primary' : 'btn-success'}`} onClick={() => handleSendWhatsApp()}>Enviar por WhatsApp</button>
           </div>
         </div>
       </div>
