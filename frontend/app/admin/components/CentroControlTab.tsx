@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Activity, Search, Eye } from 'lucide-react';
+import { Activity, Search, Eye, MessageSquare } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
+import BillingMessageModal from '../modals/BillingMessageModal';
 
 interface CentroControlTabProps {
   clients: Client[];
@@ -25,6 +26,7 @@ export default function CentroControlTab({
   calcularProrrateoEntero: _calcularProrrateoEntero,
   setHistoryClient,
 }: CentroControlTabProps) {
+  const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
   const filteredClients = React.useMemo(() => {
@@ -32,6 +34,7 @@ export default function CentroControlTab({
     now.setHours(0, 0, 0, 0);
 
     return clients
+      .filter((c) => (c.estadoCuenta || '').toUpperCase() !== 'BLOQUEADO')
       .filter((c) => {
         const searchStr = (calendarSearch || '').trim();
         if (!searchStr) return true;
@@ -43,6 +46,8 @@ export default function CentroControlTab({
           (c.nombres || '').toLowerCase().includes(q) ||
           (c.apellidos || '').toLowerCase().includes(q) ||
           (c.telefono || '').includes(q) ||
+          (c.telefonoPersonal || '').includes(q) ||
+          (c.usuarioWsp || '').toLowerCase().includes(q) ||
           (c.email || '').toLowerCase().includes(q)
         );
       })
@@ -103,7 +108,8 @@ export default function CentroControlTab({
               <th className="py-2.5">DNI</th>
               <th className="py-2.5">RUC</th>
               <th className="py-2.5">Empresa</th>
-              <th className="py-2.5">Contacto</th>
+              <th className="py-2.5">Teléfono</th>
+              <th className="py-2.5">Usuario WSP</th>
               <th className="py-2.5">Plan Actual</th>
               <th className="py-2.5">Próximo Cobro</th>
               <th className="py-2.5">Vencimiento</th>
@@ -115,8 +121,8 @@ export default function CentroControlTab({
           <tbody>
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={12} className="text-center text-muted py-4 fw-semibold">
-                  No se encontraron clientes en el Centro de Control.
+                <td colSpan={13} className="text-center text-muted py-4 fw-semibold">
+                  No se encontraron clientes activos en el Centro de Control.
                 </td>
               </tr>
             ) : visibleClients.map((c, idx) => {
@@ -156,8 +162,15 @@ export default function CentroControlTab({
                       <strong className="text-dark fs-6">{c.razonSocial}</strong>
                     </td>
                     <td className="py-2.5">
-                      <span className="fw-bold text-dark d-block">{c.telefono}</span>
-                      <small className="text-muted">{c.email || 'Sin correo'}</small>
+                      <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
+                      <small className="text-muted">{c.email || ''}</small>
+                    </td>
+                    <td className="py-2.5">
+                      {c.usuarioWsp ? (
+                        <span className="badge bg-light text-dark border fw-semibold font-monospace">{c.usuarioWsp}</span>
+                      ) : (
+                        <span className="text-muted small">—</span>
+                      )}
                     </td>
                     <td className="py-2.5">
                       <div className="d-flex align-items-center gap-1">
@@ -206,13 +219,24 @@ export default function CentroControlTab({
                       </span>
                     </td>
                     <td className="py-2.5 text-center">
-                      <button
-                        className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
-                        onClick={() => setHistoryClient(c)}
-                      >
-                        <Eye size={13} />
-                        <span>Historial</span>
-                      </button>
+                      <div className="d-flex justify-content-center align-items-center gap-1.5">
+                        <button
+                          className="btn btn-sm btn-outline-success px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
+                          onClick={() => setBillingMessageClient(c)}
+                          title="Generar mensaje inteligente de cobranza para WhatsApp"
+                        >
+                          <MessageSquare size={13} />
+                          <span>Mensaje</span>
+                        </button>
+                        <button
+                          className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
+                          onClick={() => setHistoryClient(c)}
+                          title="Ver historial de movimientos"
+                        >
+                          <Eye size={13} />
+                          <span>Historial</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -225,6 +249,12 @@ export default function CentroControlTab({
         totalItems={filteredClients.length}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
+      />
+
+      {/* Modal de Mensajes Inteligentes de Cobranza */}
+      <BillingMessageModal
+        client={billingMessageClient}
+        onClose={() => setBillingMessageClient(null)}
       />
     </div>
   );

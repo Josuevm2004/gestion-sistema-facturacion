@@ -55,6 +55,7 @@ export default function BloqueadosTab({
         <table className="table table-hover align-middle mb-0">
           <thead>
             <tr>
+              <th style={{ width: '50px' }}>#</th>
               <th>RUC / Empresa</th>
               <th>Teléfono</th>
               <th>Email</th>
@@ -66,19 +67,22 @@ export default function BloqueadosTab({
           <tbody>
             {clientesBloqueadosList.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
                   No hay clientes en estado bloqueado.
                 </td>
               </tr>
             ) : (
-              visibleClients.map((c) => (
+              visibleClients.map((c, idx) => (
                 <tr key={c.id}>
+                  <td className="text-muted fw-semibold py-2.5">
+                    {(currentPage - 1) * pageSize + idx + 1}
+                  </td>
                   <td>
                     <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
                     <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                   </td>
                   <td>
-                    <span className="fw-bold text-dark">{c.telefono}</span>
+                    <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
                   </td>
                   <td>
                     <span className="text-dark">{c.email || 'N/A'}</span>

@@ -1,52 +1,59 @@
 'use client';
 
 import React from 'react';
-import { createPortal } from 'react-dom';
-import { Check, Clipboard, Search, Users, Edit, Trash2, Eye, EyeOff, TrendingUp } from 'lucide-react';
-import PaginationControls from './PaginationControls';
+import {
+  Users,
+  Search,
+  Key,
+  Eye,
+  EyeOff,
+  Copy,
+  Edit2,
+  Trash2,
+  Check,
+  TrendingUp,
+  MessageCircle,
+  RotateCcw,
+} from 'lucide-react';
 
-export type ColorTagType = 'VERDE' | 'ROJO' | 'AMARILLO' | 'AZUL';
-export type SubscriptionType = 'MENSUAL' | 'ANUAL';
-export type EntityId = string | number;
+export type EntityId = number | string;
 
 export type Client = {
   id: EntityId;
   ruc: string;
   razonSocial: string;
   nombreComercial?: string;
-  direccion?: string;
-  telefono: string;
-  email: string;
+  email?: string;
+  telefono?: string;
+  telefonoPersonal?: string;
+  usuarioWsp?: string;
   nombres?: string;
   apellidos?: string;
   dni?: string;
   emailPersonal?: string;
-  telefonoPersonal?: string;
-  usuarioWsp?: string;
+  direccion?: string;
   departamento?: string;
   provincia?: string;
   distrito?: string;
-  regimenTributario: string;
-  planContratado: string;
+  regimenTributario?: string;
+  usuarioSol?: string;
+  claveSolCifrada?: string;
+  planContratado?: string;
   tipoSuscripcion?: string;
-  montoMensual: number;
+  montoMensual?: number;
   montoSiguienteCobro?: number;
-  ventaId?: EntityId;
   diasProrrateados?: number;
   tipoProrrateo?: string;
   montoProrrateoAdicional?: number;
   diasProrrateoAdicional?: number;
   fechaInicioProrrateoAdicional?: string;
   fechaFinProrrateoAdicional?: string;
-  estadoCuenta: string;
-  estadoCapacitacion: string;
-  colorTag?: ColorTagType;
+  estadoCuenta?: string;
+  estadoCapacitacion?: string;
   fechaRegistro?: string;
   fechaCreacion?: string;
   fechaVencimientoMensual?: string;
   fechaCapacitacion?: string;
-  usuarioSol?: string;
-  claveSolCifrada?: string;
   vendedor?: string;
   linkSistema?: string;
   usuarioSistema?: string;
@@ -66,7 +73,15 @@ interface ClientesTodosTabProps {
   setRegimenFilter: (v: string) => void;
   planFilter: string;
   setPlanFilter: (v: string) => void;
-  handleColorTagChange: (client: Client, color: ColorTagType) => void;
+  estadoCuentaFilter?: string;
+  setEstadoCuentaFilter?: (v: string) => void;
+  capacitacionFilter?: string;
+  setCapacitacionFilter?: (v: string) => void;
+  suscripcionFilter?: string;
+  setSuscripcionFilter?: (v: string) => void;
+  sellerFilter?: string;
+  setSellerFilter?: (v: string) => void;
+  uniqueSellers?: string[];
   handleAssignVendedor: (client: Client, vendedorName: string) => void;
   handleSelfAssignVendedor: (client: Client) => void;
   usersList?: Array<{ id: EntityId; nombre?: string; username?: string; activo?: boolean }>;
@@ -77,7 +92,6 @@ interface ClientesTodosTabProps {
   setMejoraPlanClient: (client: Client) => void;
   setMejoraPlanSeleccionado: (plan: string) => void;
   setDeletingClient: (client: Client) => void;
-  COLOR_MAP?: any;
 }
 
 export default function ClientesTodosTab({
@@ -91,7 +105,15 @@ export default function ClientesTodosTab({
   setRegimenFilter,
   planFilter,
   setPlanFilter,
-  handleColorTagChange,
+  estadoCuentaFilter = '',
+  setEstadoCuentaFilter = () => {},
+  capacitacionFilter = '',
+  setCapacitacionFilter = () => {},
+  suscripcionFilter = '',
+  setSuscripcionFilter = () => {},
+  sellerFilter = '',
+  setSellerFilter = () => {},
+  uniqueSellers = [],
   handleAssignVendedor,
   handleSelfAssignVendedor,
   usersList = [],
@@ -102,43 +124,13 @@ export default function ClientesTodosTab({
   setMejoraPlanClient,
   setMejoraPlanSeleccionado,
   setDeletingClient,
-  COLOR_MAP,
 }: ClientesTodosTabProps) {
   const currentSearch = search !== undefined ? search : (searchTerm || '');
   const handleSearchChange = setSearch || setSearchTerm || (() => {});
-  const [activeColorPickerId, setActiveColorPickerId] = React.useState<EntityId | null>(null);
-  const [colorPickerPosition, setColorPickerPosition] = React.useState<{ top: number; left: number } | null>(null);
   const [copiedMessageClientId, setCopiedMessageClientId] = React.useState<EntityId | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
-  const colorPickerRef = React.useRef<HTMLDivElement | null>(null);
   const pageSize = 10;
-  const colorLabels: Record<ColorTagType, string> = {
-    VERDE: 'Verde',
-    ROJO: 'Rojo',
-    AMARILLO: 'Amarillo',
-    AZUL: 'Azul',
-  };
-  const defaultColorMap: Record<string, { hex: string; label: string }> = {
-    VERDE: { hex: '#198754', label: 'Verde' },
-    ROJO: { hex: '#dc3545', label: 'Rojo' },
-    AMARILLO: { hex: '#ffc107', label: 'Amarillo' },
-    AZUL: { hex: '#0d6efd', label: 'Azul' },
-  };
 
-  const getColorInfo = (tag?: string) => {
-    const key = (tag || 'VERDE').toUpperCase();
-    if (COLOR_MAP && COLOR_MAP[key]) return COLOR_MAP[key];
-    return defaultColorMap[key] || defaultColorMap.VERDE;
-  };
-  const normalizePlanKey = (planStr?: string) => {
-    const normalized = (planStr || '')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase()
-      .replace(/^PLAN\s+/, '')
-      .trim();
-    return normalized === 'INICIAL' ? 'INICIA' : normalized;
-  };
   const formatRegimen = (value?: string) => {
     const labels: Record<string, string> = {
       MYPE_TRIBUTARIO: 'Régimen MYPE Tributario',
@@ -148,31 +140,33 @@ export default function ClientesTodosTab({
     };
     return labels[value || ''] || value || 'No registrado';
   };
+
   const buildAffiliationMessage = (client: Client) => [
-    '📎Te adjuntamos la información necesaria para completar el proceso.',
+    'Te adjuntamos la información necesaria para completar el proceso.',
     '',
-    '📝 Datos para la afiliación:',
+    'Datos para la afiliación:',
     '',
-    `🟢 Razón Social : ${client.razonSocial || 'No registrado'}`,
-    `🟢 Nombre del Negocio : ${client.nombreComercial || 'No registrado'}`,
-    `🟢 Régimen Tributario : ${formatRegimen(client.regimenTributario)}`,
-    `🟢 DNI : ${client.dni || 'No registrado'}`,
-    `🟢 Celular : ${client.telefono || 'No registrado'}`,
-    `🟢 Correo : ${client.email || 'No registrado'}`,
-    `🟢 Dirección Fiscal : ${client.direccion || 'No registrado'}`,
-    `🟢 Distrito, Provincia y Departamento : ${[client.distrito, client.provincia, client.departamento].filter(Boolean).join(', ') || 'No registrado'}`,
-    `🟢 Plan Contratado : ${client.planContratado || 'No registrado'}`,
+    `Razón Social : ${client.razonSocial || 'No registrado'}`,
+    `Nombre del Negocio : ${client.nombreComercial || 'No registrado'}`,
+    `Régimen Tributario : ${formatRegimen(client.regimenTributario)}`,
+    `DNI : ${client.dni || 'No registrado'}`,
+    `Celular : ${client.telefono || client.telefonoPersonal || 'No registrado'}`,
+    `Correo : ${client.email || 'No registrado'}`,
+    `Dirección Fiscal : ${client.direccion || 'No registrado'}`,
+    `Distrito, Provincia y Departamento : ${[client.distrito, client.provincia, client.departamento].filter(Boolean).join(', ') || 'No registrado'}`,
+    `Plan Contratado : ${client.planContratado || 'No registrado'}`,
     '',
-    '🔐 Para el alta en SUNAT:',
-    `🟢 RUC : ${client.ruc || 'No registrado'}`,
-    `🟢 Usuario SOL : ${client.usuarioSol || 'No registrado'}`,
-    `🟢 Clave SOL : ${client.claveSolCifrada || 'No registrada'}`,
+    'Para el alta en SUNAT:',
+    `RUC : ${client.ruc || 'No registrado'}`,
+    `Usuario SOL : ${client.usuarioSol || 'No registrado'}`,
+    `Clave SOL : ${client.claveSolCifrada || 'No registrada'}`,
     '',
-    '📌 Adicional:',
-    '1️⃣ ¿Es su primer sistema de facturación? Si',
-    '2️⃣ ¿Emitía comprobantes desde SUNAT? no',
-    '3️⃣ ¿Paga IGV o está exonerado? No estoy exonerado, pago normal',
+    'Adicional:',
+    '1. ¿Es su primer sistema de facturación? Si',
+    '2. ¿Emitía comprobantes desde SUNAT? No',
+    '3. ¿Paga IGV o está exonerado? No estoy exonerado, pago normal',
   ].join('\n');
+
   const copyAffiliationMessage = async (client: Client) => {
     const message = buildAffiliationMessage(client);
     try {
@@ -184,23 +178,39 @@ export default function ClientesTodosTab({
         textarea.style.position = 'fixed';
         textarea.style.opacity = '0';
         document.body.appendChild(textarea);
-        textarea.focus();
         textarea.select();
         document.execCommand('copy');
-        textarea.remove();
+        document.body.removeChild(textarea);
       }
       setCopiedMessageClientId(client.id);
-      window.setTimeout(() => {
-        setCopiedMessageClientId((current) => (current === client.id ? null : current));
-      }, 1800);
-    } catch {
-      setCopiedMessageClientId(null);
+      setTimeout(() => {
+        setCopiedMessageClientId(null);
+      }, 2000);
+    } catch (err) {
+      console.error('No se pudo copiar el mensaje de afiliación', err);
     }
   };
-  const activeColorClient = React.useMemo(
-    () => allFilteredClients.find((client) => client.id === activeColorPickerId) || null,
-    [activeColorPickerId, allFilteredClients]
+
+  const hasActiveFilters = Boolean(
+    currentSearch.trim() ||
+    regimenFilter ||
+    planFilter ||
+    (estadoCuentaFilter && estadoCuentaFilter !== 'TODOS') ||
+    (capacitacionFilter && capacitacionFilter !== 'TODOS') ||
+    (suscripcionFilter && suscripcionFilter !== 'TODOS') ||
+    sellerFilter
   );
+
+  const resetAllFilters = () => {
+    handleSearchChange('');
+    setRegimenFilter('');
+    setPlanFilter('');
+    setEstadoCuentaFilter('');
+    setCapacitacionFilter('');
+    setSuscripcionFilter('');
+    setSellerFilter('');
+  };
+
   const totalPages = Math.max(1, Math.ceil(allFilteredClients.length / pageSize));
   const visibleClients = React.useMemo(
     () => allFilteredClients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
@@ -209,58 +219,20 @@ export default function ClientesTodosTab({
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [currentSearch, allFilteredClients.length]);
+  }, [
+    currentSearch,
+    regimenFilter,
+    planFilter,
+    estadoCuentaFilter,
+    capacitacionFilter,
+    suscripcionFilter,
+    sellerFilter,
+    allFilteredClients.length,
+  ]);
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
-
-  const toggleColorPicker = (event: React.MouseEvent<HTMLButtonElement>, clientId: EntityId) => {
-    if (activeColorPickerId === clientId) {
-      setActiveColorPickerId(null);
-      setColorPickerPosition(null);
-      return;
-    }
-
-    const rect = event.currentTarget.getBoundingClientRect();
-    const menuWidth = 158;
-    const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8));
-
-    setActiveColorPickerId(clientId);
-    setColorPickerPosition({
-      top: rect.bottom + 6,
-      left,
-    });
-  };
-
-  React.useEffect(() => {
-    if (activeColorPickerId === null) return;
-
-    const closeColorPicker = () => {
-      setActiveColorPickerId(null);
-      setColorPickerPosition(null);
-    };
-
-    const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (colorPickerRef.current?.contains(target)) return;
-      if (target instanceof Element && target.closest('[data-color-picker-trigger="true"]')) return;
-      closeColorPicker();
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    document.addEventListener('touchstart', handleOutsideClick);
-    window.addEventListener('resize', closeColorPicker);
-    window.addEventListener('scroll', closeColorPicker, true);
-
-    return () => {
-      document.removeEventListener('mousedown', handleOutsideClick);
-      document.removeEventListener('touchstart', handleOutsideClick);
-      window.removeEventListener('resize', closeColorPicker);
-      window.removeEventListener('scroll', closeColorPicker, true);
-    };
-  }, [activeColorPickerId]);
 
   return (
     <div className="custom-card p-4 shadow-sm">
@@ -274,53 +246,128 @@ export default function ClientesTodosTab({
             <small className="text-muted">Listado consolidado de empresas y estado comercial</small>
           </div>
         </div>
-        <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold">
-          {allFilteredClients.length} Registros Total
-        </span>
+        <div className="d-flex align-items-center gap-2">
+          {hasActiveFilters && (
+            <button
+              onClick={resetAllFilters}
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-semibold"
+            >
+              <RotateCcw size={13} />
+              <span>Limpiar Filtros</span>
+            </button>
+          )}
+          <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold">
+            {allFilteredClients.length} Registros Total
+          </span>
+        </div>
       </div>
 
-      <div className="row g-3 mb-4 p-3 bg-light rounded-3 border">
-        <div className="col-md-5">
-          <div className="input-group">
-            <span className="input-group-text bg-white border-end-0 text-muted">
-              <Search size={16} />
-            </span>
-            <input
-              type="text"
-              className="form-control border-start-0"
-              placeholder="Buscar por RUC, Razón Social, Teléfono..."
-              value={currentSearch}
-              onChange={(e) => handleSearchChange(e.target.value)}
-            />
+      {/* Panel Avanzado de Filtros */}
+      <div className="p-3 bg-light rounded-3 border mb-4">
+        <div className="row g-2 mb-2">
+          <div className="col-lg-4 col-md-6">
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-white border-end-0 text-muted">
+                <Search size={14} />
+              </span>
+              <input
+                type="text"
+                className="form-control border-start-0"
+                placeholder="Buscar por RUC, Empresa, DNI, Teléfono..."
+                value={currentSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="col-lg-2 col-md-3 col-6">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={estadoCuentaFilter}
+              onChange={(e) => setEstadoCuentaFilter(e.target.value)}
+            >
+              <option value="">Estado: Todos</option>
+              <option value="HABILITADO">Habilitado</option>
+              <option value="POR_COBRAR">Por Cobrar</option>
+              <option value="VENCIDO">Vencido</option>
+              <option value="BLOQUEADO">Bloqueado</option>
+              <option value="POR_CAPACITAR">Por Capacitar</option>
+            </select>
+          </div>
+          <div className="col-lg-2 col-md-3 col-6">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={suscripcionFilter}
+              onChange={(e) => setSuscripcionFilter(e.target.value)}
+            >
+              <option value="">Suscripción: Todas</option>
+              <option value="MENSUAL">Mensual</option>
+              <option value="ANUAL">Anual</option>
+            </select>
+          </div>
+          <div className="col-lg-2 col-md-6 col-6">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+            >
+              <option value="">Plan: Todos</option>
+              <option value="INICIA">Plan Inicia (S/ 19)</option>
+              <option value="EMPRENDE">Plan Emprende (S/ 29)</option>
+              <option value="IMPULSA">Plan Impulsa (S/ 39)</option>
+              <option value="EMPRESARIAL">Plan Empresarial (S/ 59)</option>
+              <option value="LIDER">Plan Líder (S/ 89)</option>
+            </select>
+          </div>
+          <div className="col-lg-2 col-md-6 col-6">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={regimenFilter}
+              onChange={(e) => setRegimenFilter(e.target.value)}
+            >
+              <option value="">Régimen: Todos</option>
+              <option value="MYPE_TRIBUTARIO">MYPE Tributario</option>
+              <option value="REGIMEN_GENERAL">Régimen General</option>
+              <option value="RER">RER</option>
+              <option value="NRUS">Nuevo RUS</option>
+            </select>
           </div>
         </div>
-        <div className="col-md-3">
-          <select className="form-select fw-semibold" value={regimenFilter} onChange={(e) => setRegimenFilter(e.target.value)}>
-            <option value="">Todos los Regímenes</option>
-            <option value="MYPE_TRIBUTARIO">MYPE Tributario</option>
-            <option value="REGIMEN_GENERAL">Régimen General</option>
-            <option value="RER">Régimen Especial - RER</option>
-            <option value="NRUS">Nuevo RUS - NRUS</option>
-          </select>
-        </div>
-        <div className="col-md-4">
-          <select className="form-select fw-semibold" value={planFilter} onChange={(e) => setPlanFilter(e.target.value)}>
-            <option value="">Todos los Planes</option>
-            <option value="INICIA">Plan Inicia (S/ 19)</option>
-            <option value="EMPRENDE">Plan Emprende (S/ 29)</option>
-            <option value="IMPULSA">Plan Impulsa (S/ 39)</option>
-            <option value="EMPRESARIAL">Plan Empresarial (S/ 59)</option>
-            <option value="LIDER">Plan Líder (S/ 89)</option>
-          </select>
+
+        <div className="row g-2">
+          <div className="col-lg-3 col-md-6 col-6">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={capacitacionFilter}
+              onChange={(e) => setCapacitacionFilter(e.target.value)}
+            >
+              <option value="">Capacitación: Todas</option>
+              <option value="PENDIENTE">Pendiente de Capacitación</option>
+              <option value="REALIZADA">Capacitado</option>
+            </select>
+          </div>
+          <div className="col-lg-3 col-md-6 col-6">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={sellerFilter}
+              onChange={(e) => setSellerFilter(e.target.value)}
+            >
+              <option value="">Vendedor: Todos</option>
+              {uniqueSellers.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       {/* Tabla de Clientes */}
-      <div className="table-responsive" style={{ overflow: 'visible' }}>
-        <table className="table table-hover align-middle mb-0">
+      <div className="table-responsive">
+        <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
           <thead>
             <tr>
-              <th style={{ width: '70px' }} className="text-center">Tag</th>
+              <th style={{ width: '50px' }}>#</th>
               <th>RUC / Empresa</th>
               <th>WhatsApp / Contacto</th>
               <th>Plan / Suscripción</th>
@@ -330,178 +377,169 @@ export default function ClientesTodosTab({
             </tr>
           </thead>
           <tbody>
-            {visibleClients.map((c) => (
-              <tr key={c.id}>
-                <td className="text-center" style={{ position: 'relative', zIndex: activeColorPickerId === c.id ? 99999 : 1 }}>
-                  <div className="position-relative d-inline-block">
-                    <button
-                      type="button"
-                      data-color-picker-trigger="true"
-                      className="btn btn-sm p-0 border-0 d-flex align-items-center justify-content-center"
-                      onClick={(event) => toggleColorPicker(event, c.id)}
-                      title="Cambiar color de celular/atención"
-                    >
-                      <span
-                        className="d-inline-block rounded-circle border shadow-sm transition-all"
-                        style={{
-                          width: '22px',
-                          height: '22px',
-                          backgroundColor: getColorInfo(c.colorTag)?.hex || '#198754',
-                          cursor: 'pointer',
-                          transform: activeColorPickerId === c.id ? 'scale(1.25)' : 'scale(1)',
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
-                        }}
-                      ></span>
-                    </button>
-                  </div>
-                </td>
-                <td>
-                  <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
-                  <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
-                </td>
-                <td>
-                  <span className="fw-bold text-dark d-block">{c.telefono}</span>
-                  <span className="small text-muted">{c.email || c.usuarioWsp || '—'}</span>
-                </td>
-                <td>
-                  <div className="d-flex align-items-center gap-1">
-                    <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                    <span className={`badge ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}`}>
-                      {c.tipoSuscripcion || 'MENSUAL'}
-                    </span>
-                  </div>
-                </td>
-                <td>
-                  {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (
-                    <span className="badge bg-secondary text-white fw-bold" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
-                      {c.vendedor}
-                    </span>
-                  ) : currentUser?.rol === 'ADMIN' ? (
-                    <select
-                      className="form-select form-select-sm"
-                      defaultValue=""
-                      onChange={(event) => {
-                        if (event.target.value) handleAssignVendedor(c, event.target.value);
-                        event.currentTarget.value = '';
-                      }}
-                      title="Selecciona manualmente un vendedor para este cliente"
-                    >
-                      <option value="">Asignar vendedor...</option>
-                      {usersList
-                        .filter((user) => user.activo !== false)
-                        .map((user) => {
-                          const label = user.nombre || user.username || '';
-                          return label ? <option key={String(user.id)} value={label}>{label}</option> : null;
-                        })}
-                    </select>
-                  ) : currentUser?.rol === 'VENDEDOR' ? (
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline-primary fw-bold"
-                      onClick={() => handleSelfAssignVendedor(c)}
-                      title="Asignarme este cliente"
-                    >
-                      Asignarme
-                    </button>
-                  ) : (
-                    <span className="badge bg-light text-muted fw-normal border" style={{ fontSize: '0.75rem' }}>
-                      Por asignar
-                    </span>
-                  )}
-                </td>
-                <td>
-                  <span className={`badge ${c.estadoCuenta === 'HABILITADO' ? 'badge-habilitado' : 'badge-bloqueado'}`}>
-                    {c.estadoCuenta}
-                  </span>
-                </td>
-                <td>
-                  <div className="d-flex gap-1.5 justify-content-center align-items-center">
-                    {c.estadoCuenta === 'HABILITADO' && normalizePlanKey(c.planContratado) !== 'LIDER' && (
-                      <button
-                        onClick={() => {
-                          setMejoraPlanSeleccionado('');
-                          setMejoraPlanClient(c);
-                        }}
-                        className="btn btn-sm btn-outline-success px-2.5 py-1 fw-bold"
-                        title="Mejorar plan activo"
-                        aria-label={`Mejorar plan de ${c.razonSocial}`}
-                      >
-                        <TrendingUp size={14} />
-                        <span className="ms-1 d-none d-lg-inline">Mejorar</span>
-                      </button>
-                    )}
-                    <button onClick={() => setEditingClient(c)} className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold" title="Editar cliente">
-                      <Edit size={14} />
-                      <span className="ms-1 d-none d-xl-inline">Editar</span>
-                    </button>
-                    <button
-                      onClick={() => void copyAffiliationMessage(c)}
-                      className={`btn btn-sm ${copiedMessageClientId === c.id ? 'btn-success text-white' : 'btn-outline-secondary'} px-2.5 py-1 fw-semibold`}
-                      title="Copiar ficha de afiliación"
-                      aria-label={`Copiar mensaje de afiliación de ${c.razonSocial}`}
-                    >
-                      {copiedMessageClientId === c.id ? <Check size={14} /> : <Clipboard size={14} />}
-                      <span className="ms-1 d-none d-xl-inline">{copiedMessageClientId === c.id ? 'Copiado' : 'Ficha'}</span>
-                    </button>
-                    <button onClick={() => setDeletingClient(c)} className="btn btn-sm btn-outline-danger px-2.5 py-1" title="Eliminar cliente">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+            {visibleClients.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
+                  No se encontraron clientes con los filtros seleccionados.
                 </td>
               </tr>
-            ))}
+            ) : (
+              visibleClients.map((c, idx) => (
+                <tr key={c.id}>
+                  <td className="text-muted fw-semibold py-2.5">
+                    {(currentPage - 1) * pageSize + idx + 1}
+                  </td>
+                  <td>
+                    <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
+                    <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
+                  </td>
+                  <td>
+                    <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
+                    <span className="small text-muted">{c.usuarioWsp ? `WSP: ${c.usuarioWsp}` : c.email || '—'}</span>
+                  </td>
+                  <td>
+                    <div className="d-flex align-items-center gap-1">
+                      <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                      <span className={`badge ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}`}>
+                        {c.tipoSuscripcion || 'MENSUAL'}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (
+                      <span className="badge bg-secondary text-white fw-bold" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
+                        {c.vendedor}
+                      </span>
+                    ) : currentUser?.rol === 'ADMIN' ? (
+                      <select
+                        className="form-select form-select-sm border-warning fw-semibold"
+                        style={{ fontSize: '0.75rem', width: '130px' }}
+                        defaultValue=""
+                        onChange={(e) => {
+                          if (e.target.value) handleAssignVendedor(c, e.target.value);
+                        }}
+                      >
+                        <option value="" disabled>Asignar Asesor...</option>
+                        {usersList.map((u) => (
+                          <option key={u.id} value={u.nombre || u.username}>
+                            {u.nombre || u.username}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <button
+                        onClick={() => handleSelfAssignVendedor(c)}
+                        className="btn btn-sm btn-outline-primary px-2 py-0.5"
+                        style={{ fontSize: '0.75rem' }}
+                      >
+                        Asignarme
+                      </button>
+                    )}
+                  </td>
+                  <td>
+                    <span
+                      className={`badge ${
+                        c.estadoCuenta === 'HABILITADO'
+                          ? 'badge-habilitado'
+                          : c.estadoCuenta === 'POR_COBRAR'
+                          ? 'badge-pendiente'
+                          : c.estadoCuenta === 'VENCIDO'
+                          ? 'badge-vencido'
+                          : 'badge-bloqueado'
+                      }`}
+                    >
+                      {c.estadoCuenta || 'SIN ESTADO'}
+                    </span>
+                  </td>
+                  <td className="text-center">
+                    <div className="d-flex justify-content-center align-items-center gap-1">
+                      {/* Copiar Formato de Afiliación */}
+                      <button
+                        onClick={() => copyAffiliationMessage(c)}
+                        className={`btn btn-sm p-1.5 ${
+                          copiedMessageClientId === c.id
+                            ? 'btn-success text-white'
+                            : 'btn-outline-success text-success'
+                        }`}
+                        title="Copiar datos de afiliación"
+                      >
+                        {copiedMessageClientId === c.id ? <Check size={14} /> : <MessageCircle size={14} />}
+                      </button>
+
+                      {/* Mostrar / Ocultar Clave SOL */}
+                      <button
+                        onClick={() =>
+                          setShowSolKeys((prev) => ({
+                            ...prev,
+                            [String(c.id)]: !prev[String(c.id)],
+                          }))
+                        }
+                        className="btn btn-sm btn-outline-secondary p-1.5"
+                        title={showSolKeys[String(c.id)] ? 'Ocultar Clave SOL' : 'Ver Clave SOL'}
+                      >
+                        {showSolKeys[String(c.id)] ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+
+                      {/* Copiar Clave SOL */}
+                      <button
+                        onClick={() => {
+                          if (c.claveSolCifrada) {
+                            navigator.clipboard.writeText(c.claveSolCifrada);
+                          }
+                        }}
+                        className="btn btn-sm btn-outline-secondary p-1.5"
+                        title="Copiar Clave SOL"
+                        disabled={!c.claveSolCifrada}
+                      >
+                        <Copy size={14} />
+                      </button>
+
+                      {/* Editar Cliente */}
+                      <button
+                        onClick={() => setEditingClient(c)}
+                        className="btn btn-sm btn-outline-primary p-1.5"
+                        title="Editar información"
+                      >
+                        <Edit2 size={14} />
+                      </button>
+
+                      {/* Mejorar Plan */}
+                      <button
+                        onClick={() => {
+                          setMejoraPlanClient(c);
+                          setMejoraPlanSeleccionado(c.planContratado || '');
+                        }}
+                        className="btn btn-sm btn-outline-warning text-dark p-1.5"
+                        title="Mejorar Plan (Upgrade)"
+                      >
+                        <TrendingUp size={14} />
+                      </button>
+
+                      {/* Eliminar Cliente (solo ADMIN) */}
+                      {currentUser?.rol === 'ADMIN' && (
+                        <button
+                          onClick={() => setDeletingClient(c)}
+                          className="btn btn-sm btn-outline-danger p-1.5"
+                          title="Eliminar cliente"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
+
       <PaginationControls
         currentPage={currentPage}
         totalItems={allFilteredClients.length}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
-      {activeColorClient &&
-        colorPickerPosition &&
-        typeof document !== 'undefined' &&
-        createPortal(
-          <div
-            ref={colorPickerRef}
-            className="bg-white rounded-3 shadow-lg p-2 border"
-            style={{
-              position: 'fixed',
-              top: colorPickerPosition.top,
-              left: colorPickerPosition.left,
-              zIndex: 100000,
-              minWidth: '158px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-            }}
-          >
-            <div className="small text-muted fw-bold mb-1 px-1" style={{ fontSize: '0.68rem' }}>
-              SELECCIONAR COLOR
-            </div>
-            {(['VERDE', 'ROJO', 'AMARILLO', 'AZUL'] as ColorTagType[]).map((col) => {
-              const info = getColorInfo(col);
-              return (
-                <button
-                  key={col}
-                  type="button"
-                  className="btn btn-sm btn-light w-100 text-start d-flex align-items-center gap-2 mb-1 p-1.5 rounded-2 hover-bg-light"
-                  onClick={() => {
-                    handleColorTagChange(activeColorClient, col);
-                    setActiveColorPickerId(null);
-                    setColorPickerPosition(null);
-                  }}
-                >
-                  <span
-                    className="rounded-circle d-inline-block border"
-                    style={{ width: '14px', height: '14px', backgroundColor: info?.hex || '#198754' }}
-                  ></span>
-                  <span className="fw-semibold small text-dark">{colorLabels[col]}</span>
-                </button>
-              );
-            })}
-          </div>,
-          document.body
-        )}
     </div>
   );
 }

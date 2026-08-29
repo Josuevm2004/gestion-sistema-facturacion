@@ -113,7 +113,15 @@ export default function AdminPage() {
                 setRegimenFilter={adminData.setRegimenFilter}
                 planFilter={adminData.planFilter}
                 setPlanFilter={adminData.setPlanFilter}
-                handleColorTagChange={adminData.handleColorTagChange}
+                estadoCuentaFilter={adminData.estadoCuentaFilter}
+                setEstadoCuentaFilter={adminData.setEstadoCuentaFilter}
+                capacitacionFilter={adminData.capacitacionFilter}
+                setCapacitacionFilter={adminData.setCapacitacionFilter}
+                suscripcionFilter={adminData.suscripcionFilter}
+                setSuscripcionFilter={adminData.setSuscripcionFilter}
+                sellerFilter={adminData.sellerFilter}
+                setSellerFilter={adminData.setSellerFilter}
+                uniqueSellers={adminData.uniqueSellers}
                 handleAssignVendedor={adminData.handleAssignVendedor}
                 handleSelfAssignVendedor={adminData.handleSelfAssignVendedor}
                 usersList={adminData.usersList}
@@ -124,12 +132,6 @@ export default function AdminPage() {
                 setMejoraPlanClient={adminData.setMejoraPlanClient}
                 setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
                 setDeletingClient={adminData.setDeletingClient}
-                COLOR_MAP={{
-                  VERDE: { hex: '#198754', label: 'Verde', bgClass: 'bg-success bg-opacity-10 text-success border-success' },
-                  ROJO: { hex: '#dc3545', label: 'Rojo', bgClass: 'bg-danger bg-opacity-10 text-danger border-danger' },
-                  AMARILLO: { hex: '#ffc107', label: 'Amarillo', bgClass: 'bg-warning bg-opacity-10 text-warning border-warning' },
-                  AZUL: { hex: '#0d6efd', label: 'Azul', bgClass: 'bg-primary bg-opacity-10 text-primary border-primary' },
-                }}
               />
             )}
 

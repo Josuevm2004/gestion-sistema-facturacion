@@ -776,7 +776,7 @@ export default function ReportesExcelTab({
         <table className="table table-hover align-middle mb-0 small">
           <thead className="table-secondary">
             <tr>
-              <th>Color</th>
+              <th style={{ width: '45px' }}>#</th>
               <th>Régimen</th>
               <th>RUC / Razón Social</th>
               <th>Teléfono / Correo</th>
@@ -794,16 +794,11 @@ export default function ReportesExcelTab({
                 </td>
               </tr>
             ) : (
-              reportFilteredList.map((c) => {
-                const colorInfo = getColorInfo(c.colorTag);
+              reportFilteredList.map((c, idx) => {
                 return (
                   <tr key={c.id}>
-                    <td>
-                      <span
-                        className="d-inline-block rounded-circle border shadow-sm"
-                        style={{ width: '16px', height: '16px', backgroundColor: colorInfo?.hex || '#198754' }}
-                        title={colorInfo?.label || 'Verde'}
-                      ></span>
+                    <td className="text-muted fw-semibold py-2">
+                      {idx + 1}
                     </td>
                     <td>
                       <span className="badge bg-light text-dark border">{c.regimenTributario || '—'}</span>

@@ -21,13 +21,41 @@ export default function CapacitacionesTab({
   setTrainingDateInput,
 }: CapacitacionesTabProps) {
   // Mostrar empresas que requieren capacitación o que ya han sido capacitadas
-  const targetList: Client[] = clients.filter(
-    (c) =>
-      c.estadoCuenta === 'POR_CAPACITAR' ||
-      c.estadoCuenta === 'HABILITADO' ||
-      c.estadoCapacitacion === 'PENDIENTE' ||
-      c.fechaCapacitacion
-  );
+  // ORDENADO: Primero los que faltan capacitar, y después los que ya están capacitados
+  const targetList: Client[] = React.useMemo(() => {
+    const list = clients.filter(
+      (c) =>
+        c.estadoCuenta === 'POR_CAPACITAR' ||
+        c.estadoCuenta === 'HABILITADO' ||
+        c.estadoCapacitacion === 'PENDIENTE' ||
+        c.fechaCapacitacion
+    );
+
+    return [...list].sort((a, b) => {
+      const isCapA = Boolean(
+        a.fechaCapacitacion ||
+        a.estadoCapacitacion === 'COMPLETADO' ||
+        a.estadoCapacitacion === 'COMPLETADA' ||
+        (a.estadoCuenta === 'HABILITADO' && a.fechaCapacitacion)
+      );
+      const isCapB = Boolean(
+        b.fechaCapacitacion ||
+        b.estadoCapacitacion === 'COMPLETADO' ||
+        b.estadoCapacitacion === 'COMPLETADA' ||
+        (b.estadoCuenta === 'HABILITADO' && b.fechaCapacitacion)
+      );
+
+      // Pendientes de capacitar van primero
+      if (!isCapA && isCapB) return -1;
+      if (isCapA && !isCapB) return 1;
+
+      // Si ambos tienen el mismo estado, ordenar por fecha de registro descendente
+      const dateA = new Date(a.fechaRegistro || a.fechaCreacion || 0).getTime();
+      const dateB = new Date(b.fechaRegistro || b.fechaCreacion || 0).getTime();
+      return dateB - dateA;
+    });
+  }, [clients]);
+
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
   const totalPages = Math.max(1, Math.ceil(targetList.length / pageSize));
@@ -73,6 +101,7 @@ export default function CapacitacionesTab({
         <table className="table table-hover align-middle mb-0">
           <thead>
             <tr>
+              <th style={{ width: '50px' }}>#</th>
               <th>RUC / Empresa</th>
               <th>Contacto WhatsApp</th>
               <th>Plan / Suscripción</th>
@@ -84,22 +113,25 @@ export default function CapacitacionesTab({
           <tbody>
             {targetList.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
                   No hay empresas para capacitación en este momento.
                 </td>
               </tr>
             ) : (
-              visibleClients.map((c: Client) => {
+              visibleClients.map((c: Client, idx: number) => {
                 const isCapacitado = Boolean(c.fechaCapacitacion || c.estadoCapacitacion === 'COMPLETADO' || c.estadoCapacitacion === 'COMPLETADA' || (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion));
 
                 return (
                   <tr key={c.id}>
+                    <td className="text-muted fw-semibold py-2.5">
+                      {(currentPage - 1) * pageSize + idx + 1}
+                    </td>
                     <td>
                       <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
                       <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                     </td>
                     <td>
-                      <span className="fw-bold text-dark">{c.telefono}</span>
+                      <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-1">

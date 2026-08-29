@@ -53,6 +53,7 @@ export default function PorCobrarTab({
         <table className="table table-hover align-middle mb-0">
           <thead>
             <tr>
+              <th style={{ width: '50px' }}>#</th>
               <th>RUC / Empresa</th>
               <th>WhatsApp</th>
               <th>Plan / Suscripción</th>
@@ -64,19 +65,22 @@ export default function PorCobrarTab({
           <tbody>
             {clientesPorCobrarList.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
                   No hay registros pendientes por cobrar en este momento.
                 </td>
               </tr>
             ) : (
-              visibleClients.map((c) => (
+              visibleClients.map((c, idx) => (
                 <tr key={c.id}>
+                  <td className="text-muted fw-semibold py-2.5">
+                    {(currentPage - 1) * pageSize + idx + 1}
+                  </td>
                   <td>
                     <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
                     <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
                   </td>
                   <td>
-                    <span className="fw-bold text-dark">{c.telefono}</span>
+                    <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
                   </td>
                   <td>
                     <div className="d-flex align-items-center gap-1">
