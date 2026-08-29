@@ -15,6 +15,15 @@ const HOP_BY_HOP_HEADERS = new Set([
   'upgrade',
 ]);
 
+// Node fetch descomprime automáticamente las respuestas gzip/br del backend.
+// Si se reenvía Content-Encoding, el navegador intenta descomprimirlas otra vez
+// y produce ERR_CONTENT_DECODING_FAILED.
+const RESPONSE_HEADERS_TO_REMOVE = new Set([
+  'content-encoding',
+  'content-length',
+  'transfer-encoding',
+]);
+
 async function proxyRequest(request: NextRequest, context: { params: { path?: string[] } }) {
   const path = (context.params.path || []).join('/');
   const targetUrl = new URL(`${BACKEND_API_URL}/${path}`);
@@ -39,6 +48,7 @@ async function proxyRequest(request: NextRequest, context: { params: { path?: st
   });
 
   const responseHeaders = new Headers(response.headers);
+  RESPONSE_HEADERS_TO_REMOVE.forEach((header) => responseHeaders.delete(header));
   responseHeaders.set('Cache-Control', 'no-store');
 
   return new NextResponse(response.body, {
