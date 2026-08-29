@@ -1225,9 +1225,10 @@ export function useAdminData() {
     return Array.from(s);
   }, [safeClients, safeUsersList]);
 
-  function filterClientUnified(c: Client, searchValue: string = deferredSearch): boolean {
-    if (searchValue.trim()) {
-      const q = searchValue.toLowerCase();
+  function filterClientUnified(c: Client, searchValue?: any): boolean {
+    const searchStr = typeof searchValue === 'string' ? searchValue : (deferredSearch || '');
+    if (searchStr.trim()) {
+      const q = searchStr.toLowerCase();
       const matchRuc = c.ruc?.toLowerCase().includes(q);
       const matchRazon = c.razonSocial?.toLowerCase().includes(q);
       const matchComercial = c.nombreComercial?.toLowerCase().includes(q);

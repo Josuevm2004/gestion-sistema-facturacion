@@ -81,7 +81,7 @@ export default function ReportesExcelTab({
 }: ReportesExcelTabProps) {
   const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
   const filterFn = filterClientUnified || (() => true);
-  const reportFilteredList = safeClients.filter(filterFn);
+  const reportFilteredList = safeClients.filter((c) => filterFn(c));
 
   // Generador avanzado de Excel en formato Excel XML (Diseño con estilos, colores y fuentes formateadas)
   const exportToExcelLocal = async () => {

@@ -33,8 +33,9 @@ export default function CentroControlTab({
 
     return clients
       .filter((c) => {
-        if (!calendarSearch.trim()) return true;
-        const q = calendarSearch.toLowerCase();
+        const searchStr = (calendarSearch || '').trim();
+        if (!searchStr) return true;
+        const q = searchStr.toLowerCase();
         return (
           c.razonSocial?.toLowerCase().includes(q) ||
           c.ruc?.includes(q) ||
