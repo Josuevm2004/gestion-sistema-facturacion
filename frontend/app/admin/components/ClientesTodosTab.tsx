@@ -45,6 +45,7 @@ export type Client = {
   tipoSuscripcion?: string;
   montoMensual?: number;
   montoSiguienteCobro?: number;
+  ventaId?: string;
   diasProrrateados?: number;
   tipoProrrateo?: string;
   montoProrrateoAdicional?: number;
@@ -61,10 +62,11 @@ export type Client = {
   linkSistema?: string;
   usuarioSistema?: string;
   claveSistema?: string;
-  colorTag?: string;
+  colorTag?: ColorTagType;
   colorCodigo?: string;
   entornoId?: EntityId;
   entornoNombre?: string;
+  [key: string]: any;
 };
 
 interface ClientesTodosTabProps {
