@@ -179,10 +179,8 @@ export default function ReportesExcelTab({
       const paymentForVenta = ventaId ? paymentsByVenta.get(ventaId) : null;
       return Number(op?.montoPagado ?? paymentForVenta?.monto ?? op?.montoVenta ?? op?.montoTotal ?? op?.precioLista ?? 0);
     };
-    const operationMonthSource = (op: any, client?: Client) =>
-      isAnnualOperation(op, client)
-        ? op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion
-        : op?.fechaPago || op?.fechaOperacion;
+    const operationMonthSource = (op: any, _client?: Client) =>
+      op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion;
     const annualClientAmount = (client: Client) => {
       const directAmount = Number(client.montoMensual || client.montoSiguienteCobro || 0);
       return directAmount;
