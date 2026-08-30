@@ -235,10 +235,15 @@ public class VentaServiceImpl implements VentaService {
             fechaInicio = fechaRef;
         }
 
+        Venta ventaPendiente = ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .findFirst()
+                .orElse(null);
+
         BigDecimal precioLista = suscripcion.getPrecio();
         BigDecimal montoTotal = request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0
                 ? request.getMonto()
-                : precioLista;
+                : (ventaPendiente != null && ventaPendiente.getMontoTotal() != null ? ventaPendiente.getMontoTotal() : precioLista);
 
         LocalDateTime fechaFin;
         int diasProrrateados;

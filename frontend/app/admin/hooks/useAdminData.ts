@@ -860,7 +860,7 @@ export function useAdminData() {
         planId: planIdNum,
         tipoSuscripcion: tipoSub,
         vendedorId: client.vendedorId ? Number(client.vendedorId) : undefined,
-        monto: monto || client.montoMensual || client.precioPlan || 19,
+        monto: monto || client.montoSiguienteCobro || client.montoMensual || client.precioPlan || 19,
         observaciones: observaciones || `Adelanto de pago realizado para el siguiente mes`,
       });
 
