@@ -381,11 +381,11 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
                 <span>{copied ? '¡Copiado!' : activeStep === 'PRESENTACION' ? 'Copiar Saludo' : 'Copiar Cobranza'}</span>
               </button>
               <button
-                className={`btn ${activeStep === 'PRESENTACION' ? 'btn-primary' : 'btn-success'} px-4 py-1.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1.5`}
+                className="btn btn-primary px-4 py-1.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1.5"
                 onClick={() => handleSendWhatsApp()}
               >
                 <ExternalLink size={15} />
-                <span>{activeStep === 'PRESENTACION' ? '1. Enviar Presentación' : '2. Enviar Cobranza'}</span>
+                <span>{activeStep === 'PRESENTACION' ? 'Enviar Presentación' : 'Enviar Cobranza'}</span>
               </button>
             </div>
           </div>

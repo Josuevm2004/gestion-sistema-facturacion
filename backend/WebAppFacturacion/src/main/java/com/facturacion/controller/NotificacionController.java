@@ -28,4 +28,10 @@ public class NotificacionController {
         notificacionService.marcarComoLeida(id);
         return ResponseEntity.ok(ApiResponse.success("Notificación marcada como leída", null));
     }
+
+    @PutMapping("/marcar-todas-leidas")
+    public ResponseEntity<ApiResponse<Void>> marcarTodasComoLeidas() {
+        notificacionService.marcarTodasComoLeidas();
+        return ResponseEntity.ok(ApiResponse.success("Todas las notificaciones marcadas como leídas", null));
+    }
 }

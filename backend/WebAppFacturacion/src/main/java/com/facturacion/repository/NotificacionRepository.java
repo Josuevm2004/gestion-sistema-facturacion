@@ -3,6 +3,9 @@ package com.facturacion.repository;
 import com.facturacion.entity.Notificacion;
 import com.facturacion.enums.TipoNotificacion;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -19,4 +22,8 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
             LocalDateTime inicio,
             LocalDateTime fin);
     void deleteByClienteId(Long clienteId);
+
+    @Modifying
+    @Query("UPDATE Notificacion n SET n.leida = true, n.fechaLectura = :now WHERE n.leida = false")
+    int marcarTodasComoLeidas(@Param("now") LocalDateTime now);
 }

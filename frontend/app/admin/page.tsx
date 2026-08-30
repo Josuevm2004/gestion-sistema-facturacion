@@ -47,6 +47,7 @@ export default function AdminPage() {
           handleLogout={adminData.handleLogout}
           setCalendarSearch={adminData.setCalendarSearch}
           handleMarkNotificationAsRead={adminData.handleMarkNotificationAsRead}
+          handleMarkAllNotificationsAsRead={adminData.handleMarkAllNotificationsAsRead}
         />
       )}
 
@@ -181,6 +182,7 @@ export default function AdminPage() {
                 calcularProrrateoEntero={adminData.calcularProrrateoEntero}
                 setHistoryClient={adminData.setHistoryClient}
                 handleToggleAvisado={adminData.handleToggleAvisado}
+                handleAdelantoPago={adminData.handleAdelantoPago}
               />
             )}
 

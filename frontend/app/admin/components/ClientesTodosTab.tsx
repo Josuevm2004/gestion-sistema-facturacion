@@ -141,39 +141,57 @@ export default function ClientesTodosTab({
 
   const formatRegimen = (value?: string) => {
     const labels: Record<string, string> = {
-      MYPE_TRIBUTARIO: 'Régimen MYPE Tributario',
-      REGIMEN_GENERAL: 'Régimen General',
-      RER: 'Régimen Especial - RER',
-      NRUS: 'Nuevo RUS - NRUS',
+      MYPE_TRIBUTARIO: 'Mype Tributario',
+      REGIMEN_GENERAL: 'General',
+      RER: 'Especial',
+      ESPECIAL: 'Especial',
+      NRUS: 'Nuevo RUS',
+      GENERAL: 'General',
     };
     return labels[value || ''] || value || 'No registrado';
   };
 
-  const buildAffiliationMessage = (client: Client) => [
-    'Te adjuntamos la información necesaria para completar el proceso.',
-    '',
-    'Datos para la afiliación:',
-    '',
-    `Razón Social : ${client.razonSocial || 'No registrado'}`,
-    `Nombre del Negocio : ${client.nombreComercial || 'No registrado'}`,
-    `Régimen Tributario : ${formatRegimen(client.regimenTributario)}`,
-    `DNI : ${client.dni || 'No registrado'}`,
-    `Celular : ${client.telefono || client.telefonoPersonal || 'No registrado'}`,
-    `Correo : ${client.email || 'No registrado'}`,
-    `Dirección Fiscal : ${client.direccion || 'No registrado'}`,
-    `Distrito, Provincia y Departamento : ${[client.distrito, client.provincia, client.departamento].filter(Boolean).join(', ') || 'No registrado'}`,
-    `Plan Contratado : ${client.planContratado || 'No registrado'}`,
-    '',
-    'Para el alta en SUNAT:',
-    `RUC : ${client.ruc || 'No registrado'}`,
-    `Usuario SOL : ${client.usuarioSol || 'No registrado'}`,
-    `Clave SOL : ${client.claveSolCifrada || 'No registrada'}`,
-    '',
-    'Adicional:',
-    '1. ¿Es su primer sistema de facturación? Si',
-    '2. ¿Emitía comprobantes desde SUNAT? No',
-    '3. ¿Paga IGV o está exonerado? No estoy exonerado, pago normal',
-  ].join('\n');
+  const buildAffiliationMessage = (client: Client) => {
+    const ubicacion = [client.distrito, client.provincia, client.departamento]
+      .filter(Boolean)
+      .join(' - ');
+
+    const planRaw = (client.planContratado || 'INICIA').toUpperCase();
+    const planFormatted = planRaw.startsWith('PLAN ') ? planRaw : `PLAN ${planRaw}`;
+    const montoFormatted = client.montoMensual
+      ? `S/${Math.round(client.montoMensual)}`
+      : client.precioPlan
+      ? `S/${Math.round(client.precioPlan)}`
+      : 'S/19';
+
+    return [
+      '🚀 ¡Genial!',
+      '',
+      '📎Te adjuntamos la información necesaria para completar el proceso.',
+      '',
+      '📝 Datos para la afiliación:',
+      '',
+      `🟢 Razón Social : ${client.razonSocial || 'No registrado'}`,
+      `🟢 Nombre del Negocio : ${client.nombreComercial || client.razonSocial || 'No registrado'}`,
+      `🟢 Régimen Tributario :  ${formatRegimen(client.regimenTributario)}`,
+      `🟢 DNI :  ${client.dni || 'No registrado'}`,
+      `🟢 Celular : ${client.telefono || client.telefonoPersonal || client.usuarioWsp || 'No registrado'}`,
+      `🟢 Correo : ${client.email || client.emailPersonal || 'No registrado'}`,
+      `🟢 Dirección Fiscal : ${client.direccion || 'No registrado'}`,
+      `🟢 Distrito, Provincia y Departamento : ${ubicacion || 'No registrado'}`,
+      `🟢 Plan Contratado : ${planFormatted} ${montoFormatted}`,
+      '',
+      '🔐 Para el alta en SUNAT:',
+      `🟢 RUC : ${client.ruc || 'No registrado'}`,
+      `🟢 Usuario SOL : ${client.usuarioSol || 'No registrado'}`,
+      `🟢 Clave SOL : ${client.claveSolCifrada || 'No registrada'}`,
+      '',
+      '📌 Adicional:',
+      '1️⃣ ¿Es su primer sistema de facturación? vengo de otra empresa  ',
+      '2️⃣ ¿Emitía comprobantes desde SUNAT? Si',
+      '3️⃣ ¿Paga IGV o está exonerado? No estoy exonerado, pago normal',
+    ].join('\n');
+  };
 
   const copyAffiliationMessage = async (client: Client) => {
     const message = buildAffiliationMessage(client);

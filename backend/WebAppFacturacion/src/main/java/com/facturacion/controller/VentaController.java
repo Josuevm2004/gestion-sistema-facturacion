@@ -41,6 +41,13 @@ public class VentaController {
         return ResponseEntity.ok(ApiResponse.success("Operacion comercial procesada con exito (" + venta.getTipoVenta() + ")", data));
     }
 
+    @PostMapping("/adelanto-pago")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> procesarAdelantoPago(@RequestBody ProcesarOperacionVentaRequest request) {
+        Venta venta = ventaService.procesarAdelantoPago(request);
+        Map<String, Object> data = mapVentaResumen(venta);
+        return ResponseEntity.ok(ApiResponse.success("Adelanto de pago procesado con exito", data));
+    }
+
     @GetMapping("/cliente/{clienteId}")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarVentasPorCliente(@PathVariable Long clienteId) {
         List<Venta> ventas = ventaService.listarVentasPorCliente(clienteId);

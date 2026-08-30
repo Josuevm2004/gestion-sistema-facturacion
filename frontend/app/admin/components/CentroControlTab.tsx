@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2 } from 'lucide-react';
+import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
+import { AdelantoPagoModal } from '../modals/AdelantoPagoModal';
 
 interface CentroControlTabProps {
   clients: Client[];
@@ -18,6 +19,7 @@ interface CentroControlTabProps {
   ) => { montoProrrateado: number; diasProrrateados: number };
   setHistoryClient: (client: Client) => void;
   handleToggleAvisado?: (client: Client, nextAvisado?: boolean) => void;
+  handleAdelantoPago?: (client: Client, monto?: number, observaciones?: string) => Promise<void> | void;
 }
 
 export default function CentroControlTab({
@@ -27,8 +29,10 @@ export default function CentroControlTab({
   calcularProrrateoEntero: _calcularProrrateoEntero,
   setHistoryClient,
   handleToggleAvisado,
+  handleAdelantoPago,
 }: CentroControlTabProps) {
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
+  const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
 
@@ -251,6 +255,14 @@ export default function CentroControlTab({
                           <span>Mensaje</span>
                         </button>
                         <button
+                          className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
+                          onClick={() => setAdelantoClient(c)}
+                          title="Registrar pago por adelantado (extiende el servicio para el siguiente mes sin recortar días actuales)"
+                        >
+                          <CalendarPlus size={13} />
+                          <span>Adelanto</span>
+                        </button>
+                        <button
                           className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
                           onClick={() => setHistoryClient(c)}
                           title="Ver historial de movimientos"
@@ -283,6 +295,17 @@ export default function CentroControlTab({
           }
         }}
       />
+
+      {/* Modal de Adelanto de Pago */}
+      {adelantoClient && (
+        <AdelantoPagoModal
+          client={adelantoClient}
+          onClose={() => setAdelantoClient(null)}
+          onConfirm={async (client, monto, obs) => {
+            await handleAdelantoPago?.(client, monto, obs);
+          }}
+        />
+      )}
     </div>
   );
 }

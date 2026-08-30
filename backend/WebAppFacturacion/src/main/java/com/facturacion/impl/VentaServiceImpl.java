@@ -188,6 +188,86 @@ public class VentaServiceImpl implements VentaService {
         return ventaProcesada;
     }
 
+    @Override
+    @Transactional
+    public Venta procesarAdelantoPago(ProcesarOperacionVentaRequest request) {
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(request.getClienteId())
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        UsuarioAdmin vendedor = resolverVendedor(request.getVendedorId());
+        Suscripcion suscripcion = resolverSuscripcion(request);
+        LocalDateTime fechaRef = LocalDateTime.now();
+
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(cliente.getId());
+        Venta ventaAnterior = ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+                .findFirst()
+                .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
+
+        ServicioCliente servicioActual = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(cliente.getId()).orElse(null);
+
+        // Fecha de inicio del nuevo ciclo: Si el servicio actual vence en el futuro, inicia exactamente en esa fecha de vencimiento
+        LocalDateTime fechaInicio;
+        if (servicioActual != null && servicioActual.getFechaFin() != null && servicioActual.getFechaFin().isAfter(fechaRef)) {
+            fechaInicio = servicioActual.getFechaFin();
+        } else {
+            fechaInicio = fechaRef;
+        }
+
+        BigDecimal precioLista = suscripcion.getPrecio();
+        BigDecimal montoTotal = request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0
+                ? request.getMonto()
+                : precioLista;
+
+        LocalDateTime fechaFin;
+        int diasProrrateados;
+        if (suscripcion.getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
+            fechaFin = fechaInicio.plusYears(1);
+            diasProrrateados = 365;
+        } else {
+            fechaFin = fechaInicio.plusMonths(1);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicio.toLocalDate(), fechaFin.toLocalDate()));
+        }
+
+        // Cancelar ventas pendientes anteriores para evitar duplicados
+        cancelarVentasPendientesCliente(cliente.getId(), null, fechaRef);
+
+        Venta ventaAdelanto = new Venta();
+        ventaAdelanto.setCliente(cliente);
+        ventaAdelanto.setVendedor(vendedor);
+        ventaAdelanto.setSuscripcion(suscripcion);
+        ventaAdelanto.setTipoVenta(TipoVenta.RENOVACION);
+        ventaAdelanto.setVentaAnterior(ventaAnterior);
+        ventaAdelanto.setPrecioLista(precioLista);
+        ventaAdelanto.setMontoProrrateado(BigDecimal.ZERO);
+        ventaAdelanto.setMontoTotal(montoTotal);
+        ventaAdelanto.setEstadoVenta(EstadoVenta.PAGADA);
+        ventaAdelanto.setObservaciones(request.getObservaciones() != null && !request.getObservaciones().isBlank()
+                ? request.getObservaciones()
+                : "Adelanto de Pago para el ciclo " + fechaInicio.toLocalDate() + " al " + fechaFin.toLocalDate());
+        ventaAdelanto.setFechaVenta(fechaRef); // Fecha real de ingreso del dinero
+        ventaAdelanto.setFechaActualizacion(fechaRef);
+        ventaAdelanto = ventaRepository.save(ventaAdelanto);
+
+        registrarPagoSiNoExiste(cliente, ventaAdelanto, TipoVenta.RENOVACION, montoTotal, fechaRef);
+
+        // Extender o crear el servicio activo con la nueva fechaFin
+        if (servicioActual != null && servicioActual.getEstado() == EstadoServicio.ACTIVO) {
+            servicioActual.setFechaFin(fechaFin);
+            servicioActual.setFechaActualizacion(fechaRef);
+            servicioClienteRepository.save(servicioActual);
+        } else {
+            activarServicio(cliente, ventaAdelanto, fechaInicio, fechaFin, montoTotal, diasProrrateados, fechaRef);
+        }
+
+        crearSiguienteRenovacionPendiente(ventaAdelanto, fechaFin);
+        habilitarCliente(cliente, vendedor, TipoVenta.RENOVACION, montoTotal, fechaRef);
+        cliente.setAvisado(false);
+        clienteRepository.save(cliente);
+
+        return ventaAdelanto;
+    }
+
     private void validarOperacionVencida(
             TipoVenta tipo,
             Cliente cliente,

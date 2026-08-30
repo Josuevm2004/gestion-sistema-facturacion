@@ -844,6 +844,30 @@ export function useAdminData() {
     }
   }
 
+  async function handleAdelantoPago(client: Client, monto?: number, observaciones?: string) {
+    if (!token) return;
+    const clientIdStr = String(client.id);
+    const processingKey = `${client.id}-ADELANTO_PAGO`;
+    if (processingOperationsRef.current.has(processingKey)) return;
+    processingOperationsRef.current.add(processingKey);
+
+    try {
+      await adminApi(token).post(`/admin/ventas/adelanto-pago`, {
+        clienteId: client.id,
+        monto: monto || client.montoMensual || client.precioPlan || 19,
+        observaciones: observaciones || `Adelanto de pago realizado para el siguiente mes`,
+      });
+
+      setNotice(`✅ Adelanto de pago registrado con éxito para ${client.razonSocial}.`);
+      void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
+    } catch (err: any) {
+      setNotice(`Error al procesar adelanto de pago: ${err.response?.data?.message || err.message}`);
+      void loadClientsOnly(token).catch(() => undefined);
+    } finally {
+      processingOperationsRef.current.delete(processingKey);
+    }
+  }
+
   async function handleDeleteClientConfirm() {
     if (!deletingClient || !token) return;
     const idToDelete = deletingClient.id;
@@ -1217,6 +1241,16 @@ export function useAdminData() {
     }
   }
 
+  async function handleMarkAllNotificationsAsRead() {
+    if (!token) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, leida: true })));
+    try {
+      await adminApi(token).put(`/admin/notificaciones/marcar-todas-leidas`);
+    } catch (err) {
+      console.error('Error al marcar todas las notificaciones como leídas', err);
+    }
+  }
+
   const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
   const safeUsersList = useMemo(() => (Array.isArray(usersList) ? usersList : []), [usersList]);
   const safePayments = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
@@ -1443,6 +1477,7 @@ export function useAdminData() {
     handleEstadoCuentaChange,
     handleDevolverAcceso,
     handleRenovarPlan,
+    handleAdelantoPago,
     handleMejorarPlan,
     handleDeleteClientConfirm,
     handleSaveEditClient,
@@ -1454,6 +1489,7 @@ export function useAdminData() {
     handleSaveUser,
     handleDeleteUser,
     handleMarkNotificationAsRead,
+    handleMarkAllNotificationsAsRead,
     uniqueSellers,
     allFilteredClients,
     filterClientUnified,

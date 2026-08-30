@@ -50,4 +50,10 @@ public class NotificacionServiceImpl implements NotificacionService {
         n.setFechaLectura(LocalDateTime.now());
         notificacionRepository.save(n);
     }
+
+    @Override
+    @Transactional
+    public void marcarTodasComoLeidas() {
+        notificacionRepository.marcarTodasComoLeidas(LocalDateTime.now());
+    }
 }

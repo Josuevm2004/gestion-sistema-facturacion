@@ -11,6 +11,7 @@ public class ProcesarOperacionVentaRequest {
     private Long planId;
     private TipoSuscripcion tipoSuscripcion;
     private TipoVenta tipoVenta; // RENOVACION, CAMBIO_PLAN
+    private java.math.BigDecimal monto;
     private String observaciones;
 
     public ProcesarOperacionVentaRequest() {}
@@ -27,6 +28,8 @@ public class ProcesarOperacionVentaRequest {
     public void setTipoSuscripcion(TipoSuscripcion tipoSuscripcion) { this.tipoSuscripcion = tipoSuscripcion; }
     public TipoVenta getTipoVenta() { return tipoVenta; }
     public void setTipoVenta(TipoVenta tipoVenta) { this.tipoVenta = tipoVenta; }
+    public java.math.BigDecimal getMonto() { return monto; }
+    public void setMonto(java.math.BigDecimal monto) { this.monto = monto; }
     public String getObservaciones() { return observaciones; }
     public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
 }

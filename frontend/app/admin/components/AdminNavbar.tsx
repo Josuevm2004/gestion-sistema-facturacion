@@ -18,6 +18,7 @@ import {
   Users,
   WalletCards,
   LockKeyhole,
+  CheckCheck,
 } from 'lucide-react';
 
 interface AdminNavbarProps {
@@ -37,6 +38,7 @@ interface AdminNavbarProps {
   handleLogout: () => void;
   setCalendarSearch: (s: string) => void;
   handleMarkNotificationAsRead?: (id: string | number) => void;
+  handleMarkAllNotificationsAsRead?: () => void;
 }
 
 export default function AdminNavbar({
@@ -56,6 +58,7 @@ export default function AdminNavbar({
   handleLogout,
   setCalendarSearch,
   handleMarkNotificationAsRead,
+  handleMarkAllNotificationsAsRead,
 }: AdminNavbarProps) {
   const [dismissedNearDueAlerts, setDismissedNearDueAlerts] = React.useState<Set<string>>(new Set());
 
@@ -190,9 +193,28 @@ export default function AdminNavbar({
                       <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
                         <strong className="text-dark fs-6 d-flex align-items-center gap-2">
                           <Bell size={18} className="text-warning" />
-                          <span>Recordatorios de Vencimiento</span>
+                          <span>Recordatorios</span>
                         </strong>
-                        <button type="button" className="btn-close btn-sm" onClick={() => setShowNotificationsDropdown(false)}></button>
+                        <div className="d-flex align-items-center gap-2">
+                          {alertCount > 0 && (
+                            <button
+                              type="button"
+                              className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
+                              style={{ fontSize: '0.74rem' }}
+                              onClick={() => {
+                                handleMarkAllNotificationsAsRead?.();
+                                setDismissedNearDueAlerts(
+                                  new Set(uniqueNearDueClients.map((c) => String(c.id || c.ruc || c.razonSocial)))
+                                );
+                              }}
+                              title="Marcar todas las alertas como leídas"
+                            >
+                              <CheckCheck size={13} />
+                              <span>Marcar todas como leídas</span>
+                            </button>
+                          )}
+                          <button type="button" className="btn-close btn-sm" onClick={() => setShowNotificationsDropdown(false)}></button>
+                        </div>
                       </div>
 
                       {alertCount === 0 ? (
