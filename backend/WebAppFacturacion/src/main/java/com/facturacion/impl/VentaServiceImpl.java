@@ -451,50 +451,20 @@ public class VentaServiceImpl implements VentaService {
         pendiente.setSuscripcion(nuevaSuscripcion);
         pendiente.setVendedor(mejora.getVendedor());
         BigDecimal precioNuevo = nuevaSuscripcion.getPrecio();
-        LocalDate fechaBaseProrrateo = servicioActual.getFechaCapacitacion() != null
-                ? servicioActual.getFechaCapacitacion().toLocalDate()
-                : servicioActual.getFechaInicio().toLocalDate();
-        BigDecimal montoSiguiente;
-        if (nuevaSuscripcion.getTipoSuscripcion() == TipoSuscripcion.MENSUAL
-                && correspondeSegundoProrrateo(fechaBaseProrrateo)) {
-            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
-                    ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioNuevo, fechaBaseProrrateo);
-            montoSiguiente = precioNuevo.add(resultado.montoAdicional());
-            pendiente.setTipoProrrateo(TipoProrrateo.SEGUNDO_PRORRATEO);
-            pendiente.setMontoProrrateado(BigDecimal.ZERO);
-            pendiente.setMontoProrrateoAdicional(resultado.montoAdicional());
-            pendiente.setDiasProrrateoAdicional(resultado.diasProrrateados());
-            pendiente.setFechaInicioProrrateoAdicional(LocalDateTime.of(resultado.fechaInicio(), LocalTime.NOON));
-            pendiente.setFechaFinProrrateoAdicional(LocalDateTime.of(resultado.fechaFin(), LocalTime.NOON));
-        } else {
-            montoSiguiente = calcularMontoProrrateadoPlan(
-                    precioNuevo,
-                    fechaBaseProrrateo,
-                    nuevaSuscripcion.getTipoSuscripcion()
-            );
-            pendiente.setTipoProrrateo(nuevaSuscripcion.getTipoSuscripcion() == TipoSuscripcion.MENSUAL
-                    ? TipoProrrateo.PRIMER_PRORRATEO
-                    : TipoProrrateo.NINGUNO);
-            pendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
-            pendiente.setDiasProrrateoAdicional(0);
-            pendiente.setFechaInicioProrrateoAdicional(null);
-            pendiente.setFechaFinProrrateoAdicional(null);
-        }
+
+        // En una mejora de plan, la siguiente renovación es el mes completo regular del nuevo plan sin prorrateos
+        pendiente.setTipoProrrateo(TipoProrrateo.NINGUNO);
+        pendiente.setMontoProrrateado(BigDecimal.ZERO);
+        pendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
+        pendiente.setDiasProrrateoAdicional(0);
+        pendiente.setFechaInicioProrrateoAdicional(null);
+        pendiente.setFechaFinProrrateoAdicional(null);
         pendiente.setPrecioLista(precioNuevo);
-        if (pendiente.getTipoProrrateo() != TipoProrrateo.SEGUNDO_PRORRATEO) {
-            pendiente.setMontoProrrateado(precioNuevo.subtract(montoSiguiente).max(BigDecimal.ZERO));
-        }
-        pendiente.setMontoTotal(montoSiguiente);
-        if (pendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
-            pendiente.setFechaVenta(LocalDateTime.of(
-                    pendiente.getFechaFinProrrateoAdicional().toLocalDate().plusDays(1),
-                    LocalTime.NOON
-            ));
-        } else {
-            pendiente.setFechaVenta(LocalDateTime.of(fechaFinServicio.toLocalDate(), LocalTime.NOON));
-        }
+        pendiente.setMontoTotal(precioNuevo);
+        LocalDate fechaCobro = fechaFinServicio != null ? fechaFinServicio.toLocalDate() : fechaRef.toLocalDate().plusMonths(1);
+        pendiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
         pendiente.setFechaActualizacion(fechaRef);
-        pendiente.setObservaciones("Renovacion pendiente actualizada por mejora de plan para " + fechaFinServicio.toLocalDate());
+        pendiente.setObservaciones("Renovacion mensual regular del " + (nuevaSuscripcion.getPlan() != null ? nuevaSuscripcion.getPlan().getNombrePlan() : "nuevo plan") + " para " + fechaCobro);
         ventaRepository.save(pendiente);
     }
 
@@ -522,24 +492,8 @@ public class VentaServiceImpl implements VentaService {
             BigDecimal precioNuevo,
             TipoSuscripcion tipoSuscripcion,
             LocalDate fechaBaseProrrateo) {
-        ProrrateoCalculatorUtil.ResultadoProrrateo resultado = tipoSuscripcion == TipoSuscripcion.ANUAL
-                ? null
-                : ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioNuevo, fechaBaseProrrateo, monthlyBillingDay);
-        ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultadoSegundo = tipoSuscripcion == TipoSuscripcion.MENSUAL
-                && correspondeSegundoProrrateo(fechaBaseProrrateo)
-                ? ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioNuevo, fechaBaseProrrateo)
-                : null;
-        BigDecimal montoProrrateado = tipoSuscripcion == TipoSuscripcion.ANUAL
-                ? precioNuevo.setScale(0, RoundingMode.HALF_UP)
-                : resultadoSegundo != null
-                ? precioNuevo.add(resultadoSegundo.montoAdicional())
-                : resultado.montoFinal();
-        servicio.setMontoProrrateo(montoProrrateado);
-        servicio.setDiasProrrateados(tipoSuscripcion == TipoSuscripcion.ANUAL
-                ? 365
-                : resultadoSegundo != null
-                ? resultadoSegundo.diasProrrateados()
-                : Math.max(1, resultado.diasTotales() - resultado.diasNoConsumidos()));
+        servicio.setMontoProrrateo(precioNuevo);
+        servicio.setDiasProrrateados(tipoSuscripcion == TipoSuscripcion.ANUAL ? 365 : 30);
         servicioClienteRepository.save(servicio);
     }
 
@@ -769,7 +723,9 @@ public class VentaServiceImpl implements VentaService {
         siguienteVenta.setPrecioLista(precioLista);
         siguienteVenta.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
 
-        if (ventaActual.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL
+        boolean esNuevoProrrateo = ventaActual.getTipoVenta() == TipoVenta.ALTA;
+        if (esNuevoProrrateo
+                && ventaActual.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL
                 && correspondeSegundoProrrateo(fechaInicioServicio)) {
             ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
                     ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioLista, fechaInicioServicio);
