@@ -194,10 +194,6 @@ public class VentaServiceImpl implements VentaService {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(request.getClienteId())
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
-        UsuarioAdmin vendedor = resolverVendedor(request.getVendedorId());
-        Suscripcion suscripcion = resolverSuscripcion(request);
-        LocalDateTime fechaRef = LocalDateTime.now();
-
         List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(cliente.getId());
         Venta ventaAnterior = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
@@ -205,6 +201,31 @@ public class VentaServiceImpl implements VentaService {
                 .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
 
         ServicioCliente servicioActual = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(cliente.getId()).orElse(null);
+
+        UsuarioAdmin vendedor = resolverVendedor(request.getVendedorId());
+        if (vendedor == null && ventaAnterior != null && ventaAnterior.getVendedor() != null) {
+            vendedor = ventaAnterior.getVendedor();
+        }
+
+        Suscripcion suscripcion = null;
+        if (request.getSuscripcionId() != null || (request.getPlanId() != null && request.getTipoSuscripcion() != null)) {
+            try {
+                suscripcion = resolverSuscripcion(request);
+            } catch (Exception ignored) {}
+        }
+        if (suscripcion == null && ventaAnterior != null && ventaAnterior.getSuscripcion() != null) {
+            suscripcion = ventaAnterior.getSuscripcion();
+        }
+        if (suscripcion == null && servicioActual != null && servicioActual.getVenta() != null && servicioActual.getVenta().getSuscripcion() != null) {
+            suscripcion = servicioActual.getVenta().getSuscripcion();
+        }
+        if (suscripcion == null) {
+            suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(1L, TipoSuscripcion.MENSUAL)
+                    .orElseGet(() -> suscripcionRepository.findAll().stream().filter(s -> Boolean.TRUE.equals(s.getActivo())).findFirst()
+                            .orElseThrow(() -> new ResourceNotFoundException("No se encontró suscripción para procesar el adelanto")));
+        }
+
+        LocalDateTime fechaRef = LocalDateTime.now();
 
         // Fecha de inicio del nuevo ciclo: Si el servicio actual vence en el futuro, inicia exactamente en esa fecha de vencimiento
         LocalDateTime fechaInicio;

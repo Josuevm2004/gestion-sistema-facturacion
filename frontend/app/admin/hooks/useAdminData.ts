@@ -851,9 +851,15 @@ export function useAdminData() {
     if (processingOperationsRef.current.has(processingKey)) return;
     processingOperationsRef.current.add(processingKey);
 
+    const tipoSub = (client.tipoSuscripcion || 'MENSUAL').toUpperCase();
+    const planIdNum = Number(client.planId || 1);
+
     try {
       await adminApi(token).post(`/admin/ventas/adelanto-pago`, {
         clienteId: client.id,
+        planId: planIdNum,
+        tipoSuscripcion: tipoSub,
+        vendedorId: client.vendedorId ? Number(client.vendedorId) : undefined,
         monto: monto || client.montoMensual || client.precioPlan || 19,
         observaciones: observaciones || `Adelanto de pago realizado para el siguiente mes`,
       });
