@@ -238,62 +238,37 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
     }
   };
 
-  const [isSending, setIsSending] = useState(false);
-
-  const handleSendWhatsApp = async () => {
+  const handleSendWhatsApp = () => {
     if (!client) return;
-    setIsSending(true);
-    setStatusNotice(null);
 
     const text = currentActiveText;
     const rawPhone = client.usuarioWsp || client.telefono || client.telefonoPersonal || '';
     const cleanPhone = rawPhone.replace(/\D/g, '');
     const fullPhone = cleanPhone.startsWith('51') ? cleanPhone : `51${cleanPhone}`;
-
-    try {
-      // 1. Intentar envío 100% automático por microservicio local (0 pestañas, adjunta foto real)
-      const res = await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: fullPhone,
-          message: text,
-          imageUrl: activeStep === 'PRESENTACION' ? '/soporte-miquipu.jpeg' : undefined,
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setStatusNotice(
-          activeStep === 'PRESENTACION'
-            ? '✅ ¡Foto de Soporte y Saludo enviados automáticamente!'
-            : '✅ ¡Detalle de Cobranza enviado automáticamente!'
-        );
-        onAvisado?.();
-        setTimeout(() => {
-          setStatusNotice(null);
-          if (activeStep === 'PRESENTACION') {
-            setActiveStep('COBRANZA');
-          }
-        }, 2200);
-        return;
-      }
-    } catch (apiErr) {
-      console.warn('Microservicio local no disponible, usando respaldo web:', apiErr);
-    } finally {
-      setIsSending(false);
-    }
-
-    // 2. Respaldo directo en caso el microservicio esté apagado
     const url = `https://web.whatsapp.com/send?phone=${cleanPhone ? fullPhone : ''}&text=${encodeURIComponent(text)}`;
+
+    // 1. Copiar texto al portapapeles
     void handleCopy(text);
+
+    // 2. Si es paso 1 (Presentación), auto-copiar la foto al portapapeles
     if (activeStep === 'PRESENTACION') {
       void copyImageBlobToClipboard('/soporte-miquipu.jpeg');
     }
+
+    // 3. Notificar persistencia de avisado en BD
     onAvisado?.();
+
+    // 4. Abrir WhatsApp Web
     const wspWindow = window.open(url, 'whatsapp_tab_singleton');
     if (wspWindow) {
       wspWindow.focus();
+    }
+
+    // 5. Si estaba en paso 1, pasar automáticamente a paso 2
+    if (activeStep === 'PRESENTACION') {
+      setTimeout(() => {
+        setActiveStep('COBRANZA');
+      }, 1000);
     }
   };
 
@@ -397,15 +372,8 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
           </div>
 
           <div className="modal-footer px-4 py-3 d-flex justify-content-between align-items-center border-top bg-white">
-            <div className="d-flex align-items-center gap-2">
-              <div className="small text-muted">
-                Destinatario: <strong className="text-dark">{client.usuarioWsp || client.telefono || client.telefonoPersonal || 'Sin número'}</strong>
-              </div>
-              {statusNotice && (
-                <span className="badge bg-success text-white px-2.5 py-1.5 fw-bold shadow-sm">
-                  {statusNotice}
-                </span>
-              )}
+            <div className="small text-muted">
+              Destinatario: <strong className="text-dark">{client.usuarioWsp || client.telefono || client.telefonoPersonal || 'Sin número'}</strong>
             </div>
             <div className="d-flex gap-2">
               <button className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" onClick={() => handleCopy()}>
@@ -415,16 +383,9 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
               <button
                 className={`btn ${activeStep === 'PRESENTACION' ? 'btn-primary' : 'btn-success'} px-4 py-1.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1.5`}
                 onClick={() => handleSendWhatsApp()}
-                disabled={isSending}
               >
-                {isSending ? (
-                  <span>Enviando...</span>
-                ) : (
-                  <>
-                    <ExternalLink size={15} />
-                    <span>{activeStep === 'PRESENTACION' ? '1. Enviar Presentación' : '2. Enviar Cobranza'}</span>
-                  </>
-                )}
+                <ExternalLink size={15} />
+                <span>{activeStep === 'PRESENTACION' ? '1. Enviar Presentación' : '2. Enviar Cobranza'}</span>
               </button>
             </div>
           </div>
