@@ -66,6 +66,29 @@ public class PagoController {
             venta.put("fechaInicioProrrateoAdicional", pago.getVenta().getFechaInicioProrrateoAdicional());
             venta.put("fechaFinProrrateoAdicional", pago.getVenta().getFechaFinProrrateoAdicional());
             venta.put("estadoVenta", pago.getVenta().getEstadoVenta() != null ? pago.getVenta().getEstadoVenta().name() : null);
+            if (pago.getVenta().getTipoVenta() != null) {
+                venta.put("tipoVenta", pago.getVenta().getTipoVenta().name());
+                data.put("tipoVenta", pago.getVenta().getTipoVenta().name());
+            }
+            if (pago.getVenta().getSuscripcion() != null) {
+                if (pago.getVenta().getSuscripcion().getPlan() != null) {
+                    venta.put("plan", pago.getVenta().getSuscripcion().getPlan().getNombrePlan());
+                    venta.put("planNombre", pago.getVenta().getSuscripcion().getPlan().getNombrePlan());
+                    data.put("planNombre", pago.getVenta().getSuscripcion().getPlan().getNombrePlan());
+                }
+                venta.put("tipoSuscripcion", pago.getVenta().getSuscripcion().getTipoSuscripcion() != null ? pago.getVenta().getSuscripcion().getTipoSuscripcion().name() : null);
+                data.put("tipoSuscripcion", pago.getVenta().getSuscripcion().getTipoSuscripcion() != null ? pago.getVenta().getSuscripcion().getTipoSuscripcion().name() : null);
+            }
+            if (pago.getVenta().getCliente() != null) {
+                Map<String, Object> cli = new LinkedHashMap<>();
+                cli.put("id", pago.getVenta().getCliente().getId());
+                cli.put("ruc", pago.getVenta().getCliente().getRuc());
+                cli.put("razonSocial", pago.getVenta().getCliente().getRazonSocial());
+                cli.put("regimenTributario", pago.getVenta().getCliente().getRegimenTributario() != null ? pago.getVenta().getCliente().getRegimenTributario().name() : "GENERAL");
+                venta.put("cliente", cli);
+                data.put("clienteRuc", pago.getVenta().getCliente().getRuc());
+                data.put("clienteRazonSocial", pago.getVenta().getCliente().getRazonSocial());
+            }
             if (pago.getVenta().getVendedor() != null) {
                 Map<String, Object> vendedor = new LinkedHashMap<>();
                 vendedor.put("id", pago.getVenta().getVendedor().getId());
