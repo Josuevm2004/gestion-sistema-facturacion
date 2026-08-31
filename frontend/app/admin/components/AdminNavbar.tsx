@@ -102,7 +102,7 @@ export default function AdminNavbar({
   );
 
   const updateDismissedAlerts = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
-    setDismissedNearDueAlerts((prev) => {
+    setDismissedNearDueAlerts((prev: Set<string>) => {
       const next = updater(prev);
       saveDismissedAlertsToStorage(next);
       return next;
@@ -111,7 +111,7 @@ export default function AdminNavbar({
 
   const activeNotifications = React.useMemo(() => {
     const seen = new Set<string>();
-    return notifications.filter((n) => {
+    return notifications.filter((n: any) => {
       if (!n || n.leida) return false;
       const key = `${n.clienteId || n.clienteRuc || n.clienteRazonSocial || n.id}-${n.tipo}`;
       if (seen.has(key)) return false;
@@ -122,7 +122,7 @@ export default function AdminNavbar({
 
   const clientIdsInNotifications = React.useMemo(() => {
     const ids = new Set<string>();
-    activeNotifications.forEach((n) => {
+    activeNotifications.forEach((n: any) => {
       if (n.clienteId) ids.add(String(n.clienteId));
       if (n.clienteRuc) ids.add(String(n.clienteRuc));
     });
