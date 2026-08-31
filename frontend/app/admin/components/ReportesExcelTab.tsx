@@ -19,8 +19,7 @@ import {
   Calendar,
   CreditCard,
   CheckCircle,
-  Layers,
-  ArrowUpRight,
+  Filter,
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 
@@ -76,7 +75,6 @@ export default function ReportesExcelTab({
   isSyncing = false,
   token,
   uniqueSellers = [],
-  filterClientUnified,
 }: ReportesExcelTabProps) {
   // Safe Arrays
   const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
@@ -92,6 +90,17 @@ export default function ReportesExcelTab({
     });
     return map;
   }, [safeClients]);
+
+  // Payment Map by Venta ID
+  const paymentByVentaMap = useMemo(() => {
+    const map = new Map<string, any>();
+    safePayments.forEach((p) => {
+      const vId = p.ventaId || p.venta?.id;
+      if (vId) map.set(String(vId), p);
+      if (p.id) map.set(String(p.id), p);
+    });
+    return map;
+  }, [safePayments]);
 
   // Filters State
   const [filterFechaDesde, setFilterFechaDesde] = useState<string>('');
@@ -124,8 +133,8 @@ export default function ReportesExcelTab({
     return name ? `Plan ${name}` : 'Plan Inicia';
   };
 
-  // Consolidate all transactional sales records from both Ventas and Payments
-  const allRawTransactions = useMemo(() => {
+  // Build Real Database Sales Dataset (100% deduplicated, 1:1 with CockroachDB rows)
+  const realDatabaseSales = useMemo(() => {
     const list: Array<{
       id: string;
       fecha: string;
@@ -143,112 +152,135 @@ export default function ReportesExcelTab({
       regimen: string;
     }> = [];
 
-    const seenKeys = new Set<string>();
+    const seenIds = new Set<string>();
 
-    // 1. From Payments
-    safePayments.forEach((p) => {
-      const pId = p.id || p.pagoId || `${p.fechaPago || p.fechaRegistro}-${p.monto}`;
-      const uniqueKey = `pago-${pId}`;
-      if (seenKeys.has(uniqueKey)) return;
-      seenKeys.add(uniqueKey);
+    // 1. If backend ventas list is loaded, use it as primary truth
+    if (safeVentas.length > 0) {
+      safeVentas.forEach((v) => {
+        const vId = String(v.id || v.ventaId || '');
+        if (!vId || seenIds.has(vId)) return;
+        seenIds.add(vId);
 
-      const fechaStr = p.fechaPago || p.fechaRegistro || p.venta?.fechaVenta;
-      const d = fechaStr ? new Date(fechaStr) : new Date();
-      const validDate = isNaN(d.getTime()) ? new Date() : d;
+        const fechaStr = v.fechaVenta || v.fechaOperacion || v.fechaActualizacion;
+        const d = fechaStr ? new Date(fechaStr) : new Date();
+        const validDate = isNaN(d.getTime()) ? new Date() : d;
 
-      const cId = String(p.venta?.cliente?.id ?? p.clienteId ?? p.venta?.clienteId ?? '');
-      const clientObj = clientMap.get(cId) || p.venta?.cliente;
+        const cId = String(v.clienteId || v.cliente?.id || '');
+        const clientObj = clientMap.get(cId) || v.cliente;
 
-      const estadoPago = (p.estadoPago || 'PAGADO').toUpperCase();
-      const estadoVenta = (p.venta?.estadoVenta || p.estadoVenta || '').toUpperCase();
-      const finalEstado = estadoVenta === 'CANCELADA' ? 'CANCELADA' : estadoPago === 'PAGADO' ? 'PAGADO' : 'PENDIENTE';
+        const estadoVenta = (v.estadoVenta || 'PENDIENTE_PAGO').toUpperCase();
+        const finalEstado =
+          estadoVenta === 'PAGADA' ? 'PAGADO' : estadoVenta === 'CANCELADA' ? 'CANCELADA' : 'PENDIENTE';
 
-      const planName = normalizePlan(p.venta?.suscripcion?.plan?.nombrePlan || p.venta?.planNombre || clientObj?.planContratado || 'Plan Inicia');
-      const vendedorName = p.venta?.vendedor?.nombre || p.vendedorNombre || clientObj?.vendedor || 'Por asignar';
-      const metodo = p.medioPago || 'TRANSFERENCIA';
+        const associatedPayment = paymentByVentaMap.get(vId);
+        const metodo = associatedPayment?.medioPago || 'TRANSFERENCIA';
 
-      list.push({
-        id: String(p.id || p.pagoId || uniqueKey),
-        fecha: validDate.toISOString(),
-        fechaDate: validDate,
-        clienteId: cId,
-        clienteNombre: clientObj?.razonSocial || p.venta?.cliente?.razonSocial || 'Cliente no especificado',
-        ruc: clientObj?.ruc || p.venta?.cliente?.ruc || '-',
-        planNombre: planName,
-        tipoSuscripcion: (p.venta?.suscripcion?.tipoSuscripcion || clientObj?.tipoSuscripcion || 'MENSUAL').toUpperCase(),
-        vendedor: vendedorName,
-        monto: Number(p.monto || p.venta?.montoTotal || 0),
-        metodoPago: metodo,
-        estado: finalEstado,
-        tipoOperacion: (p.venta?.tipoVenta || p.tipoOperacion || 'RENOVACION').toUpperCase(),
-        regimen: clientObj?.regimenTributario || 'GENERAL',
+        const planName = normalizePlan(
+          v.planNombre || v.suscripcion?.plan?.nombrePlan || clientObj?.planContratado || 'Plan Inicia'
+        );
+        const vendedorName =
+          v.vendedorNombre || v.vendedor?.nombre || clientObj?.vendedor || 'Por asignar';
+
+        list.push({
+          id: vId,
+          fecha: validDate.toISOString(),
+          fechaDate: validDate,
+          clienteId: cId,
+          clienteNombre: clientObj?.razonSocial || v.cliente?.razonSocial || 'Cliente no especificado',
+          ruc: clientObj?.ruc || v.cliente?.ruc || '-',
+          planNombre: planName,
+          tipoSuscripcion: (v.tipoSuscripcion || clientObj?.tipoSuscripcion || 'MENSUAL').toUpperCase(),
+          vendedor: vendedorName,
+          monto: Number(v.montoTotal || v.precioLista || 0),
+          metodoPago: metodo,
+          estado: finalEstado,
+          tipoOperacion: (v.tipoVenta || 'RENOVACION').toUpperCase(),
+          regimen: clientObj?.regimenTributario || 'GENERAL',
+        });
       });
-    });
+    } else if (safePayments.length > 0) {
+      // 2. Fallback to payments if ventas endpoint was not loaded
+      safePayments.forEach((p) => {
+        const pId = String(p.id || p.pagoId || '');
+        if (!pId || seenIds.has(pId)) return;
+        seenIds.add(pId);
 
-    // 2. From Ventas (including Pending and Altas that might not have payment yet)
-    safeVentas.forEach((v) => {
-      const vKey = `venta-${v.id || v.ventaId}`;
-      if (seenKeys.has(vKey)) return;
-      seenKeys.add(vKey);
+        const fechaStr = p.fechaPago || p.fechaRegistro || p.venta?.fechaVenta;
+        const d = fechaStr ? new Date(fechaStr) : new Date();
+        const validDate = isNaN(d.getTime()) ? new Date() : d;
 
-      const fechaStr = v.fechaVenta || v.fechaOperacion || v.fechaActualizacion;
-      const d = fechaStr ? new Date(fechaStr) : new Date();
-      const validDate = isNaN(d.getTime()) ? new Date() : d;
+        const cId = String(p.venta?.cliente?.id ?? p.clienteId ?? p.venta?.clienteId ?? '');
+        const clientObj = clientMap.get(cId) || p.venta?.cliente;
 
-      const cId = String(v.clienteId || v.cliente?.id || '');
-      const clientObj = clientMap.get(cId) || v.cliente;
+        const estadoPago = (p.estadoPago || 'PAGADO').toUpperCase();
+        const estadoVenta = (p.venta?.estadoVenta || p.estadoVenta || '').toUpperCase();
+        const finalEstado =
+          estadoVenta === 'CANCELADA' ? 'CANCELADA' : estadoPago === 'PAGADO' ? 'PAGADO' : 'PENDIENTE';
 
-      const estadoVenta = (v.estadoVenta || 'PENDIENTE_PAGO').toUpperCase();
-      const finalEstado = estadoVenta === 'PAGADA' ? 'PAGADO' : estadoVenta === 'CANCELADA' ? 'CANCELADA' : 'PENDIENTE';
+        const planName = normalizePlan(
+          p.venta?.suscripcion?.plan?.nombrePlan || p.venta?.planNombre || clientObj?.planContratado || 'Plan Inicia'
+        );
+        const vendedorName =
+          p.venta?.vendedor?.nombre || p.vendedorNombre || clientObj?.vendedor || 'Por asignar';
 
-      const planName = normalizePlan(v.planNombre || v.suscripcion?.plan?.nombrePlan || clientObj?.planContratado || 'Plan Inicia');
-      const vendedorName = v.vendedorNombre || v.vendedor?.nombre || clientObj?.vendedor || 'Por asignar';
-
-      list.push({
-        id: String(v.id || v.ventaId || vKey),
-        fecha: validDate.toISOString(),
-        fechaDate: validDate,
-        clienteId: cId,
-        clienteNombre: clientObj?.razonSocial || v.cliente?.razonSocial || 'Cliente no especificado',
-        ruc: clientObj?.ruc || v.cliente?.ruc || '-',
-        planNombre: planName,
-        tipoSuscripcion: (v.tipoSuscripcion || clientObj?.tipoSuscripcion || 'MENSUAL').toUpperCase(),
-        vendedor: vendedorName,
-        monto: Number(v.montoTotal || v.precioLista || 0),
-        metodoPago: 'TRANSFERENCIA',
-        estado: finalEstado,
-        tipoOperacion: (v.tipoVenta || 'RENOVACION').toUpperCase(),
-        regimen: clientObj?.regimenTributario || 'GENERAL',
+        list.push({
+          id: pId,
+          fecha: validDate.toISOString(),
+          fechaDate: validDate,
+          clienteId: cId,
+          clienteNombre: clientObj?.razonSocial || p.venta?.cliente?.razonSocial || 'Cliente no especificado',
+          ruc: clientObj?.ruc || p.venta?.cliente?.ruc || '-',
+          planNombre: planName,
+          tipoSuscripcion: (p.venta?.suscripcion?.tipoSuscripcion || clientObj?.tipoSuscripcion || 'MENSUAL').toUpperCase(),
+          vendedor: vendedorName,
+          monto: Number(p.monto || p.venta?.montoTotal || 0),
+          metodoPago: p.medioPago || 'TRANSFERENCIA',
+          estado: finalEstado,
+          tipoOperacion: (p.venta?.tipoVenta || p.tipoOperacion || 'RENOVACION').toUpperCase(),
+          regimen: clientObj?.regimenTributario || 'GENERAL',
+        });
       });
-    });
+    }
 
     // Sort by date descending
     return list.sort((a, b) => b.fechaDate.getTime() - a.fechaDate.getTime());
-  }, [safePayments, safeVentas, clientMap]);
+  }, [safeVentas, safePayments, clientMap, paymentByVentaMap]);
 
-  // Generate Available Months for Filter Dropdown
+  // Generate Available Months for Filter Dropdown from Real Dates
   const availableMonthOptions = useMemo(() => {
     const monthMap = new Map<string, string>();
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    allRawTransactions.forEach((t) => {
+    const monthNames = [
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Setiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
+    ];
+    realDatabaseSales.forEach((t) => {
       const y = t.fechaDate.getFullYear();
       const m = t.fechaDate.getMonth();
       const key = `${y}-${String(m + 1).padStart(2, '0')}`;
       const label = `${monthNames[m]} ${y}`;
       if (!monthMap.has(key)) monthMap.set(key, label);
     });
-    // Add current month if not present
+
     const now = new Date();
     const curKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     if (!monthMap.has(curKey)) monthMap.set(curKey, `${monthNames[now.getMonth()]} ${now.getFullYear()}`);
 
     return Array.from(monthMap.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [allRawTransactions]);
+  }, [realDatabaseSales]);
 
-  // Filtered Transactions
-  const filteredTransactions = useMemo(() => {
-    return allRawTransactions.filter((item) => {
-      // Date Range
+  // Filtered Sales Dataset
+  const filteredSales = useMemo(() => {
+    return realDatabaseSales.filter((item) => {
       if (filterFechaDesde) {
         const fromDate = new Date(`${filterFechaDesde}T00:00:00`);
         if (item.fechaDate < fromDate) return false;
@@ -258,45 +290,37 @@ export default function ReportesExcelTab({
         if (item.fechaDate > toDate) return false;
       }
 
-      // Month
       if (filterMes !== 'TODOS') {
         const itemMonthKey = `${item.fechaDate.getFullYear()}-${String(item.fechaDate.getMonth() + 1).padStart(2, '0')}`;
         if (itemMonthKey !== filterMes) return false;
       }
 
-      // Payment Status
       if (filterEstadoPago !== 'TODOS') {
         if (item.estado !== filterEstadoPago) return false;
       }
 
-      // Plan
       if (filterPlan !== 'TODOS') {
         if (!item.planNombre.toLowerCase().includes(filterPlan.toLowerCase())) return false;
       }
 
-      // Seller
       if (filterVendedor !== 'TODOS') {
         if (item.vendedor.toLowerCase() !== filterVendedor.toLowerCase()) return false;
       }
 
-      // Client Search
       if (filterCliente.trim()) {
         const q = filterCliente.toLowerCase().trim();
         const matches = item.clienteNombre.toLowerCase().includes(q) || item.ruc.toLowerCase().includes(q);
         if (!matches) return false;
       }
 
-      // Payment Method
       if (filterMetodoPago !== 'TODOS') {
         if (item.metodoPago.toLowerCase() !== filterMetodoPago.toLowerCase()) return false;
       }
 
-      // Subscription Type
       if (filterTipoSuscripcion !== 'TODOS') {
         if (item.tipoSuscripcion !== filterTipoSuscripcion) return false;
       }
 
-      // Tax Regime
       if (filterRegimen !== 'TODOS') {
         if (item.regimen !== filterRegimen) return false;
       }
@@ -304,7 +328,7 @@ export default function ReportesExcelTab({
       return true;
     });
   }, [
-    allRawTransactions,
+    realDatabaseSales,
     filterFechaDesde,
     filterFechaHasta,
     filterMes,
@@ -335,40 +359,40 @@ export default function ReportesExcelTab({
 
   // Section 1: KPI Metrics
   const kpiVentasTotales = useMemo(() => {
-    return filteredTransactions.reduce((acc, cur) => acc + cur.monto, 0);
-  }, [filteredTransactions]);
+    return filteredSales.reduce((acc, cur) => acc + cur.monto, 0);
+  }, [filteredSales]);
 
   const kpiIngresosGenerados = useMemo(() => {
-    return filteredTransactions
+    return filteredSales
       .filter((t) => t.estado === 'PAGADO')
       .reduce((acc, cur) => acc + cur.monto, 0);
-  }, [filteredTransactions]);
+  }, [filteredSales]);
 
   const kpiPagosPendientes = useMemo(() => {
-    return filteredTransactions
+    return filteredSales
       .filter((t) => t.estado === 'PENDIENTE')
       .reduce((acc, cur) => acc + cur.monto, 0);
-  }, [filteredTransactions]);
+  }, [filteredSales]);
 
-  const countVentasTotales = filteredTransactions.length;
-  const countVentasPendientes = filteredTransactions.filter((t) => t.estado === 'PENDIENTE').length;
+  const countVentasTotales = filteredSales.length;
+  const countVentasPendientes = filteredSales.filter((t) => t.estado === 'PENDIENTE').length;
   const kpiTicketPromedio = countVentasTotales > 0 ? kpiVentasTotales / countVentasTotales : 0;
 
   // Plan Distribution Breakdown
   const planBreakdown = useMemo(() => {
     const map = new Map<string, { count: number; monto: number; color: string }>();
     const planColors: Record<string, string> = {
-      'Plan Inicia': '#0d6efd',
-      'Plan Emprende': '#198754',
-      'Plan Impulsa': '#6f42c1',
-      'Plan Empresarial': '#0dcaf0',
-      'Plan Líder': '#ffc107',
+      'Plan Inicia': '#3b82f6',
+      'Plan Emprende': '#10b981',
+      'Plan Impulsa': '#8b5cf6',
+      'Plan Empresarial': '#06b6d4',
+      'Plan Líder': '#f59e0b',
     };
 
-    filteredTransactions.forEach((t) => {
+    filteredSales.forEach((t) => {
       const p = t.planNombre;
       if (!map.has(p)) {
-        map.set(p, { count: 0, monto: 0, color: planColors[p] || '#6c757d' });
+        map.set(p, { count: 0, monto: 0, color: planColors[p] || '#64748b' });
       }
       const item = map.get(p)!;
       item.count += 1;
@@ -382,14 +406,13 @@ export default function ReportesExcelTab({
       color: data.color,
       percent: (data.monto / totalMonto) * 100,
     }));
-  }, [filteredTransactions, kpiVentasTotales]);
+  }, [filteredSales, kpiVentasTotales]);
 
   // Daily Chart Points for "Ventas e ingresos por periodo"
   const chartPeriodPoints = useMemo(() => {
     const dailyMap = new Map<string, { ventas: number; ingresos: number; label: string }>();
 
-    // Sort ascending for chart
-    const sortedAsc = [...filteredTransactions].sort((a, b) => a.fechaDate.getTime() - b.fechaDate.getTime());
+    const sortedAsc = [...filteredSales].sort((a, b) => a.fechaDate.getTime() - b.fechaDate.getTime());
     sortedAsc.forEach((t) => {
       const dayKey = `${t.fechaDate.getFullYear()}-${String(t.fechaDate.getMonth() + 1).padStart(2, '0')}-${String(t.fechaDate.getDate()).padStart(2, '0')}`;
       const dayLabel = `${String(t.fechaDate.getDate()).padStart(2, '0')} ${t.fechaDate.toLocaleDateString('es-PE', { month: 'short' })}`;
@@ -412,16 +435,16 @@ export default function ReportesExcelTab({
     }
 
     return Array.from(dailyMap.values());
-  }, [filteredTransactions]);
+  }, [filteredSales]);
 
   // Section 2: Affiliation Commissions (S/ 9.00 fixed per ALTA)
   const COMMISSION_PER_ALTA = 9.0;
 
   const affiliationRecords = useMemo(() => {
-    return filteredTransactions.filter(
+    return filteredSales.filter(
       (t) => t.tipoOperacion === 'ALTA' || t.tipoOperacion === 'AFILIACION' || t.tipoOperacion.includes('ALTA')
     );
-  }, [filteredTransactions]);
+  }, [filteredSales]);
 
   const totalComisionAcumulada = useMemo(() => {
     return affiliationRecords.filter((t) => t.estado === 'PAGADO').length * COMMISSION_PER_ALTA;
@@ -455,10 +478,10 @@ export default function ReportesExcelTab({
   // Paginated Sales Table
   const paginatedSales = useMemo(() => {
     const start = (salesPage - 1) * salesPageSize;
-    return filteredTransactions.slice(start, start + salesPageSize);
-  }, [filteredTransactions, salesPage, salesPageSize]);
+    return filteredSales.slice(start, start + salesPageSize);
+  }, [filteredSales, salesPage, salesPageSize]);
 
-  const totalSalesPages = Math.ceil(filteredTransactions.length / salesPageSize) || 1;
+  const totalSalesPages = Math.ceil(filteredSales.length / salesPageSize) || 1;
 
   // Paginated Commissions Table
   const paginatedComisiones = useMemo(() => {
@@ -484,25 +507,25 @@ export default function ReportesExcelTab({
     });
   };
 
-  // SVG Chart Geometry Helpers
+  // Chart Geometry Calculations
   const maxChartVal = useMemo(() => {
     let max = 100;
     chartPeriodPoints.forEach((p) => {
       if (p.ventas > max) max = p.ventas;
       if (p.ingresos > max) max = p.ingresos;
     });
-    return max * 1.15;
+    return max * 1.18;
   }, [chartPeriodPoints]);
 
   const maxCommissionVal = useMemo(() => {
-    let max = 100;
+    let max = 50;
     monthlyCommissionsData.forEach((m) => {
       if (m.comision > max) max = m.comision;
     });
-    return max * 1.25;
+    return max * 1.3;
   }, [monthlyCommissionsData]);
 
-  // Generador avanzado de Excel en formato Excel XML (Diseño con estilos, colores, fuentes formateadas y matriz mensual completa)
+  // Excel XML Matrix Export
   const exportToExcelLocal = async () => {
     if (handleExportExcel) {
       handleExportExcel();
@@ -769,7 +792,7 @@ export default function ReportesExcelTab({
             onClick={exportToExcelLocal}
             disabled={isExportingExcel}
             className="btn btn-success fw-bold px-3 px-md-3.5 py-2 shadow-sm d-inline-flex align-items-center gap-2 rounded-3"
-            style={{ backgroundColor: '#198754', borderColor: '#198754' }}
+            style={{ backgroundColor: '#16a34a', borderColor: '#16a34a' }}
           >
             <FileSpreadsheet size={17} />
             <span>{isExportingExcel ? 'Generando Excel...' : 'Exportar Excel'}</span>
@@ -803,7 +826,11 @@ export default function ReportesExcelTab({
                 type="date"
                 className="form-control form-control-sm rounded-3 bg-white"
                 value={filterFechaDesde}
-                onChange={(e) => setFilterFechaDesde(e.target.value)}
+                onChange={(e) => {
+                  setFilterFechaDesde(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               />
             </div>
             <div className="col-12 col-sm-6 col-md-4 col-lg-2">
@@ -814,7 +841,11 @@ export default function ReportesExcelTab({
                 type="date"
                 className="form-control form-control-sm rounded-3 bg-white"
                 value={filterFechaHasta}
-                onChange={(e) => setFilterFechaHasta(e.target.value)}
+                onChange={(e) => {
+                  setFilterFechaHasta(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               />
             </div>
             <div className="col-12 col-sm-6 col-md-4 col-lg-2">
@@ -824,7 +855,11 @@ export default function ReportesExcelTab({
               <select
                 className="form-select form-select-sm rounded-3 bg-white"
                 value={filterMes}
-                onChange={(e) => setFilterMes(e.target.value)}
+                onChange={(e) => {
+                  setFilterMes(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               >
                 <option value="TODOS">Todos los meses</option>
                 {availableMonthOptions.map(([val, label]) => (
@@ -841,7 +876,11 @@ export default function ReportesExcelTab({
               <select
                 className="form-select form-select-sm rounded-3 bg-white"
                 value={filterEstadoPago}
-                onChange={(e) => setFilterEstadoPago(e.target.value)}
+                onChange={(e) => {
+                  setFilterEstadoPago(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               >
                 <option value="TODOS">Todos</option>
                 <option value="PAGADO">Pagado</option>
@@ -855,7 +894,11 @@ export default function ReportesExcelTab({
               <select
                 className="form-select form-select-sm rounded-3 bg-white"
                 value={filterPlan}
-                onChange={(e) => setFilterPlan(e.target.value)}
+                onChange={(e) => {
+                  setFilterPlan(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               >
                 <option value="TODOS">Todos</option>
                 <option value="Inicia">Plan Inicia</option>
@@ -872,7 +915,11 @@ export default function ReportesExcelTab({
               <select
                 className="form-select form-select-sm rounded-3 bg-white"
                 value={filterVendedor}
-                onChange={(e) => setFilterVendedor(e.target.value)}
+                onChange={(e) => {
+                  setFilterVendedor(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               >
                 <option value="TODOS">Todos</option>
                 {uniqueSellers.map((v) => (
@@ -890,10 +937,14 @@ export default function ReportesExcelTab({
               </label>
               <input
                 type="text"
-                placeholder="Buscar cliente..."
+                placeholder="Buscar cliente o RUC..."
                 className="form-control form-control-sm rounded-3 bg-white"
                 value={filterCliente}
-                onChange={(e) => setFilterCliente(e.target.value)}
+                onChange={(e) => {
+                  setFilterCliente(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               />
             </div>
             <div className="col-12 col-sm-6 col-md-3">
@@ -903,7 +954,11 @@ export default function ReportesExcelTab({
               <select
                 className="form-select form-select-sm rounded-3 bg-white"
                 value={filterMetodoPago}
-                onChange={(e) => setFilterMetodoPago(e.target.value)}
+                onChange={(e) => {
+                  setFilterMetodoPago(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               >
                 <option value="TODOS">Todos</option>
                 <option value="TRANSFERENCIA">Transferencia</option>
@@ -921,7 +976,11 @@ export default function ReportesExcelTab({
               <select
                 className="form-select form-select-sm rounded-3 bg-white"
                 value={filterTipoSuscripcion}
-                onChange={(e) => setFilterTipoSuscripcion(e.target.value)}
+                onChange={(e) => {
+                  setFilterTipoSuscripcion(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               >
                 <option value="TODOS">Todos</option>
                 <option value="MENSUAL">Mensual</option>
@@ -935,7 +994,11 @@ export default function ReportesExcelTab({
               <select
                 className="form-select form-select-sm rounded-3 bg-white"
                 value={filterRegimen}
-                onChange={(e) => setFilterRegimen(e.target.value)}
+                onChange={(e) => {
+                  setFilterRegimen(e.target.value);
+                  setSalesPage(1);
+                  setComisionesPage(1);
+                }}
               >
                 <option value="TODOS">Todos</option>
                 <option value="GENERAL">General</option>
@@ -965,7 +1028,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#e7f1ff', color: '#0d6efd' }}
+                style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
               >
                 <ShoppingCart size={24} />
               </div>
@@ -973,7 +1036,7 @@ export default function ReportesExcelTab({
                 <div className="text-muted fw-bold" style={{ fontSize: '0.8rem' }}>
                   Ventas totales
                 </div>
-                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#0047FF' }}>
+                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#1d4ed8' }}>
                   {formatCurrency(kpiVentasTotales)}
                 </div>
                 <small className="text-muted fw-semibold">{countVentasTotales} ventas</small>
@@ -986,7 +1049,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#e8f5e9', color: '#198754' }}
+                style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}
               >
                 <DollarSign size={24} />
               </div>
@@ -994,7 +1057,9 @@ export default function ReportesExcelTab({
                 <div className="text-muted fw-bold" style={{ fontSize: '0.8rem' }}>
                   Ingresos generados
                 </div>
-                <div className="h4 fw-bold mb-0 text-success text-truncate">{formatCurrency(kpiIngresosGenerados)}</div>
+                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#15803d' }}>
+                  {formatCurrency(kpiIngresosGenerados)}
+                </div>
                 <small className="text-muted fw-semibold">Monto cobrado</small>
               </div>
             </div>
@@ -1005,7 +1070,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#ffebee', color: '#dc3545' }}
+                style={{ backgroundColor: '#fef2f2', color: '#dc2626' }}
               >
                 <AlertCircle size={24} />
               </div>
@@ -1013,7 +1078,9 @@ export default function ReportesExcelTab({
                 <div className="text-muted fw-bold" style={{ fontSize: '0.8rem' }}>
                   Pagos pendientes
                 </div>
-                <div className="h4 fw-bold mb-0 text-danger text-truncate">{formatCurrency(kpiPagosPendientes)}</div>
+                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#b91c1c' }}>
+                  {formatCurrency(kpiPagosPendientes)}
+                </div>
                 <small className="text-muted fw-semibold">{countVentasPendientes} ventas pendientes</small>
               </div>
             </div>
@@ -1024,7 +1091,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#f3e8ff', color: '#6f42c1' }}
+                style={{ backgroundColor: '#faf5ff', color: '#9333ea' }}
               >
                 <Receipt size={24} />
               </div>
@@ -1032,7 +1099,7 @@ export default function ReportesExcelTab({
                 <div className="text-muted fw-bold" style={{ fontSize: '0.8rem' }}>
                   Ticket promedio
                 </div>
-                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#6f42c1' }}>
+                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#7e22ce' }}>
                   {formatCurrency(kpiTicketPromedio)}
                 </div>
                 <small className="text-muted fw-semibold">Por venta</small>
@@ -1043,85 +1110,96 @@ export default function ReportesExcelTab({
 
         {/* Gráficos e Información Visual (2 Columnas) */}
         <div className="row g-3">
-          {/* Gráfico 1: Ventas e ingresos por periodo (SVG Line Chart) */}
+          {/* Gráfico 1: Ventas e ingresos por periodo (SVG Line Chart con curvas Bezier) */}
           <div className="col-12 col-xl-7">
             <div className="p-3.5 p-md-4 bg-white border rounded-4 shadow-sm h-100 d-flex flex-column justify-content-between">
               <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
                 <h6 className="fw-bold text-dark mb-0">Ventas e ingresos por periodo</h6>
                 <div className="d-flex align-items-center gap-3 small fw-semibold">
                   <div className="d-flex align-items-center gap-1.5">
-                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, backgroundColor: '#0d6efd' }}></span>
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, backgroundColor: '#2563eb' }}></span>
                     <span className="text-muted">Ventas (S/)</span>
                   </div>
                   <div className="d-flex align-items-center gap-1.5">
-                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, backgroundColor: '#198754' }}></span>
+                    <span className="d-inline-block rounded-circle" style={{ width: 10, height: 10, backgroundColor: '#16a34a' }}></span>
                     <span className="text-muted">Ingresos (S/)</span>
                   </div>
                 </div>
               </div>
 
               {/* Contenedor SVG Interactivo */}
-              <div className="position-relative w-100" style={{ height: 200 }}>
+              <div className="position-relative w-100" style={{ height: 210 }}>
                 <svg className="w-100 h-100" viewBox="0 0 500 200" preserveAspectRatio="none">
                   {/* Grid Lines */}
-                  <line x1="0" y1="40" x2="500" y2="40" stroke="#f0f2f5" strokeWidth="1" strokeDasharray="3" />
-                  <line x1="0" y1="90" x2="500" y2="90" stroke="#f0f2f5" strokeWidth="1" strokeDasharray="3" />
-                  <line x1="0" y1="140" x2="500" y2="140" stroke="#f0f2f5" strokeWidth="1" strokeDasharray="3" />
+                  <line x1="0" y1="35" x2="500" y2="35" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1="0" y1="85" x2="500" y2="85" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
+                  <line x1="0" y1="135" x2="500" y2="135" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3 3" />
                   <line x1="0" y1="180" x2="500" y2="180" stroke="#e2e8f0" strokeWidth="1" />
 
                   {/* Gradient Area Defs */}
                   <defs>
-                    <linearGradient id="gradVentas" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0d6efd" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#0d6efd" stopOpacity="0.0" />
+                    <linearGradient id="gradVentasPolished" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#2563eb" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
                     </linearGradient>
-                    <linearGradient id="gradIngresos" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#198754" stopOpacity="0.25" />
-                      <stop offset="100%" stopColor="#198754" stopOpacity="0.0" />
+                    <linearGradient id="gradIngresosPolished" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#16a34a" stopOpacity="0.22" />
+                      <stop offset="100%" stopColor="#16a34a" stopOpacity="0.0" />
                     </linearGradient>
                   </defs>
 
-                  {/* Line Paths */}
+                  {/* Bezier Curved Splines */}
                   {(() => {
                     const count = chartPeriodPoints.length;
                     if (count === 0) return null;
                     const step = 500 / Math.max(count - 1, 1);
 
-                    const ventasCoords = chartPeriodPoints.map((p, i) => ({
+                    const vPoints = chartPeriodPoints.map((p, i) => ({
                       x: i * step,
-                      y: 180 - (p.ventas / maxChartVal) * 140,
-                      val: p.ventas,
+                      y: 180 - (p.ventas / maxChartVal) * 145,
                     }));
 
-                    const ingresosCoords = chartPeriodPoints.map((p, i) => ({
+                    const iPoints = chartPeriodPoints.map((p, i) => ({
                       x: i * step,
-                      y: 180 - (p.ingresos / maxChartVal) * 140,
-                      val: p.ingresos,
+                      y: 180 - (p.ingresos / maxChartVal) * 145,
                     }));
 
-                    const ventasPath = ventasCoords.map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
-                    const ingresosPath = ingresosCoords.map((c, idx) => `${idx === 0 ? 'M' : 'L'} ${c.x} ${c.y}`).join(' ');
+                    // Helper to create smooth Bezier curve string
+                    const getCurvePath = (pts: Array<{ x: number; y: number }>) => {
+                      if (pts.length <= 1) return pts.length === 1 ? `M ${pts[0].x} ${pts[0].y}` : '';
+                      let d = `M ${pts[0].x} ${pts[0].y}`;
+                      for (let i = 0; i < pts.length - 1; i++) {
+                        const curr = pts[i];
+                        const next = pts[i + 1];
+                        const mx = (curr.x + next.x) / 2;
+                        d += ` C ${mx} ${curr.y}, ${mx} ${next.y}, ${next.x} ${next.y}`;
+                      }
+                      return d;
+                    };
 
-                    const ventasArea = `${ventasPath} L 500 180 L 0 180 Z`;
-                    const ingresosArea = `${ingresosPath} L 500 180 L 0 180 Z`;
+                    const vPath = getCurvePath(vPoints);
+                    const iPath = getCurvePath(iPoints);
+
+                    const vArea = `${vPath} L 500 180 L 0 180 Z`;
+                    const iArea = `${iPath} L 500 180 L 0 180 Z`;
 
                     return (
                       <>
-                        <path d={ventasArea} fill="url(#gradVentas)" />
-                        <path d={ingresosArea} fill="url(#gradIngresos)" />
-                        <path d={ventasPath} fill="none" stroke="#0d6efd" strokeWidth="2.5" strokeLinecap="round" />
-                        <path d={ingresosPath} fill="none" stroke="#198754" strokeWidth="2.5" strokeLinecap="round" />
+                        <path d={vArea} fill="url(#gradVentasPolished)" />
+                        <path d={iArea} fill="url(#gradIngresosPolished)" />
+                        <path d={vPath} fill="none" stroke="#2563eb" strokeWidth="2.8" strokeLinecap="round" />
+                        <path d={iPath} fill="none" stroke="#16a34a" strokeWidth="2.8" strokeLinecap="round" />
 
-                        {ventasCoords.map((c, idx) => (
+                        {vPoints.map((c, idx) => (
                           <circle
                             key={`vc-${idx}`}
                             cx={c.x}
                             cy={c.y}
-                            r="3.5"
+                            r="4.5"
                             fill="#ffffff"
-                            stroke="#0d6efd"
-                            strokeWidth="2"
-                            style={{ cursor: 'pointer' }}
+                            stroke="#2563eb"
+                            strokeWidth="2.5"
+                            style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
                             onMouseEnter={() =>
                               setHoveredPoint({
                                 day: chartPeriodPoints[idx].label,
@@ -1135,16 +1213,16 @@ export default function ReportesExcelTab({
                           />
                         ))}
 
-                        {ingresosCoords.map((c, idx) => (
+                        {iPoints.map((c, idx) => (
                           <circle
                             key={`ic-${idx}`}
                             cx={c.x}
                             cy={c.y}
-                            r="3.5"
+                            r="4.5"
                             fill="#ffffff"
-                            stroke="#198754"
-                            strokeWidth="2"
-                            style={{ cursor: 'pointer' }}
+                            stroke="#16a34a"
+                            strokeWidth="2.5"
+                            style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
                             onMouseEnter={() =>
                               setHoveredPoint({
                                 day: chartPeriodPoints[idx].label,
@@ -1165,18 +1243,20 @@ export default function ReportesExcelTab({
                 {/* Tooltip Hover Display */}
                 {hoveredPoint && (
                   <div
-                    className="position-absolute bg-dark text-white rounded-3 shadow-lg px-2.5 py-1.5 small pointer-events-none"
+                    className="position-absolute bg-dark text-white rounded-3 shadow-lg px-3 py-2 small pointer-events-none"
                     style={{
-                      left: `clamp(10px, ${(hoveredPoint.x / 500) * 100}%, 80%)`,
+                      left: `clamp(20px, ${(hoveredPoint.x / 500) * 100}%, 75%)`,
                       top: '10px',
                       transform: 'translateX(-50%)',
-                      fontSize: '0.75rem',
+                      fontSize: '0.78rem',
                       zIndex: 10,
+                      backdropFilter: 'blur(6px)',
+                      border: '1px solid rgba(255,255,255,0.15)',
                     }}
                   >
-                    <div className="fw-bold border-bottom border-secondary pb-0.5 mb-1">{hoveredPoint.day}</div>
-                    <div className="text-primary-light">Ventas: S/ {hoveredPoint.ventas.toFixed(2)}</div>
-                    <div className="text-success-light">Ingresos: S/ {hoveredPoint.ingresos.toFixed(2)}</div>
+                    <div className="fw-bold border-bottom border-secondary pb-1 mb-1">{hoveredPoint.day}</div>
+                    <div style={{ color: '#93c5fd' }}>Ventas: S/ {hoveredPoint.ventas.toFixed(2)}</div>
+                    <div style={{ color: '#86efac' }}>Ingresos: S/ {hoveredPoint.ingresos.toFixed(2)}</div>
                   </div>
                 )}
               </div>
@@ -1205,9 +1285,9 @@ export default function ReportesExcelTab({
 
               <div className="d-flex flex-column flex-sm-row align-items-center justify-content-center gap-4 my-auto">
                 {/* SVG Donut Chart */}
-                <div className="position-relative flex-shrink-0" style={{ width: 140, height: 140 }}>
+                <div className="position-relative flex-shrink-0" style={{ width: 145, height: 145 }}>
                   <svg className="w-100 h-100" viewBox="0 0 42 42">
-                    <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="5.5" />
+                    <circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f8fafc" strokeWidth="5.5" />
                     {(() => {
                       let accumulatedPercent = 0;
                       return planBreakdown.map((item, idx) => {
@@ -1225,6 +1305,7 @@ export default function ReportesExcelTab({
                             strokeWidth="5.5"
                             strokeDasharray={dashArray}
                             strokeDashoffset={dashOffset}
+                            style={{ transition: 'all 0.3s ease' }}
                           />
                         );
                       });
@@ -1234,7 +1315,7 @@ export default function ReportesExcelTab({
                     <span className="small text-muted fw-bold d-block" style={{ fontSize: '0.65rem' }}>
                       TOTAL
                     </span>
-                    <span className="fw-bold text-dark" style={{ fontSize: '0.85rem' }}>
+                    <span className="fw-bold text-dark fs-6">
                       {countVentasTotales}
                     </span>
                   </div>
@@ -1273,7 +1354,7 @@ export default function ReportesExcelTab({
         <div className="border rounded-4 overflow-hidden shadow-sm">
           <div className="bg-light p-3 border-bottom d-flex justify-content-between align-items-center">
             <h6 className="fw-bold text-dark mb-0">Detalle de ventas</h6>
-            <small className="text-muted fw-semibold">{filteredTransactions.length} operaciones registradas</small>
+            <small className="text-muted fw-semibold">{filteredSales.length} ventas en base de datos</small>
           </div>
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
@@ -1373,7 +1454,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#e7f1ff', color: '#0d6efd' }}
+                style={{ backgroundColor: '#eff6ff', color: '#2563eb' }}
               >
                 <Coins size={24} />
               </div>
@@ -1381,7 +1462,7 @@ export default function ReportesExcelTab({
                 <div className="text-muted fw-bold" style={{ fontSize: '0.8rem' }}>
                   Comisión acumulada
                 </div>
-                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#0047FF' }}>
+                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#1d4ed8' }}>
                   {formatCurrency(totalComisionAcumulada)}
                 </div>
                 <small className="text-muted fw-semibold">S/ 9.00 por cada alta pagada</small>
@@ -1394,7 +1475,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#e8f5e9', color: '#198754' }}
+                style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}
               >
                 <TrendingUp size={24} />
               </div>
@@ -1413,7 +1494,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#f3e8ff', color: '#6f42c1' }}
+                style={{ backgroundColor: '#faf5ff', color: '#9333ea' }}
               >
                 <Percent size={24} />
               </div>
@@ -1421,7 +1502,7 @@ export default function ReportesExcelTab({
                 <div className="text-muted fw-bold" style={{ fontSize: '0.8rem' }}>
                   Tasa de comisión
                 </div>
-                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#6f42c1' }}>
+                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#7e22ce' }}>
                   S/ 9.00
                 </div>
                 <small className="text-muted fw-semibold">Por cada alta registrada</small>
@@ -1434,7 +1515,7 @@ export default function ReportesExcelTab({
             <div className="p-3.5 bg-white border rounded-4 shadow-sm h-100 d-flex align-items-center gap-3">
               <div
                 className="p-3 rounded-4 d-flex align-items-center justify-content-center flex-shrink-0"
-                style={{ backgroundColor: '#fff3cd', color: '#fd7e14' }}
+                style={{ backgroundColor: '#fef3c7', color: '#d97706' }}
               >
                 <Clock size={24} />
               </div>
@@ -1442,7 +1523,7 @@ export default function ReportesExcelTab({
                 <div className="text-muted fw-bold" style={{ fontSize: '0.8rem' }}>
                   Pendiente de pago
                 </div>
-                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#fd7e14' }}>
+                <div className="h4 fw-bold mb-0 text-truncate" style={{ color: '#d97706' }}>
                   {formatCurrency(totalComisionPendiente)}
                 </div>
                 <small className="text-muted fw-semibold">{countAltasPendientes} altas pendientes</small>
@@ -1453,39 +1534,49 @@ export default function ReportesExcelTab({
 
         {/* Gráfico de Comisiones por Mes + Detalle de Comisiones (2 Columnas) */}
         <div className="row g-3">
-          {/* Gráfico: Comisiones por Mes (Bar Chart) */}
+          {/* Gráfico: Comisiones por Mes (Bar Chart Estilizado) */}
           <div className="col-12 col-xl-5">
             <div className="p-3.5 p-md-4 bg-white border rounded-4 shadow-sm h-100 d-flex flex-column justify-content-between">
               <div className="d-flex justify-content-between align-items-center mb-3">
                 <h6 className="fw-bold text-dark mb-0">Comisiones por mes</h6>
-                <span className="badge bg-primary text-white">Comisión (S/)</span>
+                <span className="badge bg-primary px-2.5 py-1 text-white" style={{ backgroundColor: '#2563eb' }}>
+                  Comisión (S/)
+                </span>
               </div>
 
               {/* Bar Chart Container */}
-              <div className="w-100 my-auto" style={{ height: 180 }}>
+              <div className="w-100 my-auto" style={{ height: 190 }}>
                 <svg className="w-100 h-100" viewBox="0 0 360 180">
                   {monthlyCommissionsData.map((m, idx) => {
-                    const barWidth = 18;
+                    const barWidth = 16;
                     const gap = 360 / 12;
                     const x = idx * gap + (gap - barWidth) / 2;
-                    const barHeight = maxCommissionVal > 0 ? (m.comision / maxCommissionVal) * 120 : 0;
-                    const y = 140 - barHeight;
+                    const barHeight = maxCommissionVal > 0 ? (m.comision / maxCommissionVal) * 115 : 0;
+                    const y = 145 - barHeight;
 
                     return (
                       <g key={idx}>
-                        <rect x={x} y={y} width={barWidth} height={barHeight} fill="#0d6efd" rx="3" />
+                        <rect
+                          x={x}
+                          y={y}
+                          width={barWidth}
+                          height={barHeight}
+                          fill="#3b82f6"
+                          rx="4"
+                          style={{ transition: 'all 0.2s ease' }}
+                        />
                         {m.comision > 0 && (
-                          <text x={x + barWidth / 2} y={y - 4} textAnchor="middle" fontSize="8" fill="#0d6efd" fontWeight="bold">
+                          <text x={x + barWidth / 2} y={y - 5} textAnchor="middle" fontSize="8.5" fill="#1d4ed8" fontWeight="bold">
                             {m.comision}
                           </text>
                         )}
-                        <text x={x + barWidth / 2} y={160} textAnchor="middle" fontSize="9" fill="#6c757d">
+                        <text x={x + barWidth / 2} y={165} textAnchor="middle" fontSize="9" fill="#64748b" fontWeight="600">
                           {m.month}
                         </text>
                       </g>
                     );
                   })}
-                  <line x1="0" y1="140" x2="360" y2="140" stroke="#e2e8f0" strokeWidth="1" />
+                  <line x1="0" y1="145" x2="360" y2="145" stroke="#e2e8f0" strokeWidth="1" />
                 </svg>
               </div>
             </div>
@@ -1496,7 +1587,7 @@ export default function ReportesExcelTab({
             <div className="border rounded-4 overflow-hidden shadow-sm h-100 d-flex flex-column">
               <div className="bg-light p-3 border-bottom d-flex justify-content-between align-items-center">
                 <h6 className="fw-bold text-dark mb-0">Detalle de comisiones</h6>
-                <small className="text-muted fw-semibold">{affiliationRecords.length} altas registradas</small>
+                <small className="text-muted fw-semibold">{affiliationRecords.length} altas en base de datos</small>
               </div>
               <div className="table-responsive flex-grow-1">
                 <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
@@ -1528,7 +1619,7 @@ export default function ReportesExcelTab({
                           </td>
                           <td className="py-2 text-end fw-semibold text-dark">{formatCurrency(c.monto)}</td>
                           <td className="py-2 text-center text-muted fw-semibold">S/ 9.00</td>
-                          <td className="py-2 text-end fw-bold" style={{ color: '#0047FF' }}>
+                          <td className="py-2 text-end fw-bold" style={{ color: '#1d4ed8' }}>
                             S/ 9.00
                           </td>
                           <td className="pe-3 py-2 text-center">
