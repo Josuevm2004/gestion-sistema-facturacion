@@ -96,14 +96,9 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
 
               {/* Formulario */}
               <div className="mb-3">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <label className="form-label small fw-bold text-dark mb-0">
-                    Monto a Cobrar (Automático):
-                  </label>
-                  <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
-                    100% Automático
-                  </span>
-                </div>
+                <label className="form-label small fw-bold text-dark mb-1">
+                  Monto a Cobrar (S/):
+                </label>
                 <div className="input-group">
                   <span className="input-group-text bg-light fw-bold text-muted">S/</span>
                   <input
@@ -114,7 +109,7 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
                     readOnly
                   />
                 </div>
-                <small className="text-muted">Monto exacto calculado según el plan y estado del cliente: S/ {Number(currentMonto).toFixed(2)}</small>
+                <small className="text-muted">Monto del ciclo: S/ {Number(currentMonto).toFixed(2)}</small>
               </div>
 
               <div className="mb-2">
