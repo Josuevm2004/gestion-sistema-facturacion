@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Client } from '../components/ClientesTodosTab';
+import { parseLocalDate, formatDatePeru } from '@/lib/billing';
 
 interface PaymentHistoryModalProps {
   historyClient: Client | null;
@@ -163,7 +164,7 @@ export default function PaymentHistoryModal({
                     </tr>
                   ) : (
                     transactions.map((t, idx) => {
-                      const tDate = t.fecha ? new Date(t.fecha) : new Date();
+                      const tDate = parseLocalDate(t.fecha) || new Date();
                       const mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
 
                       return (
@@ -171,11 +172,7 @@ export default function PaymentHistoryModal({
                           <td className="text-muted fw-semibold">{transactions.length - idx}</td>
                           <td>
                             <strong className="text-dark">
-                              {tDate.toLocaleDateString('es-PE', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric',
-                              })}
+                              {formatDatePeru(tDate)}
                             </strong>
                           </td>
                           <td>

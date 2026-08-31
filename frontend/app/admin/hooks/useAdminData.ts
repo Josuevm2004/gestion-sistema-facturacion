@@ -2,7 +2,7 @@
 
 import { FormEvent, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { adminApi, api } from '@/lib/api';
-import { MONTHLY_BILLING_DAY } from '@/lib/billing';
+import { MONTHLY_BILLING_DAY, parseLocalDate, formatDatePeru as libFormatDatePeru, getTodayLocalMidnight, getDiffDays } from '@/lib/billing';
 import { Client, ColorTagType, SubscriptionType } from '../components/ClientesTodosTab';
 import { UserAccount } from '../components/VendedoresTab';
 
@@ -395,9 +395,7 @@ export function useAdminData() {
   }
 
   function formatDatePeru(dateInput: Date | string): string {
-    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return libFormatDatePeru(dateInput);
   }
 
   function normalizePlanKey(planStr?: string) {
@@ -550,31 +548,28 @@ export function useAdminData() {
   }, [trainingClient, trainingDateInput]);
 
   function getCalculatedExpirationDate(client: Client): { fechaStr: string; dateObj: Date; isExpired: boolean; daysRemaining: number } {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getTodayLocalMidnight();
     const monthlyBillingDay = MONTHLY_BILLING_DAY;
     const getBillingDate = (baseDate: Date) => {
       const year = baseDate.getFullYear();
       const month = baseDate.getMonth();
       const lastDay = new Date(year, month + 1, 0).getDate();
-      return new Date(year, month, Math.min(monthlyBillingDay, lastDay));
+      return new Date(year, month, Math.min(monthlyBillingDay, lastDay), 0, 0, 0, 0);
     };
     const getNextBillingDate = (baseDate: Date) => {
       let billingDate = getBillingDate(baseDate);
       if (baseDate >= billingDate) {
-        billingDate = getBillingDate(new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1));
+        billingDate = getBillingDate(new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1, 0, 0, 0, 0));
       }
       return billingDate;
     };
 
-    let expDate: Date;
+    let expDate: Date | null = null;
     if (client.fechaVencimientoMensual) {
-      expDate = new Date(client.fechaVencimientoMensual);
+      expDate = parseLocalDate(client.fechaVencimientoMensual);
     } else if (client.fechaCapacitacion) {
-      let baseDate = new Date(client.fechaCapacitacion);
-      if (isNaN(baseDate.getTime())) baseDate = new Date();
-
-      const isAnual = (client.tipoSuscripcion || 'MENSUAL') === 'ANUAL';
+      const baseDate = parseLocalDate(client.fechaCapacitacion) || getTodayLocalMidnight();
+      const isAnual = (client.tipoSuscripcion || 'MENSUAL').toUpperCase() === 'ANUAL';
       expDate = new Date(baseDate);
       if (isAnual) {
         expDate.setFullYear(expDate.getFullYear() + 1);
@@ -582,10 +577,11 @@ export function useAdminData() {
         expDate = getNextBillingDate(baseDate);
       }
     } else if (client.fechaCreacion) {
-      let baseDate = new Date(client.fechaCreacion);
-      if (isNaN(baseDate.getTime())) baseDate = new Date();
+      const baseDate = parseLocalDate(client.fechaCreacion) || getTodayLocalMidnight();
       expDate = getNextBillingDate(baseDate);
-    } else {
+    }
+
+    if (!expDate || isNaN(expDate.getTime())) {
       return {
         fechaStr: 'Sin fecha',
         dateObj: new Date(''),
@@ -594,23 +590,14 @@ export function useAdminData() {
       };
     }
 
-    if (isNaN(expDate.getTime())) {
-      return {
-        fechaStr: 'Sin fecha',
-        dateObj: expDate,
-        isExpired: false,
-        daysRemaining: 9999,
-      };
-    }
-
     expDate.setHours(0, 0, 0, 0);
 
     const diffTime = expDate.getTime() - today.getTime();
-    const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.round(diffTime / (1000 * 60 * 60 * 24));
     const isExpired = daysRemaining <= 0;
 
     return {
-      fechaStr: expDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      fechaStr: libFormatDatePeru(expDate),
       dateObj: expDate,
       isExpired,
       daysRemaining,
@@ -1249,27 +1236,56 @@ export function useAdminData() {
   async function handleMarkNotificationAsRead(notificationId: string | number) {
     if (!token || !notificationId) return;
     const notifIdStr = String(notificationId);
-    readNotificationIdsRef.current.add(notifIdStr);
 
-    setNotifications((prev) => prev.map((n) => (
-      String(n.id) === notifIdStr ? { ...n, leida: true } : n
-    )));
+    // 1. Marcar localmente de forma optimista Y registrar en el ref
+    //    para que el polling de loadData (cada 15s) no revierta el cambio
+    //    antes de que la BD confirme.
+    readNotificationIdsRef.current.add(notifIdStr);
+    setNotifications((prev) =>
+      prev.map((n) => (String(n.id) === notifIdStr ? { ...n, leida: true } : n))
+    );
+
     try {
-      await adminApi(token).put(`/admin/notificaciones/${notificationId}/leida`);
-    } catch (err) {
+      await adminApi(token).put(`/admin/notificaciones/${notifIdStr}/leida`);
+      // Servidor confirmó: ya podemos sacar del ref (la BD ya tiene leida=true,
+      // cualquier recarga futura traerá el dato correcto).
       readNotificationIdsRef.current.delete(notifIdStr);
-      setNotifications((prev) => prev.map((n) => (
-        String(n.id) === notifIdStr ? { ...n, leida: false } : n
-      )));
+    } catch (err) {
+      // Fallo en el servidor: revertir optimismo y limpiar ref
+      readNotificationIdsRef.current.delete(notifIdStr);
+      setNotifications((prev) =>
+        prev.map((n) => (String(n.id) === notifIdStr ? { ...n, leida: false } : n))
+      );
+      console.error('Error al marcar notificación como leída', err);
     }
   }
 
   async function handleMarkAllNotificationsAsRead() {
     if (!token) return;
-    setNotifications((prev) => prev.map((n) => ({ ...n, leida: true })));
+
+    // Recopilar todos los IDs no leídos antes de hacer nada
+    let unreadIds: string[] = [];
+    setNotifications((prev) => {
+      unreadIds = prev.filter((n) => !n.leida).map((n) => String(n.id));
+      return prev.map((n) => ({ ...n, leida: true }));
+    });
+
+    // Registrar todos en el ref para que loadData no los revierta
+    // mientras la BD está procesando el PUT
+    unreadIds.forEach((id) => readNotificationIdsRef.current.add(id));
+
     try {
       await adminApi(token).put(`/admin/notificaciones/marcar-todas-leidas`);
+      // Servidor confirmó: limpiar el ref (la BD ya persistió leida=true)
+      unreadIds.forEach((id) => readNotificationIdsRef.current.delete(id));
     } catch (err) {
+      // Fallo: revertir optimismo y limpiar ref
+      unreadIds.forEach((id) => readNotificationIdsRef.current.delete(id));
+      setNotifications((prev) =>
+        prev.map((n) =>
+          unreadIds.includes(String(n.id)) ? { ...n, leida: false } : n
+        )
+      );
       console.error('Error al marcar todas las notificaciones como leídas', err);
     }
   }

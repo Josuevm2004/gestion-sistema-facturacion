@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Calendar, DollarSign, CheckCircle, X, AlertCircle } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
+import { parseLocalDate, getTodayLocalMidnight, formatDatePeru } from '@/lib/billing';
 
 interface AdelantoPagoModalProps {
   client: Client | null;
@@ -18,15 +19,15 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
   const [observaciones, setObservaciones] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
-  // Calcular fechas
+  // Calcular fechas de forma determinista y segura en cualquier zona horaria
   const rawVenc = client.fechaVencimientoMensual || client.fechaFinServicio;
-  const vencDate = rawVenc ? new Date(rawVenc) : new Date();
-  
-  // La nueva fecha de inicio es la fecha de vencimiento actual (si es futura) o hoy
-  const now = new Date();
-  const fechaInicioCalculada = vencDate > now ? vencDate : now;
-  
-  // La nueva fecha de fin es un mes después de la fecha de inicio
+  const vencDate = parseLocalDate(rawVenc);
+  const now = getTodayLocalMidnight();
+
+  // La nueva fecha de inicio es la fecha de vencimiento actual (si es futura o igual a hoy) o hoy
+  const fechaInicioCalculada = vencDate && vencDate >= now ? vencDate : now;
+
+  // La nueva fecha de fin es un mes (o año) después de la fecha de inicio
   const fechaFinCalculada = new Date(fechaInicioCalculada);
   if ((client.tipoSuscripcion || 'MENSUAL').toUpperCase() === 'ANUAL') {
     fechaFinCalculada.setFullYear(fechaFinCalculada.getFullYear() + 1);
@@ -34,8 +35,7 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
     fechaFinCalculada.setMonth(fechaFinCalculada.getMonth() + 1);
   }
 
-  const formatDate = (d: Date) =>
-    d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const formatDate = (d: Date) => formatDatePeru(d);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

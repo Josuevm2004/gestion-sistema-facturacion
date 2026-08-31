@@ -4,6 +4,7 @@ import React from 'react';
 import { GraduationCap, CheckCircle, Calendar } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
+import { parseLocalDate, formatDatePeru as libFormatDatePeru } from '@/lib/billing';
 
 interface CapacitacionesTabProps {
   clients?: Client[];
@@ -50,8 +51,8 @@ export default function CapacitacionesTab({
       if (isCapA && !isCapB) return 1;
 
       // Si ambos tienen el mismo estado, ordenar por fecha de registro descendente
-      const dateA = new Date(a.fechaRegistro || a.fechaCreacion || 0).getTime();
-      const dateB = new Date(b.fechaRegistro || b.fechaCreacion || 0).getTime();
+      const dateA = parseLocalDate(a.fechaRegistro || a.fechaCreacion)?.getTime() || 0;
+      const dateB = parseLocalDate(b.fechaRegistro || b.fechaCreacion)?.getTime() || 0;
       return dateB - dateA;
     });
   }, [clients]);
@@ -73,11 +74,7 @@ export default function CapacitacionesTab({
   }, [totalPages]);
 
   const formatPeruDate = (dateStr?: string | null): string => {
-    if (formatDatePeru) return formatDatePeru(dateStr);
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    return libFormatDatePeru(dateStr);
   };
 
   return (

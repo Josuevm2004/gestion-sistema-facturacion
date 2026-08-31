@@ -6,6 +6,7 @@ import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
 import { AdelantoPagoModal } from '../modals/AdelantoPagoModal';
+import { parseLocalDate, getDiffDays } from '@/lib/billing';
 
 interface CentroControlTabProps {
   clients: Client[];
@@ -37,9 +38,6 @@ export default function CentroControlTab({
   const [currentPage, setCurrentPage] = React.useState(1);
 
   const filteredClients = React.useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
     return clients
       .filter((c) => (c.estadoCuenta || '').toUpperCase() !== 'BLOQUEADO')
       .filter((c) => {
@@ -59,10 +57,8 @@ export default function CentroControlTab({
         );
       })
       .map((c) => {
-        const vencDate = c.fechaVencimientoMensual ? new Date(c.fechaVencimientoMensual) : null;
-        if (vencDate) vencDate.setHours(0, 0, 0, 0);
-        const diffTime = vencDate ? vencDate.getTime() - now.getTime() : Infinity;
-        const diffDays = vencDate ? Math.ceil(diffTime / (1000 * 60 * 60 * 24)) : 9999;
+        const vencDate = parseLocalDate(c.fechaVencimientoMensual);
+        const diffDays = getDiffDays(c.fechaVencimientoMensual);
         return { ...c, _vencDate: vencDate, _diffDays: diffDays };
       })
       .sort((a, b) => a._diffDays - b._diffDays);
