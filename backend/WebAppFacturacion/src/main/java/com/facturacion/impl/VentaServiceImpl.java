@@ -231,9 +231,10 @@ public class VentaServiceImpl implements VentaService {
 
         LocalDateTime fechaRef = LocalDateTime.now();
 
-        // Fecha de inicio del nuevo ciclo: Si el servicio actual vence en el futuro, inicia exactamente en esa fecha de vencimiento
+        // Fecha de inicio del nuevo ciclo: Si el servicio actual vence en el futuro o hoy, inicia exactamente en esa fecha de vencimiento
         LocalDateTime fechaInicio;
-        if (servicioActual != null && servicioActual.getFechaFin() != null && servicioActual.getFechaFin().isAfter(fechaRef)) {
+        if (servicioActual != null && servicioActual.getFechaFin() != null
+                && !servicioActual.getFechaFin().toLocalDate().isBefore(fechaRef.toLocalDate())) {
             fechaInicio = servicioActual.getFechaFin();
         } else {
             fechaInicio = fechaRef;
