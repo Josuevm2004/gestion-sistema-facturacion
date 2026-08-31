@@ -84,7 +84,6 @@ public class PagoController {
                 cli.put("id", pago.getVenta().getCliente().getId());
                 cli.put("ruc", pago.getVenta().getCliente().getRuc());
                 cli.put("razonSocial", pago.getVenta().getCliente().getRazonSocial());
-                cli.put("regimenTributario", pago.getVenta().getCliente().getRegimenTributario() != null ? pago.getVenta().getCliente().getRegimenTributario().name() : "GENERAL");
                 venta.put("cliente", cli);
                 data.put("clienteRuc", pago.getVenta().getCliente().getRuc());
                 data.put("clienteRazonSocial", pago.getVenta().getCliente().getRazonSocial());
