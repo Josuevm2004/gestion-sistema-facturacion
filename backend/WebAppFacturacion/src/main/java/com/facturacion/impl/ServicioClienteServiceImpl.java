@@ -326,6 +326,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
     @Override
     @Transactional
     public void revisarVencimientos() {
+        asegurarServiciosParaVentasPagadas();
         realinearServiciosMensualesActivosAlDiaCobro();
 
         LocalDateTime now = LocalDateTime.now();
@@ -411,11 +412,74 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         }
     }
 
+    private void asegurarServiciosParaVentasPagadas() {
+        List<Venta> ventasPagadas = ventaRepository.findAll().stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+                .filter(v -> v.getCliente() != null && Boolean.TRUE.equals(v.getCliente().getActivo()))
+                .sorted(java.util.Comparator.comparing(Venta::getFechaVenta, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .toList();
+
+        LocalDateTime ahora = LocalDateTime.now();
+
+        for (Venta venta : ventasPagadas) {
+            Optional<ServicioCliente> servicioOpt = servicioClienteRepository.findByVentaId(venta.getId());
+            if (servicioOpt.isEmpty()) {
+                LocalDateTime fechaInicio;
+                LocalDateTime fechaFin;
+
+                String obs = venta.getObservaciones() != null ? venta.getObservaciones() : "";
+                java.util.regex.Matcher m = java.util.regex.Pattern.compile("(\\d{2}/\\d{2}/\\d{4})\\s+al\\s+(\\d{2}/\\d{2}/\\d{4})").matcher(obs);
+                if (m.find()) {
+                    String[] p1 = m.group(1).split("/");
+                    String[] p2 = m.group(2).split("/");
+                    fechaInicio = LocalDateTime.of(Integer.parseInt(p1[2]), Integer.parseInt(p1[1]), Integer.parseInt(p1[0]), 0, 0);
+                    fechaFin = LocalDateTime.of(Integer.parseInt(p2[2]), Integer.parseInt(p2[1]), Integer.parseInt(p2[0]), 0, 0);
+                } else {
+                    ServicioCliente servicioPrevio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(venta.getCliente().getId()).orElse(null);
+                    if (servicioPrevio != null && servicioPrevio.getFechaFin() != null) {
+                        fechaInicio = servicioPrevio.getFechaFin();
+                    } else if (venta.getFechaVenta() != null) {
+                        fechaInicio = venta.getFechaVenta();
+                    } else {
+                        fechaInicio = ahora;
+                    }
+                    TipoSuscripcion tipoSub = venta.getSuscripcion() != null ? venta.getSuscripcion().getTipoSuscripcion() : TipoSuscripcion.MENSUAL;
+                    if (tipoSub == TipoSuscripcion.ANUAL) {
+                        fechaFin = fechaInicio.plusYears(1);
+                    } else {
+                        fechaFin = fechaInicio.plusMonths(1);
+                    }
+                }
+
+                ServicioCliente nuevoServicio = new ServicioCliente();
+                nuevoServicio.setCliente(venta.getCliente());
+                nuevoServicio.setVenta(venta);
+                nuevoServicio.setFechaInicio(fechaInicio);
+                nuevoServicio.setFechaFin(fechaFin);
+                nuevoServicio.setFechaCapacitacion(fechaInicio);
+                nuevoServicio.setEstado(EstadoServicio.ACTIVO);
+                nuevoServicio.setMontoProrrateo(venta.getMontoTotal() != null ? venta.getMontoTotal() : BigDecimal.ZERO);
+                nuevoServicio.setDiasProrrateados(30);
+                nuevoServicio.setObservaciones("Servicio regularizado para venta " + venta.getTipoVenta());
+                nuevoServicio.setFechaCreacion(venta.getFechaVenta() != null ? venta.getFechaVenta() : ahora);
+                nuevoServicio.setFechaActualizacion(ahora);
+                servicioClienteRepository.save(nuevoServicio);
+            }
+        }
+    }
+
     private void realinearServiciosMensualesActivosAlDiaCobro() {
         List<ServicioCliente> serviciosActivos = servicioClienteRepository.findByEstado(EstadoServicio.ACTIVO);
         LocalDateTime ahora = LocalDateTime.now();
 
         for (ServicioCliente servicio : serviciosActivos) {
+            if (servicio.getObservaciones() != null && servicio.getObservaciones().toLowerCase().contains("adelanto")) {
+                continue;
+            }
+            if (servicio.getVenta() != null && servicio.getVenta().getObservaciones() != null && servicio.getVenta().getObservaciones().toLowerCase().contains("adelanto")) {
+                continue;
+            }
+
             Venta ventaServicio = resolverVentaVigente(servicio);
             if (servicio.getFechaInicio() == null
                     || ventaServicio == null

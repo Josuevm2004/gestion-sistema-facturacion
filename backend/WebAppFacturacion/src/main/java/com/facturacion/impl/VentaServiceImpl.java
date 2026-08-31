@@ -282,14 +282,8 @@ public class VentaServiceImpl implements VentaService {
 
         registrarPagoSiNoExiste(cliente, ventaAdelanto, TipoVenta.RENOVACION, montoTotal, fechaRef);
 
-        // Extender o crear el servicio activo con la nueva fechaFin
-        if (servicioActual != null && servicioActual.getEstado() == EstadoServicio.ACTIVO) {
-            servicioActual.setFechaFin(fechaFin);
-            servicioActual.setFechaActualizacion(fechaRef);
-            servicioClienteRepository.save(servicioActual);
-        } else {
-            activarServicio(cliente, ventaAdelanto, fechaInicio, fechaFin, montoTotal, diasProrrateados, fechaRef);
-        }
+        // Activar el nuevo ciclo de servicio activo para la venta de adelanto
+        activarServicio(cliente, ventaAdelanto, fechaInicio, fechaFin, montoTotal, diasProrrateados, fechaRef);
 
         crearSiguienteRenovacionPendiente(ventaAdelanto, fechaFin);
         habilitarCliente(cliente, vendedor, TipoVenta.RENOVACION, montoTotal, fechaRef);
