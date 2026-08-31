@@ -55,6 +55,13 @@ public class VentaController {
         return ResponseEntity.ok(ApiResponse.success("Historial de ventas del cliente obtenido", data));
     }
 
+    @GetMapping({"", "/"})
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarTodasVentas() {
+        List<Venta> ventas = ventaService.listarTodasVentas();
+        List<Map<String, Object>> data = ventas.stream().map(this::mapVentaResumen).toList();
+        return ResponseEntity.ok(ApiResponse.success("Listado general de ventas obtenido", data));
+    }
+
     private Map<String, Object> mapVentaResumen(Venta venta) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", venta.getId());

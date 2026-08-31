@@ -766,4 +766,10 @@ public class VentaServiceImpl implements VentaService {
     public List<Venta> listarVentasPorCliente(Long clienteId) {
         return ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Venta> listarTodasVentas() {
+        return ventaRepository.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "fechaVenta"));
+    }
 }

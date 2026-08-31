@@ -9,4 +9,5 @@ public interface VentaService {
     Venta procesarOperacion(ProcesarOperacionVentaRequest request);
     Venta procesarAdelantoPago(ProcesarOperacionVentaRequest request);
     List<Venta> listarVentasPorCliente(Long clienteId);
+    List<Venta> listarTodasVentas();
 }

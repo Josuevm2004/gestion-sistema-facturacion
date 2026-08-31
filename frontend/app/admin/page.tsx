@@ -190,6 +190,7 @@ export default function AdminPage() {
               <ReportesExcelTab
                 clients={adminData.clients}
                 payments={adminData.payments}
+                ventas={adminData.ventas}
                 uniqueSellers={adminData.uniqueSellers}
                 search={adminData.search}
                 setSearch={adminData.setSearch}

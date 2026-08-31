@@ -90,6 +90,7 @@ export function useAdminData() {
   // Estados de datos
   const [clients, setClients] = useState<Client[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
+  const [ventas, setVentas] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<UserAccount[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
@@ -257,9 +258,10 @@ export function useAdminData() {
         }
       }
 
-      const [clientResult, payResult, userResult, notifResult, subscriptionResult, entornoResult] = await Promise.allSettled([
+      const [clientResult, payResult, ventaResult, userResult, notifResult, subscriptionResult, entornoResult] = await Promise.allSettled([
         getClientsWithRetry(),
         clientApi.get('/admin/pagos'),
+        clientApi.get('/admin/ventas'),
         clientApi.get('/admin/usuarios'),
         clientApi.get('/admin/notificaciones'),
         clientApi.get('/admin/planes/suscripciones'),
@@ -275,6 +277,7 @@ export function useAdminData() {
       normalizeAndSetClients(rawClients);
 
       if (payResult.status === 'fulfilled') setPayments(extractArray(payResult.value.data));
+      if (ventaResult.status === 'fulfilled') setVentas(extractArray(ventaResult.value.data));
       if (userResult.status === 'fulfilled') {
         setUsersList(extractArray(userResult.value.data).filter((u) => !deletedUserIdsRef.current.has(String(u?.id))));
       }
@@ -1440,6 +1443,7 @@ export function useAdminData() {
     handleLogout,
     clients: effectiveClients,
     payments,
+    ventas,
     notifications,
     usersList,
     subscriptions,
