@@ -19,18 +19,25 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Autowired
     private NotificacionRepository notificacionRepository;
 
+    @Autowired
+    private ServicioClienteService servicioClienteService;
+
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<NotificacionResponse> listarNotificaciones() {
-        List<Notificacion> list = notificacionRepository.findTop20ByOrderByFechaCreacionDesc();
+        try {
+            servicioClienteService.revisarVencimientos();
+        } catch (Exception ignored) {
+        }
+        List<Notificacion> list = notificacionRepository.findTop50ByOrderByFechaCreacionDesc();
         List<NotificacionResponse> res = new ArrayList<>();
         for (Notificacion n : list) {
             NotificacionResponse dto = new NotificacionResponse();
             dto.setId(n.getId());
-            dto.setTipo(n.getTipo().name());
+            dto.setTipo(n.getTipo() != null ? n.getTipo().name() : "OTRA");
             dto.setTitulo(n.getTitulo());
             dto.setMensaje(n.getMensaje());
-            dto.setLeida(n.getLeida());
+            dto.setLeida(Boolean.TRUE.equals(n.getLeida()));
             dto.setFechaCreacion(n.getFechaCreacion());
             if (n.getCliente() != null) {
                 dto.setClienteId(n.getCliente().getId());

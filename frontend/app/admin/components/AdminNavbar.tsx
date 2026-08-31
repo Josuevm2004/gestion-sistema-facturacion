@@ -41,43 +41,6 @@ interface AdminNavbarProps {
   handleMarkAllNotificationsAsRead?: () => void;
 }
 
-const STORAGE_DISMISSED_KEY = 'miquipu_dismissed_alerts_v1';
-
-function getTodayString(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function loadDismissedAlertsFromStorage(): Set<string> {
-  if (typeof window === 'undefined') return new Set();
-  try {
-    const raw = localStorage.getItem(STORAGE_DISMISSED_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw);
-    if (parsed && parsed.date === getTodayString() && Array.isArray(parsed.ids)) {
-      return new Set(parsed.ids.map(String));
-    }
-  } catch {
-    // Ignore storage parse error
-  }
-  return new Set();
-}
-
-function saveDismissedAlertsToStorage(ids: Set<string>) {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(
-      STORAGE_DISMISSED_KEY,
-      JSON.stringify({
-        date: getTodayString(),
-        ids: Array.from(ids),
-      })
-    );
-  } catch {
-    // Ignore storage quota error
-  }
-}
-
 export default function AdminNavbar({
   activeTab,
   setActiveTab,
@@ -97,55 +60,12 @@ export default function AdminNavbar({
   handleMarkNotificationAsRead,
   handleMarkAllNotificationsAsRead,
 }: AdminNavbarProps) {
-  const [dismissedNearDueAlerts, setDismissedNearDueAlerts] = React.useState<Set<string>>(() =>
-    loadDismissedAlertsFromStorage()
-  );
-
-  const updateDismissedAlerts = React.useCallback((updater: (prev: Set<string>) => Set<string>) => {
-    setDismissedNearDueAlerts((prev: Set<string>) => {
-      const next = updater(prev);
-      saveDismissedAlertsToStorage(next);
-      return next;
-    });
-  }, []);
-
+  // Las alertas activas provienen directamente de la tabla notificacion de la base de datos (leida = false)
   const activeNotifications = React.useMemo(() => {
-    const seen = new Set<string>();
-    return notifications.filter((n: any) => {
-      if (!n || n.leida) return false;
-      const key = `${n.clienteId || n.clienteRuc || n.clienteRazonSocial || n.id}-${n.tipo}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    return (Array.isArray(notifications) ? notifications : []).filter((n: any) => n && !n.leida);
   }, [notifications]);
 
-  const clientIdsInNotifications = React.useMemo(() => {
-    const ids = new Set<string>();
-    activeNotifications.forEach((n: any) => {
-      if (n.clienteId) ids.add(String(n.clienteId));
-      if (n.clienteRuc) ids.add(String(n.clienteRuc));
-    });
-    return ids;
-  }, [activeNotifications]);
-
-  const uniqueNearDueClients = React.useMemo(() => {
-    const seen = new Set<string>();
-    return clientesPorVencer1DiaList.filter((c) => {
-      if (!c) return false;
-      const key = String(c.id || c.ruc || c.razonSocial);
-      if (dismissedNearDueAlerts.has(key)) return false;
-      if (c.id && dismissedNearDueAlerts.has(String(c.id))) return false;
-      if (c.ruc && dismissedNearDueAlerts.has(String(c.ruc))) return false;
-      if (c.id && clientIdsInNotifications.has(String(c.id))) return false;
-      if (c.ruc && clientIdsInNotifications.has(String(c.ruc))) return false;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }, [clientesPorVencer1DiaList, dismissedNearDueAlerts, clientIdsInNotifications]);
-
-  const alertCount = activeNotifications.length + uniqueNearDueClients.length;
+  const alertCount = activeNotifications.length;
 
   const navItems = [
     { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={15} /> },
@@ -263,15 +183,6 @@ export default function AdminNavbar({
                               style={{ fontSize: '0.74rem' }}
                               onClick={() => {
                                 handleMarkAllNotificationsAsRead?.();
-                                updateDismissedAlerts((prev) => {
-                                  const next = new Set(prev);
-                                  uniqueNearDueClients.forEach((c) => {
-                                    next.add(String(c.id || c.ruc || c.razonSocial));
-                                    if (c.id) next.add(String(c.id));
-                                    if (c.ruc) next.add(String(c.ruc));
-                                  });
-                                  return next;
-                                });
                               }}
                               title="Marcar todas las alertas como leídas"
                             >
@@ -290,7 +201,7 @@ export default function AdminNavbar({
                         </div>
                       ) : (
                         <div className="d-flex flex-column gap-2">
-                          {activeNotifications.map((n) => (
+                          {activeNotifications.map((n: any) => (
                             <div
                               key={`notif-${n.id}`}
                               className="p-3 border rounded bg-light text-start shadow-sm"
@@ -298,14 +209,6 @@ export default function AdminNavbar({
                               onClick={() => {
                                 if (n.id && handleMarkNotificationAsRead) {
                                   handleMarkNotificationAsRead(n.id);
-                                }
-                                if (n.clienteId || n.clienteRuc) {
-                                  updateDismissedAlerts((prev) => {
-                                    const next = new Set(prev);
-                                    if (n.clienteId) next.add(String(n.clienteId));
-                                    if (n.clienteRuc) next.add(String(n.clienteRuc));
-                                    return next;
-                                  });
                                 }
                                 if (n.clienteRazonSocial) {
                                   setCalendarSearch(n.clienteRazonSocial);
@@ -323,39 +226,6 @@ export default function AdminNavbar({
                                 </span>
                               </div>
                               <div className="small text-muted">{n.mensaje}</div>
-                            </div>
-                          ))}
-                          {uniqueNearDueClients.map((c) => (
-                            <div
-                              key={`alert-near-${c.id}`}
-                              className="p-3 border rounded bg-light text-start shadow-sm"
-                              style={{ cursor: 'pointer' }}
-                              onClick={() => {
-                                const key = String(c.id || c.ruc || c.razonSocial);
-                                updateDismissedAlerts((prev) => {
-                                  const next = new Set(prev);
-                                  next.add(key);
-                                  if (c.id) next.add(String(c.id));
-                                  if (c.ruc) next.add(String(c.ruc));
-                                  return next;
-                                });
-                                setCalendarSearch(c.ruc);
-                                setActiveTab('calendario');
-                                setShowNotificationsDropdown(false);
-                              }}
-                            >
-                              <div className="d-flex justify-content-between align-items-center mb-1">
-                                <strong className="text-dark text-truncate me-2" style={{ maxWidth: '200px' }}>
-                                  {c.razonSocial}
-                                </strong>
-                                <span className="badge bg-warning text-dark flex-shrink-0" style={{ fontSize: '0.65rem' }}>
-                                  POR VENCER
-                                </span>
-                              </div>
-                              <div className="d-flex justify-content-between align-items-center small text-muted">
-                                <span>RUC: {c.ruc} | {c.planContratado}</span>
-                                <span className="fw-bold text-primary">S/ {Number(c.montoMensual || 0).toFixed(2)}</span>
-                              </div>
                             </div>
                           ))}
                         </div>

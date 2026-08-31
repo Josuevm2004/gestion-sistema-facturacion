@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @Repository
 public interface NotificacionRepository extends JpaRepository<Notificacion, Long> {
     List<Notificacion> findByUsuarioAdminIdOrderByFechaCreacionDesc(Long usuarioAdminId);
+    List<Notificacion> findTop50ByOrderByFechaCreacionDesc();
     List<Notificacion> findTop20ByOrderByFechaCreacionDesc();
     boolean existsByClienteIdAndTipoAndLeidaFalse(Long clienteId, TipoNotificacion tipo);
     boolean existsByClienteIdAndTipoAndFechaCreacionBetween(
