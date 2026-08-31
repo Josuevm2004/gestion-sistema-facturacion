@@ -213,8 +213,12 @@ public class VentaServiceImpl implements VentaService {
                 suscripcion = resolverSuscripcion(request);
             } catch (Exception ignored) {}
         }
-        if (suscripcion == null && ventaAnterior != null && ventaAnterior.getSuscripcion() != null) {
-            suscripcion = ventaAnterior.getSuscripcion();
+        if (suscripcion == null) {
+            suscripcion = ventasCliente.stream()
+                    .filter(v -> v.getSuscripcion() != null)
+                    .map(Venta::getSuscripcion)
+                    .findFirst()
+                    .orElse(null);
         }
         if (suscripcion == null && servicioActual != null && servicioActual.getVenta() != null && servicioActual.getVenta().getSuscripcion() != null) {
             suscripcion = servicioActual.getVenta().getSuscripcion();

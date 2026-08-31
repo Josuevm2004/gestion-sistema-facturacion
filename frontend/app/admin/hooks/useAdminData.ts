@@ -12,6 +12,22 @@ function extractArray(resData: any): any[] {
   return [];
 }
 
+function resolverPlanIdDesdeNombre(planNombre?: string): number {
+  if (!planNombre) return 1;
+  const norm = planNombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/^PLAN\s+/, '')
+    .trim();
+  if (norm === 'EMPRENDE') return 2;
+  if (norm === 'IMPULSA') return 3;
+  if (norm === 'EMPRESARIAL') return 4;
+  if (norm === 'LIDER') return 5;
+  if (norm === 'INICIAL' || norm === 'INICIA') return 1;
+  return 1;
+}
+
 function normalizeClientData(c: any): Client {
   return {
     // Cockroach unique_rowid() supera el limite seguro de Number en JS.
@@ -34,9 +50,10 @@ function normalizeClientData(c: any): Client {
     distrito: c.distrito || '',
     regimenTributario: c.regimenTributario || 'GENERAL',
     planContratado: c.planNombre || c.planContratado || '',
+    planId: c.planId !== undefined && c.planId !== null ? String(c.planId) : String(resolverPlanIdDesdeNombre(c.planNombre || c.planContratado)),
     tipoSuscripcion: c.tipoSuscripcion || '',
     montoMensual: c.precioPlan !== undefined && c.precioPlan !== null ? c.precioPlan : (c.montoMensual ?? 0),
-    montoSiguienteCobro: c.montoSiguienteCobro,
+    montoSiguienteCobro: c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null ? Number(c.montoSiguienteCobro) : undefined,
     ventaId: c.ventaId !== undefined && c.ventaId !== null ? String(c.ventaId) : undefined,
     diasProrrateados: c.diasProrrateados,
     tipoProrrateo: c.tipoProrrateo || 'NINGUNO',
@@ -852,7 +869,7 @@ export function useAdminData() {
     processingOperationsRef.current.add(processingKey);
 
     const tipoSub = (client.tipoSuscripcion || 'MENSUAL').toUpperCase();
-    const planIdNum = Number(client.planId || 1);
+    const planIdNum = client.planId ? Number(client.planId) : resolverPlanIdDesdeNombre(client.planContratado);
 
     try {
       await adminApi(token).post(`/admin/ventas/adelanto-pago`, {
