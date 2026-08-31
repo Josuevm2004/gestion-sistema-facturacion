@@ -5,6 +5,7 @@ import com.facturacion.exception.ResourceNotFoundException;
 import com.facturacion.repository.NotificacionRepository;
 import com.facturacion.response.NotificacionResponse;
 import com.facturacion.service.NotificacionService;
+import com.facturacion.service.ServicioClienteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
