@@ -1263,20 +1263,18 @@ export function useAdminData() {
   async function handleMarkAllNotificationsAsRead() {
     if (!token) return;
 
-    // Recopilar todos los IDs no leídos antes de hacer nada
-    let unreadIds: string[] = [];
-    setNotifications((prev) => {
-      unreadIds = prev.filter((n) => !n.leida).map((n) => String(n.id));
-      return prev.map((n) => ({ ...n, leida: true }));
-    });
+    // 1. Obtener de forma sincrónica los IDs no leídos desde el estado actual
+    const unreadIds = notifications.filter((n) => !n.leida).map((n) => String(n.id));
 
-    // Registrar todos en el ref para que loadData no los revierta
-    // mientras la BD está procesando el PUT
+    // 2. Registrar de inmediato en el ref para proteger contra el polling de loadData
     unreadIds.forEach((id) => readNotificationIdsRef.current.add(id));
+
+    // 3. Actualización optimista del estado local
+    setNotifications((prev) => prev.map((n) => ({ ...n, leida: true })));
 
     try {
       await adminApi(token).put(`/admin/notificaciones/marcar-todas-leidas`);
-      // Servidor confirmó: limpiar el ref (la BD ya persistió leida=true)
+      // Servidor confirmó: ya persistido en BD, podemos liberar los IDs del ref
       unreadIds.forEach((id) => readNotificationIdsRef.current.delete(id));
     } catch (err) {
       // Fallo: revertir optimismo y limpiar ref

@@ -23,7 +23,7 @@ public interface NotificacionRepository extends JpaRepository<Notificacion, Long
             LocalDateTime fin);
     void deleteByClienteId(Long clienteId);
 
-    @Modifying
-    @Query("UPDATE Notificacion n SET n.leida = true, n.fechaLectura = :now WHERE n.leida = false")
+    @Modifying(clearAutomatically = true)
+    @Query("UPDATE Notificacion n SET n.leida = true, n.fechaLectura = :now WHERE n.leida = false OR n.leida IS NULL")
     int marcarTodasComoLeidas(@Param("now") LocalDateTime now);
 }
