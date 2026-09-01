@@ -7,6 +7,7 @@ import com.facturacion.enums.TipoProrrateo;
 import com.facturacion.enums.TipoSuscripcion;
 import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
+import com.facturacion.exception.VentaInvalidaException;
 import com.facturacion.repository.*;
 import com.facturacion.request.ClienteUpdateRequest;
 import com.facturacion.request.RegistroFormularioRequest;
@@ -30,6 +31,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class ClienteServiceImpl implements ClienteService {
@@ -80,9 +82,23 @@ public class ClienteServiceImpl implements ClienteService {
                     return estadoClienteRepository.save(nuevo);
                 });
 
-        // 2. Crear Cliente
-        Cliente cliente = new Cliente();
-        cliente.setRuc(request.getRuc());
+        // 2. Comprobar si el RUC ya existe para evitar errores 500 de clave duplicada
+        Optional<Cliente> clienteExistenteOpt = clienteRepository.findByRuc(request.getRuc());
+        Cliente cliente;
+        if (clienteExistenteOpt.isPresent()) {
+            Cliente existente = clienteExistenteOpt.get();
+            if (!Boolean.TRUE.equals(existente.getActivo())) {
+                // Reactivar cliente previo eliminado
+                cliente = existente;
+                cliente.setActivo(true);
+            } else {
+                throw new VentaInvalidaException("El RUC " + request.getRuc() + " ya se encuentra registrado en el sistema.");
+            }
+        } else {
+            cliente = new Cliente();
+            cliente.setRuc(request.getRuc());
+        }
+
         cliente.setUsuarioSol(request.getUsuarioSol() != null ? request.getUsuarioSol() : "SIN_USUARIO");
         cliente.setClaveSolCifrada(request.getClaveSol() != null ? request.getClaveSol() : "SIN_CLAVE");
         cliente.setRazonSocial(request.getRazonSocial());
@@ -591,11 +607,11 @@ public class ClienteServiceImpl implements ClienteService {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
-        // Se elimina en orden explícito para que también funcione con bases
-        // antiguas cuyas claves foráneas todavía no tienen CASCADE.
+        // Se elimina en orden explícito para evitar bloqueos por claves foráneas
         notificacionRepository.deleteByClienteId(clienteId);
         historialEstadoClienteRepository.deleteByClienteId(clienteId);
         encuestaInicialRepository.deleteByClienteId(clienteId);
+        servicioClienteRepository.deleteAll(servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId));
 
         List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
         for (Venta venta : ventas) {
@@ -606,7 +622,6 @@ public class ClienteServiceImpl implements ClienteService {
             pagoRepository.deleteAll(pagoRepository.findByVentaId(venta.getId()));
         }
 
-        servicioClienteRepository.deleteAll(servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId));
         ventaRepository.deleteAll(ventas);
         clienteRepository.delete(cliente);
     }

@@ -19,6 +19,8 @@ public interface ClienteRepository extends JpaRepository<Cliente, Long> {
     @EntityGraph(attributePaths = {"estado", "colorTag", "entorno"})
     Optional<Cliente> findByRucAndActivoTrue(String ruc);
 
+    Optional<Cliente> findByRuc(String ruc);
+
     @EntityGraph(attributePaths = {"estado", "colorTag", "entorno"})
     List<Cliente> findByEstadoNombreAndActivoTrue(String estadoNombre);
 }
