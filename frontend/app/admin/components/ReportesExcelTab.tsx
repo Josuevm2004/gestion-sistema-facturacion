@@ -351,8 +351,18 @@ export default function ReportesExcelTab({
       monthKeys.forEach((key) => monthlySums.set(key, 0));
       const annualSpans: Array<{ startKey: string; amount: number; monthsCovered: number }> = [];
 
-      const operaciones = (operacionesByClient.get(idKey(c.id)) || []).filter(isPaidOperation);
-      operaciones.forEach((op) => {
+      // Consolidar pagos y operaciones confirmadas de forma única por ID de transacción
+      const seenTransactionKeys = new Set<string>();
+      const rawOps = operacionesByClient.get(idKey(c.id)) || [];
+      const rawClPayments = paymentsByClient.get(idKey(c.id)) || [];
+
+      // 1. Procesar operaciones de ventas pagadas
+      rawOps.filter(isPaidOperation).forEach((op) => {
+        const ventaId = idKey(op?.ventaId ?? op?.id);
+        const uniqueKey = `venta-${ventaId || op?.fechaOperacion || op?.fechaPago}-${op?.montoTotal || op?.montoPagado}`;
+        if (seenTransactionKeys.has(uniqueKey)) return;
+        seenTransactionKeys.add(uniqueKey);
+
         const rawDate = operationMonthSource(op, c);
         const key = monthKeyFromDate(rawDate);
         if (key) {
@@ -365,43 +375,55 @@ export default function ReportesExcelTab({
         }
       });
 
+      // 2. Procesar pagos de caja que no hayan sido cubiertos por las operaciones
+      rawClPayments.forEach((p) => {
+        const ventaId = paymentVentaId(p);
+        const pagoId = idKey(p?.id ?? p?.pagoId);
+        const uniqueKey = pagoId ? `pago-${pagoId}` : `venta-${ventaId}`;
+        if (seenTransactionKeys.has(uniqueKey) || (ventaId && seenTransactionKeys.has(`venta-${ventaId}`))) return;
+        seenTransactionKeys.add(uniqueKey);
+
+        const key = paymentMonthKey(p);
+        if (!key) return;
+        const montoPago = paymentAmount(p);
+        monthlySums.set(key, (monthlySums.get(key) || 0) + montoPago);
+      });
+
       // Una mejora anual actualiza el monto del tramo anual vigente,
       // conservando las mismas fechas y sus doce meses de cobertura.
-      operaciones
+      rawOps
+        .filter(isPaidOperation)
         .filter((op) => isAnnualUpgradeOperation(op, c))
-        .sort((a, b) => {
+        .sort((a: any, b: any) => {
           const aKey = monthKeyFromDate(a?.fechaPago || a?.fechaOperacion) || '';
           const bKey = monthKeyFromDate(b?.fechaPago || b?.fechaOperacion) || '';
           return monthIndexFromKey(aKey) - monthIndexFromKey(bKey);
         })
-        .forEach((op) => {
+        .forEach((op: any) => {
           const upgradeKey = monthKeyFromDate(op?.fechaPago || op?.fechaOperacion);
           const updatedPlanAmount = Number(op?.precioPlan ?? c.montoMensual ?? 0);
           if (!upgradeKey || updatedPlanAmount <= 0) return;
 
           const upgradeIndex = monthIndexFromKey(upgradeKey);
           const activeSpan = annualSpans
-            .filter((span) => {
+            .filter((span: { startKey: string; amount: number; monthsCovered: number }) => {
               const startIndex = monthIndexFromKey(span.startKey);
               return upgradeIndex >= startIndex && upgradeIndex < startIndex + span.monthsCovered;
             })
-            .sort((a, b) => monthIndexFromKey(b.startKey) - monthIndexFromKey(a.startKey))[0];
+            .sort((a: { startKey: string }, b: { startKey: string }) => monthIndexFromKey(b.startKey) - monthIndexFromKey(a.startKey))[0];
 
           if (activeSpan) activeSpan.amount = updatedPlanAmount;
         });
-      let fallbackPaymentsTotal = 0;
-      (paymentsByClient.get(idKey(c.id)) || []).forEach((p) => {
-        if (!shouldUsePaymentFallback(p, c, operaciones)) return;
-        const key = paymentMonthKey(p);
-        if (!key) return;
-        const montoPago = paymentAmount(p);
-        monthlySums.set(key, (monthlySums.get(key) || 0) + montoPago);
-        fallbackPaymentsTotal += montoPago;
-      });
-      annualSpans.sort((a, b) => monthIndexFromKey(a.startKey) - monthIndexFromKey(b.startKey));
 
-      const totalOperaciones = operaciones.reduce((acc, op) => acc + excelOperationAmount(op, c), 0);
-      const totalCobros = totalOperaciones + fallbackPaymentsTotal;
+      annualSpans.sort((a: { startKey: string }, b: { startKey: string }) => monthIndexFromKey(a.startKey) - monthIndexFromKey(b.startKey));
+
+      let totalCobros = 0;
+      monthlySums.forEach((val: number) => {
+        totalCobros += val;
+      });
+      annualSpans.forEach((span: { amount: number }) => {
+        totalCobros += span.amount;
+      });
 
       const formatExcelDate = (val?: string) => {
         if (!val) return '';
@@ -460,10 +482,6 @@ export default function ReportesExcelTab({
         )
         .join('');
 
-      const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-      const pendingMonthKey = !isAnual ? monthKeyFromDate(c.fechaVencimientoMensual) : null;
-      const pendingExpectedAmount = Number(c.montoSiguienteCobro || c.montoMensual || 0);
-
       const monthCellsXml: string[] = [];
       for (let i = 0; i < monthKeys.length; i += 1) {
         const key = monthKeys[i];
@@ -480,16 +498,6 @@ export default function ReportesExcelTab({
           if (amount > 0) {
             monthCellsXml.push(
               `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
-            );
-          } else if (
-            !isAnual &&
-            key === pendingMonthKey &&
-            pendingExpectedAmount > 0 &&
-            (c.estadoCuenta || '').toUpperCase() !== 'BLOQUEADO'
-          ) {
-            // Siguiente mes pendiente en color rojo con el monto que supuestamente deberían pagar
-            monthCellsXml.push(
-              `<Cell ss:StyleID="PendingRedStyle"><Data ss:Type="Number">${pendingExpectedAmount.toFixed(2)}</Data></Cell>`
             );
           } else {
             monthCellsXml.push(
