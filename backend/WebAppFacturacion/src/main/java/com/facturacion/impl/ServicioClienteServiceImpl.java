@@ -479,6 +479,10 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             if (servicio.getVenta() != null && servicio.getVenta().getObservaciones() != null && servicio.getVenta().getObservaciones().toLowerCase().contains("adelanto")) {
                 continue;
             }
+            // Proteger servicios con ciclos adelantados o fechas futuras del recálculo automático del cron
+            if (servicio.getFechaFin() != null && servicio.getFechaFin().toLocalDate().isAfter(ahora.toLocalDate().plusMonths(1).withDayOfMonth(1))) {
+                continue;
+            }
 
             Venta ventaServicio = resolverVentaVigente(servicio);
             if (servicio.getFechaInicio() == null

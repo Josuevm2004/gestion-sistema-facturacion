@@ -263,6 +263,11 @@ public class VentaServiceImpl implements VentaService {
         // Cancelar ventas pendientes anteriores para evitar duplicados
         cancelarVentasPendientesCliente(cliente.getId(), null, fechaRef);
 
+        BigDecimal montoProrrateado = BigDecimal.ZERO;
+        if (montoTotal != null && precioLista != null && montoTotal.compareTo(precioLista) > 0) {
+            montoProrrateado = montoTotal.subtract(precioLista);
+        }
+
         Venta ventaAdelanto = new Venta();
         ventaAdelanto.setCliente(cliente);
         ventaAdelanto.setVendedor(vendedor);
@@ -270,7 +275,14 @@ public class VentaServiceImpl implements VentaService {
         ventaAdelanto.setTipoVenta(TipoVenta.RENOVACION);
         ventaAdelanto.setVentaAnterior(ventaAnterior);
         ventaAdelanto.setPrecioLista(precioLista);
-        ventaAdelanto.setMontoProrrateado(BigDecimal.ZERO);
+        ventaAdelanto.setMontoProrrateado(montoProrrateado);
+        if (ventaPendiente != null) {
+            ventaAdelanto.setTipoProrrateo(ventaPendiente.getTipoProrrateo());
+            ventaAdelanto.setMontoProrrateoAdicional(ventaPendiente.getMontoProrrateoAdicional());
+            ventaAdelanto.setDiasProrrateoAdicional(ventaPendiente.getDiasProrrateoAdicional());
+            ventaAdelanto.setFechaInicioProrrateoAdicional(ventaPendiente.getFechaInicioProrrateoAdicional());
+            ventaAdelanto.setFechaFinProrrateoAdicional(ventaPendiente.getFechaFinProrrateoAdicional());
+        }
         ventaAdelanto.setMontoTotal(montoTotal);
         ventaAdelanto.setEstadoVenta(EstadoVenta.PAGADA);
         ventaAdelanto.setObservaciones(request.getObservaciones() != null && !request.getObservaciones().isBlank()
@@ -623,6 +635,18 @@ public class VentaServiceImpl implements VentaService {
             BigDecimal montoTotal,
             int diasProrrateados,
             LocalDateTime fechaRef) {
+        // Marcar como vencido cualquier servicio activo previo del cliente para evitar duplicados en la BD
+        if (cliente != null && cliente.getId() != null) {
+            List<ServicioCliente> serviciosPrevios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+            for (ServicioCliente previo : serviciosPrevios) {
+                if (previo.getId() != null && previo.getEstado() == EstadoServicio.ACTIVO) {
+                    previo.setEstado(EstadoServicio.VENCIDO);
+                    previo.setFechaActualizacion(fechaRef);
+                    servicioClienteRepository.save(previo);
+                }
+            }
+        }
+
         ServicioCliente servicio = servicioClienteRepository.findByVentaId(venta.getId()).orElseGet(ServicioCliente::new);
         servicio.setCliente(cliente);
         servicio.setVenta(venta);
