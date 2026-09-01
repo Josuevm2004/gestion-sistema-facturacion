@@ -12,15 +12,15 @@ import java.util.Optional;
 
 @Repository
 public interface VentaRepository extends JpaRepository<Venta, Long> {
-    @EntityGraph(attributePaths = {"suscripcion", "suscripcion.plan", "vendedor", "cliente"})
+    @EntityGraph(attributePaths = {"suscripcion", "suscripcion.plan", "vendedor"})
     List<Venta> findByClienteIdOrderByFechaVentaDesc(Long clienteId);
 
-    @EntityGraph(attributePaths = {"suscripcion", "suscripcion.plan", "vendedor", "cliente"})
+    @EntityGraph(attributePaths = {"suscripcion", "suscripcion.plan", "vendedor"})
     List<Venta> findByClienteIdInOrderByFechaVentaDesc(List<Long> clienteIds);
 
     List<Venta> findByVentaAnteriorId(Long ventaAnteriorId);
 
-    @EntityGraph(attributePaths = {"suscripcion", "suscripcion.plan", "vendedor", "cliente"})
+    @EntityGraph(attributePaths = {"suscripcion", "suscripcion.plan", "vendedor"})
     Optional<Venta> findTopByClienteIdOrderByFechaVentaDesc(Long clienteId);
 
     Optional<Venta> findByVentaAnteriorIdAndTipoVenta(Long ventaAnteriorId, TipoVenta tipoVenta);
