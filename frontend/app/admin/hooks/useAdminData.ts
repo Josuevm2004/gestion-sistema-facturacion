@@ -231,24 +231,30 @@ export function useAdminData() {
         );
       };
 
-      const getClientsWithRetry = async () => {
-        let lastError: unknown;
-        for (let attempt = 0; attempt < 3; attempt += 1) {
-          try {
-            return await clientApi.get('/admin/clientes');
-          } catch (error) {
-            lastError = error;
-            if (attempt < 2) {
-              await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
-            }
-          }
-        }
-        throw lastError;
-      };
+      // 1. Carga prioritaria de clientes (renderizado instantáneo de la tabla principal)
+      const clientPromise = clientApi.get('/admin/clientes').then((res) => {
+        const rawClients = extractArray(res.data);
+        normalizeAndSetClients(rawClients);
+        return res;
+      });
 
-      // La revisión automática ya se ejecuta en el scheduler del backend
-      // (00:00 y 08:00 Lima). Solo se fuerza desde el botón de sincronización
-      // manual para no duplicar trabajo ni disparar una segunda carga completa.
+      // 2. Carga en paralelo de recursos secundarios sin bloquear la interfaz
+      const secondaryPromises = Promise.allSettled([
+        clientApi.get('/admin/pagos').then((res) => setPayments(extractArray(res.data))),
+        clientApi.get('/admin/usuarios').then((res) => {
+          setUsersList(extractArray(res.data).filter((u) => !deletedUserIdsRef.current.has(String(u?.id))));
+        }),
+        clientApi.get('/admin/notificaciones').then((res) => {
+          setNotifications(
+            extractArray(res.data).map((n) =>
+              readNotificationIdsRef.current.has(String(n?.id)) ? { ...n, leida: true } : n
+            )
+          );
+        }),
+        clientApi.get('/admin/planes/suscripciones').then((res) => setSubscriptions(extractArray(res.data))),
+        clientApi.get('/admin/entornos').then((res) => setEntornos(extractArray(res.data))),
+      ]);
+
       if (showSyncMsg) {
         try {
           await clientApi.post('/admin/servicios/revisar-vencimientos');
@@ -257,40 +263,8 @@ export function useAdminData() {
         }
       }
 
-      const [clientResult, payResult, userResult, notifResult, subscriptionResult, entornoResult] = await Promise.allSettled([
-        getClientsWithRetry(),
-        clientApi.get('/admin/pagos'),
-        clientApi.get('/admin/usuarios'),
-        clientApi.get('/admin/notificaciones'),
-        clientApi.get('/admin/planes/suscripciones'),
-        clientApi.get('/admin/entornos'),
-      ]);
-
-      if (clientResult.status === 'rejected') {
-        throw clientResult.reason;
-      }
-
-      const clientRes = clientResult.value;
-      const rawClients = extractArray(clientRes.data);
-      normalizeAndSetClients(rawClients);
-
-      if (payResult.status === 'fulfilled') setPayments(extractArray(payResult.value.data));
-      if (userResult.status === 'fulfilled') {
-        setUsersList(extractArray(userResult.value.data).filter((u) => !deletedUserIdsRef.current.has(String(u?.id))));
-      }
-      if (notifResult.status === 'fulfilled') {
-        setNotifications(
-          extractArray(notifResult.value.data).map((n) =>
-            readNotificationIdsRef.current.has(String(n?.id)) ? { ...n, leida: true } : n
-          )
-        );
-      }
-      if (subscriptionResult.status === 'fulfilled') {
-        setSubscriptions(extractArray(subscriptionResult.value.data));
-      }
-      if (entornoResult.status === 'fulfilled') {
-        setEntornos(extractArray(entornoResult.value.data));
-      }
+      await clientPromise;
+      void secondaryPromises;
       recoveryAttemptsRef.current = 0;
 
       if (showSyncMsg) {
