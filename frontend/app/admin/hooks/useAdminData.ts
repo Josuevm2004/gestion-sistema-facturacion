@@ -155,16 +155,16 @@ export function useAdminData() {
       }
       loadData(savedToken);
 
-      // Auto-sincronización periódica en segundo plano cada 45 segundos (evita saturar el servidor)
+      // Auto-sincronización periódica rápida y ligera cada 8 segundos (detecta nuevos registros automáticamente)
       const intervalId = setInterval(() => {
         loadData(savedToken);
-      }, 45000);
+      }, 8000);
 
-      // Escuchar cuando el usuario vuelve a la pestaña del navegador (con protección para no solapar)
+      // Escuchar cuando el usuario vuelve a la pestaña del navegador para refrescar al instante
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
           const now = Date.now();
-          if (now - lastSyncTimeRef.current > 10000) {
+          if (now - lastSyncTimeRef.current > 3000) {
             loadData(savedToken);
           }
         }

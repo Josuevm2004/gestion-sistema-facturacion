@@ -59,12 +59,20 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         LocalDateTime fechaCap = request.getFechaCapacitacion() != null ? request.getFechaCapacitacion() : LocalDateTime.now();
         LocalDate fechaCapDate = fechaCap.toLocalDate();
 
-        if (servicio.getVenta() == null || servicio.getVenta().getPrecioLista() == null) {
-            throw new ResourceNotFoundException("La capacitación requiere una venta con precio registrada en la base de datos");
+        Venta ventaServicio = servicio.getVenta();
+        if (ventaServicio == null) {
+            ventaServicio = ventaRepository.findTopByClienteIdOrderByFechaVentaDesc(clienteId).orElse(null);
+            if (ventaServicio != null) {
+                servicio.setVenta(ventaServicio);
+            }
         }
-        BigDecimal precioBase = servicio.getVenta().getPrecioLista();
-        TipoSuscripcion tipoSub = (servicio.getVenta() != null && servicio.getVenta().getSuscripcion() != null)
-                ? servicio.getVenta().getSuscripcion().getTipoSuscripcion()
+
+        BigDecimal precioBase = (ventaServicio != null && ventaServicio.getPrecioLista() != null)
+                ? ventaServicio.getPrecioLista()
+                : (ventaServicio != null && ventaServicio.getMontoTotal() != null ? ventaServicio.getMontoTotal() : BigDecimal.valueOf(19));
+
+        TipoSuscripcion tipoSub = (ventaServicio != null && ventaServicio.getSuscripcion() != null && ventaServicio.getSuscripcion().getTipoSuscripcion() != null)
+                ? ventaServicio.getSuscripcion().getTipoSuscripcion()
                 : TipoSuscripcion.MENSUAL;
 
         BigDecimal montoProrrateado = precioBase;

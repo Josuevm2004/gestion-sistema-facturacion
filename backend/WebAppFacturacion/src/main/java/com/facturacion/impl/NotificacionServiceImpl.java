@@ -24,12 +24,8 @@ public class NotificacionServiceImpl implements NotificacionService {
     private ServicioClienteService servicioClienteService;
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<NotificacionResponse> listarNotificaciones() {
-        try {
-            servicioClienteService.revisarVencimientos();
-        } catch (Exception ignored) {
-        }
         List<Notificacion> list = notificacionRepository.findTop50ByOrderByFechaCreacionDesc();
         List<NotificacionResponse> res = new ArrayList<>();
         for (Notificacion n : list) {
