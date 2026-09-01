@@ -155,10 +155,10 @@ export function useAdminData() {
       }
       loadData(savedToken);
 
-      // Auto-sincronización periódica en segundo plano cada 15 segundos
+      // Auto-sincronización periódica en segundo plano cada 45 segundos (evita saturar el servidor)
       const intervalId = setInterval(() => {
         loadData(savedToken);
-      }, 15000);
+      }, 45000);
 
       // Escuchar cuando el usuario vuelve a la pestaña del navegador (con protección para no solapar)
       const handleVisibilityChange = () => {

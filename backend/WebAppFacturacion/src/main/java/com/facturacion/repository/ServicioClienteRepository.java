@@ -16,10 +16,12 @@ public interface ServicioClienteRepository extends JpaRepository<ServicioCliente
 
     Optional<ServicioCliente> findByVentaId(Long ventaId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cliente", "venta", "venta.suscripcion", "venta.suscripcion.plan"})
     Optional<ServicioCliente> findTopByClienteIdOrderByFechaFinDesc(Long clienteId);
 
     List<ServicioCliente> findByClienteIdOrderByFechaInicioDesc(Long clienteId);
 
+    @org.springframework.data.jpa.repository.EntityGraph(attributePaths = {"cliente", "venta", "venta.suscripcion", "venta.suscripcion.plan"})
     List<ServicioCliente> findByClienteIdInOrderByFechaFinDesc(List<Long> clienteIds);
 
     List<ServicioCliente> findByEstado(EstadoServicio estado);
