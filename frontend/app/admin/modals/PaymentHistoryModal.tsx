@@ -129,7 +129,18 @@ export default function PaymentHistoryModal({
                   <span className="text-muted">Monto Base del Plan:</span> <strong className="text-dark">S/ {Number(historyClient.montoMensual || 0).toFixed(2)}</strong>
                 </div>
                 <div className="col-md-6">
-                  <span className="text-muted">Estado de Cuenta:</span> <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 ms-1">{historyClient.estadoCuenta}</span>
+                  <span className="text-muted">Estado de Cuenta:</span>{' '}
+                  <span
+                    className={`badge ms-1 ${
+                      historyClient.estadoCuenta === 'HABILITADO' || historyClient.estadoCuenta === 'ACTIVO'
+                        ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
+                        : historyClient.estadoCuenta === 'VENCIDO'
+                        ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25'
+                        : 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25'
+                    }`}
+                  >
+                    {historyClient.estadoCuenta}
+                  </span>
                 </div>
                 <div className="col-md-6">
                   <span className="text-muted">Pagos confirmados:</span> <strong className="text-primary fs-6 ms-1">{transactions.length}</strong>
@@ -165,7 +176,12 @@ export default function PaymentHistoryModal({
                   ) : (
                     transactions.map((t, idx) => {
                       const tDate = parseLocalDate(t.fecha) || new Date();
-                      const mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
+                      // Si el pago se realizó a fin de mes (día >= 25), cubre el período del siguiente mes
+                      const isEndOfMonthAdvance = tDate.getDate() >= 25;
+                      const periodDate = isEndOfMonthAdvance
+                        ? new Date(tDate.getFullYear(), tDate.getMonth() + 1, 1)
+                        : tDate;
+                      const mesTexto = `${MESES[periodDate.getMonth()]} ${periodDate.getFullYear()}`;
 
                       return (
                         <tr key={t.id || idx}>
