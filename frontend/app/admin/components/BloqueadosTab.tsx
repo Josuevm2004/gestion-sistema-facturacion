@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, CheckCircle, Trash2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 
@@ -14,21 +14,56 @@ interface BloqueadosTabProps {
 
 export default function BloqueadosTab({
   clientesBloqueadosList,
-  handleEstadoCuentaChange,
+  handleEstadoCuentaChange: _handleEstadoCuentaChange,
   handleDevolverAcceso,
   setDeletingClient,
 }: BloqueadosTabProps) {
+  const [search, setSearch] = React.useState('');
+  const [suscripcionFilter, setSuscripcionFilter] = React.useState('');
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
-  const totalPages = Math.max(1, Math.ceil(clientesBloqueadosList.length / pageSize));
+
+  const filteredClients = React.useMemo(() => {
+    return clientesBloqueadosList.filter((c) => {
+      if (suscripcionFilter) {
+        const tipo = (c.tipoSuscripcion || 'MENSUAL').toUpperCase();
+        if (tipo !== suscripcionFilter.toUpperCase()) return false;
+      }
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        const match =
+          c.razonSocial?.toLowerCase().includes(q) ||
+          c.ruc?.toLowerCase().includes(q) ||
+          (c.dni || '').toLowerCase().includes(q) ||
+          (c.nombres || '').toLowerCase().includes(q) ||
+          (c.apellidos || '').toLowerCase().includes(q) ||
+          (c.telefono || '').toLowerCase().includes(q) ||
+          (c.telefonoPersonal || '').toLowerCase().includes(q) ||
+          (c.usuarioWsp || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q) ||
+          (c.planContratado || '').toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [clientesBloqueadosList, search, suscripcionFilter]);
+
+  const hasActiveFilters = Boolean(search.trim() || suscripcionFilter);
+
+  const resetFilters = () => {
+    setSearch('');
+    setSuscripcionFilter('');
+  };
+
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
   const visibleClients = React.useMemo(
-    () => clientesBloqueadosList.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [clientesBloqueadosList, currentPage]
+    () => filteredClients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredClients, currentPage]
   );
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [clientesBloqueadosList.length]);
+  }, [search, suscripcionFilter, filteredClients.length]);
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -36,7 +71,7 @@ export default function BloqueadosTab({
 
   return (
     <div className="custom-card p-4 shadow-sm">
-      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+      <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
         <div className="d-flex align-items-center gap-2">
           <div className="p-2 bg-secondary bg-opacity-10 text-secondary rounded-3">
             <ShieldCheck size={20} />
@@ -46,9 +81,51 @@ export default function BloqueadosTab({
             <small className="text-muted">Clientes desafiliados o con acceso restringido que pueden rehabilitarse</small>
           </div>
         </div>
-        <span className="badge bg-secondary text-white rounded-pill px-3 py-1.5 fw-bold">
-          {clientesBloqueadosList.length} Bloqueados
-        </span>
+        <div className="d-flex align-items-center gap-2">
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-semibold"
+            >
+              <RotateCcw size={13} />
+              <span>Limpiar Filtros</span>
+            </button>
+          )}
+          <span className="badge bg-secondary text-white rounded-pill px-3 py-1.5 fw-bold">
+            {hasActiveFilters ? `${filteredClients.length} de ${clientesBloqueadosList.length} Bloqueados` : `${clientesBloqueadosList.length} Bloqueados`}
+          </span>
+        </div>
+      </div>
+
+      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual */}
+      <div className="p-3 bg-light rounded-3 border mb-4">
+        <div className="row g-2 align-items-center">
+          <div className="col-12 col-md-8 col-lg-6">
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-white border-end-0 text-muted">
+                <Search size={14} />
+              </span>
+              <input
+                type="text"
+                className="form-control border-start-0"
+                placeholder="Buscar por RUC, Empresa, DNI, Teléfono, Plan..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="col-12 col-md-4 col-lg-3">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={suscripcionFilter}
+              onChange={(e) => setSuscripcionFilter(e.target.value)}
+            >
+              <option value="">Suscripción: Todas</option>
+              <option value="MENSUAL">Mensual</option>
+              <option value="ANUAL">Anual</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="table-responsive">
@@ -65,10 +142,12 @@ export default function BloqueadosTab({
             </tr>
           </thead>
           <tbody>
-            {clientesBloqueadosList.length === 0 ? (
+            {filteredClients.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
-                  No hay clientes en estado bloqueado.
+                  {hasActiveFilters
+                    ? 'No se encontraron clientes bloqueados con los filtros aplicados.'
+                    : 'No hay clientes en estado bloqueado.'}
                 </td>
               </tr>
             ) : (
@@ -88,7 +167,10 @@ export default function BloqueadosTab({
                     <span className="text-dark">{c.email || 'N/A'}</span>
                   </td>
                   <td>
-                    <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                    <div className="d-flex align-items-center gap-1">
+                      <span className="badge bg-light text-dark border fw-bold">{c.planContratado || 'Plan'}</span>
+                      <span className="badge bg-secondary text-white">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                    </div>
                   </td>
                   <td>
                     <span className="badge bg-secondary text-white">BLOQUEADO</span>
@@ -124,7 +206,7 @@ export default function BloqueadosTab({
       </div>
       <PaginationControls
         currentPage={currentPage}
-        totalItems={clientesBloqueadosList.length}
+        totalItems={filteredClients.length}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />

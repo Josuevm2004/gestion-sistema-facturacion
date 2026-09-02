@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus } from 'lucide-react';
+import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
@@ -34,13 +34,33 @@ export default function CentroControlTab({
 }: CentroControlTabProps) {
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
   const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
+  const [suscripcionFilter, setSuscripcionFilter] = React.useState<string>('');
+  const [avisadoFilter, setAvisadoFilter] = React.useState<string>('');
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
+
+  const totalActivos = React.useMemo(() => {
+    return clients.filter((c) => (c.estadoCuenta || '').toUpperCase() !== 'BLOQUEADO').length;
+  }, [clients]);
 
   const filteredClients = React.useMemo(() => {
     return clients
       .filter((c) => (c.estadoCuenta || '').toUpperCase() !== 'BLOQUEADO')
       .filter((c) => {
+        // Filtro de Suscripción (Mensual / Anual)
+        if (suscripcionFilter) {
+          const tipo = (c.tipoSuscripcion || 'MENSUAL').toUpperCase();
+          if (tipo !== suscripcionFilter.toUpperCase()) return false;
+        }
+
+        // Filtro de Avisados
+        if (avisadoFilter === 'AVISADO') {
+          if (!c.avisado) return false;
+        } else if (avisadoFilter === 'NO_AVISADO') {
+          if (c.avisado) return false;
+        }
+
+        // Buscador
         const searchStr = (calendarSearch || '').trim();
         if (!searchStr) return true;
         const q = searchStr.toLowerCase();
@@ -53,7 +73,8 @@ export default function CentroControlTab({
           (c.telefono || '').includes(q) ||
           (c.telefonoPersonal || '').includes(q) ||
           (c.usuarioWsp || '').toLowerCase().includes(q) ||
-          (c.email || '').toLowerCase().includes(q)
+          (c.email || '').toLowerCase().includes(q) ||
+          (c.planContratado || '').toLowerCase().includes(q)
         );
       })
       .map((c) => {
@@ -62,7 +83,16 @@ export default function CentroControlTab({
         return { ...c, _vencDate: vencDate, _diffDays: diffDays };
       })
       .sort((a, b) => a._diffDays - b._diffDays);
-  }, [clients, calendarSearch]);
+  }, [clients, calendarSearch, suscripcionFilter, avisadoFilter]);
+
+  const hasActiveFilters = Boolean((calendarSearch || '').trim() || suscripcionFilter || avisadoFilter);
+
+  const resetFilters = () => {
+    setCalendarSearch('');
+    setSuscripcionFilter('');
+    setAvisadoFilter('');
+  };
+
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
   const visibleClients = React.useMemo(
     () => filteredClients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
@@ -71,7 +101,7 @@ export default function CentroControlTab({
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [calendarSearch, filteredClients.length]);
+  }, [calendarSearch, suscripcionFilter, avisadoFilter, filteredClients.length]);
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -79,7 +109,7 @@ export default function CentroControlTab({
 
   return (
     <div className="custom-card p-4 shadow-sm">
-      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+      <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
         <div className="d-flex align-items-center gap-2">
           <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
             <Activity size={20} />
@@ -89,16 +119,60 @@ export default function CentroControlTab({
             <small className="text-muted">Monitoreo detallado de vencimientos y cálculo prorrateado</small>
           </div>
         </div>
-        <div className="input-group input-group-sm" style={{ maxWidth: '280px' }}>
-          <span className="input-group-text bg-light border-end-0">
-            <Search size={14} />
+        <div className="d-flex align-items-center gap-2">
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-semibold"
+            >
+              <RotateCcw size={13} />
+              <span>Limpiar Filtros</span>
+            </button>
+          )}
+          <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold">
+            {hasActiveFilters ? `${filteredClients.length} de ${totalActivos} Clientes` : `${totalActivos} Clientes`}
           </span>
-          <input
-            className="form-control border-start-0"
-            placeholder="Buscar empresa, RUC, DNI, representante..."
-            value={calendarSearch}
-            onChange={(e) => setCalendarSearch(e.target.value)}
-          />
+        </div>
+      </div>
+
+      {/* Barra de Filtros: Buscador, Suscripción (Anual/Mensual) y Estado de Aviso */}
+      <div className="p-3 bg-light rounded-3 border mb-4">
+        <div className="row g-2 align-items-center">
+          <div className="col-12 col-md-5 col-lg-5">
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-white border-end-0 text-muted">
+                <Search size={14} />
+              </span>
+              <input
+                className="form-control border-start-0"
+                placeholder="Buscar empresa, RUC, DNI, teléfono, representante..."
+                value={calendarSearch}
+                onChange={(e) => setCalendarSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="col-12 col-md-3 col-lg-3">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={suscripcionFilter}
+              onChange={(e) => setSuscripcionFilter(e.target.value)}
+            >
+              <option value="">Suscripción: Todas</option>
+              <option value="MENSUAL">Mensual</option>
+              <option value="ANUAL">Anual</option>
+            </select>
+          </div>
+          <div className="col-12 col-md-4 col-lg-4">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={avisadoFilter}
+              onChange={(e) => setAvisadoFilter(e.target.value)}
+            >
+              <option value="">Estado de Aviso: Todos</option>
+              <option value="AVISADO">🔔 Sólo Avisados</option>
+              <option value="NO_AVISADO">⏳ Sin Avisar (Pendientes)</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -125,7 +199,9 @@ export default function CentroControlTab({
             {filteredClients.length === 0 ? (
               <tr>
                 <td colSpan={13} className="text-center text-muted py-4 fw-semibold">
-                  No se encontraron clientes activos en el Centro de Control.
+                  {hasActiveFilters
+                    ? 'No se encontraron clientes con los filtros aplicados en el Centro de Control.'
+                    : 'No se encontraron clientes activos en el Centro de Control.'}
                 </td>
               </tr>
             ) : visibleClients.map((c, idx) => {
