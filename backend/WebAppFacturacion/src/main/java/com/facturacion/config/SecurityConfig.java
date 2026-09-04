@@ -3,6 +3,7 @@ package com.facturacion.config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -52,7 +53,13 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/auth/**", "/auth/**", "/api/admin/login", "/admin/login").permitAll()
+                        .requestMatchers("/api/public/**", "/public/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/admin/planes/**", "/admin/planes/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/api/admin/**", "/admin/**").authenticated()
+                        .anyRequest().authenticated()
                 );
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

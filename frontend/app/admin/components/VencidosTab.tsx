@@ -26,7 +26,10 @@ export default function VencidosTab({
   handleEstadoCuentaChange,
   handleDevolverAcceso,
 }: VencidosTabProps) {
-  const [renovarClient, setRenovarClient] = React.useState<Client | null>(null);
+  const [pagoModalConfig, setPagoModalConfig] = React.useState<{
+    client: Client;
+    mode: 'REANUDAR_PAGO' | 'RENOVAR_PRORRATEO';
+  } | null>(null);
   const [search, setSearch] = React.useState('');
   const [suscripcionFilter, setSuscripcionFilter] = React.useState('');
   const pageSize = 10;
@@ -206,46 +209,56 @@ export default function VencidosTab({
                     </td>
                     <td>
                       <div className="d-flex gap-2 flex-wrap align-items-center">
+                        <button
+                          onClick={() => setPagoModalConfig({ client: c, mode: 'REANUDAR_PAGO' })}
+                          className="btn btn-sm btn-primary text-white px-2.5 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                          title="Reanudar fecha de pago: ciclo completo desde el 1.° del mes con estado HABILITADO"
+                        >
+                          <RefreshCw size={13} />
+                          <span>Reanudar fecha de pago</span>
+                        </button>
+                        <button
+                          onClick={() => setPagoModalConfig({ client: c, mode: 'RENOVAR_PRORRATEO' })}
+                          className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                          title="Renovar con prorrateo por atraso de pago: inicia en la fecha real de pago con estado HABILITADO"
+                        >
+                          <RotateCcw size={13} />
+                          <span>Renovar</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCambioPlanClient(c);
+                            setCambioPlanSeleccionado(c.planContratado || '');
+                            if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
+                          }}
+                          className="btn btn-sm btn-warning text-dark px-2.5 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                        >
+                          <Settings size={13} />
+                          <span>Cambiar Plan</span>
+                        </button>
                         {!isBloqueado ? (
-                          <>
-                            <button
-                              onClick={() => setRenovarClient(c)}
-                              className="btn btn-sm btn-primary text-white px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                            >
-                              <RefreshCw size={13} />
-                              <span>Renovar</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setCambioPlanClient(c);
-                                setCambioPlanSeleccionado(c.planContratado || '');
-                                if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
-                              }}
-                              className="btn btn-sm btn-warning text-dark px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                            >
-                              <Settings size={13} />
-                              <span>Cambiar Plan</span>
-                            </button>
-                            <button
-                              onClick={() => {
-                                const ok = window.confirm(
-                                  `¿Bloquear cliente ${c.razonSocial}? Su acceso se suspenderá.`
-                                );
-                                if (ok && handleEstadoCuentaChange) handleEstadoCuentaChange(c, 'BLOQUEADO');
-                              }}
-                              className="btn btn-sm btn-outline-danger px-3 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
-                            >
-                              <X size={13} />
-                              <span>Bloquear</span>
-                            </button>
-                          </>
+                          <button
+                            onClick={() => {
+                              const ok = window.confirm(
+                                `¿Bloquear cliente ${c.razonSocial}? Su acceso se suspenderá.`
+                              );
+                              if (ok && handleEstadoCuentaChange) handleEstadoCuentaChange(c, 'BLOQUEADO');
+                            }}
+                            className="btn btn-sm btn-outline-danger px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
+                          >
+                            <X size={13} />
+                            <span>Bloquear</span>
+                          </button>
                         ) : (
                           <button
-                            onClick={() => setRenovarClient(c)}
-                            className="btn btn-sm btn-success text-white px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                            onClick={() => {
+                              if (handleDevolverAcceso) handleDevolverAcceso(c);
+                            }}
+                            className="btn btn-sm btn-outline-secondary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
+                            title="Desbloquear cliente y devolver acceso (estado Vencido sin registrar pago)"
                           >
                             <Unlock size={13} />
-                            <span>Reactivar Acceso</span>
+                            <span>Desbloquear</span>
                           </button>
                         )}
                       </div>
@@ -264,20 +277,21 @@ export default function VencidosTab({
         onPageChange={setCurrentPage}
       />
 
-      {/* Modal Unificado de Renovación y Pago Real */}
-      {renovarClient && (
+      {/* Modal Unificado de Renovación y Reanudación de Pago Real */}
+      {pagoModalConfig && (
         <RegistrarPagoModal
-          client={renovarClient}
-          mode="RENOVACION"
-          onClose={() => setRenovarClient(null)}
+          client={pagoModalConfig.client}
+          mode={pagoModalConfig.mode}
+          onClose={() => setPagoModalConfig(null)}
           onConfirm={async (client, data) => {
             await handleRenovarPlan(client, undefined, undefined, {
               fechaPago: data.fechaPago,
               medioPago: data.medioPago,
               codigoOperacion: data.codigoOperacion,
               observaciones: data.observaciones,
+              conProrrateo: data.conProrrateo,
             });
-            setRenovarClient(null);
+            setPagoModalConfig(null);
           }}
         />
       )}

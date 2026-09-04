@@ -701,6 +701,7 @@ export function useAdminData() {
       medioPago?: string;
       codigoOperacion?: string;
       observaciones?: string;
+      conProrrateo?: boolean;
     }
   ) {
     if (!token) return;
@@ -732,12 +733,19 @@ export function useAdminData() {
     if (processingOperationsRef.current.has(processingKey)) return;
     processingOperationsRef.current.add(processingKey);
 
+    const nowLocal = getTodayLocalMidnight();
+    const nextMonth1st = new Date(nowLocal.getFullYear(), nowLocal.getMonth() + 1, 1);
+    const nextDateStr = nextMonth1st.toISOString().split('T')[0];
+
     const clientIdStr = String(client.id);
     pendingOverridesRef.current.set(clientIdStr, {
       data: {
         planContratado: planAUsar,
         tipoSuscripcion: tipoAUsar,
-        estadoCuenta: 'POR_COBRAR',
+        estadoCuenta: 'HABILITADO',
+        fechaVencimientoMensual: nextDateStr,
+        fechaFinServicio: nextDateStr,
+        avisado: false,
       },
       timestamp: Date.now(),
     });
@@ -749,7 +757,10 @@ export function useAdminData() {
               ...c,
               planContratado: planAUsar,
               tipoSuscripcion: tipoAUsar,
-              estadoCuenta: 'POR_COBRAR',
+              estadoCuenta: 'HABILITADO',
+              fechaVencimientoMensual: nextDateStr,
+              fechaFinServicio: nextDateStr,
+              avisado: false,
             }
           : c
       )
@@ -765,6 +776,7 @@ export function useAdminData() {
         medioPago: paymentDetails?.medioPago,
         codigoOperacion: paymentDetails?.codigoOperacion,
         observaciones: paymentDetails?.observaciones || `Operación de ${tipoVenta}: ${planAUsar} (${tipoAUsar})`,
+        conProrrateo: paymentDetails?.conProrrateo,
       });
 
       setNotice(`Operación procesada con éxito para ${client.razonSocial} (${planAUsar} - ${tipoAUsar}).`);

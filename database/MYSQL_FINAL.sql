@@ -318,10 +318,11 @@ CREATE TABLE cliente (
     entorno_id BIGINT NULL,
 
     -- ========================================================
-    -- ELIMINACIÓN LÓGICA
+    -- ELIMINACIÓN LÓGICA Y CONTROL
     -- ========================================================
 
     activo BOOLEAN NOT NULL DEFAULT TRUE,
+    avisado BOOLEAN NOT NULL DEFAULT FALSE,
 
     fecha_eliminacion DATETIME NULL,
 

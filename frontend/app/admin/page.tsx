@@ -162,6 +162,7 @@ export default function AdminPage() {
                 handleEstadoCuentaChange={adminData.handleEstadoCuentaChange}
                 handleDevolverAcceso={adminData.handleDevolverAcceso}
                 setDeletingClient={adminData.setDeletingClient}
+                handleRenovarPlan={adminData.handleRenovarPlan}
               />
             )}
 

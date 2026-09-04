@@ -17,6 +17,7 @@ public class ProcesarOperacionVentaRequest {
     private String fechaPago;
     private String medioPago;
     private String codigoOperacion;
+    private Boolean conProrrateo;
 
     public ProcesarOperacionVentaRequest() {}
 
@@ -42,5 +43,7 @@ public class ProcesarOperacionVentaRequest {
     public void setMedioPago(String medioPago) { this.medioPago = medioPago; }
     public String getCodigoOperacion() { return codigoOperacion; }
     public void setCodigoOperacion(String codigoOperacion) { this.codigoOperacion = codigoOperacion; }
+    public Boolean getConProrrateo() { return conProrrateo; }
+    public void setConProrrateo(Boolean conProrrateo) { this.conProrrateo = conProrrateo; }
 }
 

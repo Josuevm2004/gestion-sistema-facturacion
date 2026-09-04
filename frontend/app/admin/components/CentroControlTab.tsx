@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw, RefreshCw } from 'lucide-react';
+import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
@@ -36,7 +36,6 @@ export default function CentroControlTab({
 }: CentroControlTabProps) {
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
   const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
-  const [renovarClient, setRenovarClient] = React.useState<Client | null>(null);
   const [suscripcionFilter, setSuscripcionFilter] = React.useState<string>('');
   const [avisadoFilter, setAvisadoFilter] = React.useState<string>('');
   const pageSize = 10;
@@ -329,24 +328,29 @@ export default function CentroControlTab({
                           <MessageSquare size={13} />
                           <span>Mensaje</span>
                         </button>
-                        {diffDays > 0 ? (
+                        {diffDays > 0 && diffDays <= 10 ? (
                           <button
                             className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
                             onClick={() => setAdelantoClient(c)}
-                            title="Registrar pago por adelantado (extiende el servicio para el siguiente período sin recortar días actuales)"
+                            title="Registrar pago por adelantado (faltan 10 días o menos para el vencimiento)"
                           >
                             <CalendarPlus size={13} />
                             <span>Adelanto</span>
                           </button>
-                        ) : (
-                          <button
-                            className="btn btn-sm btn-outline-danger px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
-                            onClick={() => setRenovarClient(c)}
-                            title="Registrar renovación / pago del período vencido (mantiene ancla de corte)"
+                        ) : diffDays <= 0 ? (
+                          <span
+                            className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 fw-semibold"
+                            title="Servicio vencido. Gestionar renovación o reanudación en la pestaña Vencidos."
                           >
-                            <RefreshCw size={13} />
-                            <span>Renovar</span>
-                          </button>
+                            Vencido
+                          </span>
+                        ) : (
+                          <span
+                            className="badge bg-light text-muted border px-2 py-1 fw-normal"
+                            title={`Servicio vigente. Restan ${diffDays} días para el vencimiento.`}
+                          >
+                            Al día
+                          </span>
                         )}
                         <button
                           className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
@@ -396,24 +400,6 @@ export default function CentroControlTab({
               observaciones: data.observaciones,
             });
             setAdelantoClient(null);
-          }}
-        />
-      )}
-
-      {/* Modal de Renovación */}
-      {renovarClient && (
-        <RegistrarPagoModal
-          client={renovarClient}
-          mode="RENOVACION"
-          onClose={() => setRenovarClient(null)}
-          onConfirm={async (client, data) => {
-            await handleRenovarPlan?.(client, undefined, undefined, {
-              fechaPago: data.fechaPago,
-              medioPago: data.medioPago,
-              codigoOperacion: data.codigoOperacion,
-              observaciones: data.observaciones,
-            });
-            setRenovarClient(null);
           }}
         />
       )}

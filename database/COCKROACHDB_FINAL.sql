@@ -173,6 +173,7 @@ CREATE TABLE cliente (
     entorno_id BIGINT NULL,
 
     activo BOOLEAN NOT NULL DEFAULT TRUE,
+    avisado BOOLEAN NOT NULL DEFAULT FALSE,
     fecha_eliminacion TIMESTAMP NULL,
     fecha_registro TIMESTAMP NOT NULL DEFAULT current_timestamp(),
     fecha_actualizacion TIMESTAMP NOT NULL DEFAULT current_timestamp(),

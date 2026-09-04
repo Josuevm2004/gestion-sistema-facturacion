@@ -67,7 +67,7 @@ public class Venta {
     @Column(length = 500)
     private String observaciones;
 
-    @Column(name = "fecha_venta", nullable = false, updatable = false)
+    @Column(name = "fecha_venta", nullable = false)
     private LocalDateTime fechaVenta = LocalDateTime.now();
 
     @Column(name = "fecha_actualizacion", nullable = false)

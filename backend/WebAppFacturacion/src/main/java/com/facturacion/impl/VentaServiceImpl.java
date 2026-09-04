@@ -16,6 +16,7 @@ import com.facturacion.enums.TipoProrrateo;
 import com.facturacion.enums.TipoSuscripcion;
 import com.facturacion.enums.TipoVenta;
 import com.facturacion.exception.ResourceNotFoundException;
+import com.facturacion.exception.VentaInvalidaException;
 import com.facturacion.repository.ClienteRepository;
 import com.facturacion.repository.EstadoClienteRepository;
 import com.facturacion.repository.HistorialEstadoClienteRepository;
@@ -102,8 +103,10 @@ public class VentaServiceImpl implements VentaService {
                     "La renovación debe conservar el plan y la modalidad vigentes. Usa Cambio de Plan para modificarlos");
         }
 
-        boolean usarMontoPendienteProgramado = debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
-        LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, servicioActual, tipo, fechaRef);
+        LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
+        boolean conProrrateo = Boolean.TRUE.equals(request.getConProrrateo());
+        boolean usarMontoPendienteProgramado = !conProrrateo && debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
+        LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, servicioActual, tipo, conProrrateo, fechaRef, fechaPagoReal);
         LocalDateTime fechaInicio = LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
 
         BigDecimal precioLista = suscripcion.getPrecio();
@@ -111,19 +114,47 @@ public class VentaServiceImpl implements VentaService {
         BigDecimal montoTotal = precioLista;
         LocalDateTime fechaFin;
         int diasProrrateados;
+        TipoProrrateo tipoProrrateo = TipoProrrateo.NINGUNO;
+        BigDecimal montoAdicionalProrrateo = BigDecimal.ZERO;
+        int diasProrrateoAdicional = 0;
+        LocalDateTime fechaInicioProrrateoAdicional = null;
+        LocalDateTime fechaFinProrrateoAdicional = null;
 
         if (suscripcion.getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
             fechaFin = fechaInicio.plusYears(1);
             diasProrrateados = 365;
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
-        } else if (tipo == TipoVenta.RENOVACION) {
-            // Renovacion mensual regular: cubre el periodo completo al precio de lista.
-            // No aplica segundo prorrateo en renovaciones para preservar el ciclo del cliente.
+        } else if (tipo == TipoVenta.RENOVACION && !conProrrateo) {
+            // FLUJO: "Reanudar fecha de pago" (cobra ciclo completo desde el dia de corte porque siguio consumiendo)
             fechaFin = fechaInicio.plusMonths(1);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
+        } else if (tipo == TipoVenta.RENOVACION && conProrrateo) {
+            // FLUJO: "Renovar" (con prorrateo por atraso de pago desde la fecha real de pago)
+            if (correspondeSegundoProrrateo(fechaInicioDate)) {
+                ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
+                        ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioLista, fechaInicioDate);
+                LocalDate fechaCobroSegundo = resultado.fechaFin().plusDays(1);
+                fechaFin = LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME);
+                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaCobroSegundo));
+                montoTotal = precioLista.add(resultado.montoAdicional());
+                tipoProrrateo = TipoProrrateo.SEGUNDO_PRORRATEO;
+                montoAdicionalProrrateo = resultado.montoAdicional();
+                diasProrrateoAdicional = resultado.diasProrrateados();
+                fechaInicioProrrateoAdicional = LocalDateTime.of(resultado.fechaInicio(), LocalTime.MIDNIGHT);
+                fechaFinProrrateoAdicional = LocalDateTime.of(resultado.fechaFin(), BILLING_CUTOFF_TIME);
+            } else {
+                ProrrateoCalculatorUtil.ResultadoProrrateo resultado =
+                        ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioLista, fechaInicioDate, monthlyBillingDay);
+                LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
+                fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
+                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
+                montoTotal = resultado.montoFinal();
+                descuentoProrrateo = resultado.descuento();
+                tipoProrrateo = TipoProrrateo.PRIMER_PRORRATEO;
+            }
         } else if (tipo == TipoVenta.CAMBIO_PLAN) {
             if (correspondeSegundoProrrateo(fechaInicioDate)) {
                 ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
@@ -144,16 +175,8 @@ public class VentaServiceImpl implements VentaService {
             fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
         } else {
-            if (correspondeSegundoProrrateo(fechaInicioDate)) {
-                ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
-                        ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioLista, fechaInicioDate);
-                LocalDate fechaCobroSegundo = resultado.fechaFin().plusDays(1);
-                fechaFin = LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME);
-                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaCobroSegundo));
-            } else {
-                fechaFin = fechaInicio.plusMonths(1);
-                diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
-            }
+            fechaFin = fechaInicio.plusMonths(1);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
         }
@@ -166,8 +189,6 @@ public class VentaServiceImpl implements VentaService {
 
         marcarServicioAnteriorComoVencido(servicioActual, fechaRef);
 
-        LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
-
         Venta ventaProcesada = ventaPendiente != null && tipo == TipoVenta.RENOVACION ? ventaPendiente : new Venta();
         ventaProcesada.setCliente(cliente);
         ventaProcesada.setVendedor(vendedor);
@@ -178,11 +199,16 @@ public class VentaServiceImpl implements VentaService {
         }
         ventaProcesada.setPrecioLista(precioLista);
         ventaProcesada.setMontoProrrateado(descuentoProrrateo);
+        ventaProcesada.setTipoProrrateo(tipoProrrateo);
+        ventaProcesada.setMontoProrrateoAdicional(montoAdicionalProrrateo);
+        ventaProcesada.setDiasProrrateoAdicional(diasProrrateoAdicional);
+        ventaProcesada.setFechaInicioProrrateoAdicional(fechaInicioProrrateoAdicional);
+        ventaProcesada.setFechaFinProrrateoAdicional(fechaFinProrrateoAdicional);
         ventaProcesada.setMontoTotal(montoTotal);
         ventaProcesada.setEstadoVenta(EstadoVenta.PAGADA);
         ventaProcesada.setObservaciones(request.getObservaciones() != null
                 ? request.getObservaciones()
-                : "Operacion de " + tipo.name());
+                : (conProrrateo ? "Renovación con prorrateo por atraso de pago" : "Reanudación de fecha de pago desde corte"));
         ventaProcesada.setFechaVenta(fechaPagoReal);
         ventaProcesada.setFechaActualizacion(fechaRef);
         ventaProcesada = ventaRepository.save(ventaProcesada);
@@ -239,8 +265,31 @@ public class VentaServiceImpl implements VentaService {
         LocalDateTime fechaRef = LocalDateTime.now();
         LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
 
+        if (cliente.getEstado() == null || !"HABILITADO".equalsIgnoreCase(cliente.getEstado().getNombre())) {
+            throw new VentaInvalidaException("El cliente debe encontrarse en estado HABILITADO para registrar un adelanto de pago.");
+        }
+
         if (servicioActual == null || servicioActual.getFechaFin() == null) {
-            throw new ResourceNotFoundException("El cliente no cuenta con un servicio activo previo para procesar adelanto");
+            throw new VentaInvalidaException("El cliente no cuenta con un servicio previo activo para procesar adelanto.");
+        }
+
+        if (servicioActual.getEstado() != EstadoServicio.ACTIVO) {
+            throw new VentaInvalidaException("No se puede adelantar pago: El servicio del cliente no se encuentra ACTIVO (estado actual: " 
+                    + servicioActual.getEstado() + "). Para reactivar clientes vencidos debe utilizarse el flujo de Renovación.");
+        }
+
+        LocalDate hoy = fechaRef.toLocalDate();
+        LocalDate vencimientoActual = servicioActual.getFechaFin().toLocalDate();
+
+        if (!vencimientoActual.isAfter(hoy)) {
+            throw new VentaInvalidaException("No se puede adelantar pago: El servicio del cliente ya venció o vence el día de hoy (" 
+                    + vencimientoActual + "). Debe procesarse como Renovación para mantener su ciclo contractual.");
+        }
+
+        long diasRestantes = java.time.temporal.ChronoUnit.DAYS.between(hoy, vencimientoActual);
+        if (diasRestantes > 10) {
+            throw new VentaInvalidaException("No se puede adelantar pago: Al cliente aún le restan " + diasRestantes 
+                    + " días de vigencia activa. Solo se permite adelantar pagos cuando faltan 10 días o menos para el vencimiento.");
         }
 
         // El nuevo periodo de adelanto inicia exactamente al finalizar la vigencia del servicio actual
@@ -258,12 +307,8 @@ public class VentaServiceImpl implements VentaService {
         BigDecimal precioLista = suscripcion.getPrecio();
         BigDecimal montoTotal = precioLista;
 
-        // Si ya existia una venta pendiente para este ciclo, se completa en vez de duplicar
-        Venta ventaPendiente = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
-                .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
-                .findFirst()
-                .orElse(null);
+        // Si ya existia una venta pendiente para este ciclo y plan especifico, se completa en vez de duplicar
+        Venta ventaPendiente = encontrarVentaPendienteParaCiclo(ventasCliente, suscripcion, fechaInicio);
 
         Venta ventaAdelanto = ventaPendiente != null ? ventaPendiente : new Venta();
 
@@ -306,21 +351,13 @@ public class VentaServiceImpl implements VentaService {
             Cliente cliente,
             ServicioCliente servicio,
             LocalDateTime fechaRef) {
-        if (tipo != TipoVenta.RENOVACION && tipo != TipoVenta.CAMBIO_PLAN) {
+        // Para renovaciones y reanudaciones de pago no se bloquea por estado previo;
+        // el objetivo comercial y operativo es habilitar al cliente y activar su nuevo periodo.
+        if (tipo != TipoVenta.CAMBIO_PLAN) {
             return;
         }
-        if (servicio == null || servicio.getFechaFin() == null) {
-            throw new ResourceNotFoundException("No existe un servicio vencido para procesar esta operacion");
-        }
-        boolean vencidoPorFecha = !servicio.getFechaFin().toLocalDate().isAfter(fechaRef.toLocalDate());
-        boolean estadoPermiteOperacion = servicio.getEstado() == EstadoServicio.VENCIDO
-                || servicio.getEstado() == EstadoServicio.BLOQUEADO;
-        if (!vencidoPorFecha && !estadoPermiteOperacion) {
-            throw new ResourceNotFoundException(
-                    "Renovacion y cambio de plan solo estan disponibles cuando el servicio esta vencido o bloqueado");
-        }
-        if (servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION) {
-            throw new ResourceNotFoundException("El cliente aun esta pendiente de capacitacion");
+        if (servicio != null && servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION) {
+            throw new ResourceNotFoundException("El cliente aún está pendiente de capacitación");
         }
     }
 
@@ -514,28 +551,40 @@ public class VentaServiceImpl implements VentaService {
             TipoVenta tipo,
             Suscripcion suscripcion,
             ServicioCliente servicioActual) {
-        if (tipo != TipoVenta.RENOVACION) {
+        if (tipo != TipoVenta.RENOVACION || suscripcion == null) {
             return null;
         }
 
-        Venta mismaSuscripcion = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
-                .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
-                .filter(v -> !esPendienteObsoleta(v, servicioActual))
-                .filter(v -> mismaSuscripcion(v, suscripcion))
-                .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
-                .findFirst()
-                .orElse(null);
-
-        if (mismaSuscripcion != null) {
-            return mismaSuscripcion;
-        }
+        LocalDate fechaEsperada = servicioActual != null && servicioActual.getFechaFin() != null
+                ? servicioActual.getFechaFin().toLocalDate()
+                : null;
 
         return ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
                 .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
                 .filter(v -> !esPendienteObsoleta(v, servicioActual))
+                .filter(v -> mismaSuscripcion(v, suscripcion))
+                .filter(v -> fechaEsperada == null || v.getFechaVenta() == null || Math.abs(java.time.temporal.ChronoUnit.DAYS.between(v.getFechaVenta().toLocalDate(), fechaEsperada)) <= 7)
                 .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private Venta encontrarVentaPendienteParaCiclo(
+            List<Venta> ventasCliente,
+            Suscripcion suscripcion,
+            LocalDateTime fechaInicioCiclo) {
+        if (fechaInicioCiclo == null || suscripcion == null) {
+            return null;
+        }
+        LocalDate fechaObjetivo = fechaInicioCiclo.toLocalDate();
+
+        return ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
+                .filter(v -> mismaSuscripcion(v, suscripcion))
+                .filter(v -> v.getFechaVenta() != null && Math.abs(java.time.temporal.ChronoUnit.DAYS.between(v.getFechaVenta().toLocalDate(), fechaObjetivo)) <= 7)
+                .sorted(Comparator.comparing(v -> Math.abs(java.time.temporal.ChronoUnit.DAYS.between(v.getFechaVenta().toLocalDate(), fechaObjetivo))))
                 .findFirst()
                 .orElse(null);
     }
@@ -605,15 +654,34 @@ public class VentaServiceImpl implements VentaService {
             Venta ventaPendiente,
             ServicioCliente servicioActual,
             TipoVenta tipo,
-            LocalDateTime fechaRef) {
+            boolean conProrrateo,
+            LocalDateTime fechaRef,
+            LocalDateTime fechaPagoReal) {
         LocalDate hoy = fechaRef.toLocalDate();
         if (tipo == TipoVenta.RENOVACION) {
-            // Preservar la fecha del ancla de facturacion del cliente
-            if (ventaPendiente != null && ventaPendiente.getFechaVenta() != null) {
-                return ventaPendiente.getFechaVenta().toLocalDate();
-            }
-            if (servicioActual != null && servicioActual.getFechaFin() != null) {
-                return servicioActual.getFechaFin().toLocalDate();
+            if (conProrrateo) {
+                // Renovacion con prorrateo por atraso de pago: el servicio inicia en la fecha real del pago
+                return fechaPagoReal != null ? fechaPagoReal.toLocalDate() : hoy;
+            } else {
+                // Reanudar fecha de pago: ciclo completo garantizado desde el dia 1 (el primero)
+                LocalDate fechaAncla = null;
+                if (ventaPendiente != null && ventaPendiente.getFechaVenta() != null) {
+                    fechaAncla = ventaPendiente.getFechaVenta().toLocalDate();
+                } else if (servicioActual != null && servicioActual.getFechaFin() != null) {
+                    fechaAncla = servicioActual.getFechaFin().toLocalDate();
+                }
+
+                int diaCobro = Math.min(monthlyBillingDay, hoy.lengthOfMonth());
+                LocalDate primerDiaMesActual = hoy.withDayOfMonth(diaCobro);
+
+                if (fechaAncla != null) {
+                    // Si la fecha de corte es del ciclo actual o futura, respetamos el dia 1 de ese mes
+                    if (!fechaAncla.isBefore(primerDiaMesActual)) {
+                        return fechaAncla.withDayOfMonth(Math.min(monthlyBillingDay, fechaAncla.lengthOfMonth()));
+                    }
+                }
+                // Si la fecha anterior era de un mes pasado o no existe, reanuda desde el dia 1 del mes actual
+                return primerDiaMesActual;
             }
         }
         if (ventaPendiente != null && ventaPendiente.getFechaVenta() != null) {
@@ -689,7 +757,7 @@ public class VentaServiceImpl implements VentaService {
         if (cliente != null && cliente.getId() != null) {
             List<ServicioCliente> serviciosPrevios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
             for (ServicioCliente previo : serviciosPrevios) {
-                if (previo.getId() != null && previo.getEstado() == EstadoServicio.ACTIVO) {
+                if (previo.getId() != null && (previo.getEstado() == EstadoServicio.ACTIVO || previo.getEstado() == EstadoServicio.BLOQUEADO)) {
                     if (previo.getFechaFin() != null && !previo.getFechaFin().isAfter(fechaRef)) {
                         previo.setEstado(EstadoServicio.VENCIDO);
                         previo.setFechaActualizacion(fechaRef);
