@@ -77,6 +77,8 @@ export default function PaymentHistoryModal({
         id: `pago-${pagoId || `${ventaId}-${p.fechaPago}`}`,
         ventaId: ventaId ? String(ventaId) : '',
         fecha: p.fechaPago || historyClient.fechaRegistro,
+        periodoInicio: p.periodoInicio || p.venta?.periodoInicio,
+        periodoFin: p.periodoFin || p.venta?.periodoFin,
         tipoOperacion: tipo === 'ALTA' ? 'Pago Inicial / Alta' : tipo === 'RENOVACION' ? 'Renovación' : tipo === 'CAMBIO_PLAN' ? 'Cambio de Plan' : tipo === 'MEJORA_PLAN' ? 'Mejora de Plan' : 'Pago de Servicio',
         badgeClass: tipo === 'ALTA' ? 'bg-success' : tipo === 'RENOVACION' ? 'bg-info text-dark' : tipo === 'CAMBIO_PLAN' ? 'bg-warning text-dark' : tipo === 'MEJORA_PLAN' ? 'bg-success' : 'bg-primary',
         monto: p.monto || historyClient.montoMensual,
@@ -160,7 +162,7 @@ export default function PaymentHistoryModal({
                     <th>#</th>
                     <th>Fecha Pago</th>
                     <th>Código / Operación</th>
-                    <th>Período</th>
+                    <th>Período Facturado</th>
                     <th>Tipo</th>
                     <th>Estado</th>
                     <th className="text-end">Monto</th>
@@ -176,12 +178,14 @@ export default function PaymentHistoryModal({
                   ) : (
                     transactions.map((t, idx) => {
                       const tDate = parseLocalDate(t.fecha) || new Date();
-                      // Si el pago se realizó a fin de mes (día >= 25), cubre el período del siguiente mes
-                      const isEndOfMonthAdvance = tDate.getDate() >= 25;
-                      const periodDate = isEndOfMonthAdvance
-                        ? new Date(tDate.getFullYear(), tDate.getMonth() + 1, 1)
-                        : tDate;
-                      const mesTexto = `${MESES[periodDate.getMonth()]} ${periodDate.getFullYear()}`;
+                      let mesTexto = '';
+                      const pInicio = parseLocalDate(t.periodoInicio);
+                      const pFin = parseLocalDate(t.periodoFin);
+                      if (pInicio && pFin) {
+                        mesTexto = `${formatDatePeru(pInicio)} al ${formatDatePeru(pFin)}`;
+                      } else {
+                        mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
+                      }
 
                       return (
                         <tr key={t.id || idx}>

@@ -14,6 +14,10 @@ public class ProcesarOperacionVentaRequest {
     private java.math.BigDecimal monto;
     private String observaciones;
 
+    private String fechaPago;
+    private String medioPago;
+    private String codigoOperacion;
+
     public ProcesarOperacionVentaRequest() {}
 
     public Long getClienteId() { return clienteId; }
@@ -32,4 +36,11 @@ public class ProcesarOperacionVentaRequest {
     public void setMonto(java.math.BigDecimal monto) { this.monto = monto; }
     public String getObservaciones() { return observaciones; }
     public void setObservaciones(String observaciones) { this.observaciones = observaciones; }
+    public String getFechaPago() { return fechaPago; }
+    public void setFechaPago(String fechaPago) { this.fechaPago = fechaPago; }
+    public String getMedioPago() { return medioPago; }
+    public void setMedioPago(String medioPago) { this.medioPago = medioPago; }
+    public String getCodigoOperacion() { return codigoOperacion; }
+    public void setCodigoOperacion(String codigoOperacion) { this.codigoOperacion = codigoOperacion; }
 }
+

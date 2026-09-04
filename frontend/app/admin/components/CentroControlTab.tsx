@@ -1,11 +1,11 @@
 'use client';
 
 import React from 'react';
-import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw } from 'lucide-react';
+import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw, RefreshCw } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
-import { AdelantoPagoModal } from '../modals/AdelantoPagoModal';
+import RegistrarPagoModal from '../modals/RegistrarPagoModal';
 import { parseLocalDate, getDiffDays } from '@/lib/billing';
 
 interface CentroControlTabProps {
@@ -20,7 +20,8 @@ interface CentroControlTabProps {
   ) => { montoProrrateado: number; diasProrrateados: number };
   setHistoryClient: (client: Client) => void;
   handleToggleAvisado?: (client: Client, nextAvisado?: boolean) => void;
-  handleAdelantoPago?: (client: Client, monto?: number, observaciones?: string) => Promise<void> | void;
+  handleAdelantoPago?: (client: Client, monto?: number, observaciones?: string, paymentDetails?: any) => Promise<void> | void;
+  handleRenovarPlan?: (client: Client, nuevoPlan?: string, nuevoTipo?: string, paymentDetails?: any) => Promise<void> | void;
 }
 
 export default function CentroControlTab({
@@ -31,9 +32,11 @@ export default function CentroControlTab({
   setHistoryClient,
   handleToggleAvisado,
   handleAdelantoPago,
+  handleRenovarPlan,
 }: CentroControlTabProps) {
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
   const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
+  const [renovarClient, setRenovarClient] = React.useState<Client | null>(null);
   const [suscripcionFilter, setSuscripcionFilter] = React.useState<string>('');
   const [avisadoFilter, setAvisadoFilter] = React.useState<string>('');
   const pageSize = 10;
@@ -326,14 +329,25 @@ export default function CentroControlTab({
                           <MessageSquare size={13} />
                           <span>Mensaje</span>
                         </button>
-                        <button
-                          className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
-                          onClick={() => setAdelantoClient(c)}
-                          title="Registrar pago por adelantado (extiende el servicio para el siguiente mes sin recortar días actuales)"
-                        >
-                          <CalendarPlus size={13} />
-                          <span>Adelanto</span>
-                        </button>
+                        {diffDays > 0 ? (
+                          <button
+                            className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
+                            onClick={() => setAdelantoClient(c)}
+                            title="Registrar pago por adelantado (extiende el servicio para el siguiente período sin recortar días actuales)"
+                          >
+                            <CalendarPlus size={13} />
+                            <span>Adelanto</span>
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-sm btn-outline-danger px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
+                            onClick={() => setRenovarClient(c)}
+                            title="Registrar renovación / pago del período vencido (mantiene ancla de corte)"
+                          >
+                            <RefreshCw size={13} />
+                            <span>Renovar</span>
+                          </button>
+                        )}
                         <button
                           className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
                           onClick={() => setHistoryClient(c)}
@@ -370,11 +384,36 @@ export default function CentroControlTab({
 
       {/* Modal de Adelanto de Pago */}
       {adelantoClient && (
-        <AdelantoPagoModal
+        <RegistrarPagoModal
           client={adelantoClient}
+          mode="ADELANTO"
           onClose={() => setAdelantoClient(null)}
-          onConfirm={async (client, monto, obs) => {
-            await handleAdelantoPago?.(client, monto, obs);
+          onConfirm={async (client, data) => {
+            await handleAdelantoPago?.(client, data.monto, data.observaciones, {
+              fechaPago: data.fechaPago,
+              medioPago: data.medioPago,
+              codigoOperacion: data.codigoOperacion,
+              observaciones: data.observaciones,
+            });
+            setAdelantoClient(null);
+          }}
+        />
+      )}
+
+      {/* Modal de Renovación */}
+      {renovarClient && (
+        <RegistrarPagoModal
+          client={renovarClient}
+          mode="RENOVACION"
+          onClose={() => setRenovarClient(null)}
+          onConfirm={async (client, data) => {
+            await handleRenovarPlan?.(client, undefined, undefined, {
+              fechaPago: data.fechaPago,
+              medioPago: data.medioPago,
+              codigoOperacion: data.codigoOperacion,
+              observaciones: data.observaciones,
+            });
+            setRenovarClient(null);
           }}
         />
       )}

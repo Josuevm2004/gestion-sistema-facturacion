@@ -692,7 +692,17 @@ export function useAdminData() {
     }
   }
 
-  async function handleRenovarPlan(client: Client, nuevoPlan?: string, nuevoTipo?: string) {
+  async function handleRenovarPlan(
+    client: Client,
+    nuevoPlan?: string,
+    nuevoTipo?: string,
+    paymentDetails?: {
+      fechaPago?: string;
+      medioPago?: string;
+      codigoOperacion?: string;
+      observaciones?: string;
+    }
+  ) {
     if (!token) return;
     const planAUsar = normalizePlanKey(nuevoPlan || client.planContratado);
     const tipoAUsar = (nuevoTipo || client.tipoSuscripcion || 'MENSUAL').toUpperCase() as 'MENSUAL' | 'ANUAL';
@@ -751,7 +761,10 @@ export function useAdminData() {
         planId,
         tipoSuscripcion: tipoAUsar,
         tipoVenta: tipoVenta,
-        observaciones: `Operación de ${tipoVenta}: ${planAUsar} (${tipoAUsar})`,
+        fechaPago: paymentDetails?.fechaPago,
+        medioPago: paymentDetails?.medioPago,
+        codigoOperacion: paymentDetails?.codigoOperacion,
+        observaciones: paymentDetails?.observaciones || `Operación de ${tipoVenta}: ${planAUsar} (${tipoAUsar})`,
       });
 
       setNotice(`Operación procesada con éxito para ${client.razonSocial} (${planAUsar} - ${tipoAUsar}).`);
@@ -822,7 +835,17 @@ export function useAdminData() {
     }
   }
 
-  async function handleAdelantoPago(client: Client, monto?: number, observaciones?: string) {
+  async function handleAdelantoPago(
+    client: Client,
+    monto?: number,
+    observaciones?: string,
+    paymentDetails?: {
+      fechaPago?: string;
+      medioPago?: string;
+      codigoOperacion?: string;
+      observaciones?: string;
+    }
+  ) {
     if (!token) return;
     const clientIdStr = String(client.id);
     const processingKey = `${client.id}-ADELANTO_PAGO`;
@@ -839,7 +862,10 @@ export function useAdminData() {
         tipoSuscripcion: tipoSub,
         vendedorId: client.vendedorId ? Number(client.vendedorId) : undefined,
         monto: monto || client.montoSiguienteCobro || client.montoMensual || client.precioPlan || 19,
-        observaciones: observaciones || `Adelanto de pago realizado para el siguiente mes`,
+        fechaPago: paymentDetails?.fechaPago,
+        medioPago: paymentDetails?.medioPago,
+        codigoOperacion: paymentDetails?.codigoOperacion,
+        observaciones: paymentDetails?.observaciones || observaciones || `Adelanto de pago realizado para el siguiente mes`,
       });
 
       setNotice(`✅ Adelanto de pago registrado con éxito para ${client.razonSocial}.`);

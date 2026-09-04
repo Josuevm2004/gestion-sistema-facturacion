@@ -103,10 +103,8 @@ public class VentaServiceImpl implements VentaService {
         }
 
         boolean usarMontoPendienteProgramado = debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
-        LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, fechaRef);
-        LocalDateTime fechaInicio = fechaInicioDate.equals(fechaRef.toLocalDate())
-                ? fechaRef
-                : LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
+        LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, servicioActual, tipo, fechaRef);
+        LocalDateTime fechaInicio = LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
 
         BigDecimal precioLista = suscripcion.getPrecio();
         BigDecimal descuentoProrrateo = BigDecimal.ZERO;
@@ -117,6 +115,13 @@ public class VentaServiceImpl implements VentaService {
         if (suscripcion.getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
             fechaFin = fechaInicio.plusYears(1);
             diasProrrateados = 365;
+            descuentoProrrateo = BigDecimal.ZERO;
+            montoTotal = precioLista;
+        } else if (tipo == TipoVenta.RENOVACION) {
+            // Renovacion mensual regular: cubre el periodo completo al precio de lista.
+            // No aplica segundo prorrateo en renovaciones para preservar el ciclo del cliente.
+            fechaFin = fechaInicio.plusMonths(1);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
         } else if (tipo == TipoVenta.CAMBIO_PLAN) {
@@ -161,6 +166,8 @@ public class VentaServiceImpl implements VentaService {
 
         marcarServicioAnteriorComoVencido(servicioActual, fechaRef);
 
+        LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
+
         Venta ventaProcesada = ventaPendiente != null && tipo == TipoVenta.RENOVACION ? ventaPendiente : new Venta();
         ventaProcesada.setCliente(cliente);
         ventaProcesada.setVendedor(vendedor);
@@ -176,11 +183,11 @@ public class VentaServiceImpl implements VentaService {
         ventaProcesada.setObservaciones(request.getObservaciones() != null
                 ? request.getObservaciones()
                 : "Operacion de " + tipo.name());
-        ventaProcesada.setFechaVenta(fechaRef);
+        ventaProcesada.setFechaVenta(fechaPagoReal);
         ventaProcesada.setFechaActualizacion(fechaRef);
         ventaProcesada = ventaRepository.save(ventaProcesada);
 
-        registrarPagoSiNoExiste(cliente, ventaProcesada, tipo, montoTotal, fechaRef);
+        registrarPagoSiNoExiste(cliente, ventaProcesada, tipo, montoTotal, fechaRef, request);
         activarServicio(cliente, ventaProcesada, fechaInicio, fechaFin, montoTotal, diasProrrateados, fechaRef);
         crearSiguienteRenovacionPendiente(ventaProcesada, fechaFin);
         habilitarCliente(cliente, vendedor, tipo, montoTotal, fechaRef);
@@ -230,26 +237,14 @@ public class VentaServiceImpl implements VentaService {
         }
 
         LocalDateTime fechaRef = LocalDateTime.now();
+        LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
 
-        // Fecha de inicio del nuevo ciclo: Si el servicio actual vence en el futuro o hoy, inicia exactamente en esa fecha de vencimiento
-        LocalDateTime fechaInicio;
-        if (servicioActual != null && servicioActual.getFechaFin() != null
-                && !servicioActual.getFechaFin().toLocalDate().isBefore(fechaRef.toLocalDate())) {
-            fechaInicio = servicioActual.getFechaFin();
-        } else {
-            fechaInicio = fechaRef;
+        if (servicioActual == null || servicioActual.getFechaFin() == null) {
+            throw new ResourceNotFoundException("El cliente no cuenta con un servicio activo previo para procesar adelanto");
         }
 
-        Venta ventaPendiente = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
-                .findFirst()
-                .orElse(null);
-
-        BigDecimal precioLista = suscripcion.getPrecio();
-        BigDecimal montoTotal = request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0
-                ? request.getMonto()
-                : (ventaPendiente != null && ventaPendiente.getMontoTotal() != null ? ventaPendiente.getMontoTotal() : precioLista);
-
+        // El nuevo periodo de adelanto inicia exactamente al finalizar la vigencia del servicio actual
+        LocalDateTime fechaInicio = servicioActual.getFechaFin();
         LocalDateTime fechaFin;
         int diasProrrateados;
         if (suscripcion.getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
@@ -260,41 +255,42 @@ public class VentaServiceImpl implements VentaService {
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicio.toLocalDate(), fechaFin.toLocalDate()));
         }
 
-        // Cancelar ventas pendientes anteriores para evitar duplicados
-        cancelarVentasPendientesCliente(cliente.getId(), null, fechaRef);
+        BigDecimal precioLista = suscripcion.getPrecio();
+        BigDecimal montoTotal = precioLista;
 
-        BigDecimal montoProrrateado = BigDecimal.ZERO;
-        if (montoTotal != null && precioLista != null && montoTotal.compareTo(precioLista) > 0) {
-            montoProrrateado = montoTotal.subtract(precioLista);
-        }
+        // Si ya existia una venta pendiente para este ciclo, se completa en vez de duplicar
+        Venta ventaPendiente = ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .filter(v -> v.getTipoVenta() == TipoVenta.RENOVACION)
+                .findFirst()
+                .orElse(null);
 
-        Venta ventaAdelanto = new Venta();
+        Venta ventaAdelanto = ventaPendiente != null ? ventaPendiente : new Venta();
+
+        // Cancelar unicamente pendientes obsoletas no relacionadas
+        cancelarVentasPendientesCliente(cliente.getId(), ventaAdelanto, fechaRef);
+
         ventaAdelanto.setCliente(cliente);
         ventaAdelanto.setVendedor(vendedor);
         ventaAdelanto.setSuscripcion(suscripcion);
         ventaAdelanto.setTipoVenta(TipoVenta.RENOVACION);
-        ventaAdelanto.setVentaAnterior(ventaAnterior);
-        ventaAdelanto.setPrecioLista(precioLista);
-        ventaAdelanto.setMontoProrrateado(montoProrrateado);
-        if (ventaPendiente != null) {
-            ventaAdelanto.setTipoProrrateo(ventaPendiente.getTipoProrrateo());
-            ventaAdelanto.setMontoProrrateoAdicional(ventaPendiente.getMontoProrrateoAdicional());
-            ventaAdelanto.setDiasProrrateoAdicional(ventaPendiente.getDiasProrrateoAdicional());
-            ventaAdelanto.setFechaInicioProrrateoAdicional(ventaPendiente.getFechaInicioProrrateoAdicional());
-            ventaAdelanto.setFechaFinProrrateoAdicional(ventaPendiente.getFechaFinProrrateoAdicional());
+        if (ventaAdelanto.getVentaAnterior() == null) {
+            ventaAdelanto.setVentaAnterior(ventaAnterior);
         }
+        ventaAdelanto.setPrecioLista(precioLista);
+        ventaAdelanto.setMontoProrrateado(BigDecimal.ZERO);
         ventaAdelanto.setMontoTotal(montoTotal);
         ventaAdelanto.setEstadoVenta(EstadoVenta.PAGADA);
         ventaAdelanto.setObservaciones(request.getObservaciones() != null && !request.getObservaciones().isBlank()
                 ? request.getObservaciones()
                 : "Adelanto de Pago para el ciclo " + fechaInicio.toLocalDate() + " al " + fechaFin.toLocalDate());
-        ventaAdelanto.setFechaVenta(fechaRef); // Fecha real de ingreso del dinero
+        ventaAdelanto.setFechaVenta(fechaPagoReal);
         ventaAdelanto.setFechaActualizacion(fechaRef);
         ventaAdelanto = ventaRepository.save(ventaAdelanto);
 
-        registrarPagoSiNoExiste(cliente, ventaAdelanto, TipoVenta.RENOVACION, montoTotal, fechaRef);
+        registrarPagoSiNoExiste(cliente, ventaAdelanto, TipoVenta.RENOVACION, montoTotal, fechaRef, request);
 
-        // Activar el nuevo ciclo de servicio activo para la venta de adelanto
+        // Activar el nuevo ciclo de servicio extendido
         activarServicio(cliente, ventaAdelanto, fechaInicio, fechaFin, montoTotal, diasProrrateados, fechaRef);
 
         crearSiguienteRenovacionPendiente(ventaAdelanto, fechaFin);
@@ -582,8 +578,44 @@ public class VentaServiceImpl implements VentaService {
                     || !fechaRef.toLocalDate().isAfter(ventaPendiente.getFechaVenta().toLocalDate()));
     }
 
-    private LocalDate resolverFechaInicioOperacion(Venta ventaPendiente, LocalDateTime fechaRef) {
+    private LocalDateTime resolverFechaPagoReal(ProcesarOperacionVentaRequest request, LocalDateTime fallback) {
+        if (request != null && request.getFechaPago() != null && !request.getFechaPago().isBlank()) {
+            try {
+                String fp = request.getFechaPago().trim();
+                if (fp.contains("T")) {
+                    return LocalDateTime.parse(fp);
+                } else {
+                    return LocalDate.parse(fp).atTime(LocalTime.now());
+                }
+            } catch (Exception ignored) {}
+        }
+        return fallback;
+    }
+
+    private MedioPago resolverMedioPago(ProcesarOperacionVentaRequest request) {
+        if (request != null && request.getMedioPago() != null && !request.getMedioPago().isBlank()) {
+            try {
+                return MedioPago.valueOf(request.getMedioPago().trim().toUpperCase());
+            } catch (Exception ignored) {}
+        }
+        return MedioPago.TRANSFERENCIA;
+    }
+
+    private LocalDate resolverFechaInicioOperacion(
+            Venta ventaPendiente,
+            ServicioCliente servicioActual,
+            TipoVenta tipo,
+            LocalDateTime fechaRef) {
         LocalDate hoy = fechaRef.toLocalDate();
+        if (tipo == TipoVenta.RENOVACION) {
+            // Preservar la fecha del ancla de facturacion del cliente
+            if (ventaPendiente != null && ventaPendiente.getFechaVenta() != null) {
+                return ventaPendiente.getFechaVenta().toLocalDate();
+            }
+            if (servicioActual != null && servicioActual.getFechaFin() != null) {
+                return servicioActual.getFechaFin().toLocalDate();
+            }
+        }
         if (ventaPendiente != null && ventaPendiente.getFechaVenta() != null) {
             LocalDate fechaProgramada = ventaPendiente.getFechaVenta().toLocalDate();
             if (hoy.isBefore(fechaProgramada)) {
@@ -609,21 +641,39 @@ public class VentaServiceImpl implements VentaService {
     }
 
     private void registrarPagoSiNoExiste(Cliente cliente, Venta venta, TipoVenta tipo, BigDecimal montoTotal, LocalDateTime fechaRef) {
+        registrarPagoSiNoExiste(cliente, venta, tipo, montoTotal, fechaRef, null);
+    }
+
+    private void registrarPagoSiNoExiste(
+            Cliente cliente,
+            Venta venta,
+            TipoVenta tipo,
+            BigDecimal montoTotal,
+            LocalDateTime fechaRef,
+            ProcesarOperacionVentaRequest request) {
         Pago pagoExistente = pagoRepository.findTopByVentaIdAndEstadoPagoOrderByFechaRegistroDesc(venta.getId(), EstadoPago.PAGADO)
                 .orElse(null);
         if (pagoExistente != null) {
             return;
         }
 
+        LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
+        MedioPago medioPago = resolverMedioPago(request);
+        String codOp = (request != null && request.getCodigoOperacion() != null && !request.getCodigoOperacion().isBlank())
+                ? request.getCodigoOperacion().trim()
+                : tipo.name() + "-" + cliente.getId() + "-" + System.currentTimeMillis();
+
         Pago pago = new Pago();
         pago.setVenta(venta);
-        pago.setCodigoOperacion(tipo.name() + "-" + cliente.getId() + "-" + System.currentTimeMillis());
+        pago.setCodigoOperacion(codOp);
         pago.setMonto(montoTotal);
-        pago.setMedioPago(MedioPago.OTRO);
+        pago.setMedioPago(medioPago);
         pago.setEstadoPago(EstadoPago.PAGADO);
-        pago.setFechaPago(fechaRef);
+        pago.setFechaPago(fechaPagoReal);
         pago.setFechaRegistro(fechaRef);
-        pago.setObservaciones("Pago registrado automaticamente por " + tipo.name());
+        pago.setObservaciones(request != null && request.getObservaciones() != null && !request.getObservaciones().isBlank()
+                ? request.getObservaciones()
+                : "Pago registrado por " + tipo.name());
         pagoRepository.save(pago);
     }
 
@@ -635,14 +685,16 @@ public class VentaServiceImpl implements VentaService {
             BigDecimal montoTotal,
             int diasProrrateados,
             LocalDateTime fechaRef) {
-        // Marcar como vencido cualquier servicio activo previo del cliente para evitar duplicados en la BD
+        // Marcar como vencido cualquier servicio activo previo que ya haya finalizado en o antes de la fecha actual
         if (cliente != null && cliente.getId() != null) {
             List<ServicioCliente> serviciosPrevios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
             for (ServicioCliente previo : serviciosPrevios) {
                 if (previo.getId() != null && previo.getEstado() == EstadoServicio.ACTIVO) {
-                    previo.setEstado(EstadoServicio.VENCIDO);
-                    previo.setFechaActualizacion(fechaRef);
-                    servicioClienteRepository.save(previo);
+                    if (previo.getFechaFin() != null && !previo.getFechaFin().isAfter(fechaRef)) {
+                        previo.setEstado(EstadoServicio.VENCIDO);
+                        previo.setFechaActualizacion(fechaRef);
+                        servicioClienteRepository.save(previo);
+                    }
                 }
             }
         }

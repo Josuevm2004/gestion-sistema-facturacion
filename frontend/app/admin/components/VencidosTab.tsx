@@ -5,10 +5,11 @@ import { AlertCircle, RefreshCw, Settings, X, Unlock, ShieldAlert, Search, Rotat
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import { parseLocalDate, formatDatePeru } from '@/lib/billing';
+import RegistrarPagoModal from '../modals/RegistrarPagoModal';
 
 interface VencidosTabProps {
   clientesVencidosList: Client[];
-  handleRenovarPlan: (client: Client, nuevoPlan?: string, nuevoTipo?: string) => any;
+  handleRenovarPlan: (client: Client, nuevoPlan?: string, nuevoTipo?: string, paymentDetails?: any) => any;
   setCambioPlanClient: (client: Client) => void;
   setCambioPlanSeleccionado: (plan: string) => void;
   setCambioPlanTipo?: (tipo: string) => void;
@@ -25,6 +26,7 @@ export default function VencidosTab({
   handleEstadoCuentaChange,
   handleDevolverAcceso,
 }: VencidosTabProps) {
+  const [renovarClient, setRenovarClient] = React.useState<Client | null>(null);
   const [search, setSearch] = React.useState('');
   const [suscripcionFilter, setSuscripcionFilter] = React.useState('');
   const pageSize = 10;
@@ -207,12 +209,7 @@ export default function VencidosTab({
                         {!isBloqueado ? (
                           <>
                             <button
-                              onClick={() => {
-                                const ok = window.confirm(
-                                  `¿Renovar plan de ${c.razonSocial}? Se registrará una nueva venta de RENOVACIÓN.`
-                                );
-                                if (ok) handleRenovarPlan(c);
-                              }}
+                              onClick={() => setRenovarClient(c)}
                               className="btn btn-sm btn-primary text-white px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                             >
                               <RefreshCw size={13} />
@@ -244,10 +241,7 @@ export default function VencidosTab({
                           </>
                         ) : (
                           <button
-                            onClick={() => {
-                              const ok = window.confirm('Reactivar a ' + c.razonSocial + '? Se registrará una renovación.');
-                              if (ok) handleRenovarPlan(c);
-                            }}
+                            onClick={() => setRenovarClient(c)}
                             className="btn btn-sm btn-success text-white px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                           >
                             <Unlock size={13} />
@@ -269,6 +263,24 @@ export default function VencidosTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+
+      {/* Modal Unificado de Renovación y Pago Real */}
+      {renovarClient && (
+        <RegistrarPagoModal
+          client={renovarClient}
+          mode="RENOVACION"
+          onClose={() => setRenovarClient(null)}
+          onConfirm={async (client, data) => {
+            await handleRenovarPlan(client, undefined, undefined, {
+              fechaPago: data.fechaPago,
+              medioPago: data.medioPago,
+              codigoOperacion: data.codigoOperacion,
+              observaciones: data.observaciones,
+            });
+            setRenovarClient(null);
+          }}
+        />
+      )}
     </div>
   );
 }

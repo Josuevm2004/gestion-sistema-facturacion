@@ -183,6 +183,7 @@ export default function AdminPage() {
                 setHistoryClient={adminData.setHistoryClient}
                 handleToggleAvisado={adminData.handleToggleAvisado}
                 handleAdelantoPago={adminData.handleAdelantoPago}
+                handleRenovarPlan={adminData.handleRenovarPlan}
               />
             )}
 

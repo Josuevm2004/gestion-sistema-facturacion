@@ -4,6 +4,8 @@ import com.facturacion.entity.Venta;
 import com.facturacion.request.ProcesarOperacionVentaRequest;
 import com.facturacion.response.ApiResponse;
 import com.facturacion.service.VentaService;
+import com.facturacion.entity.ServicioCliente;
+import com.facturacion.repository.ServicioClienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,24 +22,14 @@ public class VentaController {
     @Autowired
     private VentaService ventaService;
 
+    @Autowired
+    private ServicioClienteRepository servicioClienteRepository;
+
     @PostMapping({"/procesar-operacion", "/renovar-plan", "/cambiar-plan"})
     public ResponseEntity<ApiResponse<Map<String, Object>>> procesarOperacionVenta(@RequestBody ProcesarOperacionVentaRequest request) {
         Venta venta = ventaService.procesarOperacion(request);
 
-        Map<String, Object> data = new LinkedHashMap<>();
-        data.put("id", venta.getId());
-        data.put("ventaId", venta.getId());
-        data.put("clienteId", venta.getCliente() != null ? venta.getCliente().getId() : null);
-        data.put("tipoVenta", venta.getTipoVenta() != null ? venta.getTipoVenta().name() : null);
-        data.put("estadoVenta", venta.getEstadoVenta() != null ? venta.getEstadoVenta().name() : null);
-        data.put("tipoProrrateo", venta.getTipoProrrateo() != null ? venta.getTipoProrrateo().name() : null);
-        data.put("montoProrrateoAdicional", venta.getMontoProrrateoAdicional());
-        data.put("diasProrrateoAdicional", venta.getDiasProrrateoAdicional());
-        data.put("fechaInicioProrrateoAdicional", venta.getFechaInicioProrrateoAdicional());
-        data.put("fechaFinProrrateoAdicional", venta.getFechaFinProrrateoAdicional());
-        data.put("montoTotal", venta.getMontoTotal());
-        data.put("fechaVenta", venta.getFechaVenta());
-
+        Map<String, Object> data = mapVentaResumen(venta);
         return ResponseEntity.ok(ApiResponse.success("Operacion comercial procesada con exito (" + venta.getTipoVenta() + ")", data));
     }
 
@@ -74,7 +66,14 @@ public class VentaController {
         data.put("montoProrrateoAdicional", venta.getMontoProrrateoAdicional());
         data.put("diasProrrateoAdicional", venta.getDiasProrrateoAdicional());
         data.put("fechaInicioProrrateoAdicional", venta.getFechaInicioProrrateoAdicional());
-        data.put("fechaFinProrrateoAdicional", venta.getFechaFinProrrateoAdicional());
+        ServicioCliente sc = servicioClienteRepository.findByVentaId(venta.getId()).orElse(null);
+        if (sc != null) {
+            data.put("periodoInicio", sc.getFechaInicio());
+            data.put("periodoFin", sc.getFechaFin());
+        } else if (venta.getFechaVenta() != null) {
+            data.put("periodoInicio", venta.getFechaVenta());
+            data.put("periodoFin", venta.getFechaVenta().plusMonths(1));
+        }
         data.put("montoTotal", venta.getMontoTotal());
         data.put("fechaVenta", venta.getFechaVenta());
         data.put("observaciones", venta.getObservaciones());

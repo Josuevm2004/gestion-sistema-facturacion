@@ -327,9 +327,22 @@ public class ClienteServiceImpl implements ClienteService {
             item.put("observaciones", p.getObservaciones());
 
             if (p.getVenta() != null) {
+                ServicioCliente sc = servicioClienteRepository.findByVentaId(p.getVenta().getId()).orElse(null);
+                if (sc != null) {
+                    item.put("periodoInicio", sc.getFechaInicio());
+                    item.put("periodoFin", sc.getFechaFin());
+                } else if (p.getVenta().getFechaVenta() != null) {
+                    item.put("periodoInicio", p.getVenta().getFechaVenta());
+                    item.put("periodoFin", p.getVenta().getFechaVenta().plusMonths(1));
+                }
+
                 Map<String, Object> venta = new LinkedHashMap<>();
                 venta.put("id", p.getVenta().getId());
                 venta.put("clienteId", p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
+                if (sc != null) {
+                    venta.put("periodoInicio", sc.getFechaInicio());
+                    venta.put("periodoFin", sc.getFechaFin());
+                }
                 venta.put("montoTotal", p.getVenta().getMontoTotal());
                 venta.put("tipoProrrateo", p.getVenta().getTipoProrrateo() != null
                         ? p.getVenta().getTipoProrrateo().name()
