@@ -95,8 +95,10 @@ export function useAdminData() {
   const [subscriptions, setSubscriptions] = useState<any[]>([]);
   const [entornos, setEntornos] = useState<Array<{ id: string | number; nombre: string }>>([]);
   const loadDataInFlightRef = useRef(false);
+  const staticDataLoadedRef = useRef(false);
   const recoveryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recoveryAttemptsRef = useRef(0);
+  const consecutiveFailuresRef = useRef<number>(0);
   const processingPaymentsRef = useRef<Set<string>>(new Set());
   const processingOperationsRef = useRef<Set<string>>(new Set());
   const processingStateRef = useRef<Set<string>>(new Set());
@@ -105,6 +107,10 @@ export function useAdminData() {
   const deletedUserIdsRef = useRef<Set<string>>(new Set());
   const readNotificationIdsRef = useRef<Set<string>>(new Set());
   const lastSyncTimeRef = useRef<number>(Date.now());
+  const clientsRef = useRef<Client[]>(clients);
+  useEffect(() => {
+    clientsRef.current = clients;
+  }, [clients]);
 
   // Filtros unificados
   const [search, setSearch] = useState('');
@@ -155,10 +161,12 @@ export function useAdminData() {
       }
       loadData(savedToken);
 
-      // Auto-sincronización periódica rápida y ligera cada 8 segundos (detecta nuevos registros automáticamente)
+      // Auto-sincronización periódica inteligente cada 30 segundos (solo si la pestaña está visible)
       const intervalId = setInterval(() => {
-        loadData(savedToken);
-      }, 8000);
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          loadData(savedToken);
+        }
+      }, 30000);
 
       // Escuchar cuando el usuario vuelve a la pestaña del navegador para refrescar al instante
       const handleVisibilityChange = () => {
@@ -238,8 +246,8 @@ export function useAdminData() {
         return res;
       });
 
-      // 2. Carga en paralelo de recursos secundarios sin bloquear la interfaz
-      const secondaryPromises = Promise.allSettled([
+      // 2. Carga en paralelo de recursos secundarios sin saturar el pool de la base de datos
+      const secondaryTasks: Promise<any>[] = [
         clientApi.get('/admin/pagos').then((res) => setPayments(extractArray(res.data))),
         clientApi.get('/admin/usuarios').then((res) => {
           setUsersList(extractArray(res.data).filter((u) => !deletedUserIdsRef.current.has(String(u?.id))));
@@ -251,9 +259,20 @@ export function useAdminData() {
             )
           );
         }),
-        clientApi.get('/admin/planes/suscripciones').then((res) => setSubscriptions(extractArray(res.data))),
-        clientApi.get('/admin/entornos').then((res) => setEntornos(extractArray(res.data))),
-      ]);
+      ];
+
+      // Planes y entornos son recursos estáticos: sólo se cargan la primera vez o en sincronización manual
+      if (!staticDataLoadedRef.current || showSyncMsg) {
+        secondaryTasks.push(
+          clientApi.get('/admin/planes/suscripciones').then((res) => setSubscriptions(extractArray(res.data))),
+          clientApi.get('/admin/entornos').then((res) => {
+            setEntornos(extractArray(res.data));
+            staticDataLoadedRef.current = true;
+          })
+        );
+      }
+
+      const secondaryPromises = Promise.allSettled(secondaryTasks);
 
       if (showSyncMsg) {
         try {
@@ -265,6 +284,13 @@ export function useAdminData() {
 
       await clientPromise;
       void secondaryPromises;
+
+      // Si venía de fallas consecutivas, avisar que la conexión ya se restableció
+      if (consecutiveFailuresRef.current >= 2) {
+        setNotice('Conexión con el servidor restablecida.');
+        setTimeout(() => setNotice(null), 3000);
+      }
+      consecutiveFailuresRef.current = 0;
       recoveryAttemptsRef.current = 0;
 
       if (showSyncMsg) {
@@ -272,17 +298,29 @@ export function useAdminData() {
         setTimeout(() => setNotice(null), 3000);
       }
     } catch (err: any) {
+      consecutiveFailuresRef.current += 1;
       if (err.response?.status === 401) {
         handleLogout();
         setNotice('Tu sesión ha expirado. Por favor ingresa tus credenciales nuevamente.');
       } else {
-        setNotice('No se pudieron cargar los clientes del servidor.');
-        if (!recoveryTimerRef.current && recoveryAttemptsRef.current < 3) {
+        // ¿Cuándo SÍ debe avisar al usuario?
+        // 1. Si presionó manualmente el botón "Sincronizar Datos".
+        // 2. Si la pantalla está vacía porque falló la carga inicial.
+        // 3. Si ya falló 2 o más veces seguidas (el servidor realmente está caído o se fue el internet).
+        if (showSyncMsg) {
+          setNotice('No se pudieron sincronizar los datos con el servidor. Verifica tu conexión.');
+        } else if (clientsRef.current.length === 0) {
+          setNotice('No se pudieron cargar los clientes del servidor. Verifica tu conexión.');
+        } else if (consecutiveFailuresRef.current >= 2) {
+          setNotice('Sin conexión con el servidor. Reintentando reconectar...');
+        }
+
+        if (!recoveryTimerRef.current && recoveryAttemptsRef.current < 4) {
           recoveryAttemptsRef.current += 1;
           recoveryTimerRef.current = setTimeout(() => {
             recoveryTimerRef.current = null;
             void loadData(tokenToUse);
-          }, 5000);
+          }, 4000);
         }
       }
     } finally {
