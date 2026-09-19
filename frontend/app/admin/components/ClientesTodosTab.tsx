@@ -141,55 +141,59 @@ export default function ClientesTodosTab({
 
   const formatRegimen = (value?: string) => {
     const labels: Record<string, string> = {
-      MYPE_TRIBUTARIO: 'Mype Tributario',
+      MYPE_TRIBUTARIO: 'MYPE Tributario',
       REGIMEN_GENERAL: 'General',
-      RER: 'Especial',
-      ESPECIAL: 'Especial',
-      NRUS: 'Nuevo RUS',
+      RER: 'RER',
+      ESPECIAL: 'RER',
+      NRUS: 'RUS',
       GENERAL: 'General',
     };
-    return labels[value || ''] || value || 'No registrado';
+    return labels[value || ''] || value || '';
   };
 
   const buildAffiliationMessage = (client: Client) => {
-    const ubicacion = [client.distrito, client.provincia, client.departamento]
-      .filter(Boolean)
-      .join(' - ');
+    const nombreComercial = client.nombreComercial || client.razonSocial || '';
+    const regimen = formatRegimen(client.regimenTributario);
+    const celular = client.telefono || client.telefonoPersonal || client.usuarioWsp || '';
+    const email = client.email || client.emailPersonal || '';
 
-    const planRaw = (client.planContratado || 'INICIA').toUpperCase();
-    const planFormatted = planRaw.startsWith('PLAN ') ? planRaw : `PLAN ${planRaw}`;
-    const montoFormatted = client.montoMensual
-      ? `S/${Math.round(client.montoMensual)}`
-      : client.precioPlan
-      ? `S/${Math.round(client.precioPlan)}`
-      : 'S/19';
+    const planRaw = (client.planContratado || '').toUpperCase().trim();
+    const planFormatted = planRaw
+      ? (planRaw.startsWith('PLAN ') ? planRaw : `PLAN ${planRaw}`)
+      : '';
+    const monto = client.montoMensual || client.precioPlan;
+    const montoFormatted = monto ? `S/${Math.round(monto)}` : '';
+    const planCompleto = [planFormatted, montoFormatted].filter(Boolean).join(' ');
 
     return [
-      '🚀 ¡Genial!',
+      '📌 *DATOS DE LA EMPRESA*',
       '',
-      '📎Te adjuntamos la información necesaria para completar el proceso.',
+      `👉🏼 Nombre Comercial:${nombreComercial ? ` ${nombreComercial}` : ''}`,
+      ` 📊 Régimen Tributario (RUS, RER, MYPE O GENERAL)${regimen ? `: ${regimen}` : ''}`,
       '',
-      '📝 Datos para la afiliación:',
+      `🗣️ DNI:${client.dni ? ` ${client.dni}` : ''}`,
+      `📞 Celular:${celular ? ` ${celular}` : ''}`,
+      `📧 Correo (Tenga acceso actual):${email ? ` ${email}` : ''}`,
+      `📍 Dirección Comercial o Fiscal:${client.direccion ? ` ${client.direccion}` : ''}`,
       '',
-      `🟢 Razón Social : ${client.razonSocial || 'No registrado'}`,
-      `🟢 Nombre del Negocio : ${client.nombreComercial || client.razonSocial || 'No registrado'}`,
-      `🟢 Régimen Tributario :  ${formatRegimen(client.regimenTributario)}`,
-      `🟢 DNI :  ${client.dni || 'No registrado'}`,
-      `🟢 Celular : ${client.telefono || client.telefonoPersonal || client.usuarioWsp || 'No registrado'}`,
-      `🟢 Correo : ${client.email || client.emailPersonal || 'No registrado'}`,
-      `🟢 Dirección Fiscal : ${client.direccion || 'No registrado'}`,
-      `🟢 Distrito, Provincia y Departamento : ${ubicacion || 'No registrado'}`,
-      `🟢 Plan Contratado : ${planFormatted} ${montoFormatted}`,
+      ` 📍 Departamento:${client.departamento ? ` ${client.departamento}` : ''}`,
+      ` 🏙️ Provincia:${client.provincia ? ` ${client.provincia}` : ''}`,
+      ` 🏘️ Distrito:${client.distrito ? ` ${client.distrito}` : ''}`,
       '',
-      '🔐 Para el alta en SUNAT:',
-      `🟢 RUC : ${client.ruc || 'No registrado'}`,
-      `🟢 Usuario SOL : ${client.usuarioSol || 'No registrado'}`,
-      `🟢 Clave SOL : ${client.claveSolCifrada || 'No registrada'}`,
+      ` 📦 Plan Mensual Contratado:${planCompleto ? ` ${planCompleto}` : ''}`,
       '',
-      '📌 Adicional:',
-      '1️⃣ ¿Es su primer sistema de facturación? vengo de otra empresa  ',
-      '2️⃣ ¿Emitía comprobantes desde SUNAT? Si',
-      '3️⃣ ¿Paga IGV o está exonerado? No estoy exonerado, pago normal',
+      ' 🔐 ACCESOS CLAVE SOL (ACTIVACIÓN A SUNAT) Enviar los datos reales que brinda la sunat, no enviar usuario secundario, protegemos sus datos según  según ley peruana de privacidad N° 29733.',
+      ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
+      `👤 Usuario SOL:${client.usuarioSol ? ` ${client.usuarioSol}` : ''}`,
+      `🔑 Contraseña SOL:${client.claveSolCifrada ? ` ${client.claveSolCifrada}` : ''}`,
+      '🆔 Número de DNI (Diferente al dueño y socios, mayor de edad):',
+      '📧 Correo (Diferente al dueño y socios):',
+      '',
+      '❓ PREGUNTAS ADICIONALES',
+      '',
+      '1️⃣ ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:',
+      '2️⃣ ¿Usaba antes la plataforma de SUNAT para emitir comprobantes como boletas o facturas?:',
+      '3️⃣ ¿Está usted pagando IGV normal o está exonerado? (Solo aplica para la selva):',
     ].join('\n');
   };
 
