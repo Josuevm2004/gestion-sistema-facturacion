@@ -16,8 +16,8 @@ services:
       - SPRING_DATASOURCE_DRIVER_CLASS_NAME=org.postgresql.Driver
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
-      - JAVA_TOOL_OPTIONS=-Xmx512m -Xms256m -XX:+UseContainerSupport
-      - SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=10
+      - JAVA_TOOL_OPTIONS=-Xms128m -Xmx384m -XX:+UseContainerSupport -XX:+UseSerialGC -XX:MaxMetaspaceSize=128m
+      - SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=5
       - SPRING_DATASOURCE_HIKARI_MINIMUM_IDLE=2
       - SPRING_DATASOURCE_HIKARI_KEEPALIVE_TIME=30000
       - SPRING_DATASOURCE_HIKARI_MAX_LIFETIME=600000
@@ -29,3 +29,8 @@ services:
       - MONTHLY_BILLING_DAY=${MONTHLY_BILLING_DAY:-1}
       - SUNAT_VALIDATION_MODE=${SUNAT_VALIDATION_MODE:-web}
       - SUNAT_SOL_WEB_LOGIN_URL=${SUNAT_SOL_WEB_LOGIN_URL:-}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

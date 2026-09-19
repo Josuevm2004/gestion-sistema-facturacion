@@ -3,6 +3,7 @@ FROM maven:3.9-eclipse-temurin-17-alpine AS build
 WORKDIR /app
 COPY backend/WebAppFacturacion/pom.xml .
 COPY backend/WebAppFacturacion/src ./src
+ENV MAVEN_OPTS="-Xms64m -Xmx384m"
 RUN mvn clean package -DskipTests
 
 FROM eclipse-temurin:17-jre-alpine
