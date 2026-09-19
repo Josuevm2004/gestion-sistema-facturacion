@@ -7,6 +7,25 @@ import { parseLocalDate, getTodayLocalMidnight, formatDatePeru } from '@/lib/bil
 
 export type RegistrarPagoMode = 'ADELANTO' | 'REANUDAR_PAGO' | 'RENOVAR_PRORRATEO' | 'RENOVACION';
 
+const OFFICIAL_PLAN_PRICES: Record<string, number> = {
+  INICIA: 19,
+  EMPRENDE: 29,
+  IMPULSA: 39,
+  EMPRESARIAL: 59,
+  LIDER: 89,
+};
+
+function getOfficialPlanPrice(planStr?: string, fallback?: number): number {
+  if (!planStr) return fallback && fallback > 0 ? fallback : 19;
+  const key = planStr.toUpperCase().replace(/^PLAN\s+/, '').trim();
+  if (OFFICIAL_PLAN_PRICES[key]) return OFFICIAL_PLAN_PRICES[key];
+  return fallback && fallback > 0 ? fallback : 19;
+}
+
+function toIsoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export interface PaymentSubmissionData {
   monto: number;
   fechaPago: string; // YYYY-MM-DD
@@ -14,6 +33,8 @@ export interface PaymentSubmissionData {
   codigoOperacion: string;
   observaciones: string;
   conProrrateo?: boolean;
+  fechaInicioPeriodo?: string;
+  fechaFinPeriodo?: string;
 }
 
 interface RegistrarPagoModalProps {
@@ -36,10 +57,13 @@ export default function RegistrarPagoModal({
   const isRenovarProrrateo = mode === 'RENOVAR_PRORRATEO' || mode === 'RENOVACION';
   const conProrrateo = isRenovarProrrateo;
 
-  const precioOficialPlan = Number(client.precioPlan || client.montoMensual || 19);
+  const isAnual = (client.tipoSuscripcion || 'MENSUAL').toUpperCase() === 'ANUAL';
+  const baseMonthlyPrice = getOfficialPlanPrice(client.planContratado, Number(client.precioPlan || client.montoMensual || 19));
+  const precioOficialPlan = isAnual
+    ? (Number(client.precioPlan || client.montoMensual) > 100 ? Number(client.precioPlan || client.montoMensual) : baseMonthlyPrice * 10)
+    : baseMonthlyPrice;
   const rawVenc = client.fechaVencimientoMensual || client.fechaFinServicio;
   const vencDate = parseLocalDate(rawVenc);
-  const isAnual = (client.tipoSuscripcion || 'MENSUAL').toUpperCase() === 'ANUAL';
 
   // Fecha real del pago: por defecto HOY en hora local de Perú (YYYY-MM-DD)
   const now = getTodayLocalMidnight();
@@ -159,6 +183,8 @@ export default function RegistrarPagoModal({
         codigoOperacion: codigoOperacion.trim(),
         observaciones: observaciones.trim() || defaultObs,
         conProrrateo,
+        fechaInicioPeriodo: toIsoDate(fechaInicioPeriodo),
+        fechaFinPeriodo: toIsoDate(fechaFinPeriodo),
       });
       onClose();
     } catch (err) {

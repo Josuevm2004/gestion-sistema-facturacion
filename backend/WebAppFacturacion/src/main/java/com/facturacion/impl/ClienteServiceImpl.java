@@ -803,24 +803,9 @@ public class ClienteServiceImpl implements ClienteService {
         }
 
         BigDecimal precio = ventaVigente.getSuscripcion().getPrecio();
-        if (ventaVigente.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL
-                || servicio.getFechaInicio() == null) {
-            return precio;
-        }
-
-        if (servicio.getFechaInicio().getDayOfMonth()
-                >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
-            return precio.add(ProrrateoCalculatorUtil.calcularSegundoProrrateo(
-                    precio,
-                    servicio.getFechaInicio().toLocalDate()
-            ).montoAdicional());
-        }
-
-        return ProrrateoCalculatorUtil.calcularHastaDiaCobro(
-                precio,
-                servicio.getFechaInicio().toLocalDate(),
-                monthlyBillingDay
-        ).montoFinal();
+        // Una vez que el servicio está activo y su ciclo alineado al día de corte mensual,
+        // el monto del SIGUIENTE cobro es el precio regular mensual del plan contratado.
+        return precio;
     }
 
     private void mapProrrateoVenta(Venta venta, ClienteDashboardResponse response) {

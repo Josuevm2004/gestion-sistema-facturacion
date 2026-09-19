@@ -246,11 +246,14 @@ export default function BloqueadosTab({
           onClose={() => setPagoModalConfig(null)}
           onConfirm={async (client, data) => {
             await handleRenovarPlan(client, undefined, undefined, {
+              monto: data.monto,
               fechaPago: data.fechaPago,
               medioPago: data.medioPago,
               codigoOperacion: data.codigoOperacion,
               observaciones: data.observaciones,
               conProrrateo: data.conProrrateo,
+              fechaInicioPeriodo: data.fechaInicioPeriodo,
+              fechaFinPeriodo: data.fechaFinPeriodo,
             });
             setPagoModalConfig(null);
           }}

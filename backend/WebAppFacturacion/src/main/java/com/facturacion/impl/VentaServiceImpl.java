@@ -82,9 +82,13 @@ public class VentaServiceImpl implements VentaService {
             return procesarMejoraPlan(cliente, vendedor, suscripcion, request, ventasCliente, fechaRef);
         }
 
-        Venta operacionReciente = encontrarOperacionPagadaReciente(ventasCliente, tipo, suscripcion, fechaRef);
-        if (operacionReciente != null) {
-            return operacionReciente;
+        if (!Boolean.TRUE.equals(request.getConProrrateo())
+                && cliente.getEstado() != null
+                && "HABILITADO".equalsIgnoreCase(cliente.getEstado().getNombre())) {
+            Venta operacionReciente = encontrarOperacionPagadaReciente(ventasCliente, tipo, suscripcion, fechaRef);
+            if (operacionReciente != null) {
+                return operacionReciente;
+            }
         }
 
         ServicioCliente servicioActual = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(cliente.getId()).orElse(null);
@@ -154,6 +158,9 @@ public class VentaServiceImpl implements VentaService {
                 montoTotal = resultado.montoFinal();
                 descuentoProrrateo = resultado.descuento();
                 tipoProrrateo = TipoProrrateo.PRIMER_PRORRATEO;
+            }
+            if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+                montoTotal = request.getMonto();
             }
         } else if (tipo == TipoVenta.CAMBIO_PLAN) {
             if (correspondeSegundoProrrateo(fechaInicioDate)) {
@@ -614,7 +621,8 @@ public class VentaServiceImpl implements VentaService {
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
                 .filter(v -> v.getTipoVenta() == tipo)
                 .filter(v -> mismaSuscripcion(v, suscripcion))
-                .filter(v -> v.getFechaVenta() != null && !v.getFechaVenta().isBefore(fechaRef.minusMinutes(2)))
+                .filter(v -> (v.getFechaActualizacion() != null && !v.getFechaActualizacion().isBefore(fechaRef.minusSeconds(15)))
+                        || (v.getFechaVenta() != null && !v.getFechaVenta().isBefore(fechaRef.minusSeconds(15))))
                 .findFirst()
                 .orElse(null);
     }

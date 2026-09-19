@@ -735,11 +735,14 @@ export function useAdminData() {
     nuevoPlan?: string,
     nuevoTipo?: string,
     paymentDetails?: {
+      monto?: number;
       fechaPago?: string;
       medioPago?: string;
       codigoOperacion?: string;
       observaciones?: string;
       conProrrateo?: boolean;
+      fechaInicioPeriodo?: string;
+      fechaFinPeriodo?: string;
     }
   ) {
     if (!token) return;
@@ -771,9 +774,29 @@ export function useAdminData() {
     if (processingOperationsRef.current.has(processingKey)) return;
     processingOperationsRef.current.add(processingKey);
 
-    const nowLocal = getTodayLocalMidnight();
-    const nextMonth1st = new Date(nowLocal.getFullYear(), nowLocal.getMonth() + 1, 1);
-    const nextDateStr = nextMonth1st.toISOString().split('T')[0];
+    // Cálculo dinámico de la fecha de vencimiento según el flujo y las 2 lógicas de prorrateo
+    let nextDateStr: string;
+    if (paymentDetails?.fechaFinPeriodo) {
+      nextDateStr = paymentDetails.fechaFinPeriodo;
+    } else {
+      const payDate = parseLocalDate(paymentDetails?.fechaPago) || getTodayLocalMidnight();
+      const y = payDate.getFullYear();
+      const m = payDate.getMonth();
+      const dia = payDate.getDate();
+
+      if (tipoAUsar === 'ANUAL') {
+        const nextYear = new Date(y + 1, m, dia);
+        nextDateStr = `${nextYear.getFullYear()}-${String(nextYear.getMonth() + 1).padStart(2, '0')}-${String(nextYear.getDate()).padStart(2, '0')}`;
+      } else if (paymentDetails?.conProrrateo && dia >= 10) {
+        // Segundo Prorrateo (día >= 10): fin del período es el 1.° de 2 meses después
+        const finSegundo = new Date(y, m + 2, 1);
+        nextDateStr = `${finSegundo.getFullYear()}-${String(finSegundo.getMonth() + 1).padStart(2, '0')}-01`;
+      } else {
+        // Primer Prorrateo (día < 10) o Ciclo regular: 1.° del próximo mes
+        const finPrimer = new Date(y, m + 1, 1);
+        nextDateStr = `${finPrimer.getFullYear()}-${String(finPrimer.getMonth() + 1).padStart(2, '0')}-01`;
+      }
+    }
 
     const clientIdStr = String(client.id);
     pendingOverridesRef.current.set(clientIdStr, {
@@ -810,6 +833,7 @@ export function useAdminData() {
         planId,
         tipoSuscripcion: tipoAUsar,
         tipoVenta: tipoVenta,
+        monto: paymentDetails?.monto,
         fechaPago: paymentDetails?.fechaPago,
         medioPago: paymentDetails?.medioPago,
         codigoOperacion: paymentDetails?.codigoOperacion,
