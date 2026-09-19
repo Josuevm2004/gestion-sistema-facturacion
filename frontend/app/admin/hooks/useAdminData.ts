@@ -392,7 +392,14 @@ export function useAdminData() {
       setCurrentUser(userObj);
       loadData(authToken);
     } catch (err: any) {
-      setNotice(err.response?.data?.error || err.response?.data?.message || 'Credenciales administrativas inválidas.');
+      const serverMessage = err.response?.data?.message || err.response?.data?.error;
+      if (serverMessage) {
+        setNotice(serverMessage);
+      } else if (!err.response || err.response?.status >= 500) {
+        setNotice(`No se pudo conectar con el servidor backend (${err.response?.status || 'Error de conexión'}). Verifique que el servicio esté activo.`);
+      } else {
+        setNotice('Credenciales administrativas inválidas.');
+      }
     }
   }
 

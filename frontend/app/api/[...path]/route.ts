@@ -38,13 +38,23 @@ async function proxyRequest(request: NextRequest, context: { params: { path?: st
   });
 
   const method = request.method.toUpperCase();
-  const hasBody = method !== 'GET' && method !== 'HEAD';
-  const response = await fetch(targetUrl, {
-    method,
-    headers,
-    body: hasBody ? await request.arrayBuffer() : undefined,
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetch(targetUrl, {
+      method,
+      headers,
+      body: hasBody ? await request.arrayBuffer() : undefined,
+      cache: 'no-store',
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: `No se pudo conectar con el servidor backend (${targetUrl.origin}). Asegúrese de que el contenedor de Spring Boot esté activo. Detalle: ${error?.message || error}`,
+      },
+      { status: 503 }
+    );
+  }
 
   const responseHeaders = new Headers(response.headers);
   RESPONSE_HEADERS_TO_REMOVE.forEach((header) => responseHeaders.delete(header));
