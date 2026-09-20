@@ -450,8 +450,9 @@ export function useAdminData() {
       return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 30, tipoProrrateo: 'PRIMER_PRORRATEO' };
     }
 
-    const dCap = new Date(fechaCapacitacionStr);
-    if (isNaN(dCap.getTime())) {
+    // Normalizar a fecha local (año, mes, día) sin que las horas/minutos causen desfases
+    const dCap = parseLocalDate(fechaCapacitacionStr);
+    if (!dCap || isNaN(dCap.getTime())) {
       return { montoProrrateado: Math.round(montoPlan), diasProrrateados: 30, tipoProrrateo: 'PRIMER_PRORRATEO' };
     }
 
@@ -493,40 +494,33 @@ export function useAdminData() {
       };
     }
 
-    const billingDate = (base: Date) => {
-      const y = base.getFullYear();
-      const m = base.getMonth();
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      return new Date(y, m, Math.min(monthlyBillingDay, lastDay));
-    };
-    let fechaFin = billingDate(dCap);
-    if (dCap >= fechaFin) {
-      fechaFin = billingDate(new Date(year, month + 1, 1));
-    }
-    const fechaInicioCiclo = billingDate(new Date(fechaFin.getFullYear(), fechaFin.getMonth() - 1, 1));
-    const msDia = 24 * 60 * 60 * 1000;
-    const dTotal = Math.max(1, Math.round((fechaFin.getTime() - fechaInicioCiclo.getTime()) / msDia));
+    // Primer Prorrateo (Días 1 al 9): Idéntico al backend de la BD (ProrrateoCalculatorUtil.java)
+    // Fórmula: Días no consumidos = diaCap - 1. Días cobrados = diasTotales - diasNoConsumidos.
+    // Si diaCap = 1: diasNoConsumidos = 0, se cobran todos los días y no hay descuento (monto completo).
+    const diasTotalesMes = new Date(year, month + 1, 0).getDate();
+    const diasNoConsumidos = Math.max(0, diaCap - 1);
+    const diasCobrados = Math.max(1, diasTotalesMes - diasNoConsumidos);
+    const precioDiario = montoPlan / diasTotalesMes;
+    const descuento = precioDiario * diasNoConsumidos;
+    const montoCalculado = Math.max(0, montoPlan - descuento);
 
-    const diasUsados = Math.max(1, Math.round((fechaFin.getTime() - dCap.getTime()) / msDia));
-    const montoCalculado = (montoPlan / dTotal) * diasUsados;
-    return { montoProrrateado: Math.round(montoCalculado), diasProrrateados: diasUsados, tipoProrrateo: 'PRIMER_PRORRATEO' };
+    return { 
+      montoProrrateado: Math.round(montoCalculado), 
+      diasProrrateados: diasCobrados, 
+      tipoProrrateo: 'PRIMER_PRORRATEO' 
+    };
   }
 
   const prorrateoCalculado = useMemo(() => {
     if (!trainingClient || !trainingDateInput) return null;
-    const dCap = new Date(trainingDateInput);
-    if (isNaN(dCap.getTime())) return null;
+    const dCap = parseLocalDate(trainingDateInput);
+    if (!dCap || isNaN(dCap.getTime())) return null;
 
     const year = dCap.getFullYear();
     const month = dCap.getMonth();
     const diaCap = dCap.getDate();
+    const diasTotales = new Date(year, month + 1, 0).getDate();
     const monthlyBillingDay = MONTHLY_BILLING_DAY;
-    const billingDate = (base: Date) => {
-      const y = base.getFullYear();
-      const m = base.getMonth();
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      return new Date(y, m, Math.min(monthlyBillingDay, lastDay));
-    };
 
     const isAnual = (trainingClient.tipoSuscripcion || 'MENSUAL') === 'ANUAL';
     const res = calcularProrrateoEntero(
@@ -538,22 +532,18 @@ export function useAdminData() {
 
     let fVenc: Date;
     if (isAnual) {
-      fVenc = new Date(dCap.getFullYear() + 1, dCap.getMonth(), dCap.getDate());
+      fVenc = new Date(year + 1, month, diaCap, 0, 0, 0, 0);
     } else if (res.tipoProrrateo === 'SEGUNDO_PRORRATEO' && res.fechaFinProrrateoAdicional) {
-      const dFin = new Date(res.fechaFinProrrateoAdicional);
-      fVenc = new Date(dFin.getFullYear(), dFin.getMonth(), dFin.getDate() + 1);
+      const dFin = parseLocalDate(res.fechaFinProrrateoAdicional) || new Date(res.fechaFinProrrateoAdicional);
+      fVenc = new Date(dFin.getFullYear(), dFin.getMonth(), dFin.getDate() + 1, 0, 0, 0, 0);
     } else {
-      fVenc = billingDate(dCap);
-      if (dCap >= fVenc) {
-        fVenc = billingDate(new Date(year, month + 1, 1));
-      }
+      // Días 1 al 9: el servicio vence el día 1 del mes siguiente
+      fVenc = new Date(year, month + 1, Math.min(monthlyBillingDay, new Date(year, month + 2, 0).getDate()), 0, 0, 0, 0);
     }
-    const fechaInicioCiclo = billingDate(new Date(fVenc.getFullYear(), fVenc.getMonth() - 1, 1));
-    const dTotal = isAnual ? 365 : Math.max(1, Math.round((fVenc.getTime() - fechaInicioCiclo.getTime()) / (24 * 60 * 60 * 1000)));
     const fechaVencimientoStr = fVenc.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     return {
-      diasTotales: dTotal,
+      diasTotales,
       diaCapacitacion: diaCap,
       montoProrrateado: res.montoProrrateado,
       montoProrrateoAdicional: res.montoProrrateoAdicional || 0,

@@ -38,6 +38,7 @@ async function proxyRequest(request: NextRequest, context: { params: { path?: st
   });
 
   const method = request.method.toUpperCase();
+  const hasBody = !['GET', 'HEAD'].includes(method);
   let response: Response;
   try {
     response = await fetch(targetUrl, {
