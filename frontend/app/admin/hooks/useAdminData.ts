@@ -1007,6 +1007,8 @@ export function useAdminData() {
       claveTemporal: formData.get('claveSistema') as string,
       urlAcceso: formData.get('linkSistema') as string,
       usuarioWsp: formData.get('usuarioWsp') as string,
+      dniRepresentante: formData.get('dniRepresentante') as string,
+      correoRepresentante: formData.get('correoRepresentante') as string,
       entornoId: formData.get('entornoId') ? Number(formData.get('entornoId')) : undefined,
       vendedorId: canEditVendedor ? foundVendedorId : null,
     };

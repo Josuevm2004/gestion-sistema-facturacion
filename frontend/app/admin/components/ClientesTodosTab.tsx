@@ -67,6 +67,8 @@ export type Client = {
   avisado?: boolean;
   entornoId?: EntityId;
   entornoNombre?: string;
+  dniRepresentante?: string;
+  correoRepresentante?: string;
   [key: string]: any;
 };
 
@@ -186,8 +188,8 @@ export default function ClientesTodosTab({
       ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
       `👤 Usuario SOL:${client.usuarioSol ? ` ${client.usuarioSol}` : ''}`,
       `🔑 Contraseña SOL:${client.claveSolCifrada ? ` ${client.claveSolCifrada}` : ''}`,
-      '🆔 Número de DNI (Diferente al dueño y socios, mayor de edad):',
-      '📧 Correo (Diferente al dueño y socios):',
+      `🆔 Número de DNI (Diferente al dueño y socios, mayor de edad):${client.dniRepresentante ? ` ${client.dniRepresentante}` : ''}`,
+      `📧 Correo (Diferente al dueño y socios):${client.correoRepresentante ? ` ${client.correoRepresentante}` : ''}`,
       '',
       '❓ PREGUNTAS ADICIONALES',
       '',

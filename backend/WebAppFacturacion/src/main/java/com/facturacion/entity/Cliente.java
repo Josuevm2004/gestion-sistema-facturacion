@@ -71,6 +71,12 @@ public class Cliente {
     @Column(name = "usuario_wsp", length = 20)
     private String usuarioWsp;
 
+    @Column(name = "dni_representante", length = 8)
+    private String dniRepresentante;
+
+    @Column(name = "correo_representante", length = 100)
+    private String correoRepresentante;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "estado_id")
     private EstadoCliente estado;
@@ -147,6 +153,10 @@ public class Cliente {
     public void setUrlAcceso(String urlAcceso) { this.urlAcceso = urlAcceso; }
     public String getUsuarioWsp() { return usuarioWsp; }
     public void setUsuarioWsp(String usuarioWsp) { this.usuarioWsp = usuarioWsp; }
+    public String getDniRepresentante() { return dniRepresentante; }
+    public void setDniRepresentante(String dniRepresentante) { this.dniRepresentante = dniRepresentante; }
+    public String getCorreoRepresentante() { return correoRepresentante; }
+    public void setCorreoRepresentante(String correoRepresentante) { this.correoRepresentante = correoRepresentante; }
     public EstadoCliente getEstado() { return estado; }
     public void setEstado(EstadoCliente estado) { this.estado = estado; }
     public ColorTag getColorTag() { return colorTag; }

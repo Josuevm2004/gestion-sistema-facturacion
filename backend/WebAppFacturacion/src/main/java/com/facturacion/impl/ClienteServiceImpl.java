@@ -485,6 +485,8 @@ public class ClienteServiceImpl implements ClienteService {
             String usuarioWsp = request.getUsuarioWsp().trim();
             cliente.setUsuarioWsp(usuarioWsp.isBlank() ? null : usuarioWsp);
         }
+        if (request.getDniRepresentante() != null) cliente.setDniRepresentante(request.getDniRepresentante());
+        if (request.getCorreoRepresentante() != null) cliente.setCorreoRepresentante(request.getCorreoRepresentante());
 
         if (request.getColorTagId() != null) {
             ColorTag colorTag = colorTagRepository.findById(request.getColorTagId()).orElse(null);
@@ -683,6 +685,8 @@ public class ClienteServiceImpl implements ClienteService {
         res.setClaveTemporal(c.getClaveTemporal());
         res.setUrlAcceso(c.getUrlAcceso());
         res.setUsuarioWsp(c.getUsuarioWsp());
+        res.setDniRepresentante(c.getDniRepresentante());
+        res.setCorreoRepresentante(c.getCorreoRepresentante());
         res.setAvisado(c.getAvisado());
 
         String estadoNombre = c.getEstado() != null ? c.getEstado().getNombre() : null;
@@ -841,6 +845,8 @@ public class ClienteServiceImpl implements ClienteService {
         res.setClaveTemporal(c.getClaveTemporal());
         res.setUrlAcceso(c.getUrlAcceso());
         res.setUsuarioWsp(c.getUsuarioWsp());
+        res.setDniRepresentante(c.getDniRepresentante());
+        res.setCorreoRepresentante(c.getCorreoRepresentante());
         if (c.getEntorno() != null) {
             res.setEntornoId(c.getEntorno().getId());
             res.setEntornoNombre(c.getEntorno().getNombre());

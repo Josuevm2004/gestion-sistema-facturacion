@@ -252,6 +252,22 @@ export default function EditClientModal({
                   <label className="form-label">Clave SOL</label>
                   <input className="form-control" name="claveSol" defaultValue={editingClient.claveSolCifrada || ''} />
                 </div>
+
+                {/* --- DNI y Correo Representante --- */}
+                <div className="col-12 mt-4">
+                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                    <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>4</span>
+                    <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Datos del Representante (Diferente al dueño y socios)</h6>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">🆔 Número de DNI (Mayor de edad)</label>
+                  <input className="form-control" name="dniRepresentante" defaultValue={editingClient.dniRepresentante || ''} maxLength={8} placeholder="DNI diferente al dueño y socios" />
+                </div>
+                <div className="col-md-6">
+                  <label className="form-label">📧 Correo (Diferente al dueño y socios)</label>
+                  <input className="form-control" name="correoRepresentante" defaultValue={editingClient.correoRepresentante || ''} type="email" placeholder="correo@ejemplo.com" />
+                </div>
               </div>
             </div>
             <div className="modal-footer border-top bg-light px-4 py-3 flex-shrink-0">

@@ -23,6 +23,8 @@ public class ClienteUpdateRequest {
     private String claveTemporal;
     private String urlAcceso;
     private String usuarioWsp;
+    private String dniRepresentante;
+    private String correoRepresentante;
 
     private Long colorTagId;
     private Long entornoId;
@@ -71,6 +73,10 @@ public class ClienteUpdateRequest {
     public void setUrlAcceso(String urlAcceso) { this.urlAcceso = urlAcceso; }
     public String getUsuarioWsp() { return usuarioWsp; }
     public void setUsuarioWsp(String usuarioWsp) { this.usuarioWsp = usuarioWsp; }
+    public String getDniRepresentante() { return dniRepresentante; }
+    public void setDniRepresentante(String dniRepresentante) { this.dniRepresentante = dniRepresentante; }
+    public String getCorreoRepresentante() { return correoRepresentante; }
+    public void setCorreoRepresentante(String correoRepresentante) { this.correoRepresentante = correoRepresentante; }
     public Long getColorTagId() { return colorTagId; }
     public void setColorTagId(Long colorTagId) { this.colorTagId = colorTagId; }
     public Long getEntornoId() { return entornoId; }
