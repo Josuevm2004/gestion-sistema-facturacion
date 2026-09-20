@@ -29,6 +29,8 @@ public class RegistroFormularioRequest {
     private Boolean usoSistemaAnterior;
     private String volumenFacturacionEstimado;
     private String comentarios;
+    private String dniRepresentante;
+    private String correoRepresentante;
 
     public RegistroFormularioRequest() {}
 
@@ -78,4 +80,8 @@ public class RegistroFormularioRequest {
     public void setVolumenFacturacionEstimado(String volumenFacturacionEstimado) { this.volumenFacturacionEstimado = volumenFacturacionEstimado; }
     public String getComentarios() { return comentarios; }
     public void setComentarios(String comentarios) { this.comentarios = comentarios; }
+    public String getDniRepresentante() { return dniRepresentante; }
+    public void setDniRepresentante(String dniRepresentante) { this.dniRepresentante = dniRepresentante; }
+    public String getCorreoRepresentante() { return correoRepresentante; }
+    public void setCorreoRepresentante(String correoRepresentante) { this.correoRepresentante = correoRepresentante; }
 }

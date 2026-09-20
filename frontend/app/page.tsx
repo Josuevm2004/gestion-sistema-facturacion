@@ -211,6 +211,8 @@ export default function FormularioPublicoPage() {
       tipoSuscripcion: tipoSuscripcion,
       usuarioSol: formData.get('usuarioSol') as string,
       claveSol: formData.get('claveSol') as string,
+      dniRepresentante: (formData.get('dniRepresentante') as string) || null,
+      correoRepresentante: (formData.get('correoRepresentante') as string) || null,
       comoNosConocio: formData.get('comoNosConocio') as string,
       usoSistemaAnterior: formData.get('usoSistemaAnterior') === 'true',
       comentarios: formData.get('comentarios') as string,
@@ -457,6 +459,32 @@ export default function FormularioPublicoPage() {
                       <label className="form-label">Clave SOL</label>
                       <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required onChange={resetSunatValidation} />
                       <div className="invalid-feedback">Ingresa tu clave SOL.</div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">🆔 Número de DNI (Diferente al dueño y socios, mayor de edad)</label>
+                      <input
+                        type="text"
+                        name="dniRepresentante"
+                        className="form-control"
+                        placeholder="12345678"
+                        maxLength={8}
+                        pattern="^\d{8}$"
+                      />
+                      <div className="form-text text-muted small">
+                        DNI de un tercero mayor de edad para vinculación con facturación.
+                      </div>
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label">📧 Correo (Diferente al dueño y socios)</label>
+                      <input
+                        type="email"
+                        name="correoRepresentante"
+                        className="form-control"
+                        placeholder="correo.tercero@ejemplo.com"
+                      />
+                      <div className="form-text text-muted small">
+                        Correo activo diferente al dueño y socios.
+                      </div>
                     </div>
                     <div className="col-12 d-flex flex-wrap align-items-center gap-2">
                       <button

@@ -167,6 +167,8 @@ CREATE TABLE cliente (
     clave_temporal VARCHAR(100),
     url_acceso VARCHAR(255),
     usuario_wsp VARCHAR(20),
+    dni_representante VARCHAR(8),
+    correo_representante VARCHAR(100),
 
     estado_id BIGINT NULL,
     color_tag_id BIGINT NULL,

@@ -114,6 +114,14 @@ public class ClienteServiceImpl implements ClienteService {
         cliente.setDepartamento(request.getDepartamento());
         cliente.setProvincia(request.getProvincia());
         cliente.setDistrito(request.getDistrito());
+        if (request.getDniRepresentante() != null) {
+            String dniRep = request.getDniRepresentante().trim();
+            cliente.setDniRepresentante(dniRep.isBlank() ? null : dniRep);
+        }
+        if (request.getCorreoRepresentante() != null) {
+            String correoRep = request.getCorreoRepresentante().trim();
+            cliente.setCorreoRepresentante(correoRep.isBlank() ? null : correoRep);
+        }
         cliente.setEstado(estadoPorCobrar);
         cliente.setFechaRegistro(fechaOperacion);
         cliente.setFechaActualizacion(fechaOperacion);

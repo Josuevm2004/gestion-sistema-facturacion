@@ -77,6 +77,8 @@ function normalizeClientData(c: any): Client {
     claveSistema: c.claveTemporal || c.claveSistema,
     entornoId: c.entornoId !== undefined && c.entornoId !== null ? String(c.entornoId) : undefined,
     entornoNombre: c.entornoNombre || '',
+    dniRepresentante: c.dniRepresentante || '',
+    correoRepresentante: c.correoRepresentante || '',
   };
 }
 
