@@ -213,6 +213,9 @@ export default function FormularioPublicoPage() {
       claveSol: formData.get('claveSol') as string,
       dniRepresentante: (formData.get('dniRepresentante') as string) || null,
       correoRepresentante: (formData.get('correoRepresentante') as string) || null,
+      primeraVezOProviene: (formData.get('primeraVezOProviene') as string) || null,
+      usabaSunatAnteriormente: (formData.get('usabaSunatAnteriormente') as string) || null,
+      tipoIgv: (formData.get('tipoIgv') as string) || null,
       comoNosConocio: formData.get('comoNosConocio') as string,
       usoSistemaAnterior: formData.get('usoSistemaAnterior') === 'true',
       comentarios: formData.get('comentarios') as string,
@@ -436,6 +439,40 @@ export default function FormularioPublicoPage() {
                 <input type="text" name="telefonoPersonal" className="form-control" placeholder="912345678" maxLength={9} />
               </div>
 
+              {/* DATOS DEL REPRESENTANTE ADICIONAL */}
+              <div className="col-12 mt-4">
+                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">Datos del Representante (Diferente al dueño y socios)</h2>
+                <p className="text-muted small mb-0">Datos de vinculación requeridos para la gestión de su facturación electrónica.</p>
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Número de DNI (Diferente al dueño y socios, mayor de edad)</label>
+                <input
+                  type="text"
+                  name="dniRepresentante"
+                  className="form-control"
+                  placeholder="12345678"
+                  maxLength={8}
+                  pattern="^\d{8}$"
+                />
+                <div className="form-text text-muted small">
+                  DNI de un tercero mayor de edad diferente al dueño y socios.
+                </div>
+              </div>
+
+              <div className="col-md-6">
+                <label className="form-label">Correo (Diferente al dueño y socios)</label>
+                <input
+                  type="email"
+                  name="correoRepresentante"
+                  className="form-control"
+                  placeholder="correo.tercero@ejemplo.com"
+                />
+                <div className="form-text text-muted small">
+                  Correo electrónico diferente al dueño y socios.
+                </div>
+              </div>
+
               {/* SECCIÓN 4: CLAVE SOL */}
               <div className="col-12 mt-4">
                 <div className="p-3 rounded-3 border bg-light">
@@ -459,32 +496,6 @@ export default function FormularioPublicoPage() {
                       <label className="form-label">Clave SOL</label>
                       <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required onChange={resetSunatValidation} />
                       <div className="invalid-feedback">Ingresa tu clave SOL.</div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">🆔 Número de DNI (Diferente al dueño y socios, mayor de edad)</label>
-                      <input
-                        type="text"
-                        name="dniRepresentante"
-                        className="form-control"
-                        placeholder="12345678"
-                        maxLength={8}
-                        pattern="^\d{8}$"
-                      />
-                      <div className="form-text text-muted small">
-                        DNI de un tercero mayor de edad para vinculación con facturación.
-                      </div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">📧 Correo (Diferente al dueño y socios)</label>
-                      <input
-                        type="email"
-                        name="correoRepresentante"
-                        className="form-control"
-                        placeholder="correo.tercero@ejemplo.com"
-                      />
-                      <div className="form-text text-muted small">
-                        Correo activo diferente al dueño y socios.
-                      </div>
                     </div>
                     <div className="col-12 d-flex flex-wrap align-items-center gap-2">
                       <button
@@ -512,6 +523,41 @@ export default function FormularioPublicoPage() {
                 </div>
               </div>
 
+              {/* SECCIÓN 5: PREGUNTAS ADICIONALES */}
+              <div className="col-12 mt-4">
+                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">5. Preguntas Adicionales</h2>
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">1. ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:</label>
+                <input
+                  type="text"
+                  name="primeraVezOProviene"
+                  className="form-control"
+                  placeholder="Escriba su respuesta aquí..."
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">2. ¿Usaba antes la plataforma de SUNAT para emitir comprobantes como boletas o facturas?:</label>
+                <input
+                  type="text"
+                  name="usabaSunatAnteriormente"
+                  className="form-control"
+                  placeholder="Escriba su respuesta aquí..."
+                />
+              </div>
+
+              <div className="col-12">
+                <label className="form-label">3. ¿Está usted pagando IGV normal o está exonerado? (Solo aplica para la selva):</label>
+                <input
+                  type="text"
+                  name="tipoIgv"
+                  className="form-control"
+                  placeholder="Escriba su respuesta aquí..."
+                />
+              </div>
+
               <div className="col-12 mt-3">
                 <div className="alert alert-secondary d-flex align-items-start gap-2 mb-0 small border rounded-3">
                   <Info size={17} className="flex-shrink-0 mt-1" />
@@ -534,7 +580,7 @@ export default function FormularioPublicoPage() {
               <div className="col-12 mt-4">
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
                   <div>
-                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">5. Selección de Plan</h2>
+                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Selección de Plan</h2>
                     {plansLoading && <small className="text-muted">Cargando tarifas desde la base de datos...</small>}
                     {plansError && <small className="text-danger d-block">{plansError}</small>}
                   </div>

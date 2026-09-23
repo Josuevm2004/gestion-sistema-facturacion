@@ -32,6 +32,10 @@ public class RegistroFormularioRequest {
     private String dniRepresentante;
     private String correoRepresentante;
 
+    private String primeraVezOProviene;
+    private String usabaSunatAnteriormente;
+    private String tipoIgv;
+
     public RegistroFormularioRequest() {}
 
     public String getRuc() { return ruc; }
@@ -84,4 +88,10 @@ public class RegistroFormularioRequest {
     public void setDniRepresentante(String dniRepresentante) { this.dniRepresentante = dniRepresentante; }
     public String getCorreoRepresentante() { return correoRepresentante; }
     public void setCorreoRepresentante(String correoRepresentante) { this.correoRepresentante = correoRepresentante; }
+    public String getPrimeraVezOProviene() { return primeraVezOProviene; }
+    public void setPrimeraVezOProviene(String primeraVezOProviene) { this.primeraVezOProviene = primeraVezOProviene; }
+    public String getUsabaSunatAnteriormente() { return usabaSunatAnteriormente; }
+    public void setUsabaSunatAnteriormente(String usabaSunatAnteriormente) { this.usabaSunatAnteriormente = usabaSunatAnteriormente; }
+    public String getTipoIgv() { return tipoIgv; }
+    public void setTipoIgv(String tipoIgv) { this.tipoIgv = tipoIgv; }
 }

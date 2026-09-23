@@ -122,6 +122,18 @@ public class ClienteServiceImpl implements ClienteService {
             String correoRep = request.getCorreoRepresentante().trim();
             cliente.setCorreoRepresentante(correoRep.isBlank() ? null : correoRep);
         }
+        if (request.getPrimeraVezOProviene() != null) {
+            String val = request.getPrimeraVezOProviene().trim();
+            cliente.setPrimeraVezOProviene(val.isBlank() ? null : val);
+        }
+        if (request.getUsabaSunatAnteriormente() != null) {
+            String val = request.getUsabaSunatAnteriormente().trim();
+            cliente.setUsabaSunatAnteriormente(val.isBlank() ? null : val);
+        }
+        if (request.getTipoIgv() != null) {
+            String val = request.getTipoIgv().trim();
+            cliente.setTipoIgv(val.isBlank() ? null : val);
+        }
         cliente.setEstado(estadoPorCobrar);
         cliente.setFechaRegistro(fechaOperacion);
         cliente.setFechaActualizacion(fechaOperacion);
@@ -495,6 +507,18 @@ public class ClienteServiceImpl implements ClienteService {
         }
         if (request.getDniRepresentante() != null) cliente.setDniRepresentante(request.getDniRepresentante());
         if (request.getCorreoRepresentante() != null) cliente.setCorreoRepresentante(request.getCorreoRepresentante());
+        if (request.getPrimeraVezOProviene() != null) {
+            String val = request.getPrimeraVezOProviene().trim();
+            cliente.setPrimeraVezOProviene(val.isBlank() ? null : val);
+        }
+        if (request.getUsabaSunatAnteriormente() != null) {
+            String val = request.getUsabaSunatAnteriormente().trim();
+            cliente.setUsabaSunatAnteriormente(val.isBlank() ? null : val);
+        }
+        if (request.getTipoIgv() != null) {
+            String val = request.getTipoIgv().trim();
+            cliente.setTipoIgv(val.isBlank() ? null : val);
+        }
 
         if (request.getColorTagId() != null) {
             ColorTag colorTag = colorTagRepository.findById(request.getColorTagId()).orElse(null);
@@ -695,6 +719,9 @@ public class ClienteServiceImpl implements ClienteService {
         res.setUsuarioWsp(c.getUsuarioWsp());
         res.setDniRepresentante(c.getDniRepresentante());
         res.setCorreoRepresentante(c.getCorreoRepresentante());
+        res.setPrimeraVezOProviene(c.getPrimeraVezOProviene());
+        res.setUsabaSunatAnteriormente(c.getUsabaSunatAnteriormente());
+        res.setTipoIgv(c.getTipoIgv());
         res.setAvisado(c.getAvisado());
 
         String estadoNombre = c.getEstado() != null ? c.getEstado().getNombre() : null;
@@ -855,6 +882,9 @@ public class ClienteServiceImpl implements ClienteService {
         res.setUsuarioWsp(c.getUsuarioWsp());
         res.setDniRepresentante(c.getDniRepresentante());
         res.setCorreoRepresentante(c.getCorreoRepresentante());
+        res.setPrimeraVezOProviene(c.getPrimeraVezOProviene());
+        res.setUsabaSunatAnteriormente(c.getUsabaSunatAnteriormente());
+        res.setTipoIgv(c.getTipoIgv());
         if (c.getEntorno() != null) {
             res.setEntornoId(c.getEntorno().getId());
             res.setEntornoNombre(c.getEntorno().getNombre());

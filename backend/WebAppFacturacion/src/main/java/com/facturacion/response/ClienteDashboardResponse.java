@@ -32,6 +32,9 @@ public class ClienteDashboardResponse {
     private String usuarioWsp;
     private String dniRepresentante;
     private String correoRepresentante;
+    private String primeraVezOProviene;
+    private String usabaSunatAnteriormente;
+    private String tipoIgv;
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long estadoId;
@@ -124,6 +127,12 @@ public class ClienteDashboardResponse {
     public void setDniRepresentante(String dniRepresentante) { this.dniRepresentante = dniRepresentante; }
     public String getCorreoRepresentante() { return correoRepresentante; }
     public void setCorreoRepresentante(String correoRepresentante) { this.correoRepresentante = correoRepresentante; }
+    public String getPrimeraVezOProviene() { return primeraVezOProviene; }
+    public void setPrimeraVezOProviene(String primeraVezOProviene) { this.primeraVezOProviene = primeraVezOProviene; }
+    public String getUsabaSunatAnteriormente() { return usabaSunatAnteriormente; }
+    public void setUsabaSunatAnteriormente(String usabaSunatAnteriormente) { this.usabaSunatAnteriormente = usabaSunatAnteriormente; }
+    public String getTipoIgv() { return tipoIgv; }
+    public void setTipoIgv(String tipoIgv) { this.tipoIgv = tipoIgv; }
     public Long getEstadoId() { return estadoId; }
     public void setEstadoId(Long estadoId) { this.estadoId = estadoId; }
     public String getEstadoNombre() { return estadoNombre; }

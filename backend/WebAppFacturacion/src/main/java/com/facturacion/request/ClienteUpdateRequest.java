@@ -25,6 +25,9 @@ public class ClienteUpdateRequest {
     private String usuarioWsp;
     private String dniRepresentante;
     private String correoRepresentante;
+    private String primeraVezOProviene;
+    private String usabaSunatAnteriormente;
+    private String tipoIgv;
 
     private Long colorTagId;
     private Long entornoId;
@@ -77,6 +80,12 @@ public class ClienteUpdateRequest {
     public void setDniRepresentante(String dniRepresentante) { this.dniRepresentante = dniRepresentante; }
     public String getCorreoRepresentante() { return correoRepresentante; }
     public void setCorreoRepresentante(String correoRepresentante) { this.correoRepresentante = correoRepresentante; }
+    public String getPrimeraVezOProviene() { return primeraVezOProviene; }
+    public void setPrimeraVezOProviene(String primeraVezOProviene) { this.primeraVezOProviene = primeraVezOProviene; }
+    public String getUsabaSunatAnteriormente() { return usabaSunatAnteriormente; }
+    public void setUsabaSunatAnteriormente(String usabaSunatAnteriormente) { this.usabaSunatAnteriormente = usabaSunatAnteriormente; }
+    public String getTipoIgv() { return tipoIgv; }
+    public void setTipoIgv(String tipoIgv) { this.tipoIgv = tipoIgv; }
     public Long getColorTagId() { return colorTagId; }
     public void setColorTagId(Long colorTagId) { this.colorTagId = colorTagId; }
     public Long getEntornoId() { return entornoId; }

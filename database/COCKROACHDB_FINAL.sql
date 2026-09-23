@@ -169,6 +169,9 @@ CREATE TABLE cliente (
     usuario_wsp VARCHAR(20),
     dni_representante VARCHAR(8),
     correo_representante VARCHAR(100),
+    primera_vez_o_proviene VARCHAR(500),
+    usaba_sunat_anteriormente VARCHAR(500),
+    tipo_igv VARCHAR(500),
 
     estado_id BIGINT NULL,
     color_tag_id BIGINT NULL,

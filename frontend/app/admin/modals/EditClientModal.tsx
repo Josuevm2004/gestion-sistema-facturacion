@@ -261,12 +261,32 @@ export default function EditClientModal({
                   </div>
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">🆔 Número de DNI (Mayor de edad)</label>
+                  <label className="form-label">Número de DNI (Diferente al dueño y socios, mayor de edad)</label>
                   <input className="form-control" name="dniRepresentante" defaultValue={editingClient.dniRepresentante || ''} maxLength={8} placeholder="DNI diferente al dueño y socios" />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">📧 Correo (Diferente al dueño y socios)</label>
+                  <label className="form-label">Correo (Diferente al dueño y socios)</label>
                   <input className="form-control" name="correoRepresentante" defaultValue={editingClient.correoRepresentante || ''} type="email" placeholder="correo@ejemplo.com" />
+                </div>
+
+                {/* --- Preguntas Adicionales --- */}
+                <div className="col-12 mt-4">
+                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                    <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>5</span>
+                    <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Preguntas Adicionales</h6>
+                  </div>
+                </div>
+                <div className="col-12">
+                  <label className="form-label">1. ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:</label>
+                  <input className="form-control" name="primeraVezOProviene" defaultValue={editingClient.primeraVezOProviene || ''} placeholder="Respuesta..." />
+                </div>
+                <div className="col-12">
+                  <label className="form-label">2. ¿Usaba antes la plataforma de SUNAT para emitir comprobantes como boletas o facturas?:</label>
+                  <input className="form-control" name="usabaSunatAnteriormente" defaultValue={editingClient.usabaSunatAnteriormente || ''} placeholder="Respuesta..." />
+                </div>
+                <div className="col-12">
+                  <label className="form-label">3. ¿Está usted pagando IGV normal o está exonerado? (Solo aplica para la selva):</label>
+                  <input className="form-control" name="tipoIgv" defaultValue={editingClient.tipoIgv || ''} placeholder="Respuesta..." />
                 </div>
               </div>
             </div>

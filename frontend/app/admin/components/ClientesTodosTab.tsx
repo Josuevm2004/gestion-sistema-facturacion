@@ -69,6 +69,9 @@ export type Client = {
   entornoNombre?: string;
   dniRepresentante?: string;
   correoRepresentante?: string;
+  primeraVezOProviene?: string;
+  usabaSunatAnteriormente?: string;
+  tipoIgv?: string;
   [key: string]: any;
 };
 
@@ -188,14 +191,14 @@ export default function ClientesTodosTab({
       ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
       `👤 Usuario SOL:${client.usuarioSol ? ` ${client.usuarioSol}` : ''}`,
       `🔑 Contraseña SOL:${client.claveSolCifrada ? ` ${client.claveSolCifrada}` : ''}`,
-      `🆔 Número de DNI (Diferente al dueño y socios, mayor de edad):${client.dniRepresentante ? ` ${client.dniRepresentante}` : ''}`,
-      `📧 Correo (Diferente al dueño y socios):${client.correoRepresentante ? ` ${client.correoRepresentante}` : ''}`,
+      `Número de DNI (Diferente al dueño y socios, mayor de edad):${client.dniRepresentante ? ` ${client.dniRepresentante}` : ''}`,
+      `Correo (Diferente al dueño y socios):${client.correoRepresentante ? ` ${client.correoRepresentante}` : ''}`,
       '',
-      '❓ PREGUNTAS ADICIONALES',
+      'PREGUNTAS ADICIONALES',
       '',
-      '1️⃣ ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:',
-      '2️⃣ ¿Usaba antes la plataforma de SUNAT para emitir comprobantes como boletas o facturas?:',
-      '3️⃣ ¿Está usted pagando IGV normal o está exonerado? (Solo aplica para la selva):',
+      `1. ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:${client.primeraVezOProviene ? ` ${client.primeraVezOProviene}` : ''}`,
+      `2. ¿Usaba antes la plataforma de SUNAT para emitir comprobantes como boletas o facturas?:${client.usabaSunatAnteriormente ? ` ${client.usabaSunatAnteriormente}` : ''}`,
+      `3. ¿Está usted pagando IGV normal o está exonerado? (Solo aplica para la selva):${client.tipoIgv ? ` ${client.tipoIgv}` : ''}`,
     ].join('\n');
   };
 

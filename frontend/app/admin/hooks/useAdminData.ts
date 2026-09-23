@@ -79,6 +79,9 @@ function normalizeClientData(c: any): Client {
     entornoNombre: c.entornoNombre || '',
     dniRepresentante: c.dniRepresentante || '',
     correoRepresentante: c.correoRepresentante || '',
+    primeraVezOProviene: c.primeraVezOProviene || '',
+    usabaSunatAnteriormente: c.usabaSunatAnteriormente || '',
+    tipoIgv: c.tipoIgv || '',
   };
 }
 
@@ -1011,6 +1014,9 @@ export function useAdminData() {
       usuarioWsp: formData.get('usuarioWsp') as string,
       dniRepresentante: formData.get('dniRepresentante') as string,
       correoRepresentante: formData.get('correoRepresentante') as string,
+      primeraVezOProviene: formData.get('primeraVezOProviene') as string,
+      usabaSunatAnteriormente: formData.get('usabaSunatAnteriormente') as string,
+      tipoIgv: formData.get('tipoIgv') as string,
       entornoId: formData.get('entornoId') ? Number(formData.get('entornoId')) : undefined,
       vendedorId: canEditVendedor ? foundVendedorId : null,
     };

@@ -77,6 +77,15 @@ public class Cliente {
     @Column(name = "correo_representante", length = 100)
     private String correoRepresentante;
 
+    @Column(name = "primera_vez_o_proviene", length = 500)
+    private String primeraVezOProviene;
+
+    @Column(name = "usaba_sunat_anteriormente", length = 500)
+    private String usabaSunatAnteriormente;
+
+    @Column(name = "tipo_igv", length = 500)
+    private String tipoIgv;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "estado_id")
     private EstadoCliente estado;
@@ -157,6 +166,12 @@ public class Cliente {
     public void setDniRepresentante(String dniRepresentante) { this.dniRepresentante = dniRepresentante; }
     public String getCorreoRepresentante() { return correoRepresentante; }
     public void setCorreoRepresentante(String correoRepresentante) { this.correoRepresentante = correoRepresentante; }
+    public String getPrimeraVezOProviene() { return primeraVezOProviene; }
+    public void setPrimeraVezOProviene(String primeraVezOProviene) { this.primeraVezOProviene = primeraVezOProviene; }
+    public String getUsabaSunatAnteriormente() { return usabaSunatAnteriormente; }
+    public void setUsabaSunatAnteriormente(String usabaSunatAnteriormente) { this.usabaSunatAnteriormente = usabaSunatAnteriormente; }
+    public String getTipoIgv() { return tipoIgv; }
+    public void setTipoIgv(String tipoIgv) { this.tipoIgv = tipoIgv; }
     public EstadoCliente getEstado() { return estado; }
     public void setEstado(EstadoCliente estado) { this.estado = estado; }
     public ColorTag getColorTag() { return colorTag; }
