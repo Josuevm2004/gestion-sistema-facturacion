@@ -99,8 +99,10 @@ public class ClienteServiceImpl implements ClienteService {
             cliente.setRuc(request.getRuc());
         }
 
-        cliente.setUsuarioSol(request.getUsuarioSol() != null ? request.getUsuarioSol() : "SIN_USUARIO");
-        cliente.setClaveSolCifrada(request.getClaveSol() != null ? request.getClaveSol() : "SIN_CLAVE");
+        boolean tieneUsuarioSol = request.getUsuarioSol() != null && !request.getUsuarioSol().trim().isBlank();
+        boolean tieneClaveSol = request.getClaveSol() != null && !request.getClaveSol().trim().isBlank();
+        cliente.setUsuarioSol(tieneUsuarioSol ? request.getUsuarioSol().trim() : "SIN_USUARIO");
+        cliente.setClaveSolCifrada(tieneClaveSol ? request.getClaveSol().trim() : "SIN_CLAVE");
         cliente.setRazonSocial(request.getRazonSocial());
         cliente.setNombreComercial(request.getNombreComercial());
         cliente.setDireccion(request.getDireccion());
@@ -133,6 +135,13 @@ public class ClienteServiceImpl implements ClienteService {
         if (request.getTipoIgv() != null) {
             String val = request.getTipoIgv().trim();
             cliente.setTipoIgv(val.isBlank() ? null : val);
+        }
+        if (request.getEntornoId() != null) {
+            entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
+                    .ifPresent(cliente::setEntorno);
+        } else {
+            entornoRepository.findByIdAndActivoTrue(1L)
+                    .ifPresent(cliente::setEntorno);
         }
         cliente.setEstado(estadoPorCobrar);
         cliente.setFechaRegistro(fechaOperacion);
@@ -541,6 +550,74 @@ public class ClienteServiceImpl implements ClienteService {
         }
 
         clienteRepository.save(cliente);
+
+        // Actualizar Plan y Precio si el cliente aún tiene venta pendiente (ej. estado POR_COBRAR)
+        if (request.getPlanId() != null || request.getPlanContratado() != null || request.getTipoSuscripcion() != null) {
+            Long nuevoPlanId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
+            TipoSuscripcion tipoSub = null;
+            if (request.getTipoSuscripcion() != null && !request.getTipoSuscripcion().isBlank()) {
+                try {
+                    tipoSub = TipoSuscripcion.valueOf(request.getTipoSuscripcion().trim().toUpperCase());
+                } catch (IllegalArgumentException ignored) {}
+            }
+
+            List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(cliente.getId());
+            Venta ventaPendiente = ventasCliente.stream()
+                    .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                    .findFirst()
+                    .orElse(null);
+
+            if (nuevoPlanId == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null && ventaPendiente.getSuscripcion().getPlan() != null) {
+                nuevoPlanId = ventaPendiente.getSuscripcion().getPlan().getId();
+            }
+            if (tipoSub == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null) {
+                tipoSub = ventaPendiente.getSuscripcion().getTipoSuscripcion();
+            }
+            if (tipoSub == null) {
+                tipoSub = TipoSuscripcion.MENSUAL;
+            }
+
+            if (nuevoPlanId != null) {
+                Suscripcion nuevaSuscripcion = suscripcionRepository
+                        .findByPlanIdAndTipoSuscripcionAndActivoTrue(nuevoPlanId, tipoSub)
+                        .orElse(null);
+
+                if (nuevaSuscripcion != null) {
+                    if (ventaPendiente != null) {
+                        ventaPendiente.setSuscripcion(nuevaSuscripcion);
+                        ventaPendiente.setPrecioLista(nuevaSuscripcion.getPrecio());
+                        ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
+                        ventaRepository.save(ventaPendiente);
+                    }
+
+                    List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+                    if (!servicios.isEmpty()) {
+                        ServicioCliente servicio = servicios.get(0);
+                        String estadoNombre = cliente.getEstado() != null ? cliente.getEstado().getNombre() : null;
+                        if (servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION || "POR_COBRAR".equals(estadoNombre)) {
+                            LocalDateTime inicio = servicio.getFechaInicio() != null ? servicio.getFechaInicio() : LocalDateTime.now();
+                            if (tipoSub == TipoSuscripcion.ANUAL) {
+                                servicio.setFechaFin(inicio.plusYears(1));
+                            } else if (inicio.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
+                                LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
+                                        nuevaSuscripcion.getPrecio(),
+                                        inicio.toLocalDate()
+                                ).fechaFin().plusDays(1);
+                                servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
+                            } else {
+                                LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(inicio.toLocalDate(), monthlyBillingDay);
+                                servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
+                            }
+                            if (ventaPendiente != null) {
+                                servicio.setVenta(ventaPendiente);
+                            }
+                            servicioClienteRepository.save(servicio);
+                        }
+                    }
+                }
+            }
+        }
+
         if (request.getVendedorId() != null) {
             asignarVendedorAVentasExistentes(cliente.getId(), request.getVendedorId());
         }

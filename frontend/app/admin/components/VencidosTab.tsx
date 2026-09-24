@@ -10,6 +10,7 @@ import RegistrarPagoModal from '../modals/RegistrarPagoModal';
 interface VencidosTabProps {
   clientesVencidosList: Client[];
   handleRenovarPlan: (client: Client, nuevoPlan?: string, nuevoTipo?: string, paymentDetails?: any) => any;
+  handleAdelantoPago?: (client: Client, monto?: number, observaciones?: string, paymentDetails?: any) => any;
   setCambioPlanClient: (client: Client) => void;
   setCambioPlanSeleccionado: (plan: string) => void;
   setCambioPlanTipo?: (tipo: string) => void;
@@ -20,6 +21,7 @@ interface VencidosTabProps {
 export default function VencidosTab({
   clientesVencidosList,
   handleRenovarPlan,
+  handleAdelantoPago,
   setCambioPlanClient,
   setCambioPlanSeleccionado,
   setCambioPlanTipo,
@@ -28,7 +30,6 @@ export default function VencidosTab({
 }: VencidosTabProps) {
   const [pagoModalConfig, setPagoModalConfig] = React.useState<{
     client: Client;
-    mode: 'REANUDAR_PAGO' | 'RENOVAR_PRORRATEO';
   } | null>(null);
   const [search, setSearch] = React.useState('');
   const [suscripcionFilter, setSuscripcionFilter] = React.useState('');
@@ -210,20 +211,12 @@ export default function VencidosTab({
                     <td>
                       <div className="d-flex gap-2 flex-wrap align-items-center">
                         <button
-                          onClick={() => setPagoModalConfig({ client: c, mode: 'REANUDAR_PAGO' })}
+                          onClick={() => setPagoModalConfig({ client: c })}
                           className="btn btn-sm btn-primary text-white px-2.5 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                          title="Reanudar fecha de pago: ciclo completo desde el 1.° del mes con estado HABILITADO"
-                        >
-                          <RefreshCw size={13} />
-                          <span>Reanudar fecha de pago</span>
-                        </button>
-                        <button
-                          onClick={() => setPagoModalConfig({ client: c, mode: 'RENOVAR_PRORRATEO' })}
-                          className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                          title="Renovar con prorrateo por atraso de pago: inicia en la fecha real de pago con estado HABILITADO"
+                          title="Registrar pago o renovar servicio: abre el calendario con cálculo dinámico"
                         >
                           <RotateCcw size={13} />
-                          <span>Renovar</span>
+                          <span>Registrar Pago / Renovar</span>
                         </button>
                         <button
                           onClick={() => {
@@ -277,23 +270,31 @@ export default function VencidosTab({
         onPageChange={setCurrentPage}
       />
 
-      {/* Modal Unificado de Renovación y Reanudación de Pago Real */}
+      {/* Modal Unificado de Renovación, Reanudación y Adelanto de Pago */}
       {pagoModalConfig && (
         <RegistrarPagoModal
           client={pagoModalConfig.client}
-          mode={pagoModalConfig.mode}
           onClose={() => setPagoModalConfig(null)}
           onConfirm={async (client, data) => {
-            await handleRenovarPlan(client, undefined, undefined, {
-              monto: data.monto,
-              fechaPago: data.fechaPago,
-              medioPago: data.medioPago,
-              codigoOperacion: data.codigoOperacion,
-              observaciones: data.observaciones,
-              conProrrateo: data.conProrrateo,
-              fechaInicioPeriodo: data.fechaInicioPeriodo,
-              fechaFinPeriodo: data.fechaFinPeriodo,
-            });
+            if (data.modalidad === 'ADELANTO' && handleAdelantoPago) {
+              await handleAdelantoPago(client, data.monto, data.observaciones, {
+                fechaPago: data.fechaPago,
+                medioPago: data.medioPago,
+                codigoOperacion: data.codigoOperacion,
+                observaciones: data.observaciones,
+              });
+            } else {
+              await handleRenovarPlan(client, undefined, undefined, {
+                monto: data.monto,
+                fechaPago: data.fechaPago,
+                medioPago: data.medioPago,
+                codigoOperacion: data.codigoOperacion,
+                observaciones: data.observaciones,
+                conProrrateo: data.conProrrateo,
+                fechaInicioPeriodo: data.fechaInicioPeriodo,
+                fechaFinPeriodo: data.fechaFinPeriodo,
+              });
+            }
             setPagoModalConfig(null);
           }}
         />

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1300" viewBox="0 0 1800 1300">
+  <defs>
+    <style>
+      .title{font:700 28px Arial,sans-serif;fill:#17324d}.subtitle{font:16px Arial,sans-serif;fill:#456277}
+      .boundary{fill:#f7fbff;stroke:#1d5d8f;stroke-width:3}.module{fill:#eaf4fb;stroke:#8ab7d7;stroke-width:2}
+      .uc{fill:#fff;stroke:#245a7a;stroke-width:2}.actor{fill:#17324d}.actorText{font:16px Arial,sans-serif;fill:#17324d;font-weight:700;text-anchor:middle}
+      .ucText{font:15px Arial,sans-serif;fill:#16354a;text-anchor:middle}.small{font:13px Arial,sans-serif;fill:#456277;text-anchor:middle}
+      .line{stroke:#294e65;stroke-width:2;fill:none}.include{stroke:#44758f;stroke-width:2;fill:none;stroke-dasharray:8 6}.extend{stroke:#90612b;stroke-width:2;fill:none;stroke-dasharray:3 6}
+      .label{font:13px Arial,sans-serif;fill:#35596d}.legend{font:14px Arial,sans-serif;fill:#294e65}
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#294e65"/></marker>
+    <marker id="arrowInc" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#44758f"/></marker>
+    <marker id="arrowExt" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#90612b"/></marker>
+  </defs>
+
+  <text x="900" y="42" class="title" text-anchor="middle">Diagrama de casos de uso — Sistema de gestión de facturación electrónica de Miquipu SAC</text>
+  <text x="900" y="70" class="subtitle" text-anchor="middle">Formulario público del cliente y módulo interno de administración, ventas, cobranza y capacitación</text>
+
+  <!-- System boundary -->
+  <rect x="250" y="100" width="1320" height="1110" rx="18" class="boundary"/>
+  <text x="275" y="135" class="title" style="font-size:21px">Sistema web Miquipu SAC</text>
+
+  <!-- Actors -->
+  <g transform="translate(80,250)">
+    <circle cx="40" cy="20" r="18" class="actor"/><path d="M40 38 L40 95 M10 58 L70 58 M40 95 L12 135 M40 95 L68 135" stroke="#17324d" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <text x="40" y="165" class="actorText">Cliente final</text>
+  </g>
+  <g transform="translate(80,575)">
+    <circle cx="40" cy="20" r="18" class="actor"/><path d="M40 38 L40 95 M10 58 L70 58 M40 95 L12 135 M40 95 L68 135" stroke="#17324d" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <text x="40" y="165" class="actorText">Administrador</text>
+  </g>
+  <g transform="translate(80,900)">
+    <circle cx="40" cy="20" r="18" class="actor"/><path d="M40 38 L40 95 M10 58 L70 58 M40 95 L12 135 M40 95 L68 135" stroke="#17324d" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <text x="40" y="165" class="actorText">Vendedor</text><text x="40" y="186" class="small">ventas / cobranza / capacitación</text>
+  </g>
+  <g transform="translate(1630,325)">
+    <circle cx="40" cy="20" r="18" class="actor"/><path d="M40 38 L40 95 M10 58 L70 58 M40 95 L12 135 M40 95 L68 135" stroke="#17324d" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <text x="40" y="165" class="actorText">SUNAT</text><text x="40" y="186" class="small">sistema externo</text>
+  </g>
+  <g transform="translate(1630,850)">
+    <circle cx="40" cy="20" r="18" class="actor"/><path d="M40 38 L40 95 M10 58 L70 58 M40 95 L12 135 M40 95 L68 135" stroke="#17324d" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <text x="40" y="165" class="actorText">Programador</text><text x="40" y="186" class="small">tarea automática</text>
+  </g>
+
+  <!-- Public module -->
+  <rect x="300" y="165" width="1220" height="190" rx="12" class="module"/><text x="330" y="197" class="title" style="font-size:19px">A. Formulario público de registro</text>
+  <ellipse cx="560" cy="270" rx="150" ry="42" class="uc"/><text x="560" y="265" class="ucText">Completar y enviar</text><text x="560" y="284" class="ucText">formulario de registro</text>
+  <ellipse cx="900" cy="270" rx="150" ry="42" class="uc"/><text x="900" y="265" class="ucText">Registrar solicitud</text><text x="900" y="284" class="ucText">y crear cliente</text>
+  <ellipse cx="1240" cy="270" rx="150" ry="42" class="uc"/><text x="1240" y="265" class="ucText">Validar credenciales</text><text x="1240" y="284" class="ucText">de SUNAT</text>
+  <path d="M140 330 L410 280" class="line" marker-end="url(#arrow)"/><path d="M710 270 L750 270" class="include" marker-end="url(#arrowInc)"/><text x="730" y="250" class="label">&lt;&lt;include&gt;&gt;</text><path d="M1050 270 L1090 270" class="extend" marker-end="url(#arrowExt)"/><text x="1070" y="250" class="label">&lt;&lt;extend&gt;&gt;</text><path d="M1390 270 L1630 370" class="line" marker-end="url(#arrow)"/>
+
+  <!-- Auth and client module -->
+  <rect x="300" y="390" width="1220" height="250" rx="12" class="module"/><text x="330" y="422" class="title" style="font-size:19px">B. Acceso y gestión de clientes</text>
+  <ellipse cx="470" cy="500" rx="125" ry="38" class="uc"/><text x="470" y="505" class="ucText">Iniciar sesión</text>
+  <ellipse cx="760" cy="500" rx="145" ry="38" class="uc"/><text x="760" y="495" class="ucText">Consultar dashboard</text><text x="760" y="514" class="ucText">y clientes</text>
+  <ellipse cx="1080" cy="500" rx="145" ry="38" class="uc"/><text x="1080" y="495" class="ucText">Gestionar clientes</text><text x="1080" y="514" class="ucText">(editar / estado / eliminar)</text>
+  <ellipse cx="1360" cy="575" rx="125" ry="38" class="uc"/><text x="1360" y="570" class="ucText">Asignar vendedor</text><text x="1360" y="589" class="ucText">y color de etiqueta</text>
+  <path d="M140 650 L345 510" class="line" marker-end="url(#arrow)"/><path d="M140 975 L345 510" class="line" marker-end="url(#arrow)"/><path d="M595 500 L635 500" class="include" marker-end="url(#arrowInc)"/><text x="615" y="480" class="label">&lt;&lt;include&gt;&gt;</text><path d="M905 500 L935 500" class="include" marker-end="url(#arrowInc)"/><text x="920" y="480" class="label">&lt;&lt;include&gt;&gt;</text><path d="M1225 515 L1260 555" class="include" marker-end="url(#arrowInc)"/><text x="1260" y="520" class="label">&lt;&lt;include&gt;&gt;</text>
+
+  <!-- Commercial module -->
+  <rect x="300" y="675" width="1220" height="280" rx="12" class="module"/><text x="330" y="707" class="title" style="font-size:19px">C. Ventas, pagos, planes y capacitación</text>
+  <ellipse cx="490" cy="775" rx="145" ry="38" class="uc"/><text x="490" y="770" class="ucText">Registrar / confirmar</text><text x="490" y="789" class="ucText">pagos</text>
+  <ellipse cx="820" cy="775" rx="155" ry="38" class="uc"/><text x="820" y="770" class="ucText">Procesar venta, adelanto,</text><text x="820" y="789" class="ucText">renovación o cambio de plan</text>
+  <ellipse cx="1160" cy="775" rx="145" ry="38" class="uc"/><text x="1160" y="770" class="ucText">Registrar capacitación</text><text x="1160" y="789" class="ucText">y activar servicio</text>
+  <ellipse cx="820" cy="900" rx="135" ry="38" class="uc"/><text x="820" y="895" class="ucText">Calcular prorrateo</text><text x="820" y="914" class="ucText">y fechas del servicio</text>
+  <ellipse cx="1160" cy="900" rx="140" ry="38" class="uc"/><text x="1160" y="895" class="ucText">Bloquear o devolver</text><text x="1160" y="914" class="ucText">acceso</text>
+  <path d="M140 1010 L345 775" class="line" marker-end="url(#arrow)"/><path d="M140 1010 L665 775" class="line" marker-end="url(#arrow)"/><path d="M140 1010 L1015 775" class="line" marker-end="url(#arrow)"/><path d="M975 775 L1020 775" class="include" marker-end="url(#arrowInc)"/><text x="995" y="755" class="label">&lt;&lt;include&gt;&gt;</text><path d="M820 813 L820 862" class="include" marker-end="url(#arrowInc)"/><text x="850" y="845" class="label">&lt;&lt;include&gt;&gt;</text>
+
+  <!-- Monitoring module -->
+  <rect x="300" y="990" width="1220" height="180" rx="12" class="module"/><text x="330" y="1022" class="title" style="font-size:19px">D. Control, notificaciones y reportes</text>
+  <ellipse cx="490" cy="1090" rx="145" ry="38" class="uc"/><text x="490" y="1085" class="ucText">Generar y gestionar</text><text x="490" y="1104" class="ucText">notificaciones</text>
+  <ellipse cx="820" cy="1090" rx="155" ry="38" class="uc"/><text x="820" y="1085" class="ucText">Generar reportes</text><text x="820" y="1104" class="ucText">Excel</text>
+  <ellipse cx="1160" cy="1090" rx="150" ry="38" class="uc"/><text x="1160" y="1085" class="ucText">Revisar vencimientos</text><text x="1160" y="1104" class="ucText">y actualizar estados</text>
+  <path d="M140 1010 L345 1090" class="line" marker-end="url(#arrow)"/><path d="M140 650 L345 1090" class="line" marker-end="url(#arrow)"/><path d="M140 1010 L665 1090" class="line" marker-end="url(#arrow)"/><path d="M1520 930 L1310 1090" class="line" marker-end="url(#arrow)"/>
+  <path d="M1010 1090 L635 1090" class="include" marker-end="url(#arrowInc)"/><text x="820" y="1070" class="label">&lt;&lt;include&gt;&gt; genera alertas</text>
+
+  <!-- Admin user management -->
+  <ellipse cx="1340" cy="420" rx="145" ry="38" class="uc"/><text x="1340" y="415" class="ucText">Gestionar usuarios</text><text x="1340" y="434" class="ucText">(solo administrador)</text>
+  <path d="M140 650 L1195 420" class="line" marker-end="url(#arrow)"/>
+
+  <!-- Legend -->
+  <line x1="300" y1="1240" x2="390" y2="1240" class="line" marker-end="url(#arrow)"/><text x="405" y="1245" class="legend">Asociación actor–caso de uso</text>
+  <line x1="700" y1="1240" x2="790" y2="1240" class="include" marker-end="url(#arrowInc)"/><text x="805" y="1245" class="legend">&lt;&lt;include&gt;&gt; comportamiento obligatorio</text>
+  <line x1="1170" y1="1240" x2="1260" y2="1240" class="extend" marker-end="url(#arrowExt)"/><text x="1275" y="1245" class="legend">&lt;&lt;extend&gt;&gt; comportamiento opcional</text>
+</svg>

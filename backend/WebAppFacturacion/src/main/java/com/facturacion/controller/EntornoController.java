@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping({"/api/admin/entornos", "/admin/entornos"})
+@RequestMapping({"/api/admin/entornos", "/admin/entornos", "/api/public/entornos", "/public/entornos"})
 @CrossOrigin(origins = "*")
 public class EntornoController {
 

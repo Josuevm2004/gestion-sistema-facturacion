@@ -36,7 +36,7 @@ export default function EditClientModal({
     currentUser.rol.toUpperCase() === 'ADMIN' ||
     currentUser.username === 'admin';
   const planLocked = Boolean(editingClient.fechaCapacitacion) ||
-    ['POR_CAPACITAR', 'HABILITADO', 'VENCIDO', 'BLOQUEADO'].includes(editingClient.estadoCuenta || '');
+    ['HABILITADO', 'VENCIDO', 'BLOQUEADO'].includes(editingClient.estadoCuenta || '');
   const normalizePlanKey = (planStr?: string) => {
     const normalized = (planStr || 'EMPRENDE')
       .normalize('NFD')
@@ -46,6 +46,24 @@ export default function EditClientModal({
       .trim();
     return normalized === 'INICIAL' ? 'INICIA' : normalized;
   };
+
+  const [selectedPlan, setSelectedPlan] = React.useState<string>(
+    normalizePlanKey(editingClient.planContratado)
+  );
+  const [selectedTipo, setSelectedTipo] = React.useState<string>(
+    (editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase()
+  );
+
+  const PLAN_PRICES: Record<string, { MENSUAL: number; ANUAL: number }> = {
+    INICIA: { MENSUAL: 19, ANUAL: 190 },
+    EMPRENDE: { MENSUAL: 29, ANUAL: 290 },
+    IMPULSA: { MENSUAL: 39, ANUAL: 390 },
+    EMPRESARIAL: { MENSUAL: 59, ANUAL: 590 },
+    LIDER: { MENSUAL: 89, ANUAL: 890 },
+  };
+
+  const activePrices = PLAN_PRICES[selectedPlan] || { MENSUAL: 19, ANUAL: 190 };
+  const currentPrice = selectedTipo === 'ANUAL' ? activePrices.ANUAL : activePrices.MENSUAL;
 
   return (
     <div
@@ -174,20 +192,47 @@ export default function EditClientModal({
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Plan Contratado</label>
-                  <select className="form-select" name="planContratado" defaultValue={normalizePlanKey(editingClient.planContratado)} disabled={planLocked}>
-                    <option value="INICIA">Plan Inicia (S/ 19)</option>
-                    <option value="EMPRENDE">Plan Emprende (S/ 29)</option>
-                    <option value="IMPULSA">Plan Impulsa (S/ 39)</option>
-                    <option value="EMPRESARIAL">Plan Empresarial (S/ 59)</option>
-                    <option value="LIDER">Plan Líder (S/ 89)</option>
+                  <select
+                    className="form-select fw-semibold"
+                    name="planContratado"
+                    value={selectedPlan}
+                    onChange={(e) => setSelectedPlan(e.target.value)}
+                    disabled={planLocked}
+                  >
+                    <option value="INICIA">Plan Inicia (S/ 19 / mes)</option>
+                    <option value="EMPRENDE">Plan Emprende (S/ 29 / mes)</option>
+                    <option value="IMPULSA">Plan Impulsa (S/ 39 / mes)</option>
+                    <option value="EMPRESARIAL">Plan Empresarial (S/ 59 / mes)</option>
+                    <option value="LIDER">Plan Líder (S/ 89 / mes)</option>
                   </select>
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Tipo Suscripción</label>
-                  <select className="form-select" name="tipoSuscripcion" defaultValue={editingClient.tipoSuscripcion || 'MENSUAL'} disabled={planLocked}>
+                  <select
+                    className="form-select fw-semibold"
+                    name="tipoSuscripcion"
+                    value={selectedTipo}
+                    onChange={(e) => setSelectedTipo(e.target.value)}
+                    disabled={planLocked}
+                  >
                     <option value="MENSUAL">Mensual</option>
-                    <option value="ANUAL">Anual</option>
+                    <option value="ANUAL">Anual (x10 meses)</option>
                   </select>
+                </div>
+                <div className="col-12 mt-2">
+                  <div className="alert alert-info py-2 px-3 mb-0 d-flex justify-content-between align-items-center rounded-3 border-0 bg-opacity-75">
+                    <div className="small">
+                      <strong className="text-dark">Precio a cobrar por este plan:</strong> Plan {selectedPlan} ({selectedTipo})
+                      {planLocked && (
+                        <span className="ms-2 text-muted fst-italic">
+                          (Bloqueado: para clientes habilitados o vencidos utilice el botón "Cambiar Plan")
+                        </span>
+                      )}
+                    </div>
+                    <span className="badge bg-primary fs-6 px-3 py-1.5 fw-bold shadow-sm">
+                      S/ {currentPrice.toFixed(2)}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="col-md-6">

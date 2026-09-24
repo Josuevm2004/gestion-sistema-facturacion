@@ -56,7 +56,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**", "/auth/**", "/api/admin/login", "/admin/login").permitAll()
                         .requestMatchers("/api/public/**", "/public/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/admin/planes/**", "/admin/planes/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/admin/planes/**", "/admin/planes/**", "/api/admin/entornos/**", "/admin/entornos/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/admin/**", "/admin/**").authenticated()
                         .anyRequest().authenticated()

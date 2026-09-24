@@ -991,6 +991,30 @@ export function useAdminData() {
       }
     }
 
+    const rawPlanContratado = (formData.get('planContratado') as string) || editingClient.planContratado;
+    const planKey = normalizePlanKey(rawPlanContratado);
+    const rawTipoSub = (formData.get('tipoSuscripcion') as string) || editingClient.tipoSuscripcion || 'MENSUAL';
+    const tipoSuscripcion = rawTipoSub.toUpperCase() as 'MENSUAL' | 'ANUAL';
+
+    const PLAN_PRICES: Record<string, { MENSUAL: number; ANUAL: number }> = {
+      INICIA: { MENSUAL: 19, ANUAL: 190 },
+      EMPRENDE: { MENSUAL: 29, ANUAL: 290 },
+      IMPULSA: { MENSUAL: 39, ANUAL: 390 },
+      EMPRESARIAL: { MENSUAL: 59, ANUAL: 590 },
+      LIDER: { MENSUAL: 89, ANUAL: 890 },
+    };
+    const planPriceConfig = PLAN_PRICES[planKey] || { MENSUAL: 19, ANUAL: 190 };
+    const nuevoPrecio = tipoSuscripcion === 'ANUAL' ? planPriceConfig.ANUAL : planPriceConfig.MENSUAL;
+
+    const PLAN_ID_MAP: Record<string, number> = {
+      INICIA: 1,
+      EMPRENDE: 2,
+      IMPULSA: 3,
+      EMPRESARIAL: 4,
+      LIDER: 5,
+    };
+    const planIdNum = PLAN_ID_MAP[planKey] || 1;
+
     const apiPayload = {
       ruc: formData.get('ruc') as string,
       razonSocial: formData.get('razonSocial') as string,
@@ -1019,16 +1043,29 @@ export function useAdminData() {
       tipoIgv: formData.get('tipoIgv') as string,
       entornoId: formData.get('entornoId') ? Number(formData.get('entornoId')) : undefined,
       vendedorId: canEditVendedor ? foundVendedorId : null,
+      planId: planIdNum,
+      planContratado: planKey,
+      tipoSuscripcion: tipoSuscripcion,
     };
 
     const clientIdStr = String(editingClient.id);
+    const optimisticClient = {
+      ...apiPayload,
+      planContratado: planKey,
+      tipoSuscripcion: tipoSuscripcion,
+      planId: String(planIdNum),
+      montoMensual: nuevoPrecio,
+      montoSiguienteCobro: nuevoPrecio,
+      vendedor: selectedVendedor || editingClient.vendedor,
+    };
+
     pendingOverridesRef.current.set(clientIdStr, {
-      data: { ...apiPayload, vendedor: selectedVendedor || editingClient.vendedor },
+      data: optimisticClient,
       timestamp: Date.now(),
     });
 
     setClients((prev) =>
-      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, ...apiPayload, vendedor: selectedVendedor || c.vendedor } : c))
+      prev.map((c) => (String(c.id) === clientIdStr ? { ...c, ...optimisticClient } : c))
     );
     setEditingClient(null);
 

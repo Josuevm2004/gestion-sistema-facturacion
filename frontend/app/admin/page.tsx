@@ -148,6 +148,7 @@ export default function AdminPage() {
               <VencidosTab
                 clientesVencidosList={adminData.clientesVencidosList}
                 handleRenovarPlan={adminData.handleRenovarPlan}
+                handleAdelantoPago={adminData.handleAdelantoPago}
                 setCambioPlanClient={adminData.setCambioPlanClient}
                 setCambioPlanSeleccionado={adminData.setCambioPlanSeleccionado}
                 setCambioPlanTipo={adminData.setCambioPlanTipo}
@@ -162,7 +163,6 @@ export default function AdminPage() {
                 handleEstadoCuentaChange={adminData.handleEstadoCuentaChange}
                 handleDevolverAcceso={adminData.handleDevolverAcceso}
                 setDeletingClient={adminData.setDeletingClient}
-                handleRenovarPlan={adminData.handleRenovarPlan}
               />
             )}
 

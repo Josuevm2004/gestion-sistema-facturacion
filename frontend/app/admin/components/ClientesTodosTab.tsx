@@ -170,11 +170,14 @@ export default function ClientesTodosTab({
     const montoFormatted = monto ? `S/${Math.round(monto)}` : '';
     const planCompleto = [planFormatted, montoFormatted].filter(Boolean).join(' ');
 
+    const esInterno = client.entornoNombre ? client.entornoNombre.toLowerCase().includes('interno') : false;
+
     return [
       '📌 *DATOS DE LA EMPRESA*',
       '',
       `👉🏼 Nombre Comercial:${nombreComercial ? ` ${nombreComercial}` : ''}`,
       ` 📊 Régimen Tributario (RUS, RER, MYPE O GENERAL)${regimen ? `: ${regimen}` : ''}`,
+      ` 🌐 Modalidad:${client.entornoNombre ? ` ${client.entornoNombre}` : ' Producción'}`,
       '',
       `🗣️ DNI:${client.dni ? ` ${client.dni}` : ''}`,
       `📞 Celular:${celular ? ` ${celular}` : ''}`,
@@ -187,12 +190,16 @@ export default function ClientesTodosTab({
       '',
       ` 📦 Plan Mensual Contratado:${planCompleto ? ` ${planCompleto}` : ''}`,
       '',
-      ' 🔐 ACCESOS CLAVE SOL (ACTIVACIÓN A SUNAT) Enviar los datos reales que brinda la sunat, no enviar usuario secundario, protegemos sus datos según  según ley peruana de privacidad N° 29733.',
-      ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
-      `👤 Usuario SOL:${client.usuarioSol ? ` ${client.usuarioSol}` : ''}`,
-      `🔑 Contraseña SOL:${client.claveSolCifrada ? ` ${client.claveSolCifrada}` : ''}`,
-      `Número de DNI (Diferente al dueño y socios, mayor de edad):${client.dniRepresentante ? ` ${client.dniRepresentante}` : ''}`,
-      `Correo (Diferente al dueño y socios):${client.correoRepresentante ? ` ${client.correoRepresentante}` : ''}`,
+      ...(esInterno
+        ? [' 🔐 ACCESOS CLAVE SOL: No aplica (Modalidad Control Interno - Sin SUNAT)']
+        : [
+            ' 🔐 ACCESOS CLAVE SOL (ACTIVACIÓN A SUNAT) Enviar los datos reales que brinda la sunat, no enviar usuario secundario, protegemos sus datos según  según ley peruana de privacidad N° 29733.',
+            ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
+            `👤 Usuario SOL:${client.usuarioSol && client.usuarioSol !== 'SIN_USUARIO' ? ` ${client.usuarioSol}` : ''}`,
+            `🔑 Contraseña SOL:${client.claveSolCifrada && client.claveSolCifrada !== 'SIN_CLAVE' ? ` ${client.claveSolCifrada}` : ''}`,
+            `Número de DNI (Diferente al dueño y socios, mayor de edad):${client.dniRepresentante ? ` ${client.dniRepresentante}` : ''}`,
+            `Correo (Diferente al dueño y socios):${client.correoRepresentante ? ` ${client.correoRepresentante}` : ''}`,
+          ]),
       '',
       'PREGUNTAS ADICIONALES',
       '',
@@ -439,6 +446,11 @@ export default function ClientesTodosTab({
                         {c.tipoSuscripcion || 'MENSUAL'}
                       </span>
                     </div>
+                    {c.entornoNombre && (
+                      <span className={`badge mt-1 ${c.entornoNombre.toLowerCase().includes('interno') ? 'bg-secondary bg-opacity-25 text-secondary border' : 'bg-info bg-opacity-10 text-info border'}`} style={{ fontSize: '0.68rem' }}>
+                        {c.entornoNombre}
+                      </span>
+                    )}
                   </td>
                   <td>
                     {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (

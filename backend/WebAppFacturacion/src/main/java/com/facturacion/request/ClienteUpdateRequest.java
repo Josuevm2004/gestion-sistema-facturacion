@@ -34,6 +34,10 @@ public class ClienteUpdateRequest {
     private Long vendedorId;
     private Long estadoId;
 
+    private Long planId;
+    private String planContratado;
+    private String tipoSuscripcion;
+
     public ClienteUpdateRequest() {}
 
     public String getRuc() { return ruc; }
@@ -94,4 +98,11 @@ public class ClienteUpdateRequest {
     public void setVendedorId(Long vendedorId) { this.vendedorId = vendedorId; }
     public Long getEstadoId() { return estadoId; }
     public void setEstadoId(Long estadoId) { this.estadoId = estadoId; }
+
+    public Long getPlanId() { return planId; }
+    public void setPlanId(Long planId) { this.planId = planId; }
+    public String getPlanContratado() { return planContratado; }
+    public void setPlanContratado(String planContratado) { this.planContratado = planContratado; }
+    public String getTipoSuscripcion() { return tipoSuscripcion; }
+    public void setTipoSuscripcion(String tipoSuscripcion) { this.tipoSuscripcion = tipoSuscripcion; }
 }

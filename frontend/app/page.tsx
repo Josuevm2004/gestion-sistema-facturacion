@@ -36,6 +36,11 @@ type DbSubscription = {
   precio: number;
 };
 
+type DbEntorno = {
+  id: number;
+  nombre: string;
+};
+
 const PLAN_DETAILS: Record<string, { docs: string; users: string; features: string }> = {
   INICIA: { docs: '50 Boletas o Facturas', users: '1 Usuario', features: 'Web y aplicativo' },
   EMPRENDE: { docs: '100 Boletas o Facturas', users: '2 Usuarios', features: 'Web y aplicativo' },
@@ -60,6 +65,11 @@ export default function FormularioPublicoPage() {
   const [selectedPlan, setSelectedPlan] = useState<string>('EMPRENDE');
   const [regimenTributario, setRegimenTributario] = useState<string>('MYPE_TRIBUTARIO');
   const [tipoSuscripcion, setTipoSuscripcion] = useState<'MENSUAL' | 'ANUAL'>('MENSUAL');
+  const [entornos, setEntornos] = useState<DbEntorno[]>([
+    { id: 1, nombre: 'Producción' },
+    { id: 2, nombre: 'Control Interno' },
+  ]);
+  const [selectedEntornoId, setSelectedEntornoId] = useState<number>(1);
   const [message, setMessage] = useState<{ type: 'success' | 'warning' | 'info' | 'danger'; text: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [subscriptions, setSubscriptions] = useState<DbSubscription[]>([]);
@@ -94,6 +104,16 @@ export default function FormularioPublicoPage() {
       .finally(() => {
         if (mounted) setPlansLoading(false);
       });
+
+    api.get('/public/entornos')
+      .then((response) => {
+        const rows = Array.isArray(response.data?.data) ? response.data.data : [];
+        if (mounted && rows.length > 0) {
+          setEntornos(rows.map((r: any) => ({ id: Number(r.id), nombre: r.nombre })));
+        }
+      })
+      .catch(() => {});
+
     return () => {
       mounted = false;
     };
@@ -111,6 +131,9 @@ export default function FormularioPublicoPage() {
     (subscription) => normalizePlanName(subscription.planNombre) === selectedPlan && subscription.tipoSuscripcion === tipoSuscripcion
   );
 
+  const selectedEntorno = entornos.find((e) => e.id === selectedEntornoId) || entornos[0];
+  const isProduccion = !selectedEntorno?.nombre?.toLowerCase().includes('interno');
+
   function subscriptionPrice(planId: number) {
     return subscriptions.find((subscription) => subscription.planId === planId && subscription.tipoSuscripcion === tipoSuscripcion)?.precio;
   }
@@ -120,6 +143,7 @@ export default function FormularioPublicoPage() {
   }
 
   async function handleValidateSunat() {
+    if (!isProduccion) return;
     const form = formRef.current;
     if (!form) return;
 
@@ -209,10 +233,11 @@ export default function FormularioPublicoPage() {
       planId: selectedSubscription.planId,
       planContratado: selectedPlan,
       tipoSuscripcion: tipoSuscripcion,
-      usuarioSol: formData.get('usuarioSol') as string,
-      claveSol: formData.get('claveSol') as string,
-      dniRepresentante: (formData.get('dniRepresentante') as string) || null,
-      correoRepresentante: (formData.get('correoRepresentante') as string) || null,
+      entornoId: selectedEntornoId,
+      usuarioSol: isProduccion ? ((formData.get('usuarioSol') as string) || '') : '',
+      claveSol: isProduccion ? ((formData.get('claveSol') as string) || '') : '',
+      dniRepresentante: isProduccion ? ((formData.get('dniRepresentante') as string) || null) : null,
+      correoRepresentante: isProduccion ? ((formData.get('correoRepresentante') as string) || null) : null,
       primeraVezOProviene: (formData.get('primeraVezOProviene') as string) || null,
       usabaSunatAnteriormente: (formData.get('usabaSunatAnteriormente') as string) || null,
       tipoIgv: (formData.get('tipoIgv') as string) || null,
@@ -338,9 +363,49 @@ export default function FormularioPublicoPage() {
                 <input type="text" name="comentarios" className="form-control" placeholder="Notas adicionales..." />
               </div>
 
-              {/* SECCIÓN 2: DATOS TRIBUTARIOS */}
+              {/* SECCIÓN 2: MODALIDAD DE ENTORNO */}
               <div className="col-12 mt-4">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">2. Datos Tributarios de la Empresa</h2>
+                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">2. Modalidad de Entorno</h2>
+                <p className="text-muted small mb-3">Elija si su facturación se conectará directamente a SUNAT o funcionará para control interno.</p>
+
+                <div className="row g-3">
+                  {entornos.map((entorno) => {
+                    const isSelected = selectedEntornoId === entorno.id;
+                    const esProd = !entorno.nombre.toLowerCase().includes('interno');
+                    return (
+                      <div key={entorno.id} className="col-md-6">
+                        <div
+                          onClick={() => setSelectedEntornoId(entorno.id)}
+                          className={`p-3 rounded-3 border h-100 transition-all ${
+                            isSelected
+                              ? 'border-primary bg-primary bg-opacity-10 shadow-sm'
+                              : 'border-light-subtle bg-white'
+                          }`}
+                          style={{ cursor: 'pointer', borderWidth: isSelected ? '2px' : '1px' }}
+                        >
+                          <div className="d-flex align-items-center justify-content-between mb-1">
+                            <strong className="text-dark fs-6">{entorno.nombre}</strong>
+                            {isSelected && (
+                              <span className="badge rounded-pill bg-primary" style={{ fontSize: '0.7rem' }}>
+                                Seleccionado
+                              </span>
+                            )}
+                          </div>
+                          <p className="small text-muted mb-0">
+                            {esProd
+                              ? 'Facturación electrónica oficial conectada a SUNAT. Requiere credenciales Clave SOL.'
+                              : 'Gestión y notas de venta de uso interno. No requiere credenciales Clave SOL.'}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* SECCIÓN 3: DATOS TRIBUTARIOS */}
+              <div className="col-12 mt-4">
+                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">3. Datos de la Empresa</h2>
               </div>
 
               <div className="col-md-4">
@@ -409,9 +474,9 @@ export default function FormularioPublicoPage() {
                 </select>
               </div>
 
-              {/* SECCIÓN 3: DATOS PERSONALES */}
+              {/* SECCIÓN 4: DATOS PERSONALES */}
               <div className="col-12 mt-4">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">3. Datos Personales del Representante</h2>
+                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">4. Datos Personales del Representante</h2>
               </div>
 
               <div className="col-md-4">
@@ -439,93 +504,108 @@ export default function FormularioPublicoPage() {
                 <input type="text" name="telefonoPersonal" className="form-control" placeholder="912345678" maxLength={9} />
               </div>
 
-              {/* DATOS DEL REPRESENTANTE ADICIONAL */}
-              <div className="col-12 mt-4">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">Datos del Representante (Diferente al dueño y socios)</h2>
-                <p className="text-muted small mb-0">Datos de vinculación requeridos para la gestión de su facturación electrónica.</p>
-              </div>
+              {/* CONDICIONAL: SOLO SI ES PRODUCCIÓN SE SOLICITAN CREDENCIALES SOL Y VINCULACIÓN */}
+              {isProduccion ? (
+                <>
+                  {/* DATOS DEL REPRESENTANTE ADICIONAL */}
+                  <div className="col-12 mt-4">
+                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">Datos del Representante (Diferente al dueño y socios)</h2>
+                    <p className="text-muted small mb-0">Datos de vinculación requeridos para la gestión de su facturación electrónica ante SUNAT.</p>
+                  </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Número de DNI (Diferente al dueño y socios, mayor de edad)</label>
-                <input
-                  type="text"
-                  name="dniRepresentante"
-                  className="form-control"
-                  placeholder="12345678"
-                  maxLength={8}
-                  pattern="^\d{8}$"
-                />
-                <div className="form-text text-muted small">
-                  DNI de un tercero mayor de edad diferente al dueño y socios.
-                </div>
-              </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Número de DNI (Diferente al dueño y socios, mayor de edad)</label>
+                    <input
+                      type="text"
+                      name="dniRepresentante"
+                      className="form-control"
+                      placeholder="12345678"
+                      maxLength={8}
+                      pattern="^\d{8}$"
+                    />
+                    <div className="form-text text-muted small">
+                      DNI de un tercero mayor de edad diferente al dueño y socios.
+                    </div>
+                  </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Correo (Diferente al dueño y socios)</label>
-                <input
-                  type="email"
-                  name="correoRepresentante"
-                  className="form-control"
-                  placeholder="correo.tercero@ejemplo.com"
-                />
-                <div className="form-text text-muted small">
-                  Correo electrónico diferente al dueño y socios.
-                </div>
-              </div>
+                  <div className="col-md-6">
+                    <label className="form-label">Correo (Diferente al dueño y socios)</label>
+                    <input
+                      type="email"
+                      name="correoRepresentante"
+                      className="form-control"
+                      placeholder="correo.tercero@ejemplo.com"
+                    />
+                    <div className="form-text text-muted small">
+                      Correo electrónico diferente al dueño y socios.
+                    </div>
+                  </div>
 
-              {/* SECCIÓN 4: CLAVE SOL */}
-              <div className="col-12 mt-4">
-                <div className="p-3 rounded-3 border bg-light">
-                  <div className="alert alert-info d-flex align-items-center gap-2 mb-3 border-0 shadow-sm rounded-3" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
-                    <Info size={20} className="flex-shrink-0" />
+                  {/* SECCIÓN 5: CLAVE SOL */}
+                  <div className="col-12 mt-4">
+                    <div className="p-3 rounded-3 border bg-light">
+                      <div className="alert alert-info d-flex align-items-center gap-2 mb-3 border-0 shadow-sm rounded-3" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
+                        <Info size={20} className="flex-shrink-0" />
+                        <div>
+                          <strong>Importante:</strong> Estas credenciales son necesarias para activar nuestro sistema de facturación electrónica y completar la afiliación con SUNAT.
+                        </div>
+                      </div>
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <KeyRound size={16} className="text-primary" />
+                        <strong className="text-dark">5. Credenciales Clave SOL (SUNAT)</strong>
+                      </div>
+                      <div className="row g-3">
+                        <div className="col-md-6">
+                          <label className="form-label">Usuario SOL</label>
+                          <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS" required onChange={resetSunatValidation} />
+                          <div className="invalid-feedback">Ingresa tu usuario SOL.</div>
+                        </div>
+                        <div className="col-md-6">
+                          <label className="form-label">Clave SOL</label>
+                          <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required onChange={resetSunatValidation} />
+                          <div className="invalid-feedback">Ingresa tu clave SOL.</div>
+                        </div>
+                        <div className="col-12 d-flex flex-wrap align-items-center gap-2">
+                          <button
+                            type="button"
+                            className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2"
+                            onClick={handleValidateSunat}
+                            disabled={sunatValidation === 'validating'}
+                          >
+                            <RefreshCw size={15} className={sunatValidation === 'validating' ? 'spin-anim' : ''} />
+                            {sunatValidation === 'validating' ? 'Validando con SUNAT...' : 'Validar perfil'}
+                          </button>
+                          {sunatValidation === 'valid' && (
+                            <span className="small text-success fw-semibold d-inline-flex align-items-center gap-1" aria-live="polite">
+                              <CheckCircle2 size={15} /> Perfil validado
+                            </span>
+                          )}
+                          {sunatValidation === 'invalid' && (
+                            <span className="small text-danger fw-semibold" aria-live="polite">Credenciales no validadas</span>
+                          )}
+                          {sunatValidation === 'unavailable' && (
+                            <span className="small text-warning-emphasis fw-semibold" aria-live="polite">Validación no disponible</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="col-12 mt-4">
+                  <div className="alert alert-info d-flex align-items-center gap-3 p-3 shadow-sm rounded-3 border-0" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
+                    <Info size={24} className="flex-shrink-0" />
                     <div>
-                      <strong>Importante:</strong> Estas credenciales son necesarias para activar nuestro sistema de facturación electrónica y completar la afiliación con SUNAT.
-                    </div>
-                  </div>
-                  <div className="d-flex align-items-center gap-2 mb-2">
-                    <KeyRound size={16} className="text-primary" />
-                    <strong className="text-dark">4. Credenciales Clave SOL (SUNAT)</strong>
-                  </div>
-                  <div className="row g-3">
-                    <div className="col-md-6">
-                      <label className="form-label">Usuario SOL</label>
-                      <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS" required onChange={resetSunatValidation} />
-                      <div className="invalid-feedback">Ingresa tu usuario SOL.</div>
-                    </div>
-                    <div className="col-md-6">
-                      <label className="form-label">Clave SOL</label>
-                      <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required onChange={resetSunatValidation} />
-                      <div className="invalid-feedback">Ingresa tu clave SOL.</div>
-                    </div>
-                    <div className="col-12 d-flex flex-wrap align-items-center gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-2"
-                        onClick={handleValidateSunat}
-                        disabled={sunatValidation === 'validating'}
-                      >
-                        <RefreshCw size={15} className={sunatValidation === 'validating' ? 'spin-anim' : ''} />
-                        {sunatValidation === 'validating' ? 'Validando con SUNAT...' : 'Validar perfil'}
-                      </button>
-                      {sunatValidation === 'valid' && (
-                        <span className="small text-success fw-semibold d-inline-flex align-items-center gap-1" aria-live="polite">
-                          <CheckCircle2 size={15} /> Perfil validado
-                        </span>
-                      )}
-                      {sunatValidation === 'invalid' && (
-                        <span className="small text-danger fw-semibold" aria-live="polite">Credenciales no validadas</span>
-                      )}
-                      {sunatValidation === 'unavailable' && (
-                        <span className="small text-warning-emphasis fw-semibold" aria-live="polite">Validación no disponible</span>
-                      )}
+                      <h6 className="fw-bold mb-1">Entorno de Control Interno</h6>
+                      <p className="small mb-0">Para la modalidad de Control Interno <strong>no se requieren credenciales Clave SOL</strong> ni datos de vinculación secundaria ante SUNAT. El sistema quedará listo para notas de venta y gestión interna.</p>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* SECCIÓN 5: PREGUNTAS ADICIONALES */}
+              {/* SECCIÓN 6: PREGUNTAS ADICIONALES */}
               <div className="col-12 mt-4">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">5. Preguntas Adicionales</h2>
+                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Preguntas Adicionales</h2>
               </div>
 
               <div className="col-12">
@@ -576,11 +656,11 @@ export default function FormularioPublicoPage() {
                 </div>
               </div>
 
-              {/* SECCIÓN 5: SELECCIÓN DE PLAN */}
+              {/* SECCIÓN 7: SELECCIÓN DE PLAN */}
               <div className="col-12 mt-4">
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
                   <div>
-                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Selección de Plan</h2>
+                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">7. Selección de Plan</h2>
                     {plansLoading && <small className="text-muted">Cargando tarifas desde la base de datos...</small>}
                     {plansError && <small className="text-danger d-block">{plansError}</small>}
                   </div>

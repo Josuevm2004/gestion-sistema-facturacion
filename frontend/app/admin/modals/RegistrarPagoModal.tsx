@@ -35,26 +35,29 @@ export interface PaymentSubmissionData {
   conProrrateo?: boolean;
   fechaInicioPeriodo?: string;
   fechaFinPeriodo?: string;
+  modalidad?: RegistrarPagoMode;
 }
 
 interface RegistrarPagoModalProps {
   client: Client | null;
-  mode: RegistrarPagoMode;
+  mode?: RegistrarPagoMode;
   onClose: () => void;
   onConfirm: (client: Client, data: PaymentSubmissionData) => Promise<void> | void;
 }
 
 export default function RegistrarPagoModal({
   client,
-  mode,
+  mode = 'RENOVAR_PRORRATEO',
   onClose,
   onConfirm,
 }: RegistrarPagoModalProps) {
   if (!client) return null;
 
-  const isAdelanto = mode === 'ADELANTO';
-  const isReanudarPago = mode === 'REANUDAR_PAGO';
-  const isRenovarProrrateo = mode === 'RENOVAR_PRORRATEO' || mode === 'RENOVACION';
+  const [modalidad, setModalidad] = useState<RegistrarPagoMode>(mode);
+
+  const isAdelanto = modalidad === 'ADELANTO';
+  const isReanudarPago = modalidad === 'REANUDAR_PAGO';
+  const isRenovarProrrateo = modalidad === 'RENOVAR_PRORRATEO' || modalidad === 'RENOVACION';
   const conProrrateo = isRenovarProrrateo;
 
   const isAnual = (client.tipoSuscripcion || 'MENSUAL').toUpperCase() === 'ANUAL';
@@ -163,7 +166,7 @@ export default function RegistrarPagoModal({
         detalleCalculo: `Primer prorrateo (día ${dia}): ${diasCobrados} días cobrados hasta el 1.° del próximo mes`,
       };
     }
-  }, [isAdelanto, isReanudarPago, precioOficialPlan, vencDate, now, isAnual, payDate]);
+  }, [isAdelanto, isReanudarPago, isRenovarProrrateo, precioOficialPlan, vencDate, now, isAnual, payDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,6 +188,7 @@ export default function RegistrarPagoModal({
         conProrrateo,
         fechaInicioPeriodo: toIsoDate(fechaInicioPeriodo),
         fechaFinPeriodo: toIsoDate(fechaFinPeriodo),
+        modalidad,
       });
       onClose();
     } catch (err) {
@@ -203,14 +207,14 @@ export default function RegistrarPagoModal({
   const modalTitle = isAdelanto
     ? 'Registrar Adelanto de Pago'
     : isReanudarPago
-    ? 'Reanudar Fecha de Pago'
-    : 'Renovar Servicio (con Prorrateo)';
+    ? 'Reanudar Fecha de Pago (Ciclo Completo)'
+    : 'Renovación de Servicio con Prorrateo';
 
   const modalSubtitle = isAdelanto
     ? 'Cobro del siguiente período para cliente con servicio activo'
     : isReanudarPago
-    ? 'Cobro del ciclo completo para cliente que continuó consumiendo habilitado'
-    : 'Renovación proporcional por atraso de pago desde la fecha real';
+    ? 'Cobro del ciclo completo desde el 1.° del mes para cliente habilitado'
+    : 'Cálculo proporcional según la fecha elegida en el calendario (1.º o 2.º prorrateo)';
 
   const submitButtonColor = isAdelanto
     ? 'btn-warning text-dark'
@@ -258,6 +262,46 @@ export default function RegistrarPagoModal({
                 </div>
                 <div className="fw-bold text-dark fs-6">{client.razonSocial}</div>
                 <div className="small text-muted">RUC: <strong className="text-dark font-monospace">{client.ruc}</strong></div>
+              </div>
+
+              {/* Selector de Modalidad de Cobro */}
+              <div className="mb-3">
+                <label className="form-label small fw-bold text-dark mb-1.5 d-flex justify-content-between align-items-center">
+                  <span>Modalidad de Cobro:</span>
+                  <span className="badge bg-light text-muted border">Selección interactiva</span>
+                </label>
+                <div className="btn-group w-100 shadow-sm" role="group">
+                  <button
+                    type="button"
+                    className={`btn btn-sm py-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
+                      isRenovarProrrateo ? 'btn-primary' : 'btn-outline-secondary'
+                    }`}
+                    onClick={() => setModalidad('RENOVAR_PRORRATEO')}
+                  >
+                    <Clock size={14} />
+                    <span>Renovar (con Prorrateo)</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm py-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
+                      isReanudarPago ? 'btn-primary' : 'btn-outline-secondary'
+                    }`}
+                    onClick={() => setModalidad('REANUDAR_PAGO')}
+                  >
+                    <RefreshCw size={14} />
+                    <span>Reanudar Ciclo Completo</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm py-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
+                      isAdelanto ? 'btn-primary' : 'btn-outline-secondary'
+                    }`}
+                    onClick={() => setModalidad('ADELANTO')}
+                  >
+                    <CalendarPlus size={14} />
+                    <span>Adelantar Pago</span>
+                  </button>
+                </div>
               </div>
 
               {/* Banner Informativo del Flujo Seleccionado */}
@@ -335,7 +379,7 @@ export default function RegistrarPagoModal({
                     required
                   />
                   <small className="text-muted" style={{ fontSize: '0.75rem' }}>
-                    {isRenovarProrrateo ? 'Define el día de inicio del prorrateo' : 'Día en que ingresó el dinero'}
+                    {isRenovarProrrateo ? 'Cálculo dinámico: día < 10 (1.º prorrateo) vs día ≥ 10 (2.º prorrateo)' : 'Día en que ingresó el dinero'}
                   </small>
                 </div>
 

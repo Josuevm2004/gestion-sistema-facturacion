@@ -1,17 +1,15 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw, RefreshCw } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
-import RegistrarPagoModal from '../modals/RegistrarPagoModal';
 
 interface BloqueadosTabProps {
   clientesBloqueadosList: Client[];
   handleEstadoCuentaChange: (client: Client, nuevoEstado: string) => void;
   handleDevolverAcceso: (client: Client) => any;
   setDeletingClient: (client: Client) => void;
-  handleRenovarPlan?: (client: Client, nuevoPlan?: string, nuevoTipo?: string, paymentDetails?: any) => any;
 }
 
 export default function BloqueadosTab({
@@ -19,12 +17,7 @@ export default function BloqueadosTab({
   handleEstadoCuentaChange: _handleEstadoCuentaChange,
   handleDevolverAcceso,
   setDeletingClient,
-  handleRenovarPlan,
 }: BloqueadosTabProps) {
-  const [pagoModalConfig, setPagoModalConfig] = React.useState<{
-    client: Client;
-    mode: 'REANUDAR_PAGO' | 'RENOVAR_PRORRATEO';
-  } | null>(null);
   const [search, setSearch] = React.useState('');
   const [suscripcionFilter, setSuscripcionFilter] = React.useState('');
   const pageSize = 10;
@@ -184,26 +177,6 @@ export default function BloqueadosTab({
                   </td>
                   <td>
                     <div className="d-flex gap-2 flex-wrap">
-                      {handleRenovarPlan && (
-                        <>
-                          <button
-                            onClick={() => setPagoModalConfig({ client: c, mode: 'REANUDAR_PAGO' })}
-                            className="btn btn-sm btn-primary text-white px-2.5 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                            title="Reanudar fecha de pago: ciclo completo desde el 1.° con estado HABILITADO"
-                          >
-                            <RefreshCw size={13} />
-                            <span>Reanudar fecha de pago</span>
-                          </button>
-                          <button
-                            onClick={() => setPagoModalConfig({ client: c, mode: 'RENOVAR_PRORRATEO' })}
-                            className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                            title="Renovar con prorrateo por atraso de pago con estado HABILITADO"
-                          >
-                            <RotateCcw size={13} />
-                            <span>Renovar</span>
-                          </button>
-                        </>
-                      )}
                       <button
                         onClick={() => {
                           const ok = window.confirm(
@@ -237,28 +210,6 @@ export default function BloqueadosTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
-
-      {/* Modal Unificado de Renovación y Reanudación de Pago Real */}
-      {pagoModalConfig && handleRenovarPlan && (
-        <RegistrarPagoModal
-          client={pagoModalConfig.client}
-          mode={pagoModalConfig.mode}
-          onClose={() => setPagoModalConfig(null)}
-          onConfirm={async (client, data) => {
-            await handleRenovarPlan(client, undefined, undefined, {
-              monto: data.monto,
-              fechaPago: data.fechaPago,
-              medioPago: data.medioPago,
-              codigoOperacion: data.codigoOperacion,
-              observaciones: data.observaciones,
-              conProrrateo: data.conProrrateo,
-              fechaInicioPeriodo: data.fechaInicioPeriodo,
-              fechaFinPeriodo: data.fechaFinPeriodo,
-            });
-            setPagoModalConfig(null);
-          }}
-        />
-      )}
     </div>
   );
 }

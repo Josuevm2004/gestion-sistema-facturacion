@@ -36,6 +36,8 @@ public class RegistroFormularioRequest {
     private String usabaSunatAnteriormente;
     private String tipoIgv;
 
+    private Long entornoId;
+
     public RegistroFormularioRequest() {}
 
     public String getRuc() { return ruc; }
@@ -94,4 +96,6 @@ public class RegistroFormularioRequest {
     public void setUsabaSunatAnteriormente(String usabaSunatAnteriormente) { this.usabaSunatAnteriormente = usabaSunatAnteriormente; }
     public String getTipoIgv() { return tipoIgv; }
     public void setTipoIgv(String tipoIgv) { this.tipoIgv = tipoIgv; }
+    public Long getEntornoId() { return entornoId; }
+    public void setEntornoId(Long entornoId) { this.entornoId = entornoId; }
 }
