@@ -170,7 +170,7 @@ export default function PaymentHistoryModal({
             </div>
 
             <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.88rem' }}>
+              <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.85rem' }}>
                 <thead>
                   <tr>
                     <th>#</th>

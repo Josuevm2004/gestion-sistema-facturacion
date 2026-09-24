@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Edit, Trash2 } from 'lucide-react';
+import { ShieldCheck, Edit, Trash2, UserPlus } from 'lucide-react';
 
 export type UserAccount = {
   id: string | number;
@@ -49,18 +49,19 @@ export default function VendedoresTab({
         </div>
         <button
           onClick={() => setShowNewUserModal(true)}
-          className="btn text-white rounded-pill px-3 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-          style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
+          className="btn-meta-action btn-meta-action-primary"
+          title="Registrar nuevo usuario o vendedor"
         >
-          <span>+ Registrar Nuevo Vendedor / Usuario</span>
+          <UserPlus size={15} />
+          <span>Registrar Nuevo Vendedor / Usuario</span>
         </button>
       </div>
 
       <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0">
+        <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
-              <th style={{ width: '50px' }}>#</th>
+              <th style={{ width: '45px' }}>#</th>
               <th>Nombre Completo</th>
               <th>Usuario</th>
               <th>Email</th>
@@ -71,57 +72,84 @@ export default function VendedoresTab({
           <tbody>
             {usersList.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={6} className="text-center text-muted py-5 fw-semibold">
                   No hay usuarios adicionales registrados.
                 </td>
               </tr>
             ) : (
-              usersList.map((u, idx) => (
-                <tr key={u.id}>
-                  <td className="text-muted small fw-semibold py-2.5">{idx + 1}</td>
-                  <td>
-                    <strong className="text-dark d-block fs-6">{u.nombre || u.username}</strong>
-                  </td>
-                  <td>
-                    <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 font-monospace">{u.username}</span>
-                  </td>
-                  <td>
-                    <span className="text-dark">{u.email || '—'}</span>
-                  </td>
-                  <td>
-                    <span
-                      className="badge rounded-pill px-2.5 py-1 fw-bold"
-                      style={
-                        u.rol === 'ADMIN'
-                          ? { backgroundColor: '#FEE2E2', color: '#DC2626' }
-                          : { backgroundColor: '#E7F3FF', color: '#0866FF' }
-                      }
-                    >
-                      {u.rol}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="d-flex gap-2">
-                      <button
-                        onClick={() => setEditingUser(u)}
-                        className="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1"
-                      >
-                        <Edit size={13} />
-                        <span>Editar</span>
-                      </button>
-                      {u.username !== 'admin' && (
-                        <button
-                          onClick={() => handleDeleteUser(u)}
-                          className="btn btn-sm btn-outline-danger rounded-pill px-3 py-1 fw-semibold d-inline-flex align-items-center gap-1"
+              usersList.map((u, idx) => {
+                const initial = (u.nombre || u.username || 'U').charAt(0).toUpperCase();
+
+                return (
+                  <tr key={u.id}>
+                    <td className="text-muted fw-semibold py-2.5">{idx + 1}</td>
+                    <td>
+                      <div className="d-flex align-items-center gap-2.5">
+                        <div
+                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            backgroundColor: u.rol === 'ADMIN' ? '#FEE2E2' : '#E7F3FF',
+                            color: u.rol === 'ADMIN' ? '#DC2626' : '#0866FF',
+                            fontSize: '0.82rem',
+                            border: `1px solid ${u.rol === 'ADMIN' ? '#FECACA' : '#D0E2FF'}`,
+                          }}
                         >
-                          <Trash2 size={13} />
-                          <span>Eliminar</span>
+                          {initial}
+                        </div>
+                        <div>
+                          <strong className="text-dark d-block fw-bold" style={{ fontSize: '0.88rem' }}>
+                            {u.nombre || u.username}
+                          </strong>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 font-monospace">
+                        {u.username}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="text-dark">{u.email || '—'}</span>
+                    </td>
+                    <td>
+                      <span
+                        className="badge rounded-pill px-2.5 py-1 fw-bold"
+                        style={
+                          u.rol === 'ADMIN'
+                            ? { backgroundColor: '#FEE2E2', color: '#DC2626' }
+                            : { backgroundColor: '#E7F3FF', color: '#0866FF' }
+                        }
+                      >
+                        {u.rol}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="d-flex gap-2 align-items-center">
+                        <button
+                          onClick={() => setEditingUser(u)}
+                          className="btn-meta-action btn-meta-action-secondary"
+                          title="Editar información de usuario"
+                        >
+                          <Edit size={13} />
+                          <span>Editar</span>
                         </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        {u.username !== 'admin' && (
+                          <button
+                            onClick={() => handleDeleteUser(u)}
+                            className="btn-meta-action btn-meta-action-danger"
+                            title="Eliminar usuario"
+                          >
+                            <Trash2 size={13} />
+                            <span>Eliminar</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

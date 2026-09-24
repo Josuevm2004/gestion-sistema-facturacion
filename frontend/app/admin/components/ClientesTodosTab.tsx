@@ -452,8 +452,7 @@ export default function ClientesTodosTab({
           {hasActiveFilters && (
             <button
               onClick={resetAllFilters}
-              className="btn btn-sm btn-light rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1 fw-semibold border shadow-sm"
-              style={{ backgroundColor: '#F0F2F5' }}
+              className="btn-meta-action btn-meta-action-secondary"
             >
               <RotateCcw size={13} />
               <span>Limpiar Filtros</span>
@@ -463,8 +462,7 @@ export default function ClientesTodosTab({
           <button
             type="button"
             onClick={() => setShowColumnModal(true)}
-            className="btn btn-sm btn-light rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold border shadow-sm"
-            style={{ backgroundColor: '#F0F2F5' }}
+            className="btn-meta-action btn-meta-action-secondary"
             title="Personalizar columnas visibles de la tabla"
           >
             <SlidersHorizontal size={14} />
@@ -479,10 +477,10 @@ export default function ClientesTodosTab({
             <button
               type="button"
               onClick={onOpenCreateClient}
-              className="btn btn-primary rounded-pill px-3.5 py-2 d-inline-flex align-items-center gap-1.5 fw-bold shadow-sm"
+              className="btn-meta-action btn-meta-action-primary"
               title="Crear un nuevo cliente de forma manual"
             >
-              <UserPlus size={16} />
+              <UserPlus size={15} />
               <span>Crear Cliente</span>
             </button>
           )}
@@ -600,9 +598,9 @@ export default function ClientesTodosTab({
         </div>
       </div>
 
-      {/* Tabla de Clientes con Columnas Ajustables */}
+      {/* Tabla de Clientes con Columnas Ajustables (Meta High-Density Style) */}
       <div className="table-responsive" style={{ minHeight: '380px' }}>
-        <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+        <table className="table table-meta align-middle mb-0" style={{ fontSize: '0.85rem' }}>
           <thead>
             <tr>
               {visibleColumns.index && <th style={{ width: '45px' }} className="py-2.5">#</th>}
@@ -619,7 +617,7 @@ export default function ClientesTodosTab({
               {visibleColumns.vendedor && <th className="py-2.5">Vendedor</th>}
               {visibleColumns.estado && <th className="py-2.5">Estado</th>}
               {visibleColumns.avisado && <th className="py-2.5 text-center">Avisado</th>}
-              {visibleColumns.acciones && <th className="py-2.5 text-center" style={{ minWidth: '120px' }}>Acciones</th>}
+              {visibleColumns.acciones && <th className="py-2.5 text-center" style={{ minWidth: '130px' }}>Acciones</th>}
             </tr>
           </thead>
           <tbody>
@@ -639,6 +637,7 @@ export default function ClientesTodosTab({
                 const cobroProximo = Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0);
                 const isNearExpiry = diffDays <= 3 && diffDays >= 0;
                 const isExpired = diffDays <= 0;
+                const clientInitial = c.razonSocial ? c.razonSocial.charAt(0).toUpperCase() : 'C';
 
                 return (
                   <tr
@@ -653,10 +652,17 @@ export default function ClientesTodosTab({
 
                     {visibleColumns.empresa && (
                       <td className="py-2.5">
-                        <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
-                        {c.nombreComercial && c.nombreComercial !== c.razonSocial && (
-                          <small className="text-muted d-block">{c.nombreComercial}</small>
-                        )}
+                        <div className="d-flex align-items-center gap-2.5">
+                          <div className="d-flex align-items-center justify-content-center flex-shrink-0 fw-bold rounded-circle shadow-sm" style={{ width: '32px', height: '32px', minWidth: '32px', backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.82rem' }}>
+                            {clientInitial}
+                          </div>
+                          <div>
+                            <strong className="text-dark d-block fs-6" style={{ lineHeight: '1.2' }}>{c.razonSocial}</strong>
+                            {c.nombreComercial && c.nombreComercial !== c.razonSocial && (
+                              <small className="text-muted d-block">{c.nombreComercial}</small>
+                            )}
+                          </div>
+                        </div>
                       </td>
                     )}
 
@@ -690,15 +696,31 @@ export default function ClientesTodosTab({
 
                     {visibleColumns.contacto && (
                       <td className="py-2.5">
-                        <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
-                        <span className="small text-muted">{c.email || ''}</span>
+                        <div className="d-flex align-items-center gap-2">
+                          <div>
+                            <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
+                            <span className="small text-muted">{c.email || ''}</span>
+                          </div>
+                          {(c.telefono || c.telefonoPersonal) && (
+                            <a
+                              href={`https://wa.me/51${(c.telefono || c.telefonoPersonal || '').replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn-meta-icon btn-meta-icon-whatsapp shadow-sm"
+                              style={{ width: '26px', height: '26px', minWidth: '26px' }}
+                              title="Abrir WhatsApp con cliente"
+                            >
+                              <MessageCircle size={13} />
+                            </a>
+                          )}
+                        </div>
                       </td>
                     )}
 
                     {visibleColumns.usuarioWsp && (
                       <td className="py-2.5">
                         {c.usuarioWsp ? (
-                          <span className="badge bg-light text-dark border fw-semibold font-monospace">{c.usuarioWsp}</span>
+                          <span className="badge bg-light text-dark border fw-semibold font-monospace rounded-pill">{c.usuarioWsp}</span>
                         ) : (
                           <span className="text-muted small">—</span>
                         )}
@@ -707,14 +729,14 @@ export default function ClientesTodosTab({
 
                     {visibleColumns.plan && (
                       <td className="py-2.5">
-                        <div className="d-flex align-items-center gap-1">
-                          <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                          <span className={`badge ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}`}>
+                        <div className="d-flex align-items-center gap-1.5">
+                          <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado}</span>
+                          <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary-subtle text-primary border border-primary-subtle'}`}>
                             {c.tipoSuscripcion || 'MENSUAL'}
                           </span>
                         </div>
                         {c.entornoNombre && (
-                          <span className={`badge mt-1 ${c.entornoNombre.toLowerCase().includes('interno') ? 'bg-secondary bg-opacity-25 text-secondary border' : 'bg-info bg-opacity-10 text-info border'}`} style={{ fontSize: '0.68rem' }}>
+                          <span className={`badge rounded-pill mt-1 ${c.entornoNombre.toLowerCase().includes('interno') ? 'bg-secondary bg-opacity-25 text-secondary border' : 'bg-info bg-opacity-10 text-info border'}`} style={{ fontSize: '0.68rem' }}>
                             {c.entornoNombre}
                           </span>
                         )}
@@ -794,14 +816,14 @@ export default function ClientesTodosTab({
                     {visibleColumns.estado && (
                       <td className="py-2.5">
                         <span
-                          className={`badge ${
+                          className={`btn-meta-action ${
                             estadoVisual === 'HABILITADO'
-                              ? 'badge-habilitado'
+                              ? 'btn-meta-action-success'
                               : estadoVisual === 'POR_COBRAR'
-                              ? 'badge-pendiente'
+                              ? 'btn-meta-action-warning'
                               : estadoVisual === 'VENCIDO'
-                              ? 'badge-vencido'
-                              : 'badge-bloqueado'
+                              ? 'btn-meta-action-danger'
+                              : 'btn-meta-action-secondary'
                           }`}
                         >
                           {estadoVisual || 'SIN ESTADO'}
@@ -814,8 +836,8 @@ export default function ClientesTodosTab({
                         {c.avisado ? (
                           <button
                             type="button"
-                            className="btn btn-sm btn-success px-2 py-0.5 text-white fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
-                            style={{ fontSize: '0.72rem' }}
+                            className="btn-meta-action btn-meta-action-success shadow-sm"
+                            style={{ fontSize: '0.74rem' }}
                             onClick={() => handleToggleAvisado?.(c, false)}
                             title="Cliente marcado como avisado. Clic para desmarcar."
                           >
@@ -825,8 +847,8 @@ export default function ClientesTodosTab({
                         ) : (
                           <button
                             type="button"
-                            className="btn btn-sm btn-outline-secondary px-2 py-0.5 fw-semibold d-inline-flex align-items-center gap-1"
-                            style={{ fontSize: '0.72rem' }}
+                            className="btn-meta-action btn-meta-action-secondary shadow-sm"
+                            style={{ fontSize: '0.74rem' }}
                             onClick={() => handleToggleAvisado?.(c, true)}
                             title="Marcar cliente como avisado para su cobranza"
                           >
@@ -839,28 +861,48 @@ export default function ClientesTodosTab({
 
                     {visibleColumns.acciones && (
                       <td className="py-2.5 text-center position-relative">
-                        <div className="d-inline-block position-relative">
+                        <div className="d-flex align-items-center justify-content-center gap-1.5 position-relative">
+                          {/* Botón Acción Rápida: WhatsApp Mensaje */}
                           <button
                             type="button"
-                            onClick={() => setOpenActionClientId(openActionClientId === c.id ? null : c.id)}
-                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold shadow-sm"
-                            title="Acciones para este cliente"
+                            className="btn-meta-icon btn-meta-icon-whatsapp shadow-sm"
+                            onClick={() => setBillingMessageClient(c)}
+                            title="Mensaje de Cobranza WhatsApp"
                           >
-                            <MoreVertical size={13} />
-                            <span>Acciones</span>
-                            <ChevronDown size={12} className={openActionClientId === c.id ? 'rotate-180' : ''} />
+                            <MessageSquare size={13} />
                           </button>
 
-                          {openActionClientId === c.id && (
-                            <div
-                              ref={actionMenuRef}
-                              className="dropdown-menu show shadow-lg border rounded-3 p-1 position-absolute end-0 mt-1"
-                              style={{
-                                zIndex: 1060,
-                                minWidth: '220px',
-                                backgroundColor: '#ffffff',
-                              }}
+                          {/* Botón Acción Rápida: Editar */}
+                          <button
+                            type="button"
+                            className="btn-meta-icon btn-meta-icon-edit shadow-sm"
+                            onClick={() => setEditingClient(c)}
+                            title="Editar datos del cliente"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+
+                          {/* Menú Más Acciones (...) */}
+                          <div className="d-inline-block position-relative">
+                            <button
+                              type="button"
+                              onClick={() => setOpenActionClientId(openActionClientId === c.id ? null : c.id)}
+                              className="btn-meta-icon shadow-sm"
+                              title="Más opciones para este cliente"
+                              aria-expanded={openActionClientId === c.id}
                             >
+                              <MoreVertical size={13} />
+                            </button>
+
+                            {openActionClientId === c.id && (
+                              <div
+                                ref={actionMenuRef}
+                                className="dropdown-menu show shadow-lg border rounded-4 p-1.5 position-absolute end-0 mt-1 bg-white text-dark"
+                                style={{
+                                  zIndex: 1060,
+                                  minWidth: '220px',
+                                }}
+                              >
                               {/* 1. Copiar Afiliación */}
                               <button
                                 type="button"
@@ -984,7 +1026,8 @@ export default function ClientesTodosTab({
                             </div>
                           )}
                         </div>
-                      </td>
+                      </div>
+                    </td>
                     )}
                   </tr>
                 );

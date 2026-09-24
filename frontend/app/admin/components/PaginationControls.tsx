@@ -1,5 +1,8 @@
 'use client';
 
+import React from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+
 interface PaginationControlsProps {
   currentPage: number;
   totalItems: number;
@@ -20,27 +23,33 @@ export default function PaginationControls({
   const lastItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="d-flex justify-content-between align-items-center gap-2 mt-3 pt-3 border-top">
-      <small className="text-muted">
-        Mostrando {firstItem}-{lastItem} de {totalItems} clientes
+    <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 pt-3 border-top">
+      <small className="text-muted fw-semibold">
+        Mostrando <strong className="text-dark">{firstItem}-{lastItem}</strong> de <strong className="text-dark">{totalItems}</strong> registros
       </small>
-      <div className="btn-group btn-group-sm" role="group" aria-label="Paginación de clientes">
+      <div className="d-flex align-items-center gap-2" role="group" aria-label="Paginación de clientes">
         <button
           type="button"
-          className="btn btn-outline-secondary"
+          className="btn-meta-action btn-meta-action-secondary"
           disabled={currentPage === 1}
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
         >
-          Anterior
+          <ChevronLeft size={14} />
+          <span>Anterior</span>
         </button>
-        <span className="btn btn-light disabled">Página {currentPage} de {totalPages}</span>
+        <span className="small fw-semibold text-muted px-2">
+          Página <strong className="text-dark">{currentPage}</strong> de {totalPages}
+        </span>
         <button
           type="button"
-          className="btn btn-outline-secondary"
+          className="btn-meta-action btn-meta-action-secondary"
           disabled={currentPage === totalPages}
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          style={{ opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
         >
-          Siguiente
+          <span>Siguiente</span>
+          <ChevronRight size={14} />
         </button>
       </div>
     </div>

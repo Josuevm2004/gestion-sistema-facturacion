@@ -181,7 +181,7 @@ export default function ResumenTab({
                 </h2>
                 <small className="text-muted">Clientes derivados del formulario en espera de confirmación</small>
               </div>
-              <button onClick={() => setActiveTab('cobrar')} className="btn btn-outline-warning btn-sm text-dark rounded-3 px-3 fw-semibold">
+              <button onClick={() => setActiveTab('cobrar')} className="btn-meta-action btn-meta-action-warning">
                 Gestionar Cobros
               </button>
             </div>
@@ -221,7 +221,7 @@ export default function ResumenTab({
                 </h2>
                 <small className="text-muted">Clientes con vencimiento cercano a alertar</small>
               </div>
-              <button onClick={() => setActiveTab('todos')} className="btn btn-outline-primary btn-sm rounded-3 px-3 fw-semibold">
+              <button onClick={() => setActiveTab('todos')} className="btn-meta-action btn-meta-action-primary">
                 Todos los Clientes
               </button>
             </div>
@@ -246,7 +246,7 @@ export default function ResumenTab({
                       <strong className="text-dark d-block small">{c.razonSocial}</strong>
                       <span className="text-muted small">RUC: {c.ruc} | {c.planContratado}</span>
                     </div>
-                    <span className="badge bg-warning text-dark px-3 py-1 fw-bold">VENCE EN 1 DÍA</span>
+                    <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>VENCE EN 1 DÍA</span>
                   </div>
                 ))
               )}
@@ -266,7 +266,7 @@ export default function ResumenTab({
               <button
                 onClick={() => loadData(token, true)}
                 disabled={isSyncing}
-                className="btn btn-outline-secondary btn-sm rounded-pill px-3 fw-semibold d-inline-flex align-items-center gap-1 shadow-sm"
+                className="btn-meta-action btn-meta-action-secondary"
               >
                 <RefreshCw size={14} className={isSyncing ? 'spin-anim' : ''} />
                 <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>

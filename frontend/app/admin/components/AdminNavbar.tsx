@@ -19,6 +19,7 @@ import {
   WalletCards,
   LockKeyhole,
   CheckCheck,
+  Search,
 } from 'lucide-react';
 
 interface AdminNavbarProps {
@@ -80,12 +81,22 @@ export default function AdminNavbar({
   return (
     <nav className="navbar navbar-expand-lg sticky-top bg-white border-bottom admin-navbar shadow-sm py-1">
       <div className="container-fluid admin-navbar-inner px-3 px-md-4">
-        {/* Brand */}
+        {/* Brand & Search Pill (Stitch / Meta Style) */}
         <div className="admin-brand d-flex align-items-center gap-2 gap-sm-3">
-          <Image src="/logo.jpeg" alt="Miquipu Logo" width={38} height={38} className="admin-brand-logo rounded-3 shadow-sm" />
-          <span className="navbar-brand admin-brand-name text-dark fw-bold mb-0 me-0 fs-5" style={{ letterSpacing: '-0.3px' }}>
+          <Image src="/logo.jpeg" alt="Miquipu Logo" width={38} height={38} className="rounded-circle shadow-sm" />
+          <span className="navbar-brand admin-brand-name text-dark fw-bold mb-0 me-0 fs-5 d-none d-sm-inline" style={{ letterSpacing: '-0.3px' }}>
             Miquipu Admin
           </span>
+          <div className="d-none d-md-flex align-items-center position-relative ms-2">
+            <Search size={15} className="position-absolute start-0 ms-3 text-muted pointer-events-none" />
+            <input
+              type="text"
+              className="form-control rounded-pill ps-5 pe-3 py-1 border-0 shadow-none text-dark"
+              style={{ backgroundColor: '#F0F2F5', fontSize: '0.84rem', width: '220px', minHeight: '36px' }}
+              placeholder="Buscar en Miquipu..."
+              onChange={(e) => setCalendarSearch(e.target.value)}
+            />
+          </div>
         </div>
 
         {/* Mobile Toggler */}

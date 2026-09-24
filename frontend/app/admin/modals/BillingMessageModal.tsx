@@ -376,12 +376,12 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
               Destinatario: <strong className="text-dark">{client.usuarioWsp || client.telefono || client.telefonoPersonal || 'Sin número'}</strong>
             </div>
             <div className="d-flex gap-2">
-              <button className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold d-inline-flex align-items-center gap-1.5" onClick={() => handleCopy()}>
+              <button className="btn-meta-action btn-meta-action-secondary" onClick={() => handleCopy()}>
                 {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
                 <span>{copied ? '¡Copiado!' : activeStep === 'PRESENTACION' ? 'Copiar Saludo' : 'Copiar Cobranza'}</span>
               </button>
               <button
-                className="btn btn-primary px-4 py-1.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1.5"
+                className="btn-meta-action btn-meta-action-success"
                 onClick={() => handleSendWhatsApp()}
               >
                 <ExternalLink size={15} />

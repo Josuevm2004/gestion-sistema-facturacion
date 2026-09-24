@@ -924,7 +924,8 @@ export default function ReportesExcelTab({
         <div className="d-flex align-items-center gap-2">
           <button
             onClick={exportToExcelLocal}
-            className="btn btn-success btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm rounded-3"
+            className="btn-meta-action btn-meta-action-success"
+            title="Exportar reporte consolidado a formato Excel"
           >
             <FileSpreadsheet size={16} />
             <span>Exportar Excel</span>
@@ -932,7 +933,8 @@ export default function ReportesExcelTab({
           <button
             onClick={() => loadData(token, true)}
             disabled={isSyncing}
-            className="btn btn-outline-secondary btn-sm px-3 py-2 fw-semibold d-inline-flex align-items-center gap-2 shadow-sm rounded-3 bg-white"
+            className="btn-meta-action btn-meta-action-secondary"
+            title="Sincronizar datos"
           >
             <RefreshCw size={15} className={isSyncing ? 'spin-anim' : ''} />
             <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
@@ -1083,7 +1085,7 @@ export default function ReportesExcelTab({
             <div className="col-12 col-md-4 col-lg-4 d-flex gap-2">
               <button
                 type="button"
-                className="btn btn-primary btn-sm px-3 py-1.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 flex-grow-1 rounded-3 shadow-sm"
+                className="btn-meta-action btn-meta-action-primary flex-grow-1"
                 onClick={() => setVentasPage(1)}
               >
                 <Search size={14} />
@@ -1091,7 +1093,7 @@ export default function ReportesExcelTab({
               </button>
               <button
                 type="button"
-                className="btn btn-outline-secondary btn-sm px-3 py-1.5 fw-semibold d-inline-flex align-items-center justify-content-center gap-1.5 rounded-3 bg-white"
+                className="btn-meta-action btn-meta-action-secondary"
                 onClick={resetFilters}
               >
                 <RotateCcw size={14} />
@@ -1331,48 +1333,49 @@ export default function ReportesExcelTab({
           </div>
 
           <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.78rem' }}>
+            <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
               <thead>
-                <tr className="text-muted border-bottom" style={{ fontSize: '0.72rem' }}>
-                  <th className="fw-semibold">Fecha</th>
-                  <th className="fw-semibold">Cliente</th>
-                  <th className="fw-semibold">RUC</th>
-                  <th className="fw-semibold">Plan</th>
-                  <th className="fw-semibold">Vendedor</th>
-                  <th className="fw-semibold">Monto</th>
-                  <th className="fw-semibold">Método de pago</th>
-                  <th className="fw-semibold text-end">Estado</th>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Cliente</th>
+                  <th>RUC</th>
+                  <th>Plan</th>
+                  <th>Vendedor</th>
+                  <th>Monto</th>
+                  <th>Método de pago</th>
+                  <th className="text-end">Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedVentas.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted py-4">
+                    <td colSpan={8} className="text-center text-muted py-5 fw-semibold">
                       No se encontraron ventas con los filtros aplicados.
                     </td>
                   </tr>
                 ) : (
                   displayedVentas.map((t) => (
                     <tr key={t.id}>
-                      <td className="text-muted">
+                      <td className="text-muted fw-semibold">
                         {t.fechaObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
                         <span className="text-muted opacity-75">{t.fechaObj.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
                       </td>
                       <td className="fw-bold text-dark">{t.cliente}</td>
-                      <td className="text-muted">{t.ruc}</td>
+                      <td className="text-muted fw-semibold">{t.ruc}</td>
                       <td>
-                        <span className="badge bg-light text-dark border px-2 py-1">{t.plan}</span>
+                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{t.plan}</span>
                       </td>
-                      <td className="text-dark fw-medium">{t.vendedor}</td>
+                      <td className="text-dark fw-semibold">{t.vendedor}</td>
                       <td className="fw-bold text-dark">S/ {t.monto.toFixed(2)}</td>
-                      <td className="text-muted capitalize">{t.metodoPago.toLowerCase()}</td>
+                      <td className="text-muted text-capitalize fw-semibold">{t.metodoPago.toLowerCase()}</td>
                       <td className="text-end">
                         <span
-                          className={`badge rounded-pill px-2.5 py-1 ${
+                          className="badge rounded-pill px-2.5 py-1 fw-bold"
+                          style={
                             t.estado === 'PAGADO'
-                              ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
-                              : 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25'
-                          }`}
+                              ? { backgroundColor: '#DEF7EC', color: '#059669' }
+                              : { backgroundColor: '#FEF3C7', color: '#B45309' }
+                          }
                         >
                           {t.estado === 'PAGADO' ? 'Pagado' : 'Pendiente'}
                         </span>
@@ -1557,45 +1560,46 @@ export default function ReportesExcelTab({
                 </div>
 
                 <div className="table-responsive">
-                  <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.78rem' }}>
+                  <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
                     <thead>
-                      <tr className="text-muted border-bottom" style={{ fontSize: '0.72rem' }}>
-                        <th className="fw-semibold">Fecha</th>
-                        <th className="fw-semibold">Cliente</th>
-                        <th className="fw-semibold">Plan</th>
-                        <th className="fw-semibold">Monto venta</th>
-                        <th className="fw-semibold">% Comisión</th>
-                        <th className="fw-semibold">Comisión</th>
-                        <th className="fw-semibold text-end">Estado</th>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Plan</th>
+                        <th>Monto venta</th>
+                        <th>% Comisión</th>
+                        <th>Comisión</th>
+                        <th className="text-end">Estado</th>
                       </tr>
                     </thead>
                     <tbody>
                       {displayedComisiones.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="text-center text-muted py-4">
+                          <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
                             No se encontraron afiliaciones en el periodo filtrado.
                           </td>
                         </tr>
                       ) : (
                         displayedComisiones.map((t) => (
                           <tr key={t.id}>
-                            <td className="text-muted">
+                            <td className="text-muted fw-semibold">
                               {t.fechaObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                             </td>
                             <td className="fw-bold text-dark">{t.cliente}</td>
                             <td>
-                              <span className="badge bg-light text-dark border px-2 py-0.5">{t.plan}</span>
+                              <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{t.plan}</span>
                             </td>
                             <td className="fw-bold text-dark">S/ {t.monto.toFixed(2)}</td>
-                            <td className="text-muted">Fija / ALTA</td>
-                            <td className="fw-bold text-primary">S/ {TASA_COMISION_ALTA.toFixed(2)}</td>
+                            <td className="text-muted fw-semibold">Fija / ALTA</td>
+                            <td className="fw-bold" style={{ color: '#0866FF' }}>S/ {TASA_COMISION_ALTA.toFixed(2)}</td>
                             <td className="text-end">
                               <span
-                                className={`badge rounded-pill px-2.5 py-1 ${
+                                className="badge rounded-pill px-2.5 py-1 fw-bold"
+                                style={
                                   t.estado === 'PAGADO'
-                                    ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
-                                    : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'
-                                }`}
+                                    ? { backgroundColor: '#DEF7EC', color: '#059669' }
+                                    : { backgroundColor: '#E7F3FF', color: '#0866FF' }
+                                }
                               >
                                 {t.estado === 'PAGADO' ? 'Pagado' : 'Generada'}
                               </span>

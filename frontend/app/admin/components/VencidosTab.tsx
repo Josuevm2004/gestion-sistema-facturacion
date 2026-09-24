@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { AlertCircle, RefreshCw, Settings, X, Unlock, ShieldAlert, Search, RotateCcw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Settings, X, Unlock, ShieldAlert, Search, RotateCcw, Phone } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import { parseLocalDate, formatDatePeru } from '@/lib/billing';
@@ -142,12 +142,12 @@ export default function VencidosTab({
       </div>
 
       <div className="table-responsive">
-        <table className="table table-sm table-hover align-middle mb-0" style={{ fontSize: '0.88rem' }}>
+        <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
-              <th>#</th>
+              <th style={{ width: '45px' }}>#</th>
               <th>Empresa / RUC</th>
-              <th>Teléfono</th>
+              <th>Teléfono / WhatsApp</th>
               <th>Plan</th>
               <th>Estado</th>
               <th>Monto Plan</th>
@@ -158,7 +158,7 @@ export default function VencidosTab({
           <tbody>
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={8} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={8} className="text-center text-muted py-5 fw-semibold">
                   {hasActiveFilters
                     ? 'No se encontraron clientes vencidos con los filtros aplicados.'
                     : 'No hay clientes vencidos en este momento.'}
@@ -168,6 +168,9 @@ export default function VencidosTab({
               visibleClients.map((c, idx) => {
                 const vencDate = parseLocalDate(c.fechaVencimientoMensual);
                 const isBloqueado = c.estadoCuenta === 'BLOQUEADO';
+                const phone = c.telefono || c.telefonoPersonal;
+                const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+                const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
 
                 return (
                   <tr key={c.id} className={isBloqueado ? 'bg-light bg-opacity-75' : ''}>
@@ -175,25 +178,67 @@ export default function VencidosTab({
                       {(currentPage - 1) * pageSize + idx + 1}
                     </td>
                     <td>
-                      <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
-                      <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
+                      <div className="d-flex align-items-center gap-2.5">
+                        <div
+                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            backgroundColor: '#FEE2E2',
+                            color: '#DC2626',
+                            fontSize: '0.82rem',
+                            border: '1px solid #FECACA',
+                          }}
+                        >
+                          {initial}
+                        </div>
+                        <div>
+                          <strong className="text-dark d-block fw-bold" style={{ fontSize: '0.88rem' }}>
+                            {c.razonSocial}
+                          </strong>
+                          <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
+                        </div>
+                      </div>
                     </td>
                     <td>
-                      <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fw-bold text-dark">{phone || '—'}</span>
+                        {cleanPhone && (
+                          <a
+                            href={`https://wa.me/51${cleanPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-meta-icon btn-meta-icon-whatsapp"
+                            title="Abrir chat de WhatsApp"
+                          >
+                            <Phone size={13} />
+                          </a>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-1.5">
-                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado}</span>
-                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#F0F2F5', color: '#65676B' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
+                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">
+                          {c.planContratado}
+                        </span>
+                        <span
+                          className="badge rounded-pill px-2.5 py-1 fw-bold"
+                          style={{ backgroundColor: '#F0F2F5', color: '#65676B' }}
+                        >
+                          {c.tipoSuscripcion || 'MENSUAL'}
+                        </span>
                       </div>
                     </td>
                     <td>
                       {isBloqueado ? (
-                        <span className="badge bg-secondary text-white rounded-pill px-2.5 py-1 d-inline-flex align-items-center gap-1">
+                        <span className="badge bg-secondary text-white rounded-pill px-2.5 py-1 d-inline-flex align-items-center gap-1 fw-bold">
                           <ShieldAlert size={12} /> Bloqueado
                         </span>
                       ) : (
-                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+                        <span
+                          className="badge rounded-pill px-2.5 py-1 fw-bold"
+                          style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}
+                        >
                           Vencido
                         </span>
                       )}
@@ -212,11 +257,10 @@ export default function VencidosTab({
                       <div className="d-flex gap-2 flex-wrap align-items-center">
                         <button
                           onClick={() => setPagoModalConfig({ client: c })}
-                          className="btn btn-sm text-white rounded-pill px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                          style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
+                          className="btn-meta-action btn-meta-action-primary"
                           title="Registrar pago o renovar servicio: abre el calendario con cálculo dinámico"
                         >
-                          <RotateCcw size={13} />
+                          <RotateCcw size={14} />
                           <span>Registrar Pago / Renovar</span>
                         </button>
                         <button
@@ -225,9 +269,10 @@ export default function VencidosTab({
                             setCambioPlanSeleccionado(c.planContratado || '');
                             if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
                           }}
-                          className="btn btn-sm btn-light border rounded-pill px-3 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
+                          className="btn-meta-action btn-meta-action-secondary"
+                          title="Cambiar plan o suscripción"
                         >
-                          <Settings size={13} />
+                          <Settings size={14} />
                           <span>Cambiar Plan</span>
                         </button>
                         {!isBloqueado ? (
@@ -238,9 +283,10 @@ export default function VencidosTab({
                               );
                               if (ok && handleEstadoCuentaChange) handleEstadoCuentaChange(c, 'BLOQUEADO');
                             }}
-                            className="btn btn-sm btn-outline-danger rounded-pill px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
+                            className="btn-meta-action btn-meta-action-danger"
+                            title="Suspender acceso del cliente"
                           >
-                            <X size={13} />
+                            <X size={14} />
                             <span>Bloquear</span>
                           </button>
                         ) : (
@@ -248,10 +294,10 @@ export default function VencidosTab({
                             onClick={() => {
                               if (handleDevolverAcceso) handleDevolverAcceso(c);
                             }}
-                            className="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
+                            className="btn-meta-action btn-meta-action-secondary"
                             title="Desbloquear cliente y devolver acceso (estado Vencido sin registrar pago)"
                           >
-                            <Unlock size={13} />
+                            <Unlock size={14} />
                             <span>Desbloquear</span>
                           </button>
                         )}

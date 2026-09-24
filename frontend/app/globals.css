@@ -381,7 +381,188 @@ body {
 }
 
 .table-hover tbody tr:hover {
-  background-color: #F1F5F9 !important;
+  background-color: #F2F4F7 !important;
+}
+
+/* Meta High-Density Table Style */
+.table-meta {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin-bottom: 0;
+}
+
+.table-meta th {
+  background-color: #F9FAFB !important;
+  color: #65676B !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  border-bottom: 1px solid #E4E6EB !important;
+  border-top: none !important;
+  padding: 0.85rem 1rem !important;
+  white-space: nowrap;
+}
+
+.table-meta td {
+  padding: 0.75rem 1rem !important;
+  border-bottom: 1px solid #F0F2F5 !important;
+  border-top: none !important;
+  vertical-align: middle;
+  font-size: 0.88rem;
+  color: #050505;
+}
+
+.table-meta tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.table-meta tbody tr:hover {
+  background-color: #F2F4F7 !important;
+}
+
+/* Meta Action Buttons & Utility Chips */
+.btn-meta-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  text-decoration: none;
+}
+
+.btn-meta-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.btn-meta-action-primary {
+  background-color: #E7F3FF !important;
+  color: #0866FF !important;
+  border-color: #D0E2FF !important;
+}
+.btn-meta-action-primary:hover {
+  background-color: #0866FF !important;
+  color: #FFFFFF !important;
+  border-color: #0866FF !important;
+}
+
+.btn-meta-action-success {
+  background-color: #DEF7EC !important;
+  color: #03543F !important;
+  border-color: #BCF0DA !important;
+}
+.btn-meta-action-success:hover {
+  background-color: #059669 !important;
+  color: #FFFFFF !important;
+  border-color: #059669 !important;
+}
+
+.btn-meta-action-warning {
+  background-color: #FEF3C7 !important;
+  color: #92400E !important;
+  border-color: #FDE68A !important;
+}
+.btn-meta-action-warning:hover {
+  background-color: #D97706 !important;
+  color: #FFFFFF !important;
+  border-color: #D97706 !important;
+}
+
+.btn-meta-action-danger {
+  background-color: #FEE2E2 !important;
+  color: #991B1B !important;
+  border-color: #FECACA !important;
+}
+.btn-meta-action-danger:hover {
+  background-color: #DC2626 !important;
+  color: #FFFFFF !important;
+  border-color: #DC2626 !important;
+}
+
+.btn-meta-action-secondary {
+  background-color: #F0F2F5 !important;
+  color: #4B5563 !important;
+  border-color: #E4E6EB !important;
+}
+.btn-meta-action-secondary:hover {
+  background-color: #E4E6EB !important;
+  color: #111827 !important;
+  border-color: #D1D5DB !important;
+}
+
+/* Circular Meta Action Icons (Compact & High-Density) */
+.btn-meta-icon {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
+  border-radius: 50% !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #E4E6EB;
+  background-color: #F0F2F5;
+  color: #050505;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0 !important;
+  text-decoration: none;
+}
+.btn-meta-icon:hover {
+  background-color: #E4E6EB;
+  color: #050505;
+  transform: scale(1.05);
+}
+.btn-meta-icon-whatsapp {
+  background-color: #E8F8F0;
+  border-color: #A7F3D0;
+  color: #059669;
+}
+.btn-meta-icon-whatsapp:hover {
+  background-color: #25D366;
+  border-color: #25D366;
+  color: #FFFFFF;
+}
+.btn-meta-icon-edit {
+  background-color: #E7F3FF;
+  border-color: #BFDBFE;
+  color: #0866FF;
+}
+.btn-meta-icon-edit:hover {
+  background-color: #0866FF;
+  border-color: #0866FF;
+  color: #FFFFFF;
+}
+.btn-meta-icon-delete {
+  background-color: #FEE2E2;
+  border-color: #FECACA;
+  color: #DC2626;
+}
+.btn-meta-icon-delete:hover {
+  background-color: #DC2626;
+  border-color: #DC2626;
+  color: #FFFFFF;
+}
+.btn-meta-icon-pay {
+  background-color: #ECFDF5;
+  border-color: #A7F3D0;
+  color: #059669;
+}
+.btn-meta-icon-pay:hover {
+  background-color: #059669;
+  border-color: #059669;
+  color: #FFFFFF;
 }
 
 /* Progress Bar Custom Styling */

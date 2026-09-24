@@ -179,28 +179,28 @@ export default function CentroControlTab({
       </div>
 
       <div className="table-responsive">
-        <table className="table table-sm table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+        <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
-              <th className="py-2.5">#</th>
-              <th className="py-2.5">Representante</th>
-              <th className="py-2.5">DNI</th>
-              <th className="py-2.5">RUC</th>
-              <th className="py-2.5">Empresa</th>
-              <th className="py-2.5">Teléfono</th>
-              <th className="py-2.5">Usuario WSP</th>
-              <th className="py-2.5">Plan Actual</th>
-              <th className="py-2.5">Próximo Cobro</th>
-              <th className="py-2.5">Vencimiento</th>
-              <th className="py-2.5">Plazo</th>
-              <th className="py-2.5">Estado</th>
-              <th className="py-2.5 text-center">Acciones</th>
+              <th style={{ width: '45px' }}>#</th>
+              <th>Representante</th>
+              <th>DNI</th>
+              <th>RUC</th>
+              <th>Empresa</th>
+              <th>Teléfono</th>
+              <th>Usuario WSP</th>
+              <th>Plan Actual</th>
+              <th>Próximo Cobro</th>
+              <th>Vencimiento</th>
+              <th>Plazo</th>
+              <th>Estado</th>
+              <th className="text-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={13} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={13} className="text-center text-muted py-5 fw-semibold">
                   {hasActiveFilters
                     ? 'No se encontraron clientes con los filtros aplicados en el Centro de Control.'
                     : 'No se encontraron clientes activos en el Centro de Control.'}
@@ -216,6 +216,7 @@ export default function CentroControlTab({
 
                 const isNearExpiry = diffDays <= 3 && diffDays >= 0;
                 const isExpired = diffDays <= 0;
+                const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
 
                 return (
                   <tr key={c.id} className={isExpired ? 'bg-danger bg-opacity-10' : isNearExpiry ? 'bg-warning bg-opacity-10' : ''}>
@@ -240,7 +241,22 @@ export default function CentroControlTab({
                       <span className="fw-bold text-dark font-monospace">{c.ruc}</span>
                     </td>
                     <td className="py-2.5">
-                      <strong className="text-dark fs-6">{c.razonSocial}</strong>
+                      <div className="d-flex align-items-center gap-2">
+                        <div
+                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                          style={{
+                            width: '30px',
+                            height: '30px',
+                            backgroundColor: '#E7F3FF',
+                            color: '#0866FF',
+                            fontSize: '0.78rem',
+                            border: '1px solid #D0E2FF',
+                          }}
+                        >
+                          {initial}
+                        </div>
+                        <strong className="text-dark fw-bold" style={{ fontSize: '0.88rem' }}>{c.razonSocial}</strong>
+                      </div>
                     </td>
                     <td className="py-2.5">
                       <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
@@ -256,11 +272,11 @@ export default function CentroControlTab({
                     <td className="py-2.5">
                       <div className="d-flex align-items-center gap-1">
                         <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                        <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                        <span className="badge rounded-pill px-2 py-0.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
                       </div>
                     </td>
                     <td className="py-2.5">
-                      <strong className="text-primary fs-6">S/ {cobroProximo.toFixed(2)}</strong>
+                      <strong className="fs-6" style={{ color: '#0866FF' }}>S/ {cobroProximo.toFixed(2)}</strong>
                     </td>
                     <td className="py-2.5">
                       <strong className={isExpired ? 'text-danger' : isNearExpiry ? 'text-warning text-dark' : 'text-dark'}>
@@ -274,21 +290,21 @@ export default function CentroControlTab({
                         <span className="badge bg-light text-muted border">Sin fecha</span>
                       ) : diffDays > 0 ? (
                         <span
-                          className={`badge fw-bold ${
+                          className={`badge rounded-pill px-2.5 py-1 fw-bold ${
                             diffDays <= 3 ? 'bg-warning bg-opacity-25 text-dark border border-warning' : diffDays <= 7 ? 'bg-info bg-opacity-25 text-dark border border-info' : 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
                           }`}
                         >
                           {diffDays === 1 ? 'Mañana' : `${diffDays} días`}
                         </span>
                       ) : diffDays === 0 ? (
-                        <span className="badge bg-danger text-white fw-bold">HOY</span>
+                        <span className="badge bg-danger text-white fw-bold rounded-pill px-2.5 py-1">HOY</span>
                       ) : (
-                        <span className="badge bg-danger text-white">Vencido {Math.abs(diffDays)}d</span>
+                        <span className="badge bg-danger text-white rounded-pill px-2.5 py-1">Vencido {Math.abs(diffDays)}d</span>
                       )}
                     </td>
                     <td className="py-2.5">
                       <span
-                        className={`badge ${
+                        className={`badge rounded-pill px-2.5 py-1 fw-bold ${
                           estadoVisual === 'HABILITADO'
                             ? 'badge-habilitado'
                             : estadoVisual === 'POR_COBRAR'
@@ -300,10 +316,10 @@ export default function CentroControlTab({
                       </span>
                     </td>
                     <td className="py-2.5 text-center">
-                      <div className="d-flex justify-content-center align-items-center gap-1.5">
+                      <div className="d-flex justify-content-center align-items-center gap-1.5 flex-wrap">
                         {c.avisado ? (
                           <button
-                            className="btn btn-sm btn-success px-2.5 py-1 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1"
+                            className="btn-meta-action btn-meta-action-success"
                             onClick={() => handleToggleAvisado?.(c, false)}
                             title="Cliente marcado como avisado en la Base de Datos. Clic para desmarcar."
                           >
@@ -312,7 +328,7 @@ export default function CentroControlTab({
                           </button>
                         ) : (
                           <button
-                            className="btn btn-sm btn-outline-secondary px-2.5 py-1 fw-semibold d-inline-flex align-items-center gap-1"
+                            className="btn-meta-action btn-meta-action-secondary"
                             onClick={() => handleToggleAvisado?.(c, true)}
                             title="Marcar cliente como avisado para su cobranza (guardado en BD)"
                           >
@@ -321,7 +337,7 @@ export default function CentroControlTab({
                           </button>
                         )}
                         <button
-                          className="btn btn-sm btn-outline-success px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
+                          className="btn-meta-action btn-meta-action-success"
                           onClick={() => setBillingMessageClient(c)}
                           title="Generar mensaje inteligente de cobranza para WhatsApp"
                         >
@@ -330,7 +346,7 @@ export default function CentroControlTab({
                         </button>
                         {diffDays > 0 && diffDays <= 10 ? (
                           <button
-                            className="btn btn-sm btn-outline-warning text-dark px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
+                            className="btn-meta-action btn-meta-action-warning"
                             onClick={() => setAdelantoClient(c)}
                             title="Registrar pago por adelantado (faltan 10 días o menos para el vencimiento)"
                           >
@@ -339,21 +355,22 @@ export default function CentroControlTab({
                           </button>
                         ) : diffDays <= 0 ? (
                           <span
-                            className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 px-2.5 py-1 fw-semibold"
+                            className="badge rounded-pill px-2.5 py-1 fw-bold"
+                            style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}
                             title="Servicio vencido. Gestionar renovación o reanudación en la pestaña Vencidos."
                           >
                             Vencido
                           </span>
                         ) : (
                           <span
-                            className="badge bg-light text-muted border px-2 py-1 fw-normal"
+                            className="badge bg-light text-muted border rounded-pill px-2.5 py-1"
                             title={`Servicio vigente. Restan ${diffDays} días para el vencimiento.`}
                           >
                             Al día
                           </span>
                         )}
                         <button
-                          className="btn btn-sm btn-outline-primary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1"
+                          className="btn-meta-action btn-meta-action-primary"
                           onClick={() => setHistoryClient(c)}
                           title="Ver historial de movimientos"
                         >

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw, Phone } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 
@@ -129,12 +129,12 @@ export default function BloqueadosTab({
       </div>
 
       <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0">
+        <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
-              <th style={{ width: '50px' }}>#</th>
+              <th style={{ width: '45px' }}>#</th>
               <th>RUC / Empresa</th>
-              <th>Teléfono</th>
+              <th>Teléfono / WhatsApp</th>
               <th>Email</th>
               <th>Plan</th>
               <th>Estado</th>
@@ -144,62 +144,114 @@ export default function BloqueadosTab({
           <tbody>
             {filteredClients.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
                   {hasActiveFilters
                     ? 'No se encontraron clientes bloqueados con los filtros aplicados.'
                     : 'No hay clientes en estado bloqueado.'}
                 </td>
               </tr>
             ) : (
-              visibleClients.map((c, idx) => (
-                <tr key={c.id}>
-                  <td className="text-muted fw-semibold py-2.5">
-                    {(currentPage - 1) * pageSize + idx + 1}
-                  </td>
-                  <td>
-                    <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
-                    <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
-                  </td>
-                  <td>
-                    <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
-                  </td>
-                  <td>
-                    <span className="text-dark">{c.email || 'N/A'}</span>
-                  </td>
-                  <td>
-                    <div className="d-flex align-items-center gap-1.5">
-                      <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado || 'Plan'}</span>
-                      <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#F0F2F5', color: '#65676B' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#F0F2F5', color: '#4B5563' }}>BLOQUEADO</span>
-                  </td>
-                  <td>
-                    <div className="d-flex gap-2 flex-wrap">
-                      <button
-                        onClick={() => {
-                          const ok = window.confirm(
-                            `¿Habilitar acceso para ${c.razonSocial}? Pasará a VENCIDO para gestionar renovación o cambio de plan.`
-                          );
-                          if (ok) handleDevolverAcceso(c);
-                        }}
-                        className="btn btn-sm btn-outline-success rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
+              visibleClients.map((c, idx) => {
+                const phone = c.telefono || c.telefonoPersonal;
+                const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+                const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
+
+                return (
+                  <tr key={c.id}>
+                    <td className="text-muted fw-semibold py-2.5">
+                      {(currentPage - 1) * pageSize + idx + 1}
+                    </td>
+                    <td>
+                      <div className="d-flex align-items-center gap-2.5">
+                        <div
+                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            backgroundColor: '#F0F2F5',
+                            color: '#4B5563',
+                            fontSize: '0.82rem',
+                            border: '1px solid #E4E6EB',
+                          }}
+                        >
+                          {initial}
+                        </div>
+                        <div>
+                          <strong className="text-dark d-block fw-bold" style={{ fontSize: '0.88rem' }}>
+                            {c.razonSocial}
+                          </strong>
+                          <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fw-bold text-dark">{phone || '—'}</span>
+                        {cleanPhone && (
+                          <a
+                            href={`https://wa.me/51${cleanPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-meta-icon btn-meta-icon-whatsapp"
+                            title="Abrir chat de WhatsApp"
+                          >
+                            <Phone size={13} />
+                          </a>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="text-dark">{c.email || '—'}</span>
+                    </td>
+                    <td>
+                      <div className="d-flex align-items-center gap-1.5">
+                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">
+                          {c.planContratado || 'Plan'}
+                        </span>
+                        <span
+                          className="badge rounded-pill px-2.5 py-1 fw-bold"
+                          style={{ backgroundColor: '#F0F2F5', color: '#65676B' }}
+                        >
+                          {c.tipoSuscripcion || 'MENSUAL'}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        className="badge rounded-pill px-2.5 py-1 fw-bold"
+                        style={{ backgroundColor: '#F0F2F5', color: '#4B5563' }}
                       >
-                        <CheckCircle size={14} />
-                        <span>Habilitar Accesos</span>
-                      </button>
-                      <button
-                        onClick={() => setDeletingClient(c)}
-                        className="btn btn-sm btn-outline-danger rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
-                      >
-                        <Trash2 size={14} />
-                        <span>Eliminar</span>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        BLOQUEADO
+                      </span>
+                    </td>
+                    <td>
+                      <div className="d-flex gap-2 flex-wrap align-items-center">
+                        <button
+                          onClick={() => {
+                            const ok = window.confirm(
+                              `¿Habilitar acceso para ${c.razonSocial}? Pasará a VENCIDO para gestionar renovación o cambio de plan.`
+                            );
+                            if (ok) handleDevolverAcceso(c);
+                          }}
+                          className="btn-meta-action btn-meta-action-success"
+                          title="Devolver acceso al cliente y pasarlo a gestión de renovación"
+                        >
+                          <CheckCircle size={14} />
+                          <span>Habilitar Accesos</span>
+                        </button>
+                        <button
+                          onClick={() => setDeletingClient(c)}
+                          className="btn-meta-action btn-meta-action-danger"
+                          title="Eliminar registro permanentemente"
+                        >
+                          <Trash2 size={14} />
+                          <span>Eliminar</span>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { GraduationCap, CheckCircle, Calendar } from 'lucide-react';
+import { GraduationCap, CheckCircle, Calendar, Phone } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import { parseLocalDate, formatDatePeru as libFormatDatePeru } from '@/lib/billing';
@@ -95,12 +95,12 @@ export default function CapacitacionesTab({
       </div>
 
       <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0">
+        <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
-              <th style={{ width: '50px' }}>#</th>
+              <th style={{ width: '45px' }}>#</th>
               <th>RUC / Empresa</th>
-              <th>Contacto WhatsApp</th>
+              <th>Contacto / WhatsApp</th>
               <th>Plan / Suscripción</th>
               <th>Estado Capacitación</th>
               <th>Fecha Programada</th>
@@ -110,13 +110,21 @@ export default function CapacitacionesTab({
           <tbody>
             {targetList.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
                   No hay empresas para capacitación en este momento.
                 </td>
               </tr>
             ) : (
               visibleClients.map((c: Client, idx: number) => {
-                const isCapacitado = Boolean(c.fechaCapacitacion || c.estadoCapacitacion === 'COMPLETADO' || c.estadoCapacitacion === 'COMPLETADA' || (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion));
+                const isCapacitado = Boolean(
+                  c.fechaCapacitacion ||
+                    c.estadoCapacitacion === 'COMPLETADO' ||
+                    c.estadoCapacitacion === 'COMPLETADA' ||
+                    (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion)
+                );
+                const phone = c.telefono || c.telefonoPersonal;
+                const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
+                const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
 
                 return (
                   <tr key={c.id}>
@@ -124,32 +132,80 @@ export default function CapacitacionesTab({
                       {(currentPage - 1) * pageSize + idx + 1}
                     </td>
                     <td>
-                      <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
-                      <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
+                      <div className="d-flex align-items-center gap-2.5">
+                        <div
+                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            backgroundColor: '#E7F3FF',
+                            color: '#0866FF',
+                            fontSize: '0.82rem',
+                            border: '1px solid #D0E2FF',
+                          }}
+                        >
+                          {initial}
+                        </div>
+                        <div>
+                          <strong className="text-dark d-block fw-bold" style={{ fontSize: '0.88rem' }}>
+                            {c.razonSocial}
+                          </strong>
+                          <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
+                        </div>
+                      </div>
                     </td>
                     <td>
-                      <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fw-bold text-dark">{phone || '—'}</span>
+                        {cleanPhone && (
+                          <a
+                            href={`https://wa.me/51${cleanPhone}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-meta-icon btn-meta-icon-whatsapp"
+                            title="Abrir chat de WhatsApp"
+                          >
+                            <Phone size={13} />
+                          </a>
+                        )}
+                      </div>
                     </td>
                     <td>
                       <div className="d-flex align-items-center gap-1.5">
-                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado}</span>
-                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
+                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">
+                          {c.planContratado}
+                        </span>
+                        <span
+                          className="badge rounded-pill px-2.5 py-1 fw-bold"
+                          style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}
+                        >
+                          {c.tipoSuscripcion || 'MENSUAL'}
+                        </span>
                       </div>
                     </td>
                     <td>
                       {isCapacitado ? (
-                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#DEF7EC', color: '#03543F' }}>
+                        <span
+                          className="badge rounded-pill px-2.5 py-1 fw-bold"
+                          style={{ backgroundColor: '#DEF7EC', color: '#059669' }}
+                        >
                           Capacitado
                         </span>
                       ) : (
-                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+                        <span
+                          className="badge rounded-pill px-2.5 py-1 fw-bold"
+                          style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}
+                        >
                           Pendiente de Capacitación
                         </span>
                       )}
                     </td>
                     <td>
                       {c.fechaCapacitacion ? (
-                        <span className="badge bg-light border rounded-pill px-2.5 py-1 fw-bold" style={{ color: '#0866FF', borderColor: '#D0E2FF' }}>
+                        <span
+                          className="badge bg-light border rounded-pill px-2.5 py-1 fw-bold"
+                          style={{ color: '#0866FF', borderColor: '#D0E2FF' }}
+                        >
                           {formatPeruDate(c.fechaCapacitacion)}
                         </span>
                       ) : (
@@ -160,14 +216,17 @@ export default function CapacitacionesTab({
                       {!isCapacitado ? (
                         <button
                           onClick={() => setTrainingClient(c)}
-                          className="btn btn-sm text-white rounded-pill px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
-                          style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
+                          className="btn-meta-action btn-meta-action-primary"
+                          title="Programar fecha y hora para capacitación"
                         >
                           <Calendar size={14} />
                           <span>Programar Capacitación</span>
                         </button>
                       ) : (
-                        <span className="badge rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1" style={{ backgroundColor: '#DEF7EC', color: '#03543F' }}>
+                        <span
+                          className="badge rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
+                          style={{ backgroundColor: '#DEF7EC', color: '#059669' }}
+                        >
                           <CheckCircle size={14} />
                           <span>Capacitación Realizada</span>
                         </span>
