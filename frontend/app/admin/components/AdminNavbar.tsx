@@ -74,7 +74,6 @@ export default function AdminNavbar({
     { key: 'vencidos', label: 'Vencidos', icon: <AlertTriangle size={15} />, count: clientesVencidosList.length, badge: 'bg-danger' },
     { key: 'bloqueados', label: 'Bloqueados', icon: <LockKeyhole size={15} />, count: clientesBloqueadosList.length, badge: 'bg-secondary' },
     { key: 'capacitaciones', label: 'Capacitaciones', icon: <GraduationCap size={15} /> },
-    { key: 'calendario', label: 'Centro de Control', icon: <CalendarDays size={15} /> },
     { key: 'reporte', label: 'Reporte General', icon: <FileSpreadsheet size={15} /> },
   ];
 
@@ -212,7 +211,7 @@ export default function AdminNavbar({
                                 }
                                 if (n.clienteRazonSocial) {
                                   setCalendarSearch(n.clienteRazonSocial);
-                                  setActiveTab('calendario');
+                                  setActiveTab('todos');
                                   setShowNotificationsDropdown(false);
                                 }
                               }}

@@ -12,7 +12,6 @@ import PorCobrarTab from './components/PorCobrarTab';
 import VencidosTab from './components/VencidosTab';
 import BloqueadosTab from './components/BloqueadosTab';
 import CapacitacionesTab from './components/CapacitacionesTab';
-import CentroControlTab from './components/CentroControlTab';
 import VendedoresTab from './components/VendedoresTab';
 import ReportesExcelTab from './components/ReportesExcelTab';
 
@@ -127,14 +126,15 @@ export default function AdminPage() {
                 handleAssignVendedor={adminData.handleAssignVendedor}
                 handleSelfAssignVendedor={adminData.handleSelfAssignVendedor}
                 usersList={adminData.usersList}
-                showSolKeys={adminData.showSolKeys}
-                setShowSolKeys={adminData.setShowSolKeys}
                 currentUser={adminData.currentUser}
                 setEditingClient={adminData.setEditingClient}
                 setMejoraPlanClient={adminData.setMejoraPlanClient}
                 setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
                 setDeletingClient={adminData.setDeletingClient}
                 onOpenCreateClient={() => adminData.setShowCreateClientModal(true)}
+                handleToggleAvisado={adminData.handleToggleAvisado}
+                handleAdelantoPago={adminData.handleAdelantoPago}
+                setHistoryClient={adminData.setHistoryClient}
               />
             )}
 
@@ -174,19 +174,6 @@ export default function AdminPage() {
                 clients={adminData.clients}
                 setTrainingClient={adminData.setTrainingClient}
                 setTrainingDateInput={adminData.setTrainingDateInput}
-              />
-            )}
-
-            {adminData.activeTab === 'calendario' && (
-              <CentroControlTab
-                clients={adminData.clients}
-                calendarSearch={adminData.calendarSearch}
-                setCalendarSearch={adminData.setCalendarSearch}
-                calcularProrrateoEntero={adminData.calcularProrrateoEntero}
-                setHistoryClient={adminData.setHistoryClient}
-                handleToggleAvisado={adminData.handleToggleAvisado}
-                handleAdelantoPago={adminData.handleAdelantoPago}
-                handleRenovarPlan={adminData.handleRenovarPlan}
               />
             )}
 

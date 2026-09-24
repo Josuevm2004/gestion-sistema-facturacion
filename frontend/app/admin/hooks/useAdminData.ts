@@ -170,7 +170,11 @@ export function useAdminData() {
   const [showCreateClientModal, setShowCreateClientModal] = useState<boolean>(false);
 
   // Dropdowns
-  const [calendarSearch, setCalendarSearch] = useState<string>('');
+  const [calendarSearch, setCalendarSearchState] = useState<string>('');
+  const setCalendarSearch = (val: string) => {
+    setCalendarSearchState(val);
+    setSearch(val);
+  };
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState<boolean>(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState<boolean>(false);
 

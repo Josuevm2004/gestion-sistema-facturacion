@@ -4,19 +4,26 @@ import React from 'react';
 import {
   Users,
   Search,
-  Key,
-  Eye,
-  EyeOff,
-  Copy,
-  Edit2,
-  Trash2,
   Check,
   TrendingUp,
   MessageCircle,
   RotateCcw,
   UserPlus,
+  SlidersHorizontal,
+  MoreVertical,
+  ChevronDown,
+  Edit2,
+  Trash2,
+  Eye,
+  MessageSquare,
+  BellRing,
+  CheckCircle2,
+  CalendarPlus,
 } from 'lucide-react';
 import PaginationControls from './PaginationControls';
+import BillingMessageModal from '../modals/BillingMessageModal';
+import RegistrarPagoModal from '../modals/RegistrarPagoModal';
+import { parseLocalDate, getDiffDays } from '@/lib/billing';
 
 export type EntityId = number | string;
 export type ColorTagType = 'VERDE' | 'ROJO' | 'AMARILLO' | 'AZUL' | string;
@@ -46,6 +53,7 @@ export type Client = {
   tipoSuscripcion?: string;
   montoMensual?: number;
   montoSiguienteCobro?: number;
+  precioPlan?: number;
   ventaId?: string;
   diasProrrateados?: number;
   tipoProrrateo?: string;
@@ -60,6 +68,7 @@ export type Client = {
   fechaVencimientoMensual?: string;
   fechaCapacitacion?: string;
   vendedor?: string;
+  vendedorId?: EntityId;
   linkSistema?: string;
   usuarioSistema?: string;
   claveSistema?: string;
@@ -75,6 +84,32 @@ export type Client = {
   tipoIgv?: string;
   [key: string]: any;
 };
+
+export interface ColumnConfig {
+  id: string;
+  label: string;
+  defaultVisible: boolean;
+}
+
+export const AVAILABLE_COLUMNS: ColumnConfig[] = [
+  { id: 'index', label: '#', defaultVisible: true },
+  { id: 'empresa', label: 'Empresa / Razón Social', defaultVisible: true },
+  { id: 'ruc', label: 'RUC', defaultVisible: true },
+  { id: 'representante', label: 'Representante Legal', defaultVisible: false },
+  { id: 'dni', label: 'DNI', defaultVisible: false },
+  { id: 'contacto', label: 'Contacto / Teléfono', defaultVisible: true },
+  { id: 'usuarioWsp', label: 'Usuario WSP', defaultVisible: false },
+  { id: 'plan', label: 'Plan / Suscripción', defaultVisible: true },
+  { id: 'proximoCobro', label: 'Próximo Cobro', defaultVisible: true },
+  { id: 'vencimiento', label: 'Vencimiento', defaultVisible: true },
+  { id: 'plazo', label: 'Plazo (Días)', defaultVisible: true },
+  { id: 'vendedor', label: 'Vendedor / Asesor', defaultVisible: true },
+  { id: 'estado', label: 'Estado de Cuenta', defaultVisible: true },
+  { id: 'avisado', label: 'Estado de Aviso', defaultVisible: true },
+  { id: 'acciones', label: 'Acciones', defaultVisible: true },
+];
+
+const STORAGE_KEY = 'miquipu_clientes_columnas_visibles';
 
 interface ClientesTodosTabProps {
   clients?: Client[];
@@ -99,14 +134,17 @@ interface ClientesTodosTabProps {
   handleAssignVendedor: (client: Client, vendedorName: string) => void;
   handleSelfAssignVendedor: (client: Client) => void;
   usersList?: Array<{ id: EntityId; nombre?: string; username?: string; activo?: boolean }>;
-  showSolKeys: Record<string, boolean>;
-  setShowSolKeys: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  showSolKeys?: Record<string, boolean>;
+  setShowSolKeys?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   currentUser: any;
   setEditingClient: (client: Client) => void;
   setMejoraPlanClient: (client: Client) => void;
   setMejoraPlanSeleccionado: (plan: string) => void;
   setDeletingClient: (client: Client) => void;
   onOpenCreateClient?: () => void;
+  handleToggleAvisado?: (client: Client, nextAvisado?: boolean) => void;
+  handleAdelantoPago?: (client: Client, monto?: number, observaciones?: string, paymentDetails?: any) => Promise<void> | void;
+  setHistoryClient?: (client: Client) => void;
 }
 
 export default function ClientesTodosTab({
@@ -132,20 +170,99 @@ export default function ClientesTodosTab({
   handleAssignVendedor,
   handleSelfAssignVendedor,
   usersList = [],
-  showSolKeys,
-  setShowSolKeys,
   currentUser,
   setEditingClient,
   setMejoraPlanClient,
   setMejoraPlanSeleccionado,
   setDeletingClient,
   onOpenCreateClient,
+  handleToggleAvisado,
+  handleAdelantoPago,
+  setHistoryClient,
 }: ClientesTodosTabProps) {
   const currentSearch = search !== undefined ? search : (searchTerm || '');
   const handleSearchChange = setSearch || setSearchTerm || (() => {});
   const [copiedMessageClientId, setCopiedMessageClientId] = React.useState<EntityId | null>(null);
   const [currentPage, setCurrentPage] = React.useState(1);
   const pageSize = 10;
+
+  // Estado del menú desplegable de acciones
+  const [openActionClientId, setOpenActionClientId] = React.useState<EntityId | null>(null);
+  const actionMenuRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Modales adicionales unificados de Centro de Control
+  const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
+  const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
+  const [avisadoFilter, setAvisadoFilter] = React.useState<string>('');
+
+  // Configuración de visibilidad de columnas
+  const [visibleColumns, setVisibleColumns] = React.useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    AVAILABLE_COLUMNS.forEach((col) => {
+      initial[col.id] = col.defaultVisible;
+    });
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed && typeof parsed === 'object') {
+            return { ...initial, ...parsed };
+          }
+        }
+      } catch {}
+    }
+    return initial;
+  });
+
+  const [showColumnModal, setShowColumnModal] = React.useState(false);
+
+  // Cerrar menú de acciones al hacer clic fuera
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setOpenActionClientId(null);
+      }
+    };
+    if (openActionClientId !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openActionClientId]);
+
+  const toggleColumn = (columnId: string) => {
+    setVisibleColumns((prev) => {
+      const updated = { ...prev, [columnId]: !prev[columnId] };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const setAllColumns = (visible: boolean) => {
+    const updated: Record<string, boolean> = {};
+    AVAILABLE_COLUMNS.forEach((c) => {
+      updated[c.id] = visible;
+    });
+    setVisibleColumns(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
+  };
+
+  const resetDefaultColumns = () => {
+    const updated: Record<string, boolean> = {};
+    AVAILABLE_COLUMNS.forEach((c) => {
+      updated[c.id] = c.defaultVisible;
+    });
+    setVisibleColumns(updated);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
+  };
 
   const formatRegimen = (value?: string) => {
     const labels: Record<string, string> = {
@@ -169,9 +286,8 @@ export default function ClientesTodosTab({
     const planFormatted = planRaw
       ? (planRaw.startsWith('PLAN ') ? planRaw : `PLAN ${planRaw}`)
       : '';
-    const monto = client.montoMensual || client.precioPlan;
-    const montoFormatted = monto ? `S/${Math.round(monto)}` : '';
-    const planCompleto = [planFormatted, montoFormatted].filter(Boolean).join(' ');
+    const suscripcion = (client.tipoSuscripcion || 'MENSUAL').toUpperCase().trim();
+    const planCompleto = planFormatted ? `${planFormatted} ${suscripcion}` : '';
 
     const esInterno = client.entornoNombre ? client.entornoNombre.toLowerCase().includes('interno') : false;
 
@@ -214,7 +330,7 @@ export default function ClientesTodosTab({
       '',
       ` 📦 Plan Mensual Contratado:${planCompleto ? ` ${planCompleto}` : ''}`,
       '',
-      ' 🔐 ACCESOS CLAVE SOL (ACTIVACIÓN A SUNAT) Enviar los datos reales que brinda la sunat, no enviar usuario secundario, protegemos sus datos según  según ley peruana de privacidad N° 29733.',
+      ' 🔐 ACCESOS CLAVE SOL (ACTIVACIÓN A SUNAT) Enviar los datos reales que brinda la sunat, no enviar usuario secundario, protegemos sus datos según ley peruana de privacidad N° 29733.',
       ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
       `👤 Usuario SOL:${client.usuarioSol && client.usuarioSol !== 'SIN_USUARIO' ? ` ${client.usuarioSol}` : ''}`,
       `🔑 Contraseña SOL:${client.claveSolCifrada && client.claveSolCifrada !== 'SIN_CLAVE' ? ` ${client.claveSolCifrada}` : ''}`,
@@ -260,7 +376,8 @@ export default function ClientesTodosTab({
     (estadoCuentaFilter && estadoCuentaFilter !== 'TODOS') ||
     (capacitacionFilter && capacitacionFilter !== 'TODOS') ||
     (suscripcionFilter && suscripcionFilter !== 'TODOS') ||
-    sellerFilter
+    sellerFilter ||
+    avisadoFilter
   );
 
   const resetAllFilters = () => {
@@ -271,12 +388,31 @@ export default function ClientesTodosTab({
     setCapacitacionFilter('');
     setSuscripcionFilter('');
     setSellerFilter('');
+    setAvisadoFilter('');
   };
 
-  const totalPages = Math.max(1, Math.ceil(allFilteredClients.length / pageSize));
+  // Clientes procesados con fechas de vencimiento y filtro de avisado
+  const processedClients = React.useMemo(() => {
+    return allFilteredClients
+      .filter((c) => {
+        if (avisadoFilter === 'AVISADO') {
+          if (!c.avisado) return false;
+        } else if (avisadoFilter === 'NO_AVISADO') {
+          if (c.avisado) return false;
+        }
+        return true;
+      })
+      .map((c) => {
+        const vencDate = parseLocalDate(c.fechaVencimientoMensual);
+        const diffDays = getDiffDays(c.fechaVencimientoMensual);
+        return { ...c, _vencDate: vencDate, _diffDays: diffDays };
+      });
+  }, [allFilteredClients, avisadoFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(processedClients.length / pageSize));
   const visibleClients = React.useMemo(
-    () => allFilteredClients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [allFilteredClients, currentPage]
+    () => processedClients.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [processedClients, currentPage]
   );
 
   React.useEffect(() => {
@@ -289,26 +425,30 @@ export default function ClientesTodosTab({
     capacitacionFilter,
     suscripcionFilter,
     sellerFilter,
-    allFilteredClients.length,
+    avisadoFilter,
+    processedClients.length,
   ]);
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
 
+  const visibleColumnCount = AVAILABLE_COLUMNS.filter((col) => visibleColumns[col.id]).length;
+
   return (
     <div className="custom-card p-4 shadow-sm">
-      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3 flex-wrap gap-2">
         <div className="d-flex align-items-center gap-2">
           <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
             <Users size={20} />
           </div>
           <div>
             <h2 className="h6 fw-bold text-dark mb-0">Gestión General de Clientes</h2>
-            <small className="text-muted">Listado consolidado de empresas y estado comercial</small>
+            <small className="text-muted">Listado consolidado, monitoreo de vencimientos y cobranzas</small>
           </div>
         </div>
-        <div className="d-flex align-items-center gap-2">
+
+        <div className="d-flex align-items-center gap-2 flex-wrap">
           {hasActiveFilters && (
             <button
               onClick={resetAllFilters}
@@ -318,9 +458,21 @@ export default function ClientesTodosTab({
               <span>Limpiar Filtros</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowColumnModal(true)}
+            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 fw-semibold shadow-sm"
+            title="Personalizar columnas visibles de la tabla"
+          >
+            <SlidersHorizontal size={14} />
+            <span>Columnas ({visibleColumnCount})</span>
+          </button>
+
           <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold">
-            {allFilteredClients.length} Registros Total
+            {processedClients.length} Registros Total
           </span>
+
           {onOpenCreateClient && (
             <button
               type="button"
@@ -407,7 +559,7 @@ export default function ClientesTodosTab({
         </div>
 
         <div className="row g-2">
-          <div className="col-lg-3 col-md-6 col-6">
+          <div className="col-lg-3 col-md-4 col-6">
             <select
               className="form-select form-select-sm fw-semibold"
               value={capacitacionFilter}
@@ -418,7 +570,7 @@ export default function ClientesTodosTab({
               <option value="REALIZADA">Capacitado</option>
             </select>
           </div>
-          <div className="col-lg-3 col-md-6 col-6">
+          <div className="col-lg-3 col-md-4 col-6">
             <select
               className="form-select form-select-sm fw-semibold"
               value={sellerFilter}
@@ -432,181 +584,409 @@ export default function ClientesTodosTab({
               ))}
             </select>
           </div>
+          <div className="col-lg-3 col-md-4 col-12">
+            <select
+              className="form-select form-select-sm fw-semibold"
+              value={avisadoFilter}
+              onChange={(e) => setAvisadoFilter(e.target.value)}
+            >
+              <option value="">Estado de Aviso: Todos</option>
+              <option value="AVISADO">Sólo Avisados</option>
+              <option value="NO_AVISADO">Sin Avisar (Pendientes)</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Tabla de Clientes */}
-      <div className="table-responsive">
+      {/* Tabla de Clientes con Columnas Ajustables */}
+      <div className="table-responsive" style={{ minHeight: '380px' }}>
         <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
           <thead>
             <tr>
-              <th style={{ width: '50px' }}>#</th>
-              <th>RUC / Empresa</th>
-              <th>WhatsApp / Contacto</th>
-              <th>Plan / Suscripción</th>
-              <th>Vendedor</th>
-              <th>Estado</th>
-              <th className="text-center">Acciones</th>
+              {visibleColumns.index && <th style={{ width: '45px' }} className="py-2.5">#</th>}
+              {visibleColumns.empresa && <th className="py-2.5">Empresa / Razón Social</th>}
+              {visibleColumns.ruc && <th className="py-2.5">RUC</th>}
+              {visibleColumns.representante && <th className="py-2.5">Representante</th>}
+              {visibleColumns.dni && <th className="py-2.5">DNI</th>}
+              {visibleColumns.contacto && <th className="py-2.5">Teléfono / Contacto</th>}
+              {visibleColumns.usuarioWsp && <th className="py-2.5">Usuario WSP</th>}
+              {visibleColumns.plan && <th className="py-2.5">Plan / Suscripción</th>}
+              {visibleColumns.proximoCobro && <th className="py-2.5">Próximo Cobro</th>}
+              {visibleColumns.vencimiento && <th className="py-2.5">Vencimiento</th>}
+              {visibleColumns.plazo && <th className="py-2.5">Plazo</th>}
+              {visibleColumns.vendedor && <th className="py-2.5">Vendedor</th>}
+              {visibleColumns.estado && <th className="py-2.5">Estado</th>}
+              {visibleColumns.avisado && <th className="py-2.5 text-center">Avisado</th>}
+              {visibleColumns.acciones && <th className="py-2.5 text-center" style={{ minWidth: '120px' }}>Acciones</th>}
             </tr>
           </thead>
           <tbody>
             {visibleClients.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center text-muted py-4 fw-semibold">
+                <td colSpan={visibleColumnCount || 1} className="text-center text-muted py-4 fw-semibold">
                   No se encontraron clientes con los filtros seleccionados.
                 </td>
               </tr>
             ) : (
-              visibleClients.map((c, idx) => (
-                <tr key={c.id}>
-                  <td className="text-muted fw-semibold py-2.5">
-                    {(currentPage - 1) * pageSize + idx + 1}
-                  </td>
-                  <td>
-                    <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
-                    <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
-                  </td>
-                  <td>
-                    <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
-                    <span className="small text-muted">{c.usuarioWsp ? `WSP: ${c.usuarioWsp}` : c.email || '—'}</span>
-                  </td>
-                  <td>
-                    <div className="d-flex align-items-center gap-1">
-                      <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                      <span className={`badge ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}`}>
-                        {c.tipoSuscripcion || 'MENSUAL'}
-                      </span>
-                    </div>
-                    {c.entornoNombre && (
-                      <span className={`badge mt-1 ${c.entornoNombre.toLowerCase().includes('interno') ? 'bg-secondary bg-opacity-25 text-secondary border' : 'bg-info bg-opacity-10 text-info border'}`} style={{ fontSize: '0.68rem' }}>
-                        {c.entornoNombre}
-                      </span>
+              visibleClients.map((c, idx) => {
+                const { _vencDate: vencDate, _diffDays: diffDays } = c;
+                const estadoVisual = diffDays !== 9999 && diffDays <= 0 && c.estadoCuenta === 'HABILITADO'
+                  ? 'VENCIDO'
+                  : c.estadoCuenta;
+
+                const cobroProximo = Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0);
+                const isNearExpiry = diffDays <= 3 && diffDays >= 0;
+                const isExpired = diffDays <= 0;
+
+                return (
+                  <tr
+                    key={c.id}
+                    className={isExpired ? 'bg-danger bg-opacity-10' : isNearExpiry ? 'bg-warning bg-opacity-10' : ''}
+                  >
+                    {visibleColumns.index && (
+                      <td className="text-muted fw-semibold py-2.5">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
                     )}
-                  </td>
-                  <td>
-                    {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (
-                      <span className="badge bg-secondary text-white fw-bold" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
-                        {c.vendedor}
-                      </span>
-                    ) : currentUser?.rol === 'ADMIN' ? (
-                      <select
-                        className="form-select form-select-sm border-warning fw-semibold"
-                        style={{ fontSize: '0.75rem', width: '130px' }}
-                        defaultValue=""
-                        onChange={(e) => {
-                          if (e.target.value) handleAssignVendedor(c, e.target.value);
-                        }}
-                      >
-                        <option value="" disabled>Asignar Asesor...</option>
-                        {usersList.map((u) => (
-                          <option key={u.id} value={u.nombre || u.username}>
-                            {u.nombre || u.username}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <button
-                        onClick={() => handleSelfAssignVendedor(c)}
-                        className="btn btn-sm btn-outline-primary px-2 py-0.5"
-                        style={{ fontSize: '0.75rem' }}
-                      >
-                        Asignarme
-                      </button>
+
+                    {visibleColumns.empresa && (
+                      <td className="py-2.5">
+                        <strong className="text-dark d-block fs-6">{c.razonSocial}</strong>
+                        {c.nombreComercial && c.nombreComercial !== c.razonSocial && (
+                          <small className="text-muted d-block">{c.nombreComercial}</small>
+                        )}
+                      </td>
                     )}
-                  </td>
-                  <td>
-                    <span
-                      className={`badge ${
-                        c.estadoCuenta === 'HABILITADO'
-                          ? 'badge-habilitado'
-                          : c.estadoCuenta === 'POR_COBRAR'
-                          ? 'badge-pendiente'
-                          : c.estadoCuenta === 'VENCIDO'
-                          ? 'badge-vencido'
-                          : 'badge-bloqueado'
-                      }`}
-                    >
-                      {c.estadoCuenta || 'SIN ESTADO'}
-                    </span>
-                  </td>
-                  <td className="text-center">
-                    <div className="d-flex justify-content-center align-items-center gap-1">
-                      {/* Copiar Formato de Afiliación */}
-                      <button
-                        onClick={() => copyAffiliationMessage(c)}
-                        className={`btn btn-sm p-1.5 ${
-                          copiedMessageClientId === c.id
-                            ? 'btn-success text-white'
-                            : 'btn-outline-success text-success'
-                        }`}
-                        title="Copiar datos de afiliación"
-                      >
-                        {copiedMessageClientId === c.id ? <Check size={14} /> : <MessageCircle size={14} />}
-                      </button>
 
-                      {/* Mostrar / Ocultar Clave SOL */}
-                      <button
-                        onClick={() =>
-                          setShowSolKeys((prev) => ({
-                            ...prev,
-                            [String(c.id)]: !prev[String(c.id)],
-                          }))
-                        }
-                        className="btn btn-sm btn-outline-secondary p-1.5"
-                        title={showSolKeys[String(c.id)] ? 'Ocultar Clave SOL' : 'Ver Clave SOL'}
-                      >
-                        {showSolKeys[String(c.id)] ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
+                    {visibleColumns.ruc && (
+                      <td className="py-2.5">
+                        <span className="fw-bold text-dark font-monospace">{c.ruc}</span>
+                      </td>
+                    )}
 
-                      {/* Copiar Clave SOL */}
-                      <button
-                        onClick={() => {
-                          if (c.claveSolCifrada) {
-                            navigator.clipboard.writeText(c.claveSolCifrada);
-                          }
-                        }}
-                        className="btn btn-sm btn-outline-secondary p-1.5"
-                        title="Copiar Clave SOL"
-                        disabled={!c.claveSolCifrada}
-                      >
-                        <Copy size={14} />
-                      </button>
+                    {visibleColumns.representante && (
+                      <td className="py-2.5">
+                        {c.nombres || c.apellidos ? (
+                          <strong className="text-dark">
+                            {c.nombres} {c.apellidos || ''}
+                          </strong>
+                        ) : (
+                          <span className="text-muted small">Sin especificar</span>
+                        )}
+                      </td>
+                    )}
 
-                      {/* Editar Cliente */}
-                      <button
-                        onClick={() => setEditingClient(c)}
-                        className="btn btn-sm btn-outline-primary p-1.5"
-                        title="Editar información"
-                      >
-                        <Edit2 size={14} />
-                      </button>
+                    {visibleColumns.dni && (
+                      <td className="py-2.5">
+                        {c.dni ? (
+                          <span className="fw-bold text-dark font-monospace">{c.dni}</span>
+                        ) : (
+                          <span className="text-muted small">—</span>
+                        )}
+                      </td>
+                    )}
 
-                      {/* Mejorar Plan */}
-                      <button
-                        onClick={() => {
-                          setMejoraPlanClient(c);
-                          setMejoraPlanSeleccionado(c.planContratado || '');
-                        }}
-                        className="btn btn-sm btn-outline-warning text-dark p-1.5"
-                        title="Mejorar Plan (Upgrade)"
-                      >
-                        <TrendingUp size={14} />
-                      </button>
+                    {visibleColumns.contacto && (
+                      <td className="py-2.5">
+                        <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
+                        <span className="small text-muted">{c.email || ''}</span>
+                      </td>
+                    )}
 
-                      {/* Eliminar Cliente (solo ADMIN) */}
-                      {currentUser?.rol === 'ADMIN' && (
-                        <button
-                          onClick={() => setDeletingClient(c)}
-                          className="btn btn-sm btn-outline-danger p-1.5"
-                          title="Eliminar cliente"
+                    {visibleColumns.usuarioWsp && (
+                      <td className="py-2.5">
+                        {c.usuarioWsp ? (
+                          <span className="badge bg-light text-dark border fw-semibold font-monospace">{c.usuarioWsp}</span>
+                        ) : (
+                          <span className="text-muted small">—</span>
+                        )}
+                      </td>
+                    )}
+
+                    {visibleColumns.plan && (
+                      <td className="py-2.5">
+                        <div className="d-flex align-items-center gap-1">
+                          <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
+                          <span className={`badge ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25'}`}>
+                            {c.tipoSuscripcion || 'MENSUAL'}
+                          </span>
+                        </div>
+                        {c.entornoNombre && (
+                          <span className={`badge mt-1 ${c.entornoNombre.toLowerCase().includes('interno') ? 'bg-secondary bg-opacity-25 text-secondary border' : 'bg-info bg-opacity-10 text-info border'}`} style={{ fontSize: '0.68rem' }}>
+                            {c.entornoNombre}
+                          </span>
+                        )}
+                      </td>
+                    )}
+
+                    {visibleColumns.proximoCobro && (
+                      <td className="py-2.5">
+                        <strong className="text-primary fs-6">S/ {cobroProximo.toFixed(2)}</strong>
+                      </td>
+                    )}
+
+                    {visibleColumns.vencimiento && (
+                      <td className="py-2.5">
+                        <strong className={isExpired ? 'text-danger' : isNearExpiry ? 'text-warning text-dark' : 'text-dark'}>
+                          {vencDate
+                            ? vencDate.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : 'Sin fecha'}
+                        </strong>
+                      </td>
+                    )}
+
+                    {visibleColumns.plazo && (
+                      <td className="py-2.5">
+                        {diffDays === 9999 ? (
+                          <span className="badge bg-light text-muted border">Sin fecha</span>
+                        ) : diffDays > 0 ? (
+                          <span
+                            className={`badge fw-bold ${
+                              diffDays <= 3 ? 'bg-warning bg-opacity-25 text-dark border border-warning' : diffDays <= 7 ? 'bg-info bg-opacity-25 text-dark border border-info' : 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
+                            }`}
+                          >
+                            {diffDays === 1 ? 'Mañana' : `${diffDays} días`}
+                          </span>
+                        ) : diffDays === 0 ? (
+                          <span className="badge bg-danger text-white fw-bold">HOY</span>
+                        ) : (
+                          <span className="badge bg-danger text-white">Vencido {Math.abs(diffDays)}d</span>
+                        )}
+                      </td>
+                    )}
+
+                    {visibleColumns.vendedor && (
+                      <td className="py-2.5">
+                        {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (
+                          <span className="badge bg-secondary text-white fw-bold" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
+                            {c.vendedor}
+                          </span>
+                        ) : currentUser?.rol === 'ADMIN' ? (
+                          <select
+                            className="form-select form-select-sm border-warning fw-semibold"
+                            style={{ fontSize: '0.75rem', width: '130px' }}
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) handleAssignVendedor(c, e.target.value);
+                            }}
+                          >
+                            <option value="" disabled>Asignar Asesor...</option>
+                            {usersList.map((u) => (
+                              <option key={u.id} value={u.nombre || u.username}>
+                                {u.nombre || u.username}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <button
+                            onClick={() => handleSelfAssignVendedor(c)}
+                            className="btn btn-sm btn-outline-primary px-2 py-0.5"
+                            style={{ fontSize: '0.75rem' }}
+                          >
+                            Asignarme
+                          </button>
+                        )}
+                      </td>
+                    )}
+
+                    {visibleColumns.estado && (
+                      <td className="py-2.5">
+                        <span
+                          className={`badge ${
+                            estadoVisual === 'HABILITADO'
+                              ? 'badge-habilitado'
+                              : estadoVisual === 'POR_COBRAR'
+                              ? 'badge-pendiente'
+                              : estadoVisual === 'VENCIDO'
+                              ? 'badge-vencido'
+                              : 'badge-bloqueado'
+                          }`}
                         >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                          {estadoVisual || 'SIN ESTADO'}
+                        </span>
+                      </td>
+                    )}
+
+                    {visibleColumns.avisado && (
+                      <td className="py-2.5 text-center">
+                        {c.avisado ? (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-success px-2 py-0.5 text-white fw-bold d-inline-flex align-items-center gap-1 shadow-sm"
+                            style={{ fontSize: '0.72rem' }}
+                            onClick={() => handleToggleAvisado?.(c, false)}
+                            title="Cliente marcado como avisado. Clic para desmarcar."
+                          >
+                            <CheckCircle2 size={12} />
+                            <span>Avisado</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-outline-secondary px-2 py-0.5 fw-semibold d-inline-flex align-items-center gap-1"
+                            style={{ fontSize: '0.72rem' }}
+                            onClick={() => handleToggleAvisado?.(c, true)}
+                            title="Marcar cliente como avisado para su cobranza"
+                          >
+                            <BellRing size={12} />
+                            <span>Pendiente</span>
+                          </button>
+                        )}
+                      </td>
+                    )}
+
+                    {visibleColumns.acciones && (
+                      <td className="py-2.5 text-center position-relative">
+                        <div className="d-inline-block position-relative">
+                          <button
+                            type="button"
+                            onClick={() => setOpenActionClientId(openActionClientId === c.id ? null : c.id)}
+                            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 px-2.5 py-1 fw-semibold shadow-sm"
+                            title="Acciones para este cliente"
+                          >
+                            <MoreVertical size={13} />
+                            <span>Acciones</span>
+                            <ChevronDown size={12} className={openActionClientId === c.id ? 'rotate-180' : ''} />
+                          </button>
+
+                          {openActionClientId === c.id && (
+                            <div
+                              ref={actionMenuRef}
+                              className="dropdown-menu show shadow-lg border rounded-3 p-1 position-absolute end-0 mt-1"
+                              style={{
+                                zIndex: 1060,
+                                minWidth: '220px',
+                                backgroundColor: '#ffffff',
+                              }}
+                            >
+                              {/* 1. Copiar Afiliación */}
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
+                                onClick={() => {
+                                  copyAffiliationMessage(c);
+                                  setOpenActionClientId(null);
+                                }}
+                              >
+                                <MessageCircle size={15} className="text-success flex-shrink-0" />
+                                <span>{copiedMessageClientId === c.id ? '¡Copiado!' : 'Copiar Afiliación'}</span>
+                              </button>
+
+                              {/* 2. Mensaje de Cobranza (WhatsApp) */}
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
+                                onClick={() => {
+                                  setBillingMessageClient(c);
+                                  setOpenActionClientId(null);
+                                }}
+                              >
+                                <MessageSquare size={15} className="text-primary flex-shrink-0" />
+                                <span>Mensaje de Cobranza</span>
+                              </button>
+
+                              {/* 3. Avisar / Desmarcar */}
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
+                                onClick={() => {
+                                  handleToggleAvisado?.(c, !c.avisado);
+                                  setOpenActionClientId(null);
+                                }}
+                              >
+                                {c.avisado ? (
+                                  <>
+                                    <CheckCircle2 size={15} className="text-success flex-shrink-0" />
+                                    <span>Desmarcar de Avisado</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <BellRing size={15} className="text-secondary flex-shrink-0" />
+                                    <span>Marcar como Avisado</span>
+                                  </>
+                                )}
+                              </button>
+
+                              {/* 4. Adelanto de Pago */}
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
+                                onClick={() => {
+                                  setAdelantoClient(c);
+                                  setOpenActionClientId(null);
+                                }}
+                              >
+                                <CalendarPlus size={15} className="text-warning text-dark flex-shrink-0" />
+                                <span>Registrar Adelanto</span>
+                              </button>
+
+                              {/* 5. Historial de Pagos y Movimientos */}
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
+                                onClick={() => {
+                                  setHistoryClient?.(c);
+                                  setOpenActionClientId(null);
+                                }}
+                              >
+                                <Eye size={15} className="text-info flex-shrink-0" />
+                                <span>Ver Historial</span>
+                              </button>
+
+                              <div className="dropdown-divider my-1"></div>
+
+                              {/* 6. Editar Cliente */}
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
+                                onClick={() => {
+                                  setEditingClient(c);
+                                  setOpenActionClientId(null);
+                                }}
+                              >
+                                <Edit2 size={15} className="text-primary flex-shrink-0" />
+                                <span>Editar Cliente</span>
+                              </button>
+
+                              {/* 7. Mejorar Plan (Upgrade) */}
+                              <button
+                                type="button"
+                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
+                                onClick={() => {
+                                  setMejoraPlanClient(c);
+                                  setMejoraPlanSeleccionado(c.planContratado || '');
+                                  setOpenActionClientId(null);
+                                }}
+                              >
+                                <TrendingUp size={15} className="text-success flex-shrink-0" />
+                                <span>Mejorar Plan (Upgrade)</span>
+                              </button>
+
+                              {/* 8. Eliminar Cliente (solo ADMIN) */}
+                              {currentUser?.rol === 'ADMIN' && (
+                                <>
+                                  <div className="dropdown-divider my-1"></div>
+                                  <button
+                                    type="button"
+                                    className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold text-danger"
+                                    onClick={() => {
+                                      setDeletingClient(c);
+                                      setOpenActionClientId(null);
+                                    }}
+                                  >
+                                    <Trash2 size={15} className="text-danger flex-shrink-0" />
+                                    <span>Eliminar Cliente</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -614,10 +994,138 @@ export default function ClientesTodosTab({
 
       <PaginationControls
         currentPage={currentPage}
-        totalItems={allFilteredClients.length}
+        totalItems={processedClients.length}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+
+      {/* Modal de Personalización de Columnas */}
+      {showColumnModal && (
+        <div
+          className="modal fade show d-block"
+          tabIndex={-1}
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1070 }}
+        >
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content shadow-lg border-0 rounded-3">
+              <div className="modal-header border-bottom py-3 px-4">
+                <div className="d-flex align-items-center gap-2">
+                  <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
+                    <SlidersHorizontal size={18} />
+                  </div>
+                  <div>
+                    <h5 className="modal-title fw-bold text-dark mb-0">Configuración de Columnas</h5>
+                    <small className="text-muted">
+                      Active o desactive las casillas para mostrar u ocultar columnas de la tabla
+                    </small>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowColumnModal(false)}
+                  aria-label="Cerrar"
+                ></button>
+              </div>
+
+              <div className="modal-body p-4">
+                <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+                  <span className="small text-muted fw-semibold">
+                    Mostrando {visibleColumnCount} de {AVAILABLE_COLUMNS.length} columnas
+                  </span>
+                  <div className="d-flex gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline-primary fw-semibold px-2.5 py-1"
+                      style={{ fontSize: '0.78rem' }}
+                      onClick={() => setAllColumns(true)}
+                    >
+                      Seleccionar Todas
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-xs btn-outline-secondary fw-semibold px-2.5 py-1"
+                      style={{ fontSize: '0.78rem' }}
+                      onClick={resetDefaultColumns}
+                    >
+                      Restablecer por Defecto
+                    </button>
+                  </div>
+                </div>
+
+                <div className="row g-2">
+                  {AVAILABLE_COLUMNS.map((col) => (
+                    <div key={col.id} className="col-12 col-sm-6 col-md-4">
+                      <div
+                        className={`p-2.5 border rounded-2 d-flex align-items-center gap-2 transition-colors ${
+                          visibleColumns[col.id] ? 'bg-light border-primary' : 'bg-white opacity-75'
+                        }`}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => toggleColumn(col.id)}
+                      >
+                        <input
+                          type="checkbox"
+                          className="form-check-input mt-0 cursor-pointer"
+                          id={`col-toggle-${col.id}`}
+                          checked={Boolean(visibleColumns[col.id])}
+                          onChange={() => toggleColumn(col.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <label
+                          htmlFor={`col-toggle-${col.id}`}
+                          className="form-check-label small fw-semibold text-dark mb-0 cursor-pointer flex-grow-1"
+                        >
+                          {col.label}
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="modal-footer border-top py-2.5 px-4 bg-light rounded-bottom-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <small className="text-muted">Las preferencias se guardan de forma persistente en su navegador.</small>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm px-4 fw-bold shadow-sm"
+                  onClick={() => setShowColumnModal(false)}
+                >
+                  Aceptar y Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Mensajes Inteligentes de Cobranza */}
+      <BillingMessageModal
+        client={billingMessageClient}
+        onClose={() => setBillingMessageClient(null)}
+        onAvisado={() => {
+          if (billingMessageClient) {
+            handleToggleAvisado?.(billingMessageClient, true);
+          }
+        }}
+      />
+
+      {/* Modal de Adelanto de Pago */}
+      {adelantoClient && (
+        <RegistrarPagoModal
+          client={adelantoClient}
+          mode="ADELANTO"
+          onClose={() => setAdelantoClient(null)}
+          onConfirm={async (client, data) => {
+            await handleAdelantoPago?.(client, data.monto, data.observaciones, {
+              fechaPago: data.fechaPago,
+              medioPago: data.medioPago,
+              codigoOperacion: data.codigoOperacion,
+              observaciones: data.observaciones,
+            });
+            setAdelantoClient(null);
+          }}
+        />
+      )}
     </div>
   );
 }

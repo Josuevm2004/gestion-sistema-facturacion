@@ -221,8 +221,8 @@ export default function ResumenTab({
                 </h2>
                 <small className="text-muted">Clientes con vencimiento cercano a alertar</small>
               </div>
-              <button onClick={() => setActiveTab('calendario')} className="btn btn-outline-info btn-sm rounded-3 px-3 fw-semibold">
-                Centro de Control
+              <button onClick={() => setActiveTab('todos')} className="btn btn-outline-primary btn-sm rounded-3 px-3 fw-semibold">
+                Todos los Clientes
               </button>
             </div>
             <div className="d-flex flex-column gap-2">
@@ -239,7 +239,7 @@ export default function ResumenTab({
                     style={{ cursor: 'pointer' }}
                     onClick={() => {
                       setCalendarSearch(c.ruc);
-                      setActiveTab('calendario');
+                      setActiveTab('todos');
                     }}
                   >
                     <div>
