@@ -146,6 +146,7 @@ export function useAdminData() {
 
   const [editingUser, setEditingUser] = useState<UserAccount | null>(null);
   const [showNewUserModal, setShowNewUserModal] = useState<boolean>(false);
+  const [showCreateClientModal, setShowCreateClientModal] = useState<boolean>(false);
 
   // Dropdowns
   const [calendarSearch, setCalendarSearch] = useState<string>('');
@@ -973,6 +974,25 @@ export function useAdminData() {
     }
   }
 
+  async function handleCreateClient(payload: any) {
+    if (!token) return false;
+    try {
+      const response = await adminApi(token).post('/admin/clientes', payload);
+      const newClient = response.data?.data;
+      if (newClient) {
+        setClients((prev) => [normalizeClientData(newClient), ...prev]);
+      }
+      setNotice(`Cliente ${payload.razonSocial || payload.ruc} registrado exitosamente.`);
+      setShowCreateClientModal(false);
+      void loadClientsOnly(token).catch(() => undefined);
+      return true;
+    } catch (err: any) {
+      const msg = err.response?.data?.message || err.message || 'Error al crear el cliente';
+      setNotice(`Error al crear cliente: ${msg}`);
+      throw new Error(msg);
+    }
+  }
+
   async function handleSaveEditClient(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editingClient || !token) return;
@@ -1015,6 +1035,10 @@ export function useAdminData() {
     };
     const planIdNum = PLAN_ID_MAP[planKey] || 1;
 
+    const rawEntornoId = formData.get('entornoId');
+    const parsedEntornoId = rawEntornoId ? Number(rawEntornoId) : undefined;
+    const matchedEntorno = entornos.find((e) => String(e.id) === String(rawEntornoId));
+
     const apiPayload = {
       ruc: formData.get('ruc') as string,
       razonSocial: formData.get('razonSocial') as string,
@@ -1041,7 +1065,7 @@ export function useAdminData() {
       primeraVezOProviene: formData.get('primeraVezOProviene') as string,
       usabaSunatAnteriormente: formData.get('usabaSunatAnteriormente') as string,
       tipoIgv: formData.get('tipoIgv') as string,
-      entornoId: formData.get('entornoId') ? Number(formData.get('entornoId')) : undefined,
+      entornoId: parsedEntornoId,
       vendedorId: canEditVendedor ? foundVendedorId : null,
       planId: planIdNum,
       planContratado: planKey,
@@ -1051,6 +1075,7 @@ export function useAdminData() {
     const clientIdStr = String(editingClient.id);
     const optimisticClient = {
       ...apiPayload,
+      entornoNombre: matchedEntorno ? matchedEntorno.nombre : editingClient.entornoNombre,
       planContratado: planKey,
       tipoSuscripcion: tipoSuscripcion,
       planId: String(planIdNum),
@@ -1621,6 +1646,9 @@ export function useAdminData() {
     setEditingUser,
     showNewUserModal,
     setShowNewUserModal,
+    showCreateClientModal,
+    setShowCreateClientModal,
+    handleCreateClient,
     entornos,
     calendarSearch,
     setCalendarSearch,

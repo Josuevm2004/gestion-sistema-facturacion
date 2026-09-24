@@ -1,6 +1,7 @@
 package com.facturacion.controller;
 
 import com.facturacion.request.ClienteUpdateRequest;
+import com.facturacion.request.RegistroFormularioRequest;
 import com.facturacion.response.ApiResponse;
 import com.facturacion.response.ClienteDashboardResponse;
 import com.facturacion.response.DetalleClienteResponse;
@@ -20,6 +21,14 @@ public class ClienteController {
 
     @Autowired
     private ClienteService clienteService;
+
+    @PostMapping
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<ClienteDashboardResponse>> crearCliente(
+            @RequestBody RegistroFormularioRequest request) {
+        ClienteDashboardResponse cliente = clienteService.registrarFormulario(request);
+        return ResponseEntity.ok(ApiResponse.success("Cliente creado correctamente", cliente));
+    }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ClienteDashboardResponse>>> listarClientes() {

@@ -53,6 +53,15 @@ export default function EditClientModal({
   const [selectedTipo, setSelectedTipo] = React.useState<string>(
     (editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase()
   );
+  const [selectedEntornoId, setSelectedEntornoId] = React.useState<string>(
+    editingClient.entornoId ? String(editingClient.entornoId) : ''
+  );
+
+  const selectedEntornoObj = entornos.find((e) => String(e.id) === selectedEntornoId);
+  const selectedEntornoName = selectedEntornoObj?.nombre || editingClient.entornoNombre || '';
+  const isSelectedProduccion = !selectedEntornoName.toLowerCase().includes('interno');
+  const wasInterno = (editingClient.entornoNombre || '').toLowerCase().includes('interno');
+  const isMigratingToProduccion = wasInterno && isSelectedProduccion;
 
   const PLAN_PRICES: Record<string, { MENSUAL: number; ANUAL: number }> = {
     INICIA: { MENSUAL: 19, ANUAL: 190 },
@@ -273,14 +282,32 @@ export default function EditClientModal({
                   <input className="form-control" name="linkSistema" defaultValue={editingClient.linkSistema || ''} placeholder="https://demo.facturacion.com" />
                 </div>
                 <div className="col-md-6">
-                  <label className="form-label">Entorno</label>
-                  <select className="form-select" name="entornoId" defaultValue={editingClient.entornoId ? String(editingClient.entornoId) : ''}>
+                  <label className="form-label fw-bold">Entorno / Modalidad</label>
+                  <select
+                    className="form-select border-primary fw-semibold"
+                    name="entornoId"
+                    value={selectedEntornoId}
+                    onChange={(e) => setSelectedEntornoId(e.target.value)}
+                  >
                     <option value="">Sin entorno seleccionado</option>
                     {entornos.map((entorno) => (
                       <option key={String(entorno.id)} value={String(entorno.id)}>{entorno.nombre}</option>
                     ))}
                   </select>
                 </div>
+                {isMigratingToProduccion && (
+                  <div className="col-12 mt-2">
+                    <div className="alert alert-primary py-2.5 px-3 mb-0 rounded-3 border-0 d-flex align-items-center gap-2.5 shadow-sm" style={{ backgroundColor: '#e0f2fe', color: '#0369a1' }}>
+                      <span className="fs-5">🚀</span>
+                      <div>
+                        <strong className="d-block">Migración a Producción detectada:</strong>
+                        <span className="small">
+                          Está pasando este cliente de Control Interno a Producción. Verifique que el RUC sea el número oficial de 11 dígitos y complete las credenciales Clave SOL (Usuario y Clave) y el Régimen Tributario para la activación ante SUNAT.
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="col-md-3">
                   <label className="form-label">Usuario Sistema</label>
                   <input className="form-control" name="usuarioSistema" defaultValue={editingClient.usuarioSistema || ''} />

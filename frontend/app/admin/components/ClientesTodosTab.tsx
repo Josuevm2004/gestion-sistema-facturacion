@@ -14,6 +14,7 @@ import {
   TrendingUp,
   MessageCircle,
   RotateCcw,
+  UserPlus,
 } from 'lucide-react';
 import PaginationControls from './PaginationControls';
 
@@ -105,6 +106,7 @@ interface ClientesTodosTabProps {
   setMejoraPlanClient: (client: Client) => void;
   setMejoraPlanSeleccionado: (plan: string) => void;
   setDeletingClient: (client: Client) => void;
+  onOpenCreateClient?: () => void;
 }
 
 export default function ClientesTodosTab({
@@ -137,6 +139,7 @@ export default function ClientesTodosTab({
   setMejoraPlanClient,
   setMejoraPlanSeleccionado,
   setDeletingClient,
+  onOpenCreateClient,
 }: ClientesTodosTabProps) {
   const currentSearch = search !== undefined ? search : (searchTerm || '');
   const handleSearchChange = setSearch || setSearchTerm || (() => {});
@@ -172,6 +175,27 @@ export default function ClientesTodosTab({
 
     const esInterno = client.entornoNombre ? client.entornoNombre.toLowerCase().includes('interno') : false;
 
+    if (esInterno) {
+      return [
+        '📌 *DATOS DE LA EMPRESA*',
+        '',
+        `👉🏼 Nombre Comercial:${nombreComercial ? ` ${nombreComercial}` : ''}`,
+        ` 🌐 Modalidad:${client.entornoNombre ? ` ${client.entornoNombre}` : ' Control Interno'}`,
+        '',
+        `🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
+        `🗣️ DNI:${client.dni ? ` ${client.dni}` : ''}`,
+        `📞 Celular:${celular ? ` ${celular}` : ''}`,
+        `📧 Correo (Tenga acceso actual):${email ? ` ${email}` : ''}`,
+        `📍 Dirección Comercial o Fiscal:${client.direccion ? ` ${client.direccion}` : ''}`,
+        '',
+        ` 📍 Departamento:${client.departamento ? ` ${client.departamento}` : ''}`,
+        ` 🏙️ Provincia:${client.provincia ? ` ${client.provincia}` : ''}`,
+        ` 🏘️ Distrito:${client.distrito ? ` ${client.distrito}` : ''}`,
+        '',
+        ` 📦 Plan Mensual Contratado:${planCompleto ? ` ${planCompleto}` : ''}`,
+      ].join('\n');
+    }
+
     return [
       '📌 *DATOS DE LA EMPRESA*',
       '',
@@ -190,16 +214,12 @@ export default function ClientesTodosTab({
       '',
       ` 📦 Plan Mensual Contratado:${planCompleto ? ` ${planCompleto}` : ''}`,
       '',
-      ...(esInterno
-        ? [' 🔐 ACCESOS CLAVE SOL: No aplica (Modalidad Control Interno - Sin SUNAT)']
-        : [
-            ' 🔐 ACCESOS CLAVE SOL (ACTIVACIÓN A SUNAT) Enviar los datos reales que brinda la sunat, no enviar usuario secundario, protegemos sus datos según  según ley peruana de privacidad N° 29733.',
-            ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
-            `👤 Usuario SOL:${client.usuarioSol && client.usuarioSol !== 'SIN_USUARIO' ? ` ${client.usuarioSol}` : ''}`,
-            `🔑 Contraseña SOL:${client.claveSolCifrada && client.claveSolCifrada !== 'SIN_CLAVE' ? ` ${client.claveSolCifrada}` : ''}`,
-            `Número de DNI (Diferente al dueño y socios, mayor de edad):${client.dniRepresentante ? ` ${client.dniRepresentante}` : ''}`,
-            `Correo (Diferente al dueño y socios):${client.correoRepresentante ? ` ${client.correoRepresentante}` : ''}`,
-          ]),
+      ' 🔐 ACCESOS CLAVE SOL (ACTIVACIÓN A SUNAT) Enviar los datos reales que brinda la sunat, no enviar usuario secundario, protegemos sus datos según  según ley peruana de privacidad N° 29733.',
+      ` 🔢 RUC:${client.ruc ? ` ${client.ruc}` : ''}`,
+      `👤 Usuario SOL:${client.usuarioSol && client.usuarioSol !== 'SIN_USUARIO' ? ` ${client.usuarioSol}` : ''}`,
+      `🔑 Contraseña SOL:${client.claveSolCifrada && client.claveSolCifrada !== 'SIN_CLAVE' ? ` ${client.claveSolCifrada}` : ''}`,
+      `Número de DNI (Diferente al dueño y socios, mayor de edad):${client.dniRepresentante ? ` ${client.dniRepresentante}` : ''}`,
+      `Correo (Diferente al dueño y socios):${client.correoRepresentante ? ` ${client.correoRepresentante}` : ''}`,
       '',
       'PREGUNTAS ADICIONALES',
       '',
@@ -301,6 +321,17 @@ export default function ClientesTodosTab({
           <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold">
             {allFilteredClients.length} Registros Total
           </span>
+          {onOpenCreateClient && (
+            <button
+              type="button"
+              onClick={onOpenCreateClient}
+              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 fw-bold shadow-sm"
+              title="Crear un nuevo cliente de forma manual"
+            >
+              <UserPlus size={15} />
+              <span>Crear Cliente</span>
+            </button>
+          )}
         </div>
       </div>
 

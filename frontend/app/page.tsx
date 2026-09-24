@@ -26,6 +26,16 @@ type ClientRegistration = {
   claveTemporal?: string;
   urlAcceso?: string;
   estadoPago?: string;
+  telefono?: string;
+  email?: string;
+  direccion?: string;
+  departamento?: string;
+  provincia?: string;
+  distrito?: string;
+  nombres?: string;
+  apellidos?: string;
+  dni?: string;
+  entornoNombre?: string;
 };
 
 type DbSubscription = {
@@ -214,8 +224,11 @@ export default function FormularioPublicoPage() {
     }
 
     const formData = new FormData(form);
+    const rawRuc = String(formData.get('ruc') || '').trim();
+    const rucFinal = rawRuc || (!isProduccion ? ('99' + Date.now().toString().slice(-9)) : '');
+
     const payload = {
-      ruc: formData.get('ruc') as string,
+      ruc: rucFinal,
       razonSocial: formData.get('razonSocial') as string,
       nombreComercial: (formData.get('nombreComercial') as string) || (formData.get('razonSocial') as string),
       direccion: formData.get('direccion') as string,
@@ -229,7 +242,7 @@ export default function FormularioPublicoPage() {
       departamento: formData.get('departamento') as string,
       provincia: formData.get('provincia') as string,
       distrito: formData.get('distrito') as string,
-      regimenTributario: formData.get('regimenTributario') as string,
+      regimenTributario: isProduccion ? ((formData.get('regimenTributario') as string) || 'MYPE_TRIBUTARIO') : 'MYPE_TRIBUTARIO',
       planId: selectedSubscription.planId,
       planContratado: selectedPlan,
       tipoSuscripcion: tipoSuscripcion,
@@ -238,9 +251,9 @@ export default function FormularioPublicoPage() {
       claveSol: isProduccion ? ((formData.get('claveSol') as string) || '') : '',
       dniRepresentante: isProduccion ? ((formData.get('dniRepresentante') as string) || null) : null,
       correoRepresentante: isProduccion ? ((formData.get('correoRepresentante') as string) || null) : null,
-      primeraVezOProviene: (formData.get('primeraVezOProviene') as string) || null,
-      usabaSunatAnteriormente: (formData.get('usabaSunatAnteriormente') as string) || null,
-      tipoIgv: (formData.get('tipoIgv') as string) || null,
+      primeraVezOProviene: isProduccion ? ((formData.get('primeraVezOProviene') as string) || null) : null,
+      usabaSunatAnteriormente: isProduccion ? ((formData.get('usabaSunatAnteriormente') as string) || null) : null,
+      tipoIgv: isProduccion ? ((formData.get('tipoIgv') as string) || null) : null,
       comoNosConocio: formData.get('comoNosConocio') as string,
       usoSistemaAnterior: formData.get('usoSistemaAnterior') === 'true',
       comentarios: formData.get('comentarios') as string,
@@ -249,17 +262,30 @@ export default function FormularioPublicoPage() {
     try {
       const { data } = await api.post('/public/registro', payload);
       const registeredData = data.data;
+      const entornoNombre = entornos.find(e => e.id === selectedEntornoId)?.nombre || (isProduccion ? 'Producción' : 'Control Interno');
+
       setClient({
         id: registeredData.id || registeredData.clienteId,
-        ruc: registeredData.ruc,
-        razonSocial: registeredData.razonSocial,
+        ruc: registeredData.ruc || payload.ruc,
+        razonSocial: registeredData.razonSocial || payload.razonSocial,
+        nombreComercial: registeredData.nombreComercial || payload.nombreComercial,
         planContratado: registeredData.planNombre || registeredData.planContratado || selectedPlan,
         montoMensual: Number(registeredData.precioPlan ?? selectedSubscription.precio),
         tipoSuscripcion,
+        telefono: payload.telefono,
+        email: payload.email,
+        direccion: payload.direccion,
+        departamento: payload.departamento,
+        provincia: payload.provincia,
+        distrito: payload.distrito,
+        nombres: payload.nombres,
+        apellidos: payload.apellidos,
+        dni: payload.dni,
+        entornoNombre,
         subdominio: registeredData.subdominio || registeredData.acceso?.subdominio,
       });
       setStep(2);
-      setMessage({ type: 'success', text: 'Datos registrados correctamente. Revisa los datos de pago a continuación.' });
+      setMessage({ type: 'success', text: 'Datos registrados correctamente. Por favor bríndenos una captura del formulario para su activación.' });
 
       // Notificar en tiempo real al panel administrativo si está abierto en otra pestaña o ventana
       try {
@@ -409,9 +435,20 @@ export default function FormularioPublicoPage() {
               </div>
 
               <div className="col-md-4">
-                <label className="form-label">RUC (11 dígitos)</label>
-                <input type="text" name="ruc" className="form-control" placeholder="20601234567" pattern="^(10|20)\d{9}$" maxLength={11} required onChange={resetSunatValidation} />
-                <div className="invalid-feedback">Ingresa un RUC válido de 11 dígitos.</div>
+                <label className="form-label">RUC {isProduccion ? '(11 dígitos)' : '(opcional)'}</label>
+                <input
+                  type="text"
+                  name="ruc"
+                  className="form-control"
+                  placeholder={isProduccion ? '20601234567' : '20601234567 (opcional)'}
+                  pattern={isProduccion ? '^(10|20)\\d{9}$' : undefined}
+                  maxLength={11}
+                  required={isProduccion}
+                  onChange={resetSunatValidation}
+                />
+                <div className="invalid-feedback">
+                  {isProduccion ? 'Ingresa un RUC válido de 11 dígitos.' : 'Formato de RUC no válido.'}
+                </div>
               </div>
 
               <div className="col-md-4">
@@ -458,21 +495,23 @@ export default function FormularioPublicoPage() {
                 <div className="invalid-feedback">Correo válido requerido.</div>
               </div>
 
-              <div className="col-md-6">
-                <label className="form-label">Régimen Tributario</label>
-                <select
-                  name="regimenTributario"
-                  className="form-select"
-                  value={regimenTributario}
-                  onChange={(e) => setRegimenTributario(e.target.value)}
-                  required
-                >
-                  <option value="MYPE_TRIBUTARIO">Régimen MYPE Tributario</option>
-                  <option value="REGIMEN_GENERAL">Régimen General</option>
-                  <option value="RER">Régimen Especial (RER)</option>
-                  <option value="NRUS">Nuevo RUS (NRUS)</option>
-                </select>
-              </div>
+              {isProduccion && (
+                <div className="col-md-6">
+                  <label className="form-label">Régimen Tributario</label>
+                  <select
+                    name="regimenTributario"
+                    className="form-select"
+                    value={regimenTributario}
+                    onChange={(e) => setRegimenTributario(e.target.value)}
+                    required
+                  >
+                    <option value="MYPE_TRIBUTARIO">Régimen MYPE Tributario</option>
+                    <option value="REGIMEN_GENERAL">Régimen General</option>
+                    <option value="RER">Régimen Especial (RER)</option>
+                    <option value="NRUS">Nuevo RUS (NRUS)</option>
+                  </select>
+                </div>
+              )}
 
               {/* SECCIÓN 4: DATOS PERSONALES */}
               <div className="col-12 mt-4">
@@ -603,40 +642,44 @@ export default function FormularioPublicoPage() {
                 </div>
               )}
 
-              {/* SECCIÓN 6: PREGUNTAS ADICIONALES */}
-              <div className="col-12 mt-4">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Preguntas Adicionales</h2>
-              </div>
+              {/* SECCIÓN 6: PREGUNTAS ADICIONALES (SOLO PRODUCCIÓN) */}
+              {isProduccion && (
+                <>
+                  <div className="col-12 mt-4">
+                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Preguntas Adicionales</h2>
+                  </div>
 
-              <div className="col-12">
-                <label className="form-label">1. ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:</label>
-                <input
-                  type="text"
-                  name="primeraVezOProviene"
-                  className="form-control"
-                  placeholder="Escriba su respuesta aquí..."
-                />
-              </div>
+                  <div className="col-12">
+                    <label className="form-label">1. ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:</label>
+                    <input
+                      type="text"
+                      name="primeraVezOProviene"
+                      className="form-control"
+                      placeholder="Escriba su respuesta aquí..."
+                    />
+                  </div>
 
-              <div className="col-12">
-                <label className="form-label">2. ¿Usaba antes la plataforma de SUNAT para emitir comprobantes como boletas o facturas?:</label>
-                <input
-                  type="text"
-                  name="usabaSunatAnteriormente"
-                  className="form-control"
-                  placeholder="Escriba su respuesta aquí..."
-                />
-              </div>
+                  <div className="col-12">
+                    <label className="form-label">2. ¿Usaba antes la plataforma de SUNAT para emitir comprobantes como boletas o facturas?:</label>
+                    <input
+                      type="text"
+                      name="usabaSunatAnteriormente"
+                      className="form-control"
+                      placeholder="Escriba su respuesta aquí..."
+                    />
+                  </div>
 
-              <div className="col-12">
-                <label className="form-label">3. ¿Está usted pagando IGV normal o está exonerado? (Solo aplica para la selva):</label>
-                <input
-                  type="text"
-                  name="tipoIgv"
-                  className="form-control"
-                  placeholder="Escriba su respuesta aquí..."
-                />
-              </div>
+                  <div className="col-12">
+                    <label className="form-label">3. ¿Está usted pagando IGV normal o está exonerado? (Solo aplica para la selva):</label>
+                    <input
+                      type="text"
+                      name="tipoIgv"
+                      className="form-control"
+                      placeholder="Escriba su respuesta aquí..."
+                    />
+                  </div>
+                </>
+              )}
 
               <div className="col-12 mt-3">
                 <div className="alert alert-secondary d-flex align-items-start gap-2 mb-0 small border rounded-3">
@@ -734,90 +777,98 @@ export default function FormularioPublicoPage() {
 
         {step === 2 && client && (
           <div className="row justify-content-center">
-            <div className="col-md-8">
+            <div className="col-md-9 col-lg-8">
               <div className="custom-card p-4 p-md-5 text-center">
+                <div className="mb-3">
+                  <CheckCircle2 size={56} className="text-success" />
+                </div>
+                <h2 className="h4 fw-bold text-dark mb-2">¡Registro Exitoso!</h2>
+                <p className="text-muted mb-4">
+                  Estimado/a <strong className="text-dark">{client.razonSocial}</strong>, sus datos han sido registrados correctamente en el sistema.
+                </p>
 
-                <div>
-                  <div className="mb-4">
-                    <CheckCircle2 size={56} className="text-success" />
+                {/* Banner Destacado: Solicitud de Captura de Pantalla */}
+                <div className="alert alert-warning border-warning border-2 p-3 p-md-4 rounded-3 text-start mb-4 shadow-sm bg-warning bg-opacity-10">
+                  <div className="d-flex align-items-center gap-2 mb-2">
+                    <span className="fs-3">📸</span>
+                    <h3 className="h6 fw-bold text-dark mb-0">AVISO IMPORTANTE: Envíenos una captura de este formulario</h3>
                   </div>
-                  <h2 className="h4 fw-bold text-dark mb-2">¡Registro Exitoso!</h2>
-                  <p className="text-muted mb-4">
-                    Estimado/a <strong className="text-dark">{client.razonSocial}</strong>, sus datos han sido registrados correctamente.
-                    Realice el pago a cualquiera de nuestras cuentas y nos comunicaremos con usted para activar su sistema.
-                  </p>
-
-                  <div className="bg-light p-4 rounded-3 text-start mb-4">
-                    <h3 className="h6 fw-bold text-dark border-bottom pb-2 mb-3">Resumen de su Suscripción</h3>
-                    <div className="d-flex justify-content-between mb-2">
-                      <span className="text-muted">RUC:</span>
-                      <strong className="text-dark">{client.ruc}</strong>
-                    </div>
-                    <div className="d-flex justify-content-between mb-2">
-                      <span className="text-muted">Plan contratado:</span>
-                      <strong className="text-primary">{client.planContratado}</strong>
-                    </div>
-                    <div className="d-flex justify-content-between mb-2">
-                      <span className="text-muted">Monto a pagar:</span>
-                      <strong className="text-success">
-                        S/ {client.montoMensual.toFixed(2)}
-                        {client.tipoSuscripcion === 'ANUAL' ? ' anual' : ''}
-                      </strong>
-                    </div>
-                    <div className="d-flex justify-content-between">
-                      <span className="text-muted">Estado:</span>
-                      <span className="badge bg-warning text-dark">PENDIENTE DE PAGO</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-white border rounded-3 p-4 text-start mb-4 shadow-sm">
-                    <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
-                      <h3 className="h6 fw-bold text-primary mb-0">Cuentas Empresariales para Transferencia</h3>
-                      <span className="badge bg-dark text-white fw-bold">RUC: 20607730254</span>
-                    </div>
-
-                    <div className="p-2.5 mb-3 rounded-2 bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 small fw-semibold">
-                      🏢 <strong>Titular:</strong> CORPORACIONES ONE E.I.R.L.
-                    </div>
-
-                    {/* Cuenta BCP */}
-                    <div className="mb-3 p-3 border rounded-3 bg-light shadow-2xs">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <span className="badge bg-primary px-2.5 py-1 fw-bold">BCP</span>
-                        <strong className="text-dark">Cuenta Corriente BCP Soles</strong>
-                      </div>
-                      <div className="small text-muted mb-0.5">Número de Cuenta:</div>
-                      <div className="fw-bold text-dark font-monospace fs-6 mb-1">194-9357265-026</div>
-                      <div className="small text-muted mb-0.5">CCI (Código Interbancario):</div>
-                      <div className="fw-semibold text-secondary font-monospace">00219400935726502690</div>
-                    </div>
-
-                    {/* Cuenta BBVA */}
-                    <div className="p-3 border rounded-3 bg-light shadow-2xs">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <span className="badge px-2.5 py-1 fw-bold" style={{ backgroundColor: '#004481', color: 'white' }}>BBVA</span>
-                        <strong className="text-dark">Cuenta Corriente BBVA Continental Soles</strong>
-                      </div>
-                      <div className="small text-muted mb-0.5">Número de Cuenta:</div>
-                      <div className="fw-bold text-dark font-monospace fs-6 mb-1">0011-0323-0100032917</div>
-                      <div className="small text-muted mb-0.5">CCI (Código Interbancario):</div>
-                      <div className="fw-semibold text-secondary font-monospace">011-323-00100032917-35</div>
-                    </div>
-                  </div>
-
-                  <div className="alert alert-info d-flex align-items-start gap-2 text-start">
-                    <Info size={20} className="flex-shrink-0 mt-1" />
-                    <div className="small">
-                      Una vez realizado el pago, envíe su comprobante de transferencia al <strong>WhatsApp</strong> o <strong>email</strong> indicado.
-                      Verificaremos su pago y activaremos su cuenta en el menor tiempo posible.
-                    </div>
-                  </div>
-
-                  <p className="text-muted small mt-3">
-                    Nos comunicaremos con usted al número registrado para coordinar la activación de su cuenta y capacitación.
+                  <p className="small text-dark mb-0 fw-semibold" style={{ lineHeight: '1.5' }}>
+                    Por favor, <strong>tome una captura de pantalla de este formulario / resumen</strong> con sus datos de afiliación y envíenosla directamente por WhatsApp a su asesor o al canal oficial para proceder de inmediato con la activación de su cuenta y coordinar el acceso al sistema.
                   </p>
                 </div>
 
+                {/* Resumen de Datos del Afiliado */}
+                <div className="bg-light p-4 rounded-3 text-start mb-4 border">
+                  <h3 className="h6 fw-bold text-primary border-bottom pb-2 mb-3 text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                    📋 Datos del Afiliado y Suscripción
+                  </h3>
+
+                  <div className="row g-2">
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Razón Social:</span>
+                      <strong className="text-dark fs-6">{client.razonSocial}</strong>
+                    </div>
+                    {client.nombreComercial && (
+                      <div className="col-sm-6">
+                        <span className="text-muted small d-block">Nombre Comercial:</span>
+                        <strong className="text-dark">{client.nombreComercial}</strong>
+                      </div>
+                    )}
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">RUC:</span>
+                      <strong className="text-dark font-monospace">{client.ruc}</strong>
+                    </div>
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Modalidad de Entorno:</span>
+                      <span className="badge bg-primary text-white">{client.entornoNombre || 'Producción'}</span>
+                    </div>
+
+                    <div className="col-12"><hr className="my-2 border-secondary border-opacity-25" /></div>
+
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Plan Contratado:</span>
+                      <strong className="text-primary">{client.planContratado}</strong>
+                      <span className="badge bg-secondary text-white ms-2">{client.tipoSuscripcion || 'MENSUAL'}</span>
+                    </div>
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Monto a Facturar:</span>
+                      <strong className="text-success fs-5">
+                        S/ {client.montoMensual.toFixed(2)}
+                        <small className="text-muted fs-6 fw-normal"> {client.tipoSuscripcion === 'ANUAL' ? '/ año' : '/ mes'}</small>
+                      </strong>
+                    </div>
+
+                    <div className="col-12"><hr className="my-2 border-secondary border-opacity-25" /></div>
+
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Representante Legal:</span>
+                      <strong className="text-dark">{[client.nombres, client.apellidos].filter(Boolean).join(' ') || 'Registrado'}</strong>
+                      {client.dni && <span className="small text-muted ms-1">(DNI: {client.dni})</span>}
+                    </div>
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Contacto (Celular / WhatsApp):</span>
+                      <strong className="text-dark">{client.telefono || 'No registrado'}</strong>
+                    </div>
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Correo Electrónico:</span>
+                      <strong className="text-dark">{client.email || 'No registrado'}</strong>
+                    </div>
+                    <div className="col-sm-6">
+                      <span className="text-muted small d-block">Dirección Comercial o Fiscal:</span>
+                      <strong className="text-dark">
+                        {[client.direccion, client.distrito, client.provincia, client.departamento].filter(Boolean).join(', ') || 'No registrada'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="alert alert-info d-flex align-items-start gap-2 text-start mb-0">
+                  <Info size={20} className="flex-shrink-0 mt-0.5" />
+                  <div className="small">
+                    Nos comunicaremos con usted al número registrado para coordinar la activación de sus accesos y programar su capacitación.
+                  </div>
+                </div>
               </div>
             </div>
           </div>

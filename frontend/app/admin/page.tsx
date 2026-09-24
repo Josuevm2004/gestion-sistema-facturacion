@@ -23,6 +23,7 @@ import UpgradePlanModal from './modals/UpgradePlanModal';
 import TrainingModal from './modals/TrainingModal';
 import PaymentHistoryModal from './modals/PaymentHistoryModal';
 import UserModal from './modals/UserModal';
+import CreateClientModal from './modals/CreateClientModal';
 
 export default function AdminPage() {
   const adminData = useAdminData();
@@ -133,6 +134,7 @@ export default function AdminPage() {
                 setMejoraPlanClient={adminData.setMejoraPlanClient}
                 setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
                 setDeletingClient={adminData.setDeletingClient}
+                onOpenCreateClient={() => adminData.setShowCreateClientModal(true)}
               />
             )}
 
@@ -292,6 +294,16 @@ export default function AdminPage() {
           editingUser={adminData.editingUser}
           setEditingUser={adminData.setEditingUser}
           handleSaveUser={adminData.handleSaveUser}
+        />
+
+        <CreateClientModal
+          show={adminData.showCreateClientModal}
+          onClose={() => adminData.setShowCreateClientModal(false)}
+          handleCreateClient={adminData.handleCreateClient}
+          currentUser={adminData.currentUser}
+          usersList={adminData.usersList}
+          uniqueSellers={adminData.uniqueSellers}
+          entornos={adminData.entornos}
         />
       </main>
     </div>

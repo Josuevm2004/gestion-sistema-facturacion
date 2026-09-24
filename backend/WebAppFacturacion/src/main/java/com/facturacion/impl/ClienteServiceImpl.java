@@ -83,6 +83,14 @@ public class ClienteServiceImpl implements ClienteService {
                 });
 
         // 2. Comprobar si el RUC ya existe para evitar errores 500 de clave duplicada
+        String rucFinal = request.getRuc();
+        if (rucFinal == null || rucFinal.trim().isBlank()) {
+            rucFinal = "99" + String.format("%09d", System.currentTimeMillis() % 1000000000L);
+            request.setRuc(rucFinal);
+        } else {
+            request.setRuc(rucFinal.trim());
+        }
+
         Optional<Cliente> clienteExistenteOpt = clienteRepository.findByRuc(request.getRuc());
         Cliente cliente;
         if (clienteExistenteOpt.isPresent()) {
@@ -172,8 +180,11 @@ public class ClienteServiceImpl implements ClienteService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "No existe una suscripcion activa para el plan y modalidad seleccionados"));
 
-        // 5. Vendedor nulo inicialmente (Por asignar)
+        // 5. Vendedor inicial
         UsuarioAdmin vendedor = null;
+        if (request.getVendedorId() != null) {
+            vendedor = usuarioAdminRepository.findById(request.getVendedorId()).orElse(null);
+        }
 
         // 6. Crear Venta ALTA
         Venta venta = new Venta();

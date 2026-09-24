@@ -37,6 +37,7 @@ public class RegistroFormularioRequest {
     private String tipoIgv;
 
     private Long entornoId;
+    private Long vendedorId;
 
     public RegistroFormularioRequest() {}
 
@@ -98,4 +99,6 @@ public class RegistroFormularioRequest {
     public void setTipoIgv(String tipoIgv) { this.tipoIgv = tipoIgv; }
     public Long getEntornoId() { return entornoId; }
     public void setEntornoId(Long entornoId) { this.entornoId = entornoId; }
+    public Long getVendedorId() { return vendedorId; }
+    public void setVendedorId(Long vendedorId) { this.vendedorId = vendedorId; }
 }
