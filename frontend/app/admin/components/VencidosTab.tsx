@@ -83,10 +83,10 @@ export default function VencidosTab({
   }, [totalPages]);
 
   return (
-    <div className="custom-card p-4 shadow-sm">
+    <div className="card rounded-4 border bg-white p-4 shadow-sm">
       <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 bg-danger bg-opacity-10 text-danger rounded-3">
+        <div className="d-flex align-items-center gap-3">
+          <div className="d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#FEE2E2', color: '#DC2626' }}>
             <AlertCircle size={20} />
           </div>
           <div>
@@ -98,29 +98,29 @@ export default function VencidosTab({
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-semibold"
+              className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-1 fw-semibold"
             >
               <RotateCcw size={13} />
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge bg-danger rounded-pill px-3 py-2 fs-6">
+          <span className="badge rounded-pill px-3 py-2 fs-6 fw-bold" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
             {hasActiveFilters ? `${filteredClients.length} de ${clientesVencidosList.length} pendientes` : `${clientesVencidosList.length} pendientes`}
           </span>
         </div>
       </div>
 
       {/* Barra de Filtros: Buscador y Filtro Anual / Mensual */}
-      <div className="p-3 bg-light rounded-3 border mb-4">
+      <div className="p-3 rounded-4 border mb-4" style={{ backgroundColor: '#F0F2F5' }}>
         <div className="row g-2 align-items-center">
           <div className="col-12 col-md-8 col-lg-6">
             <div className="input-group input-group-sm">
-              <span className="input-group-text bg-white border-end-0 text-muted">
+              <span className="input-group-text bg-white border-end-0 text-muted rounded-start-pill ps-3">
                 <Search size={14} />
               </span>
               <input
                 type="text"
-                className="form-control border-start-0"
+                className="form-control border-start-0 rounded-end-pill pe-3"
                 placeholder="Buscar por RUC, Empresa, DNI, Teléfono, Plan..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -129,7 +129,7 @@ export default function VencidosTab({
           </div>
           <div className="col-12 col-md-4 col-lg-3">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm fw-semibold rounded-pill px-3"
               value={suscripcionFilter}
               onChange={(e) => setSuscripcionFilter(e.target.value)}
             >
@@ -182,18 +182,18 @@ export default function VencidosTab({
                       <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
                     </td>
                     <td>
-                      <div className="d-flex align-items-center gap-1">
-                        <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                        <span className="badge bg-secondary text-white">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                      <div className="d-flex align-items-center gap-1.5">
+                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado}</span>
+                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#F0F2F5', color: '#65676B' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
                       </div>
                     </td>
                     <td>
                       {isBloqueado ? (
-                        <span className="badge bg-secondary text-white d-inline-flex align-items-center gap-1">
+                        <span className="badge bg-secondary text-white rounded-pill px-2.5 py-1 d-inline-flex align-items-center gap-1">
                           <ShieldAlert size={12} /> Bloqueado
                         </span>
                       ) : (
-                        <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
                           Vencido
                         </span>
                       )}
@@ -201,18 +201,19 @@ export default function VencidosTab({
                     <td className="fw-bold text-danger fs-6">S/ {c.montoMensual?.toFixed(2)}</td>
                     <td>
                       {vencDate ? (
-                        <span className="badge bg-light text-danger border border-danger border-opacity-25 fw-bold">
+                        <span className="badge bg-light text-danger border border-danger border-opacity-25 rounded-pill px-2.5 py-1 fw-bold">
                           {formatDatePeru(vencDate)}
                         </span>
                       ) : (
-                        <span className="badge bg-light text-muted border">Sin fecha</span>
+                        <span className="badge bg-light text-muted border rounded-pill px-2.5 py-1">Sin fecha</span>
                       )}
                     </td>
                     <td>
                       <div className="d-flex gap-2 flex-wrap align-items-center">
                         <button
                           onClick={() => setPagoModalConfig({ client: c })}
-                          className="btn btn-sm btn-primary text-white px-2.5 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                          className="btn btn-sm text-white rounded-pill px-3 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                          style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
                           title="Registrar pago o renovar servicio: abre el calendario con cálculo dinámico"
                         >
                           <RotateCcw size={13} />
@@ -224,7 +225,7 @@ export default function VencidosTab({
                             setCambioPlanSeleccionado(c.planContratado || '');
                             if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
                           }}
-                          className="btn btn-sm btn-warning text-dark px-2.5 py-1 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                          className="btn btn-sm btn-light border rounded-pill px-3 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
                         >
                           <Settings size={13} />
                           <span>Cambiar Plan</span>
@@ -237,7 +238,7 @@ export default function VencidosTab({
                               );
                               if (ok && handleEstadoCuentaChange) handleEstadoCuentaChange(c, 'BLOQUEADO');
                             }}
-                            className="btn btn-sm btn-outline-danger px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
+                            className="btn btn-sm btn-outline-danger rounded-pill px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
                           >
                             <X size={13} />
                             <span>Bloquear</span>
@@ -247,7 +248,7 @@ export default function VencidosTab({
                             onClick={() => {
                               if (handleDevolverAcceso) handleDevolverAcceso(c);
                             }}
-                            className="btn btn-sm btn-outline-secondary px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
+                            className="btn btn-sm btn-outline-secondary rounded-pill px-2.5 py-1 fw-bold d-inline-flex align-items-center gap-1.5"
                             title="Desbloquear cliente y devolver acceso (estado Vencido sin registrar pago)"
                           >
                             <Unlock size={13} />

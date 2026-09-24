@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Calendar, RefreshCw, CalendarPlus, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Calendar, RefreshCw, CalendarPlus, CheckCircle, AlertCircle, Clock, X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 import { parseLocalDate, getTodayLocalMidnight, formatDatePeru } from '@/lib/billing';
 
@@ -232,9 +232,9 @@ export default function RegistrarPagoModal({
     <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', zIndex: 1060 }}>
       <div className="modal-dialog modal-dialog-centered my-4">
         <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
-          <div className="modal-header bg-light border-bottom px-4 py-3">
-            <div className="d-flex align-items-center gap-2">
-              <div className={`p-2 ${headerColor} rounded-3 shadow-sm`}>
+          <div className="modal-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+            <div className="d-flex align-items-center gap-2.5">
+              <div className="d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
                 {isAdelanto ? <CalendarPlus size={18} /> : isReanudarPago ? <RefreshCw size={18} /> : <Clock size={18} />}
               </div>
               <div>
@@ -246,7 +246,15 @@ export default function RegistrarPagoModal({
                 </small>
               </div>
             </div>
-            <button type="button" className="btn-close" onClick={onClose} disabled={loading}></button>
+            <button
+              type="button"
+              className="btn-circle-meta border-0 text-muted"
+              onClick={onClose}
+              disabled={loading}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           <form onSubmit={handleSubmit}>
@@ -437,10 +445,11 @@ export default function RegistrarPagoModal({
               </div>
             </div>
 
-            <div className="modal-footer px-4 py-3 bg-light border-top d-flex justify-content-end gap-2">
+            <div className="modal-footer px-4 py-3 bg-white border-top d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-sm btn-outline-secondary px-3 py-1.5 fw-semibold"
+                className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
+                style={{ backgroundColor: '#E4E6EB' }}
                 onClick={onClose}
                 disabled={loading}
               >
@@ -448,7 +457,7 @@ export default function RegistrarPagoModal({
               </button>
               <button
                 type="submit"
-                className={`btn btn-sm ${submitButtonColor} px-4 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5`}
+                className={`btn ${submitButtonColor} rounded-pill px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5`}
                 disabled={loading || monto <= 0}
               >
                 {loading ? (

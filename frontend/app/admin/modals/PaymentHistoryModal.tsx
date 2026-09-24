@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 import { parseLocalDate, formatDatePeru } from '@/lib/billing';
 
@@ -118,17 +119,24 @@ export default function PaymentHistoryModal({
     <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content rounded-4 shadow-lg border-0">
-          <div className="modal-header border-bottom bg-light px-4 py-3">
+          <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
             <div>
               <h5 className="modal-title fw-bold text-dark mb-0">Historial de Pagos de Base de Datos</h5>
               <small className="text-muted fw-semibold">
                 {historyClient.razonSocial} | RUC: {historyClient.ruc}
               </small>
             </div>
-            <button type="button" className="btn-close" onClick={() => setHistoryClient(null)}></button>
+            <button
+              type="button"
+              className="btn-circle-meta border-0 text-muted"
+              onClick={() => setHistoryClient(null)}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
           <div className="modal-body p-4">
-            <div className="card bg-light border rounded-3 p-3 mb-4">
+            <div className="card rounded-4 border bg-white shadow-sm p-3 mb-4">
               <div className="row g-3 small">
                 <div className="col-md-6">
                   <span className="text-muted">Plan Contratado:</span> <strong className="text-dark">{historyClient.planContratado}</strong> ({historyClient.tipoSuscripcion || 'MENSUAL'})
@@ -226,8 +234,13 @@ export default function PaymentHistoryModal({
               </table>
             </div>
           </div>
-          <div className="modal-footer border-top bg-light px-4 py-3">
-            <button type="button" className="btn btn-outline-secondary px-4 fw-semibold" onClick={() => setHistoryClient(null)}>
+          <div className="modal-footer border-top bg-white px-4 py-3 d-flex justify-content-end">
+            <button
+              type="button"
+              className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
+              style={{ backgroundColor: '#E4E6EB' }}
+              onClick={() => setHistoryClient(null)}
+            >
               Cerrar Historial
             </button>
           </div>

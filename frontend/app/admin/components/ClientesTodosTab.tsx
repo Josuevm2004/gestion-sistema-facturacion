@@ -436,15 +436,15 @@ export default function ClientesTodosTab({
   const visibleColumnCount = AVAILABLE_COLUMNS.filter((col) => visibleColumns[col.id]).length;
 
   return (
-    <div className="custom-card p-4 shadow-sm">
+    <div className="custom-card p-4 shadow-sm rounded-4 border bg-white">
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3 flex-wrap gap-2">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
+        <div className="d-flex align-items-center gap-2.5">
+          <div className="p-2 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
             <Users size={20} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Gestión General de Clientes</h2>
-            <small className="text-muted">Listado consolidado, monitoreo de vencimientos y cobranzas</small>
+            <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Gestión General de Clientes</h2>
+            <small className="text-muted fw-semibold">Listado consolidado, monitoreo de vencimientos y cobranzas</small>
           </div>
         </div>
 
@@ -452,7 +452,8 @@ export default function ClientesTodosTab({
           {hasActiveFilters && (
             <button
               onClick={resetAllFilters}
-              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-semibold"
+              className="btn btn-sm btn-light rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1 fw-semibold border shadow-sm"
+              style={{ backgroundColor: '#F0F2F5' }}
             >
               <RotateCcw size={13} />
               <span>Limpiar Filtros</span>
@@ -462,14 +463,15 @@ export default function ClientesTodosTab({
           <button
             type="button"
             onClick={() => setShowColumnModal(true)}
-            className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1.5 fw-semibold shadow-sm"
+            className="btn btn-sm btn-light rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold border shadow-sm"
+            style={{ backgroundColor: '#F0F2F5' }}
             title="Personalizar columnas visibles de la tabla"
           >
             <SlidersHorizontal size={14} />
             <span>Columnas ({visibleColumnCount})</span>
           </button>
 
-          <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold">
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', border: '1px solid #C7E1FF' }}>
             {processedClients.length} Registros Total
           </span>
 
@@ -477,10 +479,10 @@ export default function ClientesTodosTab({
             <button
               type="button"
               onClick={onOpenCreateClient}
-              className="btn btn-sm btn-primary d-inline-flex align-items-center gap-1.5 fw-bold shadow-sm"
+              className="btn btn-primary rounded-pill px-3.5 py-2 d-inline-flex align-items-center gap-1.5 fw-bold shadow-sm"
               title="Crear un nuevo cliente de forma manual"
             >
-              <UserPlus size={15} />
+              <UserPlus size={16} />
               <span>Crear Cliente</span>
             </button>
           )}
@@ -488,16 +490,16 @@ export default function ClientesTodosTab({
       </div>
 
       {/* Panel Avanzado de Filtros */}
-      <div className="p-3 bg-light rounded-3 border mb-4">
+      <div className="p-3 rounded-4 border mb-4 shadow-sm" style={{ backgroundColor: '#F0F2F5' }}>
         <div className="row g-2 mb-2">
           <div className="col-lg-4 col-md-6">
-            <div className="input-group input-group-sm">
-              <span className="input-group-text bg-white border-end-0 text-muted">
-                <Search size={14} />
+            <div className="input-group input-group-sm rounded-pill overflow-hidden bg-white border shadow-sm">
+              <span className="input-group-text bg-white border-0 text-muted ps-3">
+                <Search size={15} />
               </span>
               <input
                 type="text"
-                className="form-control border-start-0"
+                className="form-control border-0 shadow-none py-1.5"
                 placeholder="Buscar por RUC, Empresa, DNI, Teléfono..."
                 value={currentSearch}
                 onChange={(e) => handleSearchChange(e.target.value)}
@@ -506,7 +508,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-3 col-6">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
               value={estadoCuentaFilter}
               onChange={(e) => setEstadoCuentaFilter(e.target.value)}
             >
@@ -520,7 +522,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-3 col-6">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
               value={suscripcionFilter}
               onChange={(e) => setSuscripcionFilter(e.target.value)}
             >
@@ -531,7 +533,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-6 col-6">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
             >
@@ -545,7 +547,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-6 col-6">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
               value={regimenFilter}
               onChange={(e) => setRegimenFilter(e.target.value)}
             >
@@ -561,7 +563,7 @@ export default function ClientesTodosTab({
         <div className="row g-2">
           <div className="col-lg-3 col-md-4 col-6">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
               value={capacitacionFilter}
               onChange={(e) => setCapacitacionFilter(e.target.value)}
             >
@@ -572,7 +574,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-3 col-md-4 col-6">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
               value={sellerFilter}
               onChange={(e) => setSellerFilter(e.target.value)}
             >
@@ -586,7 +588,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-3 col-md-4 col-12">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
               value={avisadoFilter}
               onChange={(e) => setAvisadoFilter(e.target.value)}
             >

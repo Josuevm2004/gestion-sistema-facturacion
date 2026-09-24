@@ -146,17 +146,28 @@ export default function CreateClientModal({
           className="modal-content rounded-4 shadow-lg border-0"
           style={{ maxHeight: 'calc(100vh - 3rem)', display: 'flex', flexDirection: 'column' }}
         >
-          <div className="modal-header border-bottom bg-light px-4 py-3 flex-shrink-0">
-            <div className="d-flex align-items-center gap-2">
-              <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
-                <UserPlus size={20} />
+          <div className="modal-header border-bottom bg-white px-4 py-3 flex-shrink-0">
+            <div className="d-flex align-items-center gap-3">
+              <div className="p-2 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+                <UserPlus size={22} />
               </div>
               <div>
-                <h5 className="modal-title fw-bold text-dark mb-0">Crear Nuevo Cliente</h5>
-                <small className="text-muted fw-semibold">Registro manual de afiliación y configuración de plan</small>
+                <h5 className="modal-title fw-bold text-dark mb-0" style={{ fontSize: '1.2rem', letterSpacing: '-0.2px' }}>
+                  Registrar Nuevo Cliente
+                </h5>
+                <small className="text-muted fw-semibold">Configuración de empresa, facturación electrónica y plan</small>
               </div>
             </div>
-            <button type="button" className="btn-close" onClick={onClose} disabled={isSubmitting}></button>
+            <button
+              type="button"
+              className="btn btn-circle-meta"
+              style={{ width: '36px', height: '36px' }}
+              onClick={onClose}
+              disabled={isSubmitting}
+              aria-label="Cerrar"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           <form
@@ -165,7 +176,7 @@ export default function CreateClientModal({
           >
             <div className="modal-body p-4" style={{ overflowY: 'auto', flex: 1 }}>
               {errorMessage && (
-                <div className="alert alert-danger py-2 px-3 mb-3 rounded-3 small fw-semibold">
+                <div className="alert alert-danger py-2.5 px-3 mb-3 rounded-3 small fw-semibold border-0 shadow-sm" style={{ backgroundColor: '#FDE8E8', color: '#C81E1E' }}>
                   {errorMessage}
                 </div>
               )}
@@ -174,15 +185,15 @@ export default function CreateClientModal({
                 {/* --- SECCIÓN 1: MODALIDAD Y PLAN --- */}
                 <div className="col-12">
                   <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
-                    <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>1</span>
-                    <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Modalidad, Plan y Asignación</h6>
+                    <span className="badge bg-primary text-white rounded-pill px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>1</span>
+                    <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Modalidad y Plan de Emisión</h6>
                   </div>
                 </div>
 
                 <div className="col-md-6">
                   <label className="form-label fw-bold">Entorno / Modalidad <span className="text-danger">*</span></label>
                   <select
-                    className="form-select border-primary fw-semibold"
+                    className="form-select fw-semibold"
                     value={selectedEntornoId}
                     onChange={(e) => setSelectedEntornoId(e.target.value)}
                     required
@@ -193,17 +204,90 @@ export default function CreateClientModal({
                       </option>
                     ))}
                   </select>
-                  <small className="text-muted d-block mt-1">
+                  <small className="text-muted d-block mt-1" style={{ fontSize: '0.78rem' }}>
                     {isProduccion
-                      ? 'Conexión oficial con SUNAT (requiere RUC y credenciales Clave SOL).'
-                      : 'Gestión y notas de venta interna (no requiere credenciales SUNAT).'}
+                      ? '✓ Conexión oficial con SUNAT (requiere RUC y credenciales Clave SOL).'
+                      : '✓ Control interno y notas de venta (no requiere credenciales SUNAT).'}
                   </small>
                 </div>
 
-                <div className="col-md-3">
-                  <label className="form-label fw-bold">Plan Contratado <span className="text-danger">*</span></label>
+                <div className="col-md-6">
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <label className="form-label fw-bold mb-0">Periodicidad <span className="text-danger">*</span></label>
+                    <div className="btn-group btn-group-sm p-0.5 rounded-pill bg-light border">
+                      <button
+                        type="button"
+                        className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${selectedTipo === 'MENSUAL' ? 'btn-primary shadow-sm text-white' : 'btn-light border-0 text-secondary'}`}
+                        onClick={() => setSelectedTipo('MENSUAL')}
+                      >
+                        Mensual
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn btn-sm rounded-pill px-3 py-1 fw-bold ${selectedTipo === 'ANUAL' ? 'btn-primary shadow-sm text-white' : 'btn-light border-0 text-secondary'}`}
+                        onClick={() => setSelectedTipo('ANUAL')}
+                      >
+                        Anual (-15%)
+                      </button>
+                    </div>
+                  </div>
                   <select
-                    className="form-select fw-semibold"
+                    className="form-select d-none"
+                    value={selectedTipo}
+                    onChange={(e) => setSelectedTipo(e.target.value as 'MENSUAL' | 'ANUAL')}
+                  >
+                    <option value="MENSUAL">Mensual</option>
+                    <option value="ANUAL">Anual (x10 meses)</option>
+                  </select>
+                  <small className="text-muted d-block mt-1" style={{ fontSize: '0.78rem' }}>
+                    Elige la frecuencia de renovación del servicio.
+                  </small>
+                </div>
+
+                {/* Meta-Style Interactive Plan Cards */}
+                <div className="col-12 mt-2">
+                  <label className="form-label fw-bold mb-2">Selecciona el Plan <span className="text-danger">*</span></label>
+                  <div className="row g-2">
+                    {[
+                      { key: 'INICIA', name: 'Inicia', priceM: 19, priceA: 190, popular: false },
+                      { key: 'EMPRENDE', name: 'Emprende', priceM: 29, priceA: 290, popular: true },
+                      { key: 'IMPULSA', name: 'Impulsa', priceM: 39, priceA: 390, popular: false },
+                      { key: 'EMPRESARIAL', name: 'Empresarial', priceM: 59, priceA: 590, popular: false },
+                      { key: 'LIDER', name: 'Líder', priceM: 89, priceA: 890, popular: false },
+                    ].map((plan) => {
+                      const isSelected = selectedPlan === plan.key;
+                      const price = selectedTipo === 'ANUAL' ? plan.priceA : plan.priceM;
+                      return (
+                        <div className="col" key={plan.key} style={{ minWidth: '120px' }}>
+                          <div
+                            onClick={() => setSelectedPlan(plan.key)}
+                            className={`p-2.5 rounded-3 text-center border position-relative h-100 ${
+                              isSelected
+                                ? 'bg-primary-subtle border-primary shadow-sm'
+                                : 'bg-white border-light-subtle'
+                            }`}
+                            style={{ cursor: 'pointer', transition: 'all 0.15s ease' }}
+                          >
+                            {plan.popular && (
+                              <span className="position-absolute top-0 start-50 translate-middle badge rounded-pill bg-primary text-white" style={{ fontSize: '0.55rem' }}>
+                                Popular
+                              </span>
+                            )}
+                            <div className="fw-bold text-dark text-truncate" style={{ fontSize: '0.85rem' }}>{plan.name}</div>
+                            <div className="fw-bolder text-primary mt-1" style={{ fontSize: '1.05rem' }}>
+                              S/ {price}
+                            </div>
+                            <small className="text-muted d-block" style={{ fontSize: '0.68rem' }}>
+                              {selectedTipo === 'ANUAL' ? '/año' : '/mes'}
+                            </small>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Select sincronizado */}
+                  <select
+                    className="form-select d-none"
                     value={selectedPlan}
                     onChange={(e) => setSelectedPlan(e.target.value)}
                   >
@@ -215,24 +299,12 @@ export default function CreateClientModal({
                   </select>
                 </div>
 
-                <div className="col-md-3">
-                  <label className="form-label fw-bold">Periodicidad <span className="text-danger">*</span></label>
-                  <select
-                    className="form-select fw-semibold"
-                    value={selectedTipo}
-                    onChange={(e) => setSelectedTipo(e.target.value as 'MENSUAL' | 'ANUAL')}
-                  >
-                    <option value="MENSUAL">Mensual</option>
-                    <option value="ANUAL">Anual (x10 meses)</option>
-                  </select>
-                </div>
-
-                <div className="col-12">
-                  <div className="alert alert-info py-2 px-3 mb-0 d-flex justify-content-between align-items-center rounded-3 border-0 bg-opacity-75">
+                <div className="col-12 mt-2">
+                  <div className="p-2.5 rounded-3 d-flex justify-content-between align-items-center border" style={{ backgroundColor: '#F0F2F5' }}>
                     <div className="small">
-                      <strong className="text-dark">Tarifa a cobrar:</strong> Plan {selectedPlan} ({selectedTipo})
+                      <span className="text-muted">Tarifa confirmada:</span> <strong className="text-dark">Plan {selectedPlan} ({selectedTipo})</strong>
                     </div>
-                    <span className="badge bg-primary fs-6 px-3 py-1.5 fw-bold shadow-sm">
+                    <span className="badge bg-primary fs-6 px-3 py-1.5 fw-bold shadow-sm rounded-pill">
                       S/ {currentPrice.toFixed(2)}
                     </span>
                   </div>
@@ -441,10 +513,11 @@ export default function CreateClientModal({
               </div>
             </div>
 
-            <div className="modal-footer border-top bg-light px-4 py-3 flex-shrink-0">
+            <div className="modal-footer border-top bg-white px-4 py-3 flex-shrink-0 d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-outline-secondary px-4 fw-semibold"
+                className="btn btn-light rounded-pill px-4 py-2.5 fw-semibold text-dark border-0"
+                style={{ backgroundColor: '#E4E6EB' }}
                 onClick={onClose}
                 disabled={isSubmitting}
               >
@@ -452,18 +525,18 @@ export default function CreateClientModal({
               </button>
               <button
                 type="submit"
-                className="btn btn-primary px-4 fw-bold d-inline-flex align-items-center gap-2"
+                className="btn btn-primary rounded-pill px-4 py-2.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-2"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (
                   <>
-                    <RefreshCw size={16} className="spin" />
-                    <span>Creando Cliente...</span>
+                    <RefreshCw size={16} className="spin-anim" />
+                    <span>Guardando Cliente...</span>
                   </>
                 ) : (
                   <>
                     <UserPlus size={16} />
-                    <span>Crear Cliente</span>
+                    <span>Guardar y Habilitar Cliente</span>
                   </>
                 )}
               </button>

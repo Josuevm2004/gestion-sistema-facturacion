@@ -5,19 +5,19 @@
 @tailwind utilities;
 
 :root {
-  --miquipu-blue: #0047FF;
-  --miquipu-blue-dark: #0036C4;
-  --miquipu-blue-light: #F0F5FF;
-  --miquipu-dark: #0F172A;
-  --miquipu-border: #E2E8F0;
-  --miquipu-bg: #F8FAFC;
-  --card-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 6px 16px -2px rgba(15, 23, 42, 0.05);
-  --card-shadow-hover: 0 10px 25px -3px rgba(15, 23, 42, 0.09), 0 4px 6px -4px rgba(15, 23, 42, 0.04);
+  --miquipu-blue: #0866FF;
+  --miquipu-blue-dark: #0052CC;
+  --miquipu-blue-light: #E7F3FF;
+  --miquipu-dark: #050505;
+  --miquipu-border: #E4E6EB;
+  --miquipu-bg: #F0F2F5;
+  --card-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --card-shadow-hover: 0 4px 14px -2px rgba(0, 0, 0, 0.1);
 }
 
 body {
-  background-color: #F8FAFC !important;
-  color: #0F172A;
+  background-color: #F0F2F5 !important;
+  color: #050505;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -81,18 +81,18 @@ body {
   }
 }
 
-/* Header & Navbar - Keeping strict dark aesthetic */
+/* Header & Navbar - Meta Clean White Style */
 .custom-navbar,
 .navbar-miquipu,
 .admin-navbar {
-  background-color: #000000 !important;
-  border-bottom: 1px solid #1E293B;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #E4E6EB !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
 }
 
 .brand-title {
   font-weight: 800;
-  color: #FFFFFF;
+  color: #050505;
   font-size: 1.25rem;
   letter-spacing: -0.4px;
 }
@@ -111,8 +111,8 @@ body {
 /* Custom Cards */
 .custom-card {
   background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 14px;
+  border: 1px solid #E4E6EB;
+  border-radius: 16px;
   box-shadow: var(--card-shadow);
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
 }
@@ -252,87 +252,102 @@ body {
   box-shadow: 0 4px 14px rgba(225, 29, 72, 0.28);
 }
 
-/* Form Controls */
-/* Form Controls */
+/* Form Controls - Meta Style */
 .form-control, .form-select {
   background-color: #FFFFFF !important;
-  border: 1.5px solid #CBD5E1 !important;
-  color: #0F172A !important;
+  border: 1.5px solid #CED0D4 !important;
+  color: #050505 !important;
   font-weight: 500 !important;
-  border-radius: 9px !important;
-  padding: 0.6rem 0.9rem !important;
+  border-radius: 12px !important;
+  padding: 0.65rem 0.95rem !important;
   font-size: 0.92rem !important;
-  transition: all 0.15s ease-in-out;
+  min-height: 44px;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 .form-control:focus, .form-select:focus {
-  border-color: var(--miquipu-blue) !important;
-  box-shadow: 0 0 0 0.25rem rgba(0, 71, 255, 0.18) !important;
+  border-color: #0866FF !important;
+  box-shadow: 0 0 0 3px rgba(8, 102, 255, 0.2) !important;
   background-color: #FFFFFF !important;
 }
 
 .form-label {
-  color: #1E293B;
-  font-weight: 700;
-  font-size: 0.84rem;
-  margin-bottom: 0.4rem;
-  letter-spacing: 0.01em;
+  color: #050505;
+  font-weight: 600;
+  font-size: 0.86rem;
+  margin-bottom: 0.35rem;
 }
 
-/* Buttons */
+/* Buttons - Meta Blue */
 .btn-miquipu {
-  background: linear-gradient(135deg, #0047FF 0%, #0036C4 100%) !important;
+  background: #0866FF !important;
   color: #FFFFFF !important;
   border: none !important;
   font-weight: 700;
-  border-radius: 9px;
-  padding: 0.65rem 1.35rem;
-  box-shadow: 0 4px 14px rgba(0, 71, 255, 0.28);
+  border-radius: 9999px;
+  padding: 0.65rem 1.4rem;
+  box-shadow: 0 2px 4px rgba(8, 102, 255, 0.2);
   transition: all 0.15s ease;
 }
 
 .btn-miquipu:hover {
-  background: linear-gradient(135deg, #0036C4 0%, #002894 100%) !important;
+  background: #0052CC !important;
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(0, 71, 255, 0.38);
+  box-shadow: 0 4px 10px rgba(8, 102, 255, 0.3);
 }
 
-/* Badges & Status Pills (Claridad y Alto Contraste) */
+.btn-circle-meta {
+  width: 40px;
+  height: 40px;
+  border-radius: 50% !important;
+  background-color: #E4E6EB;
+  color: #050505;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.btn-circle-meta:hover {
+  background-color: #D8DADF;
+  color: #050505;
+}
+
+/* Badges & Status Pills (Meta Soft Tinted Style) */
 .badge {
-  font-weight: 700 !important;
-  letter-spacing: 0.02em;
-  padding: 0.4em 0.75em;
-  border-radius: 6px;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+  padding: 0.35em 0.75em;
+  border-radius: 9999px;
 }
 
 .badge-habilitado, .badge-capacitado {
-  background-color: #DCFCE7 !important;
-  color: #166534 !important;
-  border: 1px solid #86EFAC !important;
-  font-weight: 700;
-  padding: 0.4em 0.8em;
-  border-radius: 7px;
-  box-shadow: 0 1px 2px rgba(22, 101, 52, 0.06);
+  background-color: #E8F8F0 !important;
+  color: #0E8A42 !important;
+  border: 1px solid #B6ECC8 !important;
+  font-weight: 600;
+  padding: 0.35em 0.8em;
+  border-radius: 9999px;
 }
 
 .badge-bloqueado, .badge-no-responde, .badge-vencido {
-  background-color: #FEE2E2 !important;
-  color: #991B1B !important;
-  border: 1px solid #FCA5A5 !important;
-  font-weight: 700;
-  padding: 0.4em 0.8em;
-  border-radius: 7px;
-  box-shadow: 0 1px 2px rgba(153, 27, 27, 0.06);
+  background-color: #FDE8E8 !important;
+  color: #C81E1E !important;
+  border: 1px solid #F8B4B4 !important;
+  font-weight: 600;
+  padding: 0.35em 0.8em;
+  border-radius: 9999px;
 }
 
 .badge-pendiente, .badge-pagar-luego, .badge-por-capacitar {
-  background-color: #FEF3C7 !important;
-  color: #92400E !important;
-  border: 1px solid #FCD34D !important;
-  font-weight: 700;
-  padding: 0.4em 0.8em;
-  border-radius: 7px;
-  box-shadow: 0 1px 2px rgba(146, 64, 14, 0.06);
+  background-color: #FFF8E1 !important;
+  color: #B78103 !important;
+  border: 1px solid #FFE79A !important;
+  font-weight: 600;
+  padding: 0.35em 0.8em;
+  border-radius: 9999px;
 }
 
 /* Tables Styling (Claridad, Alto Contraste y Espaciado Cómodo) */
@@ -651,26 +666,31 @@ body {
 }
 
 .admin-nav-link {
-  min-height: 38px;
-  color: rgba(255, 255, 255, 0.7) !important;
-  border-left: 3px solid transparent !important;
-  border-radius: 6px !important;
-  padding: 0.55rem 0.65rem !important;
-  font-size: 0.84rem;
+  min-height: 48px;
+  color: #65676B !important;
+  border-radius: 8px !important;
+  border-bottom: 3px solid transparent !important;
+  border-left: none !important;
+  padding: 0.6rem 0.85rem !important;
+  font-size: 0.88rem;
+  font-weight: 600;
   white-space: nowrap;
+  transition: all 0.15s ease;
 }
 
 .admin-nav-link:hover,
 .admin-nav-link:focus {
-  color: #fff !important;
-  background: rgba(255, 255, 255, 0.1) !important;
+  color: #050505 !important;
+  background: #F2F4F7 !important;
 }
 
 .admin-nav-link.active {
-  color: #fff !important;
-  background: var(--miquipu-blue) !important;
-  border-left-color: #93c5fd !important;
-  box-shadow: 0 5px 14px rgba(0, 71, 255, 0.22);
+  color: #0866FF !important;
+  background: transparent !important;
+  border-bottom: 3px solid #0866FF !important;
+  border-left: none !important;
+  box-shadow: none !important;
+  font-weight: 700 !important;
 }
 
 .admin-nav-icon {
@@ -681,7 +701,7 @@ body {
 .admin-nav-link .badge {
   margin-left: auto;
   min-width: 22px;
-  padding: 0.25rem 0.4rem;
+  padding: 0.25rem 0.5rem;
 }
 
 .admin-navbar-actions {

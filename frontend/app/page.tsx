@@ -308,55 +308,67 @@ export default function FormularioPublicoPage() {
   }
 
   return (
-    <div className="bg-white min-h-screen pb-5">
-
-      <nav className="navbar navbar-dark bg-dark sticky-top py-2">
+    <div className="min-h-screen pb-5" style={{ backgroundColor: '#F0F2F5' }}>
+      <nav className="navbar sticky-top py-2.5 bg-white border-bottom shadow-sm">
         <div className="container">
-          <Link href="/" className="navbar-brand d-flex align-items-center gap-2">
-            <Image src="/logo.jpeg" alt="Miquipu Logo" width={36} height={36} className="rounded-2" />
-            <span className="brand-title">Miquipu</span>
-            <span className="brand-badge">Facturacion Electronica</span>
+          <Link href="/" className="navbar-brand d-flex align-items-center gap-2.5 text-decoration-none">
+            <Image src="/logo.jpeg" alt="Miquipu Logo" width={36} height={36} className="rounded-circle shadow-sm" />
+            <div className="d-flex flex-column">
+              <span className="fw-bold text-dark fs-6" style={{ letterSpacing: '-0.3px', lineHeight: '1.2' }}>Miquipu</span>
+              <span className="text-muted fw-semibold" style={{ fontSize: '0.72rem' }}>Facturación Electrónica</span>
+            </div>
           </Link>
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+            Registro Oficial
+          </span>
         </div>
       </nav>
 
       <main className="container my-4" style={{ maxWidth: '980px' }}>
         {message && (
-          <div className={`alert alert-${message.type} d-flex align-items-center gap-2 shadow-sm rounded-3 mb-4`}>
+          <div className={`alert alert-${message.type} d-flex align-items-center gap-2 shadow-sm rounded-4 mb-4 border-0`}>
             <Info size={18} />
             <div>{message.text}</div>
           </div>
         )}
 
-
         <div className="row justify-content-center mb-4">
           <div className="col-md-7">
             <div className="d-flex justify-content-between align-items-center position-relative">
-              <div className="position-absolute top-50 start-0 end-0 translate-middle-y bg-light" style={{ height: '3px', zIndex: 0 }}></div>
-              <div className="position-absolute top-50 start-0 translate-middle-y bg-primary" style={{ height: '3px', width: step === 1 ? '0%' : '100%', zIndex: 0, transition: 'width 0.3s' }}></div>
+              <div className="position-absolute top-50 start-0 end-0 translate-middle-y" style={{ height: '3px', backgroundColor: '#E4E6EB', zIndex: 0 }}></div>
+              <div className="position-absolute top-50 start-0 translate-middle-y" style={{ height: '3px', backgroundColor: '#0866FF', width: step === 1 ? '0%' : '100%', zIndex: 0, transition: 'width 0.3s' }}></div>
 
               <div className="d-flex flex-column align-items-center position-relative" style={{ zIndex: 1 }}>
-                <div className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${step >= 1 ? 'bg-primary text-white' : 'bg-light text-muted'}`} style={{ width: '36px', height: '36px', fontSize: '0.9rem' }}>1</div>
-                <span className="small fw-semibold mt-1">1. Registro de Datos</span>
+                <div
+                  className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${step >= 1 ? 'text-white' : 'text-muted'}`}
+                  style={{ width: '36px', height: '36px', fontSize: '0.9rem', backgroundColor: step >= 1 ? '#0866FF' : '#E4E6EB' }}
+                >
+                  1
+                </div>
+                <span className="small fw-semibold mt-1 text-dark">1. Registro de Datos</span>
               </div>
               <div className="d-flex flex-column align-items-center position-relative" style={{ zIndex: 1 }}>
-                <div className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${step >= 2 ? 'bg-primary text-white' : 'bg-light text-muted'}`} style={{ width: '36px', height: '36px', fontSize: '0.9rem' }}>2</div>
-                <span className="small fw-semibold mt-1">2. Datos de Pago</span>
+                <div
+                  className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${step >= 2 ? 'text-white' : 'text-muted'}`}
+                  style={{ width: '36px', height: '36px', fontSize: '0.9rem', backgroundColor: step >= 2 ? '#0866FF' : '#E4E6EB' }}
+                >
+                  2
+                </div>
+                <span className="small fw-semibold mt-1 text-dark">2. Datos de Pago</span>
               </div>
             </div>
           </div>
         </div>
 
-
         {step === 1 && (
-          <div className="custom-card p-4 p-md-5">
-            <div className="d-flex align-items-center gap-3 border-bottom pb-3 mb-4">
-              <div className="bg-primary-subtle p-3 rounded-3 text-primary">
-                <Building2 size={32} />
+          <div className="card rounded-4 border bg-white p-4 p-md-5 shadow-sm">
+            <div className="d-flex align-items-center gap-3 border-bottom pb-4 mb-4">
+              <div className="d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+                <Building2 size={24} />
               </div>
               <div>
                 <h1 className="h4 fw-bold text-dark mb-0">Formulario de Registro de Cliente</h1>
-                <p className="text-muted small mb-0">Portal público de onboarding para facturación electrónica.</p>
+                <p className="text-muted small mb-0">Portal de activación de cuenta y facturación electrónica SUNAT</p>
               </div>
             </div>
 
@@ -710,17 +722,19 @@ export default function FormularioPublicoPage() {
                   </div>
                   
                   {/* Selector de Modalidad (Mensual vs Anual) */}
-                  <div className="btn-group bg-light p-1 rounded-3 border" role="group">
+                  <div className="d-inline-flex p-1 rounded-pill border shadow-sm" style={{ backgroundColor: '#F0F2F5' }}>
                     <button
                       type="button"
-                      className={`btn btn-sm px-3 rounded-2 fw-semibold transition-all ${tipoSuscripcion === 'MENSUAL' ? 'btn-primary shadow-sm text-white' : 'btn-light text-muted'}`}
+                      className={`btn btn-sm px-4 rounded-pill fw-bold transition-all border-0 ${tipoSuscripcion === 'MENSUAL' ? 'shadow-sm text-white' : 'text-muted'}`}
+                      style={{ backgroundColor: tipoSuscripcion === 'MENSUAL' ? '#0866FF' : 'transparent' }}
                       onClick={() => setTipoSuscripcion('MENSUAL')}
                     >
                       Suscripción Mensual
                     </button>
                     <button
                       type="button"
-                      className={`btn btn-sm px-3 rounded-2 fw-semibold transition-all ${tipoSuscripcion === 'ANUAL' ? 'btn-primary shadow-sm text-white' : 'btn-light text-muted'}`}
+                      className={`btn btn-sm px-4 rounded-pill fw-bold transition-all border-0 ${tipoSuscripcion === 'ANUAL' ? 'shadow-sm text-white' : 'text-muted'}`}
+                      style={{ backgroundColor: tipoSuscripcion === 'ANUAL' ? '#0866FF' : 'transparent' }}
                       onClick={() => setTipoSuscripcion('ANUAL')}
                     >
                       Suscripción Anual
@@ -736,17 +750,25 @@ export default function FormularioPublicoPage() {
                       <div key={plan.id} className={plan.key === 'EMPRESARIAL' || plan.key === 'LIDER' ? 'col-md-6' : 'col-md-4'}>
                         <div
                           onClick={() => setSelectedPlan(plan.key)}
-                          className={`p-3 rounded-3 border position-relative ${
-                            selectedPlan === plan.key ? 'border-primary border-2 shadow-sm bg-white' : 'border-light-subtle bg-white'
+                          className={`p-3.5 rounded-4 border position-relative ${
+                            selectedPlan === plan.key ? 'shadow-sm' : ''
                           }`}
-                          style={{ cursor: 'pointer', transition: 'all 0.15s' }}
+                          style={{
+                            cursor: 'pointer',
+                            transition: 'all 0.15s',
+                            backgroundColor: selectedPlan === plan.key ? '#F0F7FF' : '#FFFFFF',
+                            borderColor: selectedPlan === plan.key ? '#0866FF' : '#E4E6EB',
+                            borderWidth: selectedPlan === plan.key ? '2px' : '1px',
+                          }}
                         >
                           {selectedPlan === plan.key && (
-                            <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill bg-primary" style={{ fontSize: '0.65rem' }}>Seleccionado</span>
+                            <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill fw-bold text-white shadow-sm" style={{ backgroundColor: '#0866FF', fontSize: '0.68rem' }}>
+                              Seleccionado
+                            </span>
                           )}
-                          <div className="d-flex justify-content-between align-items-center mb-1">
-                            <strong className="text-dark">{plan.name}</strong>
-                            <span className="badge bg-primary">
+                          <div className="d-flex justify-content-between align-items-center mb-1.5">
+                            <strong className="text-dark fs-6">{plan.name}</strong>
+                            <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: selectedPlan === plan.key ? '#0866FF' : '#E7F3FF', color: selectedPlan === plan.key ? '#FFFFFF' : '#0866FF' }}>
                               {price != null ? `S/ ${price.toFixed(2)}${tipoSuscripcion === 'ANUAL' ? '/año' : '/mes'}` : 'No disponible'}
                             </span>
                           </div>
@@ -767,7 +789,12 @@ export default function FormularioPublicoPage() {
               </div>
 
               <div className="col-12 mt-4">
-                <button type="submit" disabled={isSubmitting || plansLoading || !selectedSubscription} className="btn btn-miquipu btn-lg w-100 d-flex align-items-center justify-content-center gap-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || plansLoading || !selectedSubscription}
+                  className="btn rounded-pill py-3 w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 text-white"
+                  style={{ backgroundColor: '#0866FF', borderColor: '#0866FF', fontSize: '1rem' }}
+                >
                   {isSubmitting ? <RefreshCw size={18} className="spin" /> : <span>Enviar Datos e Ir a Pagar</span>}
                   <ArrowRight size={18} />
                 </button>
@@ -779,7 +806,7 @@ export default function FormularioPublicoPage() {
         {step === 2 && client && (
           <div className="row justify-content-center">
             <div className="col-md-9 col-lg-8">
-              <div className="custom-card p-4 p-md-5 text-center">
+              <div className="card rounded-4 border bg-white p-4 p-md-5 text-center shadow-sm">
                 <div className="mb-3">
                   <CheckCircle2 size={56} className="text-success" />
                 </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 
 interface EditClientModalProps {
@@ -85,12 +86,19 @@ export default function EditClientModal({
           className="modal-content rounded-4 shadow-lg border-0"
           style={{ maxHeight: 'calc(100vh - 3rem)', display: 'flex', flexDirection: 'column' }}
         >
-          <div className="modal-header border-bottom bg-light px-4 py-3 flex-shrink-0">
+          <div className="modal-header border-bottom bg-white px-4 py-3 flex-shrink-0 d-flex justify-content-between align-items-center">
             <div>
               <h5 className="modal-title fw-bold text-dark mb-0">Editar Cliente: {editingClient.razonSocial}</h5>
               <small className="text-muted fw-semibold">RUC: {editingClient.ruc} | Estado: {editingClient.estadoCuenta}</small>
             </div>
-            <button type="button" className="btn-close" onClick={() => setEditingClient(null)}></button>
+            <button
+              type="button"
+              className="btn-circle-meta border-0 text-muted"
+              onClick={() => setEditingClient(null)}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
           <form
             onSubmit={handleSaveEditClient}
@@ -361,11 +369,20 @@ export default function EditClientModal({
                 </div>
               </div>
             </div>
-            <div className="modal-footer border-top bg-light px-4 py-3 flex-shrink-0">
-              <button type="button" className="btn btn-outline-secondary px-4 fw-semibold" onClick={() => setEditingClient(null)}>
+            <div className="modal-footer border-top bg-white px-4 py-3 flex-shrink-0 d-flex justify-content-end gap-2">
+              <button
+                type="button"
+                className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
+                style={{ backgroundColor: '#E4E6EB' }}
+                onClick={() => setEditingClient(null)}
+              >
                 Cancelar
               </button>
-              <button type="submit" className="btn btn-primary px-4 fw-bold">
+              <button
+                type="submit"
+                className="btn btn-primary rounded-pill px-4 py-2 fw-bold text-white shadow-sm"
+                style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
+              >
                 Guardar Cambios
               </button>
             </div>

@@ -45,85 +45,85 @@ export default function ResumenTab({
 
   return (
     <div>
-      {/* Tarjetas de Métricas Ejecutivas */}
+      {/* Tarjetas de Métricas Ejecutivas (Meta UI Style) */}
       <div className="row g-3 mb-4">
         <div className="col-md-3">
-          <div className="custom-card metric-card-blue p-3 h-100 shadow-sm">
+          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <div className="d-flex align-items-center gap-2">
-                <div className="icon-pill-blue">
+              <div className="d-flex align-items-center gap-2.5">
+                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
                   <DollarSign size={20} />
                 </div>
-                <span className="text-muted small fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Ingresos del Día
                 </span>
               </div>
-              <span className="badge bg-primary text-white rounded-pill px-3 py-1 fw-bold" style={{ fontSize: '0.7rem' }}>
+              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.68rem' }}>
                 Ventas
               </span>
             </div>
-            <div className="fs-2 fw-bold text-dark mb-1 mt-2">S/ {totalCobradoDia.toFixed(2)}</div>
-            <small className="text-muted d-block">Ventas confirmadas al día de hoy</small>
+            <div className="fs-3 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>S/ {totalCobradoDia.toFixed(2)}</div>
+            <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>Ventas confirmadas al día de hoy</small>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="custom-card metric-card-green p-3 h-100 shadow-sm">
+          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <div className="d-flex align-items-center gap-2">
-                <div className="icon-pill-green">
+              <div className="d-flex align-items-center gap-2.5">
+                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E8F8F0', color: '#0E8A42' }}>
                   <CheckCircle size={20} />
                 </div>
-                <span className="text-muted small fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Clientes Activos
                 </span>
               </div>
-              <span className="badge bg-success text-white rounded-pill px-3 py-1 fw-bold" style={{ fontSize: '0.7rem' }}>
-                Servicio
+              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#E8F8F0', color: '#0E8A42', fontSize: '0.68rem' }}>
+                Al Día
               </span>
             </div>
-            <div className="fs-2 fw-bold text-dark mb-1 mt-2">{clientesActivos}</div>
-            <small className="text-muted d-block">Cuentas con acceso habilitado</small>
+            <div className="fs-3 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>{clientesActivos}</div>
+            <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>Cuentas con acceso habilitado</small>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="custom-card metric-card-yellow p-3 h-100 shadow-sm">
+          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <div className="d-flex align-items-center gap-2">
-                <div className="icon-pill-yellow">
+              <div className="d-flex align-items-center gap-2.5">
+                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#FFF8E1', color: '#B78103' }}>
                   <Clock size={20} />
                 </div>
-                <span className="text-muted small fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Por Cobrar
                 </span>
               </div>
-              <span className="badge bg-warning text-dark rounded-pill px-3 py-1 fw-bold" style={{ fontSize: '0.7rem' }}>
+              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FFF8E1', color: '#B78103', fontSize: '0.68rem' }}>
                 Pendientes
               </span>
             </div>
-            <div className="fs-2 fw-bold text-dark mb-1 mt-2">{clientesPorCobrarList.length}</div>
-            <small className="text-muted d-block">Derivados pendientes de abono</small>
+            <div className="fs-3 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>{clientesPorCobrarList.length}</div>
+            <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>Derivados pendientes de abono</small>
           </div>
         </div>
 
         <div className="col-md-3">
-          <div className="custom-card metric-card-red p-3 h-100 shadow-sm">
+          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
-              <div className="d-flex align-items-center gap-2">
-                <div className="icon-pill-red">
+              <div className="d-flex align-items-center gap-2.5">
+                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#FDE8E8', color: '#C81E1E' }}>
                   <AlertTriangle size={20} />
                 </div>
-                <span className="text-muted small fw-bold text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Vencidos / Bloqueados
                 </span>
               </div>
-              <span className="badge bg-danger text-white rounded-pill px-3 py-1 fw-bold" style={{ fontSize: '0.7rem' }}>
+              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FDE8E8', color: '#C81E1E', fontSize: '0.68rem' }}>
                 Alerta
               </span>
             </div>
-            <div className="fs-2 fw-bold text-dark mb-1 mt-2">{clientesVencidosList.length}</div>
-            <small className="text-muted d-block">Cuentas por vencer o suspendidas</small>
+            <div className="fs-3 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>{clientesVencidosList.length}</div>
+            <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>Cuentas por vencer o suspendidas</small>
           </div>
         </div>
       </div>

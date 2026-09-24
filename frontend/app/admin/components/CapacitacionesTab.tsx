@@ -78,10 +78,10 @@ export default function CapacitacionesTab({
   };
 
   return (
-    <div className="custom-card p-4 shadow-sm">
+    <div className="card rounded-4 border bg-white p-4 shadow-sm">
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 bg-info bg-opacity-10 text-info rounded-3">
+        <div className="d-flex align-items-center gap-3">
+          <div className="d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
             <GraduationCap size={20} />
           </div>
           <div>
@@ -89,7 +89,7 @@ export default function CapacitacionesTab({
             <small className="text-muted">Monitoreo y asignación de fechas de capacitación real</small>
           </div>
         </div>
-        <span className="badge bg-primary text-white rounded-pill px-3 py-1.5 fw-bold">
+        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
           {targetList.length} Registros
         </span>
       </div>
@@ -131,25 +131,25 @@ export default function CapacitacionesTab({
                       <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
                     </td>
                     <td>
-                      <div className="d-flex align-items-center gap-1">
-                        <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                        <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                      <div className="d-flex align-items-center gap-1.5">
+                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado}</span>
+                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
                       </div>
                     </td>
                     <td>
                       {isCapacitado ? (
-                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#DEF7EC', color: '#03543F' }}>
                           Capacitado
                         </span>
                       ) : (
-                        <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
+                        <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
                           Pendiente de Capacitación
                         </span>
                       )}
                     </td>
                     <td>
                       {c.fechaCapacitacion ? (
-                        <span className="badge bg-light text-primary border border-primary border-opacity-25 fw-bold">
+                        <span className="badge bg-light border rounded-pill px-2.5 py-1 fw-bold" style={{ color: '#0866FF', borderColor: '#D0E2FF' }}>
                           {formatPeruDate(c.fechaCapacitacion)}
                         </span>
                       ) : (
@@ -160,13 +160,14 @@ export default function CapacitacionesTab({
                       {!isCapacitado ? (
                         <button
                           onClick={() => setTrainingClient(c)}
-                          className="btn btn-sm btn-primary px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                          className="btn btn-sm text-white rounded-pill px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                          style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
                         >
                           <Calendar size={14} />
                           <span>Programar Capacitación</span>
                         </button>
                       ) : (
-                        <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1">
+                        <span className="badge rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1" style={{ backgroundColor: '#DEF7EC', color: '#03543F' }}>
                           <CheckCircle size={14} />
                           <span>Capacitación Realizada</span>
                         </span>

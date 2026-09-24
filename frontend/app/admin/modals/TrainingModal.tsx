@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { X } from 'lucide-react';
 import { MONTHLY_BILLING_DAY } from '@/lib/billing';
 import { Client } from '../components/ClientesTodosTab';
 
@@ -24,12 +25,19 @@ export default function TrainingModal({
   if (!trainingClient) return null;
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1}>
+    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-dialog-centered">
-        <div className="modal-content rounded-3 shadow">
-          <div className="modal-header border-bottom">
-            <h5 className="modal-title fw-bold">Programar Capacitación: {trainingClient.razonSocial}</h5>
-            <button type="button" className="btn-close" onClick={() => setTrainingClient(null)}></button>
+        <div className="modal-content rounded-4 shadow-lg border-0">
+          <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
+            <h5 className="modal-title fw-bold text-dark mb-0">Programar Capacitación: {trainingClient.razonSocial}</h5>
+            <button
+              type="button"
+              className="btn-circle-meta border-0 text-muted"
+              onClick={() => setTrainingClient(null)}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
           </div>
           <form onSubmit={handleSaveTrainingSchedule}>
             <div className="modal-body">
@@ -127,11 +135,19 @@ export default function TrainingModal({
                 </div>
               )}
             </div>
-            <div className="modal-footer border-top">
-              <button type="button" className="btn btn-secondary" onClick={() => setTrainingClient(null)}>
+            <div className="modal-footer border-top bg-white px-4 py-3 d-flex justify-content-end gap-2">
+              <button
+                type="button"
+                className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
+                style={{ backgroundColor: '#E4E6EB' }}
+                onClick={() => setTrainingClient(null)}
+              >
                 Cancelar
               </button>
-              <button type="submit" className="btn btn-success">
+              <button
+                type="submit"
+                className="btn btn-success rounded-pill px-4 py-2 fw-bold text-white shadow-sm"
+              >
                 Confirmar Programación
               </button>
             </div>

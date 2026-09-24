@@ -33,10 +33,10 @@ export default function PorCobrarTab({
   }, [totalPages]);
 
   return (
-    <div className="custom-card p-4 shadow-sm">
+    <div className="card rounded-4 border bg-white p-4 shadow-sm">
       <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 bg-warning bg-opacity-10 text-warning rounded-3">
+        <div className="d-flex align-items-center gap-3">
+          <div className="d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#FEF3C7', color: '#D97706' }}>
             <CreditCard size={20} />
           </div>
           <div>
@@ -44,7 +44,7 @@ export default function PorCobrarTab({
             <small className="text-muted">Clientes derivados del formulario web en espera de pago y confirmación</small>
           </div>
         </div>
-        <span className="badge bg-warning text-dark rounded-pill px-3 py-1.5 fw-bold">
+        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
           {clientesPorCobrarList.length} Por Cobrar
         </span>
       </div>
@@ -83,14 +83,14 @@ export default function PorCobrarTab({
                     <span className="fw-bold text-dark">{c.telefono || c.telefonoPersonal || '—'}</span>
                   </td>
                   <td>
-                    <div className="d-flex align-items-center gap-1">
-                      <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                      <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">{c.tipoSuscripcion || 'MENSUAL'}</span>
+                    <div className="d-flex align-items-center gap-1.5">
+                      <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado}</span>
+                      <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
                     </div>
                   </td>
-                  <td className="fw-bold text-primary fs-6">S/ {Number(c.montoSiguienteCobro ?? c.montoMensual).toFixed(2)}</td>
+                  <td className="fw-bold fs-6" style={{ color: '#0866FF' }}>S/ {Number(c.montoSiguienteCobro ?? c.montoMensual).toFixed(2)}</td>
                   <td>
-                    <span className="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25">
+                    <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
                       POR COBRAR
                     </span>
                   </td>
@@ -98,7 +98,7 @@ export default function PorCobrarTab({
                     <div className="d-flex gap-2">
                       <button
                         onClick={() => handleRegisterPayment(c)}
-                        className="btn btn-sm btn-success px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
+                        className="btn btn-sm btn-success rounded-pill px-3 py-1.5 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5"
                       >
                         <CheckCircle size={14} />
                         <span>Confirmar Pago</span>
@@ -112,7 +112,7 @@ export default function PorCobrarTab({
                             handleEstadoCuentaChange(c, 'BLOQUEADO');
                           }
                         }}
-                        className="btn btn-sm btn-outline-danger px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
+                        className="btn btn-sm btn-outline-danger rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
                       >
                         <X size={14} />
                         <span>Cancelar Plan</span>
