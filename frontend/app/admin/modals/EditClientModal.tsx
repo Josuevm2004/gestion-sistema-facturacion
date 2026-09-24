@@ -298,7 +298,6 @@ export default function EditClientModal({
                 {isMigratingToProduccion && (
                   <div className="col-12 mt-2">
                     <div className="alert alert-primary py-2.5 px-3 mb-0 rounded-3 border-0 d-flex align-items-center gap-2.5 shadow-sm" style={{ backgroundColor: '#e0f2fe', color: '#0369a1' }}>
-                      <span className="fs-5">🚀</span>
                       <div>
                         <strong className="d-block">Migración a Producción detectada:</strong>
                         <span className="small">

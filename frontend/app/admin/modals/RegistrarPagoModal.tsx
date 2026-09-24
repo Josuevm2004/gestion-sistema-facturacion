@@ -333,13 +333,13 @@ export default function RegistrarPagoModal({
                   </div>
                   <div className="mt-1 text-muted">
                     {isAdelanto && (
-                      <>✨ <strong>Cobertura extendida:</strong> El cliente mantiene sus días vigentes y la fecha de corte se aplaza al siguiente mes.</>
+                      <><strong>Cobertura extendida:</strong> El cliente mantiene sus días vigentes y la fecha de corte se aplaza al siguiente mes.</>
                     )}
                     {isReanudarPago && (
-                      <>📌 <strong>Ciclo contractual completo:</strong> El cliente venció pero siguió habilitado consumiendo el sistema. Su pago cuenta desde su fecha de corte contractual (el 1.°), cubriendo el ciclo completo.</>
+                      <><strong>Ciclo contractual completo:</strong> El cliente venció pero siguió habilitado consumiendo el sistema. Su pago cuenta desde su fecha de corte contractual (el 1.°), cubriendo el ciclo completo.</>
                     )}
                     {isRenovarProrrateo && (
-                      <>⚡ <strong>Prorrateo por atraso de pago:</strong> El nuevo servicio inicia en la fecha real de pago ({formatDatePeru(fechaInicioPeriodo)}) y el cobro se ajusta proporcionalmente a los días a disfrutar.</>
+                      <><strong>Prorrateo por atraso de pago:</strong> El nuevo servicio inicia en la fecha real de pago ({formatDatePeru(fechaInicioPeriodo)}) y el cobro se ajusta proporcionalmente a los días a disfrutar.</>
                     )}
                   </div>
                 </div>

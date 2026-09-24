@@ -12,13 +12,27 @@ export const api = axios.create({
 });
 
 export const adminApi = (token?: string | null) => {
-  return axios.create({
+  const instance = axios.create({
     baseURL: API_URL,
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+
+  instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('miquipu_auth_expired'));
+        }
+      }
+      return Promise.reject(error);
+    }
+  );
+
+  return instance;
 };
 
 export default api;

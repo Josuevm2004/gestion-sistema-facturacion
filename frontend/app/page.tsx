@@ -7,7 +7,8 @@ import {
   KeyRound,
   ArrowRight,
   Info,
-  RefreshCw
+  RefreshCw,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -790,7 +791,7 @@ export default function FormularioPublicoPage() {
                 {/* Banner Destacado: Solicitud de Captura de Pantalla */}
                 <div className="alert alert-warning border-warning border-2 p-3 p-md-4 rounded-3 text-start mb-4 shadow-sm bg-warning bg-opacity-10">
                   <div className="d-flex align-items-center gap-2 mb-2">
-                    <span className="fs-3">📸</span>
+                    <Camera size={20} className="text-warning-emphasis" />
                     <h3 className="h6 fw-bold text-dark mb-0">AVISO IMPORTANTE: Envíenos una captura de este formulario</h3>
                   </div>
                   <p className="small text-dark mb-0 fw-semibold" style={{ lineHeight: '1.5' }}>
@@ -801,7 +802,7 @@ export default function FormularioPublicoPage() {
                 {/* Resumen de Datos del Afiliado */}
                 <div className="bg-light p-4 rounded-3 text-start mb-4 border">
                   <h3 className="h6 fw-bold text-primary border-bottom pb-2 mb-3 text-uppercase" style={{ letterSpacing: '0.5px' }}>
-                    📋 Datos del Afiliado y Suscripción
+                    Datos del Afiliado y Suscripción
                   </h3>
 
                   <div className="row g-2">

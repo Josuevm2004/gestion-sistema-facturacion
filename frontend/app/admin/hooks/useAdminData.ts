@@ -12,6 +12,27 @@ function extractArray(resData: any): any[] {
   return [];
 }
 
+function isTokenExpired(token?: string | null): boolean {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload);
+    if (!payload.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
 function resolverPlanIdDesdeNombre(planNombre?: string): number {
   if (!planNombre) return 1;
   const norm = planNombre
@@ -157,6 +178,11 @@ export function useAdminData() {
     const savedToken = localStorage.getItem('miquipu_admin_token');
     const savedUser = localStorage.getItem('miquipu_admin_user');
     if (savedToken) {
+      if (isTokenExpired(savedToken)) {
+        handleLogout();
+        setNotice('Tu sesión anterior ha expirado. Por favor ingresa tus credenciales nuevamente.');
+        return;
+      }
       setToken(savedToken);
       if (savedUser) {
         try {
@@ -167,23 +193,56 @@ export function useAdminData() {
       }
       loadData(savedToken);
 
-      // Auto-sincronización periódica inteligente cada 30 segundos (solo si la pestaña está visible)
-      const intervalId = setInterval(() => {
-        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-          loadData(savedToken);
+      // Timer para cerrar sesión exactamente cuando el token cumpla su tiempo límite (24 horas)
+      let autoLogoutTimer: NodeJS.Timeout | null = null;
+      try {
+        const parts = savedToken.split('.');
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+          if (payload.exp) {
+            const msRemaining = payload.exp * 1000 - Date.now();
+            if (msRemaining > 0 && msRemaining < 2147483647) {
+              autoLogoutTimer = setTimeout(() => {
+                handleLogout();
+                setNotice('Tu sesión ha expirado por seguridad. Por favor ingresa tus credenciales nuevamente.');
+              }, msRemaining);
+            }
+          }
         }
-      }, 30000);
+      } catch {}
 
-      // Escuchar cuando el usuario vuelve a la pestaña del navegador para refrescar al instante
-      const handleVisibilityChange = () => {
+      // Verificación y sincronización activa
+      const checkAuthAndSync = () => {
+        const currentToken = localStorage.getItem('miquipu_admin_token') || savedToken;
+        if (isTokenExpired(currentToken)) {
+          handleLogout();
+          setNotice('Tu sesión ha expirado por seguridad. Por favor ingresa tus credenciales nuevamente.');
+          return;
+        }
         if (document.visibilityState === 'visible') {
           const now = Date.now();
           if (now - lastSyncTimeRef.current > 3000) {
-            loadData(savedToken);
+            loadData(currentToken);
           }
         }
       };
-      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      // Auto-sincronización periódica inteligente cada 15 segundos
+      const intervalId = setInterval(() => {
+        const currentToken = localStorage.getItem('miquipu_admin_token') || savedToken;
+        if (isTokenExpired(currentToken)) {
+          handleLogout();
+          setNotice('Tu sesión ha expirado por seguridad. Por favor ingresa tus credenciales nuevamente.');
+          return;
+        }
+        if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+          loadData(currentToken);
+        }
+      }, 15000);
+
+      // Escuchar cuando el usuario vuelve a la pestaña o ventana del navegador para verificar expiración y refrescar
+      document.addEventListener('visibilitychange', checkAuthAndSync);
+      window.addEventListener('focus', checkAuthAndSync);
 
       // Escuchar eventos en tiempo real entre pestañas (ej. nuevo registro en el formulario público)
       let bc: BroadcastChannel | null = null;
@@ -191,25 +250,36 @@ export function useAdminData() {
         bc = new BroadcastChannel('miquipu_events');
         bc.onmessage = (event) => {
           if (event.data?.type === 'NEW_CLIENT_REGISTERED' || event.data?.type === 'USER_UPDATED' || event.data?.type === 'DATA_CHANGED') {
-            loadData(savedToken);
+            checkAuthAndSync();
           }
         };
       }
 
       const handleStorage = (e: StorageEvent) => {
         if (e.key === 'miquipu_last_registration' || e.key === 'miquipu_sync_trigger') {
-          loadData(savedToken);
+          checkAuthAndSync();
         }
       };
       window.addEventListener('storage', handleStorage);
 
       return () => {
         clearInterval(intervalId);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        if (autoLogoutTimer) clearTimeout(autoLogoutTimer);
+        document.removeEventListener('visibilitychange', checkAuthAndSync);
+        window.removeEventListener('focus', checkAuthAndSync);
         window.removeEventListener('storage', handleStorage);
         if (bc) bc.close();
       };
     }
+  }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      handleLogout();
+      setNotice('Tu sesión ha expirado por seguridad. Por favor ingresa tus credenciales nuevamente.');
+    };
+    window.addEventListener('miquipu_auth_expired', handleAuthExpired);
+    return () => window.removeEventListener('miquipu_auth_expired', handleAuthExpired);
   }, []);
 
   useEffect(() => {
@@ -305,9 +375,9 @@ export function useAdminData() {
       }
     } catch (err: any) {
       consecutiveFailuresRef.current += 1;
-      if (err.response?.status === 401) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
         handleLogout();
-        setNotice('Tu sesión ha expirado. Por favor ingresa tus credenciales nuevamente.');
+        setNotice('Tu sesión ha expirado por seguridad. Por favor ingresa tus credenciales nuevamente.');
       } else {
         // ¿Cuándo SÍ debe avisar al usuario?
         // 1. Si presionó manualmente el botón "Sincronizar Datos".
@@ -945,7 +1015,7 @@ export function useAdminData() {
         observaciones: paymentDetails?.observaciones || observaciones || `Adelanto de pago realizado para el siguiente mes`,
       });
 
-      setNotice(`✅ Adelanto de pago registrado con éxito para ${client.razonSocial}.`);
+      setNotice(`Adelanto de pago registrado con éxito para ${client.razonSocial}.`);
       void Promise.all([loadClientsOnly(token), loadPaymentsOnly(token)]).catch(() => undefined);
     } catch (err: any) {
       setNotice(`Error al procesar adelanto de pago: ${err.response?.data?.message || err.message}`);

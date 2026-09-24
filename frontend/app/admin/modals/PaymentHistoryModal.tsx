@@ -35,9 +35,15 @@ export default function PaymentHistoryModal({
     fetch(`/api/admin/clientes/${historyClient.id}`, {
       headers: { Authorization: `Bearer ${token}` },
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (res.status === 401 || res.status === 403) {
+          window.dispatchEvent(new CustomEvent('miquipu_auth_expired'));
+          return null;
+        }
+        return res.json();
+      })
       .then((data) => {
-        if (data.success && data.data) {
+        if (data && data.success && data.data) {
           setDbHistory(data.data.pagosHistorial || []);
         }
       })
