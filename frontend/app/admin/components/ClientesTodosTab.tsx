@@ -68,14 +68,14 @@ export type Client = {
   fechaVencimientoMensual?: string;
   fechaCapacitacion?: string;
   vendedor?: string;
-  vendedorId?: EntityId;
+  vendedorId?: EntityId | null;
   linkSistema?: string;
   usuarioSistema?: string;
   claveSistema?: string;
   colorTag?: ColorTagType;
   colorCodigo?: string;
   avisado?: boolean;
-  entornoId?: EntityId;
+  entornoId?: EntityId | null;
   entornoNombre?: string;
   dniRepresentante?: string;
   correoRepresentante?: string;

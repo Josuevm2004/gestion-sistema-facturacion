@@ -1140,14 +1140,14 @@ export function useAdminData() {
       usabaSunatAnteriormente: formData.get('usabaSunatAnteriormente') as string,
       tipoIgv: formData.get('tipoIgv') as string,
       entornoId: parsedEntornoId,
-      vendedorId: canEditVendedor ? foundVendedorId : null,
+      vendedorId: canEditVendedor ? (foundVendedorId ?? null) : (editingClient.vendedorId ?? null),
       planId: planIdNum,
       planContratado: planKey,
       tipoSuscripcion: tipoSuscripcion,
     };
 
     const clientIdStr = String(editingClient.id);
-    const optimisticClient = {
+    const optimisticClient: Partial<Client> = {
       ...apiPayload,
       entornoNombre: matchedEntorno ? matchedEntorno.nombre : editingClient.entornoNombre,
       planContratado: planKey,
