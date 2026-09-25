@@ -384,7 +384,76 @@ body {
   background-color: #F2F4F7 !important;
 }
 
-/* Meta High-Density Table Style */
+/* Stitch Top Navbar Style */
+.stitch-navbar {
+  height: 56px !important;
+  min-height: 56px !important;
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #E4E6EB !important;
+  padding: 0 1.25rem !important;
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.stitch-nav-tab {
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.95rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #65676B;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  transition: all 0.15s ease;
+  position: relative;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.stitch-nav-tab:hover {
+  background-color: #F2F4F7;
+  color: #050505;
+}
+
+.stitch-nav-tab.active {
+  color: #0866FF !important;
+  border-bottom: 3px solid #0866FF !important;
+  background-color: transparent !important;
+  font-weight: 700 !important;
+}
+
+.stitch-circle-btn {
+  width: 40px !important;
+  height: 40px !important;
+  min-width: 40px !important;
+  border-radius: 50% !important;
+  background-color: #E4E6EB;
+  color: #050505;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+  padding: 0 !important;
+  position: relative;
+  text-decoration: none;
+}
+
+.stitch-circle-btn:hover {
+  background-color: #D8DADF;
+  color: #050505;
+  transform: scale(1.04);
+}
+
+/* Facebook High-Density Table Style */
 .table-meta {
   width: 100%;
   border-collapse: separate;
@@ -395,31 +464,82 @@ body {
 .table-meta th {
   background-color: #F9FAFB !important;
   color: #65676B !important;
-  font-size: 0.72rem !important;
+  font-size: 0.70rem !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
   border-bottom: 1px solid #E4E6EB !important;
   border-top: none !important;
-  padding: 0.85rem 1rem !important;
+  padding: 0.75rem 0.85rem !important;
   white-space: nowrap;
+  font-family: inherit;
 }
 
 .table-meta td {
-  padding: 0.75rem 1rem !important;
-  border-bottom: 1px solid #F0F2F5 !important;
+  padding: 0.65rem 0.85rem !important;
+  border-bottom: 1px solid #E4E6EB !important;
   border-top: none !important;
   vertical-align: middle;
-  font-size: 0.88rem;
+  font-size: 0.83rem !important;
   color: #050505;
 }
 
 .table-meta tbody tr {
-  transition: background-color 0.15s ease;
+  transition: background-color 0.12s ease;
+  min-height: 44px;
 }
 
 .table-meta tbody tr:hover {
   background-color: #F2F4F7 !important;
+}
+
+/* Facebook Micro-Badges */
+.badge-fb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.69rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+.badge-fb-success {
+  background-color: #E8F8F0;
+  color: #059669;
+  border: 1px solid #A7F3D0;
+}
+.badge-fb-warning {
+  background-color: #FEF3C7;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+.badge-fb-danger {
+  background-color: #FEE2E2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+.badge-fb-secondary {
+  background-color: #F0F2F5;
+  color: #4B5563;
+  border: 1px solid #E4E6EB;
+}
+.badge-fb-primary {
+  background-color: #E7F3FF;
+  color: #0866FF;
+  border: 1px solid #D0E2FF;
+}
+
+/* Facebook Table Container Card */
+.table-card-meta {
+  background: #FFFFFF;
+  border: 1px solid #E4E6EB;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
 }
 
 /* Meta Action Buttons & Utility Chips */

@@ -49,8 +49,9 @@ export default function PorCobrarTab({
         </span>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0 table-meta">
+      <div className="table-card-meta mb-3">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
               <th style={{ width: '45px' }}>#</th>
@@ -136,10 +137,7 @@ export default function PorCobrarTab({
                       S/ {Number(c.montoSiguienteCobro ?? c.montoMensual).toFixed(2)}
                     </td>
                     <td>
-                      <span
-                        className="badge rounded-pill px-2.5 py-1 fw-bold"
-                        style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}
-                      >
+                      <span className="badge-fb badge-fb-warning">
                         POR COBRAR
                       </span>
                     </td>
@@ -176,6 +174,7 @@ export default function PorCobrarTab({
             )}
           </tbody>
         </table>
+      </div>
       </div>
       <PaginationControls
         currentPage={currentPage}

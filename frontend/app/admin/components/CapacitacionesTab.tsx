@@ -94,8 +94,9 @@ export default function CapacitacionesTab({
         </span>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0 table-meta">
+      <div className="table-card-meta mb-3">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
               <th style={{ width: '45px' }}>#</th>
@@ -185,18 +186,12 @@ export default function CapacitacionesTab({
                     </td>
                     <td>
                       {isCapacitado ? (
-                        <span
-                          className="badge rounded-pill px-2.5 py-1 fw-bold"
-                          style={{ backgroundColor: '#DEF7EC', color: '#059669' }}
-                        >
+                        <span className="badge-fb badge-fb-success">
                           Capacitado
                         </span>
                       ) : (
-                        <span
-                          className="badge rounded-pill px-2.5 py-1 fw-bold"
-                          style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}
-                        >
-                          Pendiente de Capacitación
+                        <span className="badge-fb badge-fb-warning">
+                          Pendiente
                         </span>
                       )}
                     </td>
@@ -238,6 +233,7 @@ export default function CapacitacionesTab({
             )}
           </tbody>
         </table>
+      </div>
       </div>
       <PaginationControls
         currentPage={currentPage}

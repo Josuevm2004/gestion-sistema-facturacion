@@ -141,8 +141,9 @@ export default function VencidosTab({
         </div>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0 table-meta">
+      <div className="table-card-meta mb-3">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
               <th style={{ width: '45px' }}>#</th>
@@ -231,14 +232,11 @@ export default function VencidosTab({
                     </td>
                     <td>
                       {isBloqueado ? (
-                        <span className="badge bg-secondary text-white rounded-pill px-2.5 py-1 d-inline-flex align-items-center gap-1 fw-bold">
-                          <ShieldAlert size={12} /> Bloqueado
+                        <span className="badge-fb badge-fb-secondary">
+                          <ShieldAlert size={11} /> Bloqueado
                         </span>
                       ) : (
-                        <span
-                          className="badge rounded-pill px-2.5 py-1 fw-bold"
-                          style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}
-                        >
+                        <span className="badge-fb badge-fb-danger">
                           Vencido
                         </span>
                       )}
@@ -309,6 +307,7 @@ export default function VencidosTab({
             )}
           </tbody>
         </table>
+      </div>
       </div>
       <PaginationControls
         currentPage={currentPage}

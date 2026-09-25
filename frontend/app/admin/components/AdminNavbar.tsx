@@ -19,7 +19,6 @@ import {
   WalletCards,
   LockKeyhole,
   CheckCheck,
-  Search,
 } from 'lucide-react';
 
 interface AdminNavbarProps {
@@ -79,29 +78,19 @@ export default function AdminNavbar({
   ];
 
   return (
-    <nav className="navbar navbar-expand-lg sticky-top bg-white border-bottom admin-navbar shadow-sm py-1">
-      <div className="container-fluid admin-navbar-inner px-3 px-md-4">
-        {/* Brand & Search Pill (Stitch / Meta Style) */}
-        <div className="admin-brand d-flex align-items-center gap-2 gap-sm-3">
-          <Image src="/logo.jpeg" alt="Miquipu Logo" width={38} height={38} className="rounded-circle shadow-sm" />
-          <span className="navbar-brand admin-brand-name text-dark fw-bold mb-0 me-0 fs-5 d-none d-sm-inline" style={{ letterSpacing: '-0.3px' }}>
+    <nav className="stitch-navbar navbar navbar-expand-lg sticky-top py-0">
+      <div className="container-fluid h-100 d-flex align-items-center justify-content-between px-2 px-md-3">
+        {/* Brand (Stitch Style: Logo & Title, Search Removed) */}
+        <div className="d-flex align-items-center gap-2 gap-sm-2.5 flex-shrink-0 cursor-pointer" onClick={() => setActiveTab('resumen')}>
+          <Image src="/logo.jpeg" alt="Miquipu Logo" width={36} height={36} className="rounded-circle shadow-xs" />
+          <span className="navbar-brand text-dark fw-bold mb-0 me-0 fs-6 d-none d-sm-inline" style={{ letterSpacing: '-0.3px', fontWeight: 800 }}>
             Miquipu Admin
           </span>
-          <div className="d-none d-md-flex align-items-center position-relative ms-2">
-            <Search size={15} className="position-absolute start-0 ms-3 text-muted pointer-events-none" />
-            <input
-              type="text"
-              className="form-control rounded-pill ps-5 pe-3 py-1 border-0 shadow-none text-dark"
-              style={{ backgroundColor: '#F0F2F5', fontSize: '0.84rem', width: '220px', minHeight: '36px' }}
-              placeholder="Buscar en Miquipu..."
-              onChange={(e) => setCalendarSearch(e.target.value)}
-            />
-          </div>
         </div>
 
         {/* Mobile Toggler */}
         <button
-          className="navbar-toggler admin-navbar-toggler border-0 text-dark p-2 rounded-circle"
+          className="navbar-toggler border-0 text-dark p-2 rounded-circle d-lg-none"
           style={{ backgroundColor: '#F0F2F5' }}
           type="button"
           data-bs-toggle="offcanvas"
@@ -113,48 +102,44 @@ export default function AdminNavbar({
         </button>
 
         {/* Navigation Content */}
-        <div className="offcanvas offcanvas-start offcanvas-lg bg-white text-dark admin-offcanvas ms-lg-4" tabIndex={-1} id="adminNavbarOffcanvas">
-          <div className="offcanvas-header border-bottom admin-offcanvas-header">
+        <div className="offcanvas offcanvas-start offcanvas-lg bg-white text-dark h-100 flex-grow-1" tabIndex={-1} id="adminNavbarOffcanvas">
+          <div className="offcanvas-header border-bottom d-lg-none">
             <div className="d-flex align-items-center gap-2">
-              <Image src="/logo.jpeg" alt="Miquipu Logo" width={32} height={32} className="rounded-3" />
+              <Image src="/logo.jpeg" alt="Miquipu Logo" width={32} height={32} className="rounded-circle" />
               <h5 className="offcanvas-title text-dark fw-bold mb-0">Menu Miquipu</h5>
             </div>
             <button type="button" className="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
           </div>
 
-          <div className="offcanvas-body admin-offcanvas-body align-items-center justify-content-between p-lg-0">
-            {/* Center Navigation Links (Meta Style) */}
-            <ul className="navbar-nav admin-nav-links gap-1 me-auto mb-2 mb-lg-0">
+          <div className="offcanvas-body h-100 d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between p-3 p-lg-0">
+            {/* Center Navigation Links (Stitch Style) */}
+            <ul className="navbar-nav d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0">
               {navItems.map((item) => {
                 const isActive = activeTab === item.key;
                 return (
-                  <li className="nav-item" key={item.key}>
+                  <li className="nav-item h-100 d-flex align-items-center" key={item.key}>
                     <button
-                      className={`nav-link admin-nav-link btn border-0 text-start d-flex align-items-center gap-2 px-3 py-2 fw-semibold ${
-                        isActive
-                          ? 'active text-primary fw-bold'
-                          : 'text-secondary'
-                      }`}
+                      className={`stitch-nav-tab ${isActive ? 'active' : ''}`}
                       onClick={() => setActiveTab(item.key)}
                       data-bs-dismiss="offcanvas"
                       aria-current={isActive ? 'page' : undefined}
                     >
-                      <span className={`admin-nav-icon d-inline-flex align-items-center justify-content-center ${isActive ? 'text-primary' : 'text-muted'}`}>
+                      <span className={`d-inline-flex align-items-center justify-content-center ${isActive ? 'text-primary' : 'text-muted'}`}>
                         {item.icon}
                       </span>
                       <span>{item.label}</span>
                       {!!item.count && (
                         <span
-                          className={`badge rounded-pill ${
+                          className={`badge rounded-pill fw-bold ${
                             item.key === 'cobrar'
                               ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
                               : item.key === 'vencidos'
                               ? 'bg-danger-subtle text-danger-emphasis border border-danger-subtle'
                               : item.key === 'bloqueados'
                               ? 'bg-secondary-subtle text-secondary border'
-                              : 'bg-primary-subtle text-primary border border-primary-subtle'
+                              : 'bg-primary text-white'
                           }`}
-                          style={{ fontSize: '0.7rem' }}
+                          style={{ fontSize: '0.68rem', padding: '0.2em 0.5em' }}
                         >
                           {item.count}
                         </span>
@@ -165,18 +150,14 @@ export default function AdminNavbar({
               })}
 
               {currentUser?.rol === 'ADMIN' && (
-                <li className="nav-item">
+                <li className="nav-item h-100 d-flex align-items-center">
                   <button
-                    className={`nav-link admin-nav-link btn border-0 text-start d-flex align-items-center gap-2 px-3 py-2 fw-semibold ${
-                      activeTab === 'usuarios'
-                        ? 'active text-primary fw-bold'
-                        : 'text-secondary'
-                    }`}
+                    className={`stitch-nav-tab ${activeTab === 'usuarios' ? 'active' : ''}`}
                     onClick={() => setActiveTab('usuarios')}
                     data-bs-dismiss="offcanvas"
                     aria-current={activeTab === 'usuarios' ? 'page' : undefined}
                   >
-                    <span className={`admin-nav-icon d-inline-flex align-items-center justify-content-center ${activeTab === 'usuarios' ? 'text-primary' : 'text-muted'}`}>
+                    <span className={`d-inline-flex align-items-center justify-content-center ${activeTab === 'usuarios' ? 'text-primary' : 'text-muted'}`}>
                       <Users size={15} />
                     </span>
                     <span>Vendedores / Usuarios</span>
@@ -185,13 +166,13 @@ export default function AdminNavbar({
               )}
             </ul>
 
-            {/* Right Side Utility Actions (Meta Circular Buttons) */}
-            <div className="admin-navbar-actions d-flex align-items-center gap-2 mt-3 mt-lg-0 ms-lg-2 position-relative">
+            {/* Right Side Utility Actions (Stitch Circular Buttons) */}
+            <div className="d-flex align-items-center gap-2 mt-auto mt-lg-0 ms-lg-2 position-relative">
               {/* Notifications Button */}
               <div className="position-relative admin-alert-wrap">
                 <button
                   onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
-                  className="btn btn-circle-meta position-relative shadow-sm"
+                  className="stitch-circle-btn shadow-xs"
                   title="Notificaciones y Recordatorios"
                   aria-label="Notificaciones"
                 >
@@ -295,20 +276,29 @@ export default function AdminNavbar({
               </div>
 
               {/* Profile Avatar / Menu Button (Meta Photo 3 Style) */}
+              {/* Profile Avatar / Menu Button (Stitch Style) */}
               <div className="position-relative admin-profile-wrap">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="btn btn-light rounded-pill d-flex align-items-center gap-2 px-2 py-1.5 border shadow-sm"
-                  style={{ backgroundColor: '#F0F2F5' }}
+                  className="btn p-0 border-0 bg-transparent d-flex align-items-center gap-2"
                   title="Perfil de Usuario"
                 >
-                  <span className="p-1 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style={{ width: '28px', height: '28px' }}>
-                    <User size={15} />
+                  <div className="position-relative">
+                    <div
+                      className="stitch-circle-btn shadow-xs fw-bold text-white"
+                      style={{ backgroundColor: '#0F172A', fontSize: '0.84rem' }}
+                    >
+                      {((currentUser?.nombre || currentUser?.username || 'AD') as string).slice(0, 2).toUpperCase()}
+                    </div>
+                    <span
+                      className="position-absolute bottom-0 end-0 rounded-circle bg-success border border-white border-2"
+                      style={{ width: '11px', height: '11px' }}
+                    ></span>
+                  </div>
+                  <span className="fw-bold text-dark text-truncate d-none d-sm-inline" style={{ maxWidth: '120px', fontSize: '0.84rem' }}>
+                    {currentUser?.nombre || currentUser?.username || 'Admin'}
                   </span>
-                  <span className="fw-bold text-dark text-truncate d-none d-sm-inline" style={{ maxWidth: '130px', fontSize: '0.85rem' }}>
-                    {currentUser?.nombre || currentUser?.username || 'Mi Perfil'}
-                  </span>
-                  <span className="small text-muted ms-0.5">▾</span>
+                  <span className="small text-muted ms-0.5 d-none d-sm-inline">▾</span>
                 </button>
 
                 {/* Profile Flyout (Photo 3 Style) */}

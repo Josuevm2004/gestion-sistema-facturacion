@@ -598,9 +598,10 @@ export default function ClientesTodosTab({
         </div>
       </div>
 
-      {/* Tabla de Clientes con Columnas Ajustables (Meta High-Density Style) */}
-      <div className="table-responsive" style={{ minHeight: '380px' }}>
-        <table className="table table-meta align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+      {/* Tabla de Clientes con Columnas Ajustables (Facebook Meta Style) */}
+      <div className="table-card-meta mb-4">
+        <div className="table-responsive" style={{ minHeight: '380px' }}>
+          <table className="table table-meta align-middle mb-0" style={{ fontSize: '0.85rem' }}>
           <thead>
             <tr>
               {visibleColumns.index && <th style={{ width: '45px' }} className="py-2.5">#</th>}
@@ -816,14 +817,14 @@ export default function ClientesTodosTab({
                     {visibleColumns.estado && (
                       <td className="py-2.5">
                         <span
-                          className={`btn-meta-action ${
+                          className={`badge-fb ${
                             estadoVisual === 'HABILITADO'
-                              ? 'btn-meta-action-success'
+                              ? 'badge-fb-success'
                               : estadoVisual === 'POR_COBRAR'
-                              ? 'btn-meta-action-warning'
+                              ? 'badge-fb-warning'
                               : estadoVisual === 'VENCIDO'
-                              ? 'btn-meta-action-danger'
-                              : 'btn-meta-action-secondary'
+                              ? 'badge-fb-danger'
+                              : 'badge-fb-secondary'
                           }`}
                         >
                           {estadoVisual || 'SIN ESTADO'}
@@ -1035,6 +1036,7 @@ export default function ClientesTodosTab({
             )}
           </tbody>
         </table>
+      </div>
       </div>
 
       <PaginationControls

@@ -1332,8 +1332,9 @@ export default function ReportesExcelTab({
             </small>
           </div>
 
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
+          <div className="table-card-meta mb-3">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -1370,12 +1371,9 @@ export default function ReportesExcelTab({
                       <td className="text-muted text-capitalize fw-semibold">{t.metodoPago.toLowerCase()}</td>
                       <td className="text-end">
                         <span
-                          className="badge rounded-pill px-2.5 py-1 fw-bold"
-                          style={
-                            t.estado === 'PAGADO'
-                              ? { backgroundColor: '#DEF7EC', color: '#059669' }
-                              : { backgroundColor: '#FEF3C7', color: '#B45309' }
-                          }
+                          className={`badge-fb ${
+                            t.estado === 'PAGADO' ? 'badge-fb-success' : 'badge-fb-warning'
+                          }`}
                         >
                           {t.estado === 'PAGADO' ? 'Pagado' : 'Pendiente'}
                         </span>
@@ -1385,6 +1383,7 @@ export default function ReportesExcelTab({
                 )}
               </tbody>
             </table>
+          </div>
           </div>
 
           {/* Paginación */}
@@ -1559,56 +1558,55 @@ export default function ReportesExcelTab({
                   </small>
                 </div>
 
-                <div className="table-responsive">
-                  <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
-                    <thead>
-                      <tr>
-                        <th>Fecha</th>
-                        <th>Cliente</th>
-                        <th>Plan</th>
-                        <th>Monto venta</th>
-                        <th>% Comisión</th>
-                        <th>Comisión</th>
-                        <th className="text-end">Estado</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {displayedComisiones.length === 0 ? (
+                <div className="table-card-meta mb-3">
+                  <div className="table-responsive">
+                    <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
+                      <thead>
                         <tr>
-                          <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
-                            No se encontraron afiliaciones en el periodo filtrado.
-                          </td>
+                          <th>Fecha</th>
+                          <th>Cliente</th>
+                          <th>Plan</th>
+                          <th>Monto venta</th>
+                          <th>% Comisión</th>
+                          <th>Comisión</th>
+                          <th className="text-end">Estado</th>
                         </tr>
-                      ) : (
-                        displayedComisiones.map((t) => (
-                          <tr key={t.id}>
-                            <td className="text-muted fw-semibold">
-                              {t.fechaObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                            </td>
-                            <td className="fw-bold text-dark">{t.cliente}</td>
-                            <td>
-                              <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{t.plan}</span>
-                            </td>
-                            <td className="fw-bold text-dark">S/ {t.monto.toFixed(2)}</td>
-                            <td className="text-muted fw-semibold">Fija / ALTA</td>
-                            <td className="fw-bold" style={{ color: '#0866FF' }}>S/ {TASA_COMISION_ALTA.toFixed(2)}</td>
-                            <td className="text-end">
-                              <span
-                                className="badge rounded-pill px-2.5 py-1 fw-bold"
-                                style={
-                                  t.estado === 'PAGADO'
-                                    ? { backgroundColor: '#DEF7EC', color: '#059669' }
-                                    : { backgroundColor: '#E7F3FF', color: '#0866FF' }
-                                }
-                              >
-                                {t.estado === 'PAGADO' ? 'Pagado' : 'Generada'}
-                              </span>
+                      </thead>
+                      <tbody>
+                        {displayedComisiones.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
+                              No se encontraron afiliaciones en el periodo filtrado.
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          displayedComisiones.map((t) => (
+                            <tr key={t.id}>
+                              <td className="text-muted fw-semibold">
+                                {t.fechaObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              </td>
+                              <td className="fw-bold text-dark">{t.cliente}</td>
+                              <td>
+                                <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{t.plan}</span>
+                              </td>
+                              <td className="fw-bold text-dark">S/ {t.monto.toFixed(2)}</td>
+                              <td className="text-muted fw-semibold">Fija / ALTA</td>
+                              <td className="fw-bold" style={{ color: '#0866FF' }}>S/ {TASA_COMISION_ALTA.toFixed(2)}</td>
+                              <td className="text-end">
+                                <span
+                                  className={`badge-fb ${
+                                    t.estado === 'PAGADO' ? 'badge-fb-success' : 'badge-fb-primary'
+                                  }`}
+                                >
+                                  {t.estado === 'PAGADO' ? 'Pagado' : 'Generada'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
 

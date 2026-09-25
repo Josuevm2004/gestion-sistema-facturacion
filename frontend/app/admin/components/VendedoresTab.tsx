@@ -57,8 +57,9 @@ export default function VendedoresTab({
         </button>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0 table-meta">
+      <div className="table-card-meta mb-3">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
               <th style={{ width: '45px' }}>#</th>
@@ -114,14 +115,7 @@ export default function VendedoresTab({
                       <span className="text-dark">{u.email || '—'}</span>
                     </td>
                     <td>
-                      <span
-                        className="badge rounded-pill px-2.5 py-1 fw-bold"
-                        style={
-                          u.rol === 'ADMIN'
-                            ? { backgroundColor: '#FEE2E2', color: '#DC2626' }
-                            : { backgroundColor: '#E7F3FF', color: '#0866FF' }
-                        }
-                      >
+                      <span className={`badge-fb ${u.rol === 'ADMIN' ? 'badge-fb-danger' : 'badge-fb-primary'}`}>
                         {u.rol}
                       </span>
                     </td>
@@ -153,6 +147,7 @@ export default function VendedoresTab({
             )}
           </tbody>
         </table>
+      </div>
       </div>
     </div>
   );

@@ -178,8 +178,9 @@ export default function CentroControlTab({
         </div>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0 table-meta">
+      <div className="table-card-meta mb-3">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
               <th style={{ width: '45px' }}>#</th>
@@ -304,12 +305,14 @@ export default function CentroControlTab({
                     </td>
                     <td className="py-2.5">
                       <span
-                        className={`badge rounded-pill px-2.5 py-1 fw-bold ${
+                        className={`badge-fb ${
                           estadoVisual === 'HABILITADO'
-                            ? 'badge-habilitado'
+                            ? 'badge-fb-success'
                             : estadoVisual === 'POR_COBRAR'
-                            ? 'badge-pendiente'
-                            : 'badge-vencido'
+                            ? 'badge-fb-warning'
+                            : estadoVisual === 'BLOQUEADO'
+                            ? 'badge-fb-secondary'
+                            : 'badge-fb-danger'
                         }`}
                       >
                         {estadoVisual}
@@ -384,6 +387,7 @@ export default function CentroControlTab({
               })}
           </tbody>
         </table>
+      </div>
       </div>
       <PaginationControls
         currentPage={currentPage}

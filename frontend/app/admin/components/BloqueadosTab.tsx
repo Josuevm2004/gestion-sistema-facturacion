@@ -128,8 +128,9 @@ export default function BloqueadosTab({
         </div>
       </div>
 
-      <div className="table-responsive">
-        <table className="table table-hover align-middle mb-0 table-meta">
+      <div className="table-card-meta mb-3">
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
               <th style={{ width: '45px' }}>#</th>
@@ -217,10 +218,7 @@ export default function BloqueadosTab({
                       </div>
                     </td>
                     <td>
-                      <span
-                        className="badge rounded-pill px-2.5 py-1 fw-bold"
-                        style={{ backgroundColor: '#F0F2F5', color: '#4B5563' }}
-                      >
+                      <span className="badge-fb badge-fb-secondary">
                         BLOQUEADO
                       </span>
                     </td>
@@ -255,6 +253,7 @@ export default function BloqueadosTab({
             )}
           </tbody>
         </table>
+      </div>
       </div>
       <PaginationControls
         currentPage={currentPage}
