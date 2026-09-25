@@ -171,6 +171,7 @@ export default function VencidosTab({
                   const isBloqueado = c.estadoCuenta === 'BLOQUEADO';
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;
+                  const isDropup = visibleClients.length >= 2 && idx >= visibleClients.length - 2;
 
                   return (
                     <tr key={c.id} style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}>
@@ -258,7 +259,7 @@ export default function VencidosTab({
                                 style={{ zIndex: 100050, background: 'transparent' }}
                                 onClick={() => setOpenActionId(null)}
                               />
-                              <div className="table-action-menu shadow-lg">
+                              <div className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}>
                                 <button
                                   type="button"
                                   className="table-action-item item-primary"

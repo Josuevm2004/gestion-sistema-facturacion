@@ -638,6 +638,7 @@ export default function ClientesTodosTab({
                 const isExpired = diffDays <= 0;
                 const clientInitial = c.razonSocial ? c.razonSocial.charAt(0).toUpperCase() : 'C';
                 const isActionOpen = openActionClientId === c.id;
+                const isDropup = visibleClients.length >= 3 && idx >= visibleClients.length - 3;
 
                 return (
                   <tr
@@ -894,7 +895,7 @@ export default function ClientesTodosTab({
                                 onClick={() => setOpenActionClientId(null)}
                               />
                               <div
-                                className="table-action-menu shadow-lg"
+                                className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}
                                 style={{ minWidth: '220px' }}
                               >
                                 {/* 1. Editar Datos */}

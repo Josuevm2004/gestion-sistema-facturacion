@@ -213,6 +213,7 @@ export default function CentroControlTab({
                   const estadoVisual = isExpired && c.estadoCuenta === 'HABILITADO' ? 'VENCIDO' : c.estadoCuenta;
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;
+                  const isDropup = visibleClients.length >= 3 && idx >= visibleClients.length - 3;
 
                   return (
                     <tr
@@ -353,7 +354,7 @@ export default function CentroControlTab({
                                 style={{ zIndex: 100050, background: 'transparent' }}
                                 onClick={() => setOpenActionId(null)}
                               />
-                              <div className="table-action-menu shadow-lg">
+                              <div className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}>
                                 {/* 1. Toggle Avisado */}
                                 <button
                                   type="button"

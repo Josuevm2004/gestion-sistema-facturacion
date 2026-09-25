@@ -787,6 +787,8 @@ body {
   right: 0;
   top: calc(100% + 4px);
   min-width: 210px;
+  max-height: min(420px, calc(100vh - 120px));
+  overflow-y: auto;
   background: #FFFFFF;
   border-radius: 12px;
   border: 1px solid #E4E6EB;
@@ -796,6 +798,24 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* En las últimas filas de cualquier tabla, el menú se despliega hacia ARRIBA (dropup) para no cortarse con el borde de la tabla o pantalla */
+tr:last-child .table-action-menu,
+tr:nth-last-child(2) .table-action-menu,
+tr:nth-last-child(3) .table-action-menu,
+.table-action-menu-up {
+  top: auto !important;
+  bottom: calc(100% + 6px) !important;
+  box-shadow: 0 -12px 28px rgba(0, 0, 0, 0.16), 0 -2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Excepción: Si es la primera fila o fila única, siempre abrir hacia abajo para respetar el encabezado */
+tbody tr:first-child .table-action-menu,
+tbody tr:only-child .table-action-menu {
+  top: calc(100% + 4px) !important;
+  bottom: auto !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
 }
 
 .table-action-item {
@@ -1398,7 +1418,7 @@ body {
   width: 100% !important;
   max-width: 100% !important;
   overflow-x: auto !important;
-  overflow-y: hidden !important;
+  min-height: 320px;
   -webkit-overflow-scrolling: touch;
   border: 1px solid #E2E8F0;
   background: #FFFFFF;
