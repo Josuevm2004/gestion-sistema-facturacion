@@ -51,7 +51,7 @@ export default function AdminPage() {
         />
       )}
 
-      <main className="admin-main container-fluid px-3 px-md-4 my-4">
+      <main className="admin-main container-fluid px-2 px-md-3 my-3">
         {adminData.notice && (
           <div className="alert admin-notice alert-info alert-dismissible fade show shadow-sm rounded-4 mb-4 border-0" role="alert">
             <span>{adminData.notice}</span>

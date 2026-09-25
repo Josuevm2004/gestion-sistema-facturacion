@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw, Phone } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw, ChevronDown } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 
@@ -20,6 +20,7 @@ export default function BloqueadosTab({
 }: BloqueadosTabProps) {
   const [search, setSearch] = React.useState('');
   const [suscripcionFilter, setSuscripcionFilter] = React.useState('');
+  const [openActionId, setOpenActionId] = React.useState<string | number | null>(null);
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
 
@@ -71,14 +72,15 @@ export default function BloqueadosTab({
 
   return (
     <div className="w-100">
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs">
+      {/* Encabezado con Icono Moderno y Badge */}
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs flex-wrap gap-2">
         <div className="d-flex align-items-center gap-3">
-          <div className="d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#F0F2F5', color: '#4B5563' }}>
-            <ShieldCheck size={20} />
+          <div className="section-header-icon section-header-icon-dark">
+            <ShieldCheck size={22} strokeWidth={2.2} />
           </div>
           <div>
             <h2 className="h6 fw-bold text-dark mb-0">Clientes Bloqueados / Suspendidos</h2>
-            <small className="text-muted">Clientes desafiliados o con acceso restringido que pueden rehabilitarse</small>
+            <small className="text-muted fw-semibold">Clientes desafiliados o con acceso restringido que pueden rehabilitarse</small>
           </div>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -126,133 +128,145 @@ export default function BloqueadosTab({
         </div>
       </div>
 
+      {/* Tabla Expandida al 100% con Dropdown que se sobrepone a todo */}
       <div className="table-card-meta mb-3">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
-          <thead>
-            <tr>
-              <th style={{ width: '45px' }}>#</th>
-              <th>RUC / Empresa</th>
-              <th>Teléfono / WhatsApp</th>
-              <th>Email</th>
-              <th>Plan</th>
-              <th>Estado</th>
-              <th>Acciones Comerciales</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredClients.length === 0 ? (
+            <thead>
               <tr>
-                <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
-                  {hasActiveFilters
-                    ? 'No se encontraron clientes bloqueados con los filtros aplicados.'
-                    : 'No hay clientes en estado bloqueado.'}
-                </td>
+                <th style={{ width: '45px' }}>#</th>
+                <th>RUC / Empresa</th>
+                <th>Contacto</th>
+                <th>Email</th>
+                <th>Plan</th>
+                <th>Estado</th>
+                <th className="text-center" style={{ width: '130px' }}>Acciones</th>
               </tr>
-            ) : (
-              visibleClients.map((c, idx) => {
-                const phone = c.telefono || c.telefonoPersonal;
-                const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
-                const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
+            </thead>
+            <tbody>
+              {filteredClients.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
+                    {hasActiveFilters
+                      ? 'No se encontraron clientes bloqueados con los filtros aplicados.'
+                      : 'No hay clientes en estado bloqueado.'}
+                  </td>
+                </tr>
+              ) : (
+                visibleClients.map((c, idx) => {
+                  const phone = c.telefono || c.telefonoPersonal;
+                  const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
+                  const isActionOpen = openActionId === c.id;
 
-                return (
-                  <tr key={c.id}>
-                    <td className="text-muted fw-semibold py-2.5">
-                      {(currentPage - 1) * pageSize + idx + 1}
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2.5">
-                        <div
-                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
-                          style={{
-                            width: '34px',
-                            height: '34px',
-                            backgroundColor: '#F0F2F5',
-                            color: '#4B5563',
-                            fontSize: '0.82rem',
-                            border: '1px solid #E4E6EB',
-                          }}
-                        >
-                          {initial}
-                        </div>
-                        <div>
-                          <strong className="text-dark d-block fw-bold" style={{ fontSize: '0.88rem' }}>
-                            {c.razonSocial}
-                          </strong>
-                          <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="fw-bold text-dark">{phone || '—'}</span>
-                        {cleanPhone && (
-                          <a
-                            href={`https://wa.me/51${cleanPhone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn-meta-icon btn-meta-icon-whatsapp"
-                            title="Abrir chat de WhatsApp"
+                  return (
+                    <tr key={c.id} style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}>
+                      <td className="text-muted fw-semibold py-2.5">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center gap-2.5">
+                          <div
+                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold shadow-xs"
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              backgroundColor: '#F0F2F5',
+                              color: '#4B5563',
+                              fontSize: '0.78rem',
+                              border: '1px solid #E4E6EB',
+                            }}
                           >
-                            <Phone size={13} />
-                          </a>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <span className="text-dark">{c.email || '—'}</span>
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-1.5">
-                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">
-                          {c.planContratado || 'Plan'}
+                            {initial}
+                          </div>
+                          <div>
+                            <span className="cell-title d-block">{c.razonSocial}</span>
+                            <span className="cell-subtext font-monospace">RUC: {c.ruc}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="cell-title">{phone || '—'}</span>
+                      </td>
+                      <td>
+                        <span className="cell-title">{c.email || '—'}</span>
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <span className="badge-tag badge-plan-tag">
+                            {c.planContratado || 'Plan'}
+                          </span>
+                          <span
+                            className={`badge-tag ${c.tipoSuscripcion === 'ANUAL' ? 'badge-sub-anual' : 'badge-sub-mensual'}`}
+                          >
+                            {c.tipoSuscripcion || 'MENSUAL'}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="badge-fb badge-fb-secondary">
+                          <span className="badge-dot badge-dot-neutral" />
+                          BLOQUEADO
                         </span>
-                        <span
-                          className="badge rounded-pill px-2.5 py-1 fw-bold"
-                          style={{ backgroundColor: '#F0F2F5', color: '#65676B' }}
-                        >
-                          {c.tipoSuscripcion || 'MENSUAL'}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="badge-fb badge-fb-secondary">
-                        BLOQUEADO
-                      </span>
-                    </td>
-                    <td>
-                      <div className="d-flex gap-2 flex-wrap align-items-center">
-                        <button
-                          onClick={() => {
-                            const ok = window.confirm(
-                              `¿Habilitar acceso para ${c.razonSocial}? Pasará a VENCIDO para gestionar renovación o cambio de plan.`
-                            );
-                            if (ok) handleDevolverAcceso(c);
-                          }}
-                          className="btn-meta-action btn-meta-action-success"
-                          title="Devolver acceso al cliente y pasarlo a gestión de renovación"
-                        >
-                          <CheckCircle size={14} />
-                          <span>Habilitar Accesos</span>
-                        </button>
-                        <button
-                          onClick={() => setDeletingClient(c)}
-                          className="btn-meta-action btn-meta-action-danger"
-                          title="Eliminar registro permanentemente"
-                        >
-                          <Trash2 size={14} />
-                          <span>Eliminar</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      </td>
+                      <td className="text-center position-relative">
+                        <div className="table-action-floating-container">
+                          <button
+                            type="button"
+                            onClick={() => setOpenActionId(isActionOpen ? null : c.id)}
+                            className="btn-meta-action btn-meta-action-secondary shadow-xs"
+                            title="Opciones de desbloqueo o eliminación"
+                          >
+                            <span>Acciones</span>
+                            <ChevronDown size={12} />
+                          </button>
+
+                          {isActionOpen && (
+                            <>
+                              <div
+                                className="position-fixed top-0 start-0 w-100 h-100"
+                                style={{ zIndex: 100050, background: 'transparent' }}
+                                onClick={() => setOpenActionId(null)}
+                              />
+                              <div className="table-action-menu shadow-lg">
+                                <button
+                                  type="button"
+                                  className="table-action-item item-success"
+                                  onClick={() => {
+                                    setOpenActionId(null);
+                                    const ok = window.confirm(
+                                      `¿Habilitar acceso para ${c.razonSocial}? Pasará a VENCIDO para gestionar renovación o cambio de plan.`
+                                    );
+                                    if (ok) handleDevolverAcceso(c);
+                                  }}
+                                >
+                                  <CheckCircle size={15} />
+                                  <span>Habilitar Accesos</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="table-action-item item-danger"
+                                  onClick={() => {
+                                    setOpenActionId(null);
+                                    setDeletingClient(c);
+                                  }}
+                                >
+                                  <Trash2 size={15} />
+                                  <span>Eliminar Registro</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-      </div>
+
       <PaginationControls
         currentPage={currentPage}
         totalItems={filteredClients.length}

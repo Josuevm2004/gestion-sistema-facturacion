@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { GraduationCap, CheckCircle, Calendar, Phone } from 'lucide-react';
+import { GraduationCap, CheckCircle, Calendar, ChevronDown } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import { parseLocalDate, formatDatePeru as libFormatDatePeru } from '@/lib/billing';
@@ -21,8 +21,8 @@ export default function CapacitacionesTab({
   setTrainingClient,
   setTrainingDateInput,
 }: CapacitacionesTabProps) {
-  // Mostrar empresas que requieren capacitación o que ya han sido capacitadas
-  // ORDENADO: Primero los que faltan capacitar, y después los que ya están capacitados
+  const [openActionId, setOpenActionId] = React.useState<string | number | null>(null);
+
   const targetList: Client[] = React.useMemo(() => {
     const list = clients.filter(
       (c) =>
@@ -79,162 +79,165 @@ export default function CapacitacionesTab({
 
   return (
     <div className="w-100">
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs">
+      {/* Encabezado con Icono Moderno y Badge */}
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs flex-wrap gap-2">
         <div className="d-flex align-items-center gap-3">
-          <div className="d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
-            <GraduationCap size={20} />
+          <div className="section-header-icon section-header-icon-indigo">
+            <GraduationCap size={22} strokeWidth={2.2} />
           </div>
           <div>
             <h2 className="h6 fw-bold text-dark mb-0">Gestión de Capacitaciones</h2>
-            <small className="text-muted">Monitoreo y asignación de fechas de capacitación real</small>
+            <small className="text-muted fw-semibold">Monitoreo y asignación de fechas de capacitación real</small>
           </div>
         </div>
-        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}>
           {targetList.length} Registros
         </span>
       </div>
 
+      {/* Tabla Expandida al 100% con Dropdown de Acciones */}
       <div className="table-card-meta mb-3">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
-          <thead>
-            <tr>
-              <th style={{ width: '45px' }}>#</th>
-              <th>RUC / Empresa</th>
-              <th>Contacto / WhatsApp</th>
-              <th>Plan / Suscripción</th>
-              <th>Estado Capacitación</th>
-              <th>Fecha Programada</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            {targetList.length === 0 ? (
+            <thead>
               <tr>
-                <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
-                  No hay empresas para capacitación en este momento.
-                </td>
+                <th style={{ width: '45px' }}>#</th>
+                <th>RUC / Empresa</th>
+                <th>Contacto</th>
+                <th>Plan / Suscripción</th>
+                <th>Estado Capacitación</th>
+                <th>Fecha Programada</th>
+                <th className="text-center" style={{ width: '130px' }}>Acciones</th>
               </tr>
-            ) : (
-              visibleClients.map((c: Client, idx: number) => {
-                const isCapacitado = Boolean(
-                  c.fechaCapacitacion ||
-                    c.estadoCapacitacion === 'COMPLETADO' ||
-                    c.estadoCapacitacion === 'COMPLETADA' ||
-                    (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion)
-                );
-                const phone = c.telefono || c.telefonoPersonal;
-                const cleanPhone = phone ? phone.replace(/\D/g, '') : '';
-                const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
+            </thead>
+            <tbody>
+              {targetList.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
+                    No hay empresas para capacitación en este momento.
+                  </td>
+                </tr>
+              ) : (
+                visibleClients.map((c: Client, idx: number) => {
+                  const isCapacitado = Boolean(
+                    c.fechaCapacitacion ||
+                      c.estadoCapacitacion === 'COMPLETADO' ||
+                      c.estadoCapacitacion === 'COMPLETADA' ||
+                      (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion)
+                  );
+                  const phone = c.telefono || c.telefonoPersonal;
+                  const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
+                  const isActionOpen = openActionId === c.id;
 
-                return (
-                  <tr key={c.id}>
-                    <td className="text-muted fw-semibold py-2.5">
-                      {(currentPage - 1) * pageSize + idx + 1}
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2.5">
-                        <div
-                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
-                          style={{
-                            width: '34px',
-                            height: '34px',
-                            backgroundColor: '#E7F3FF',
-                            color: '#0866FF',
-                            fontSize: '0.82rem',
-                            border: '1px solid #D0E2FF',
-                          }}
-                        >
-                          {initial}
-                        </div>
-                        <div>
-                          <strong className="text-dark d-block fw-bold" style={{ fontSize: '0.88rem' }}>
-                            {c.razonSocial}
-                          </strong>
-                          <span className="small text-muted fw-semibold">RUC: {c.ruc}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-2">
-                        <span className="fw-bold text-dark">{phone || '—'}</span>
-                        {cleanPhone && (
-                          <a
-                            href={`https://wa.me/51${cleanPhone}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn-meta-icon btn-meta-icon-whatsapp"
-                            title="Abrir chat de WhatsApp"
+                  return (
+                    <tr key={c.id} style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}>
+                      <td className="text-muted fw-semibold py-2.5">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center gap-2.5">
+                          <div
+                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold shadow-xs"
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              backgroundColor: '#EEF2FF',
+                              color: '#4F46E5',
+                              fontSize: '0.78rem',
+                              border: '1px solid #C7D2FE',
+                            }}
                           >
-                            <Phone size={13} />
-                          </a>
+                            {initial}
+                          </div>
+                          <div>
+                            <span className="cell-title d-block">{c.razonSocial}</span>
+                            <span className="cell-subtext font-monospace">RUC: {c.ruc}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="cell-title">{phone || '—'}</span>
+                      </td>
+                      <td>
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <span className="badge-tag badge-plan-tag">
+                            {c.planContratado}
+                          </span>
+                          <span
+                            className={`badge-tag ${c.tipoSuscripcion === 'ANUAL' ? 'badge-sub-anual' : 'badge-sub-mensual'}`}
+                          >
+                            {c.tipoSuscripcion || 'MENSUAL'}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        {isCapacitado ? (
+                          <span className="badge-fb badge-fb-success">
+                            <span className="badge-dot badge-dot-success" />
+                            Capacitado
+                          </span>
+                        ) : (
+                          <span className="badge-fb badge-fb-warning">
+                            <span className="badge-dot badge-dot-warning" />
+                            Pendiente
+                          </span>
                         )}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="d-flex align-items-center gap-1.5">
-                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">
-                          {c.planContratado}
-                        </span>
-                        <span
-                          className="badge rounded-pill px-2.5 py-1 fw-bold"
-                          style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}
-                        >
-                          {c.tipoSuscripcion || 'MENSUAL'}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      {isCapacitado ? (
-                        <span className="badge-fb badge-fb-success">
-                          Capacitado
-                        </span>
-                      ) : (
-                        <span className="badge-fb badge-fb-warning">
-                          Pendiente
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      {c.fechaCapacitacion ? (
-                        <span
-                          className="badge bg-light border rounded-pill px-2.5 py-1 fw-bold"
-                          style={{ color: '#0866FF', borderColor: '#D0E2FF' }}
-                        >
-                          {formatPeruDate(c.fechaCapacitacion)}
-                        </span>
-                      ) : (
-                        <span className="text-muted small fw-semibold">Sin programar</span>
-                      )}
-                    </td>
-                    <td>
-                      {!isCapacitado ? (
-                        <button
-                          onClick={() => setTrainingClient(c)}
-                          className="btn-meta-action btn-meta-action-primary"
-                          title="Programar fecha y hora para capacitación"
-                        >
-                          <Calendar size={14} />
-                          <span>Programar Capacitación</span>
-                        </button>
-                      ) : (
-                        <span
-                          className="badge rounded-pill px-3 py-1.5 fw-bold d-inline-flex align-items-center gap-1.5"
-                          style={{ backgroundColor: '#DEF7EC', color: '#059669' }}
-                        >
-                          <CheckCircle size={14} />
-                          <span>Capacitación Realizada</span>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      </td>
+                      <td>
+                        {c.fechaCapacitacion ? (
+                          <span className="badge-tag badge-plazo-soon">
+                            <span className="badge-dot badge-dot-info" />
+                            {formatPeruDate(c.fechaCapacitacion)}
+                          </span>
+                        ) : (
+                          <span className="cell-subtext">Sin programar</span>
+                        )}
+                      </td>
+                      <td className="text-center position-relative">
+                        <div className="table-action-floating-container">
+                          <button
+                            type="button"
+                            onClick={() => setOpenActionId(isActionOpen ? null : c.id)}
+                            className="btn-meta-action btn-meta-action-primary shadow-xs"
+                            title="Opciones de capacitación"
+                          >
+                            <span>Acciones</span>
+                            <ChevronDown size={12} />
+                          </button>
+
+                          {isActionOpen && (
+                            <>
+                              <div
+                                className="position-fixed top-0 start-0 w-100 h-100"
+                                style={{ zIndex: 100050, background: 'transparent' }}
+                                onClick={() => setOpenActionId(null)}
+                              />
+                              <div className="table-action-menu shadow-lg">
+                                <button
+                                  type="button"
+                                  className="table-action-item item-primary"
+                                  onClick={() => {
+                                    setOpenActionId(null);
+                                    setTrainingClient(c);
+                                  }}
+                                >
+                                  <Calendar size={15} />
+                                  <span>{isCapacitado ? 'Reagendar Capacitación' : 'Programar Capacitación'}</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-      </div>
+
       <PaginationControls
         currentPage={currentPage}
         totalItems={targetList.length}

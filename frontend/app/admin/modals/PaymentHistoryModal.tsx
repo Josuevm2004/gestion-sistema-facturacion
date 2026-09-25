@@ -170,7 +170,7 @@ export default function PaymentHistoryModal({
             </div>
 
             <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.85rem' }}>
+              <table className="table table-hover align-middle mb-0 table-meta">
                 <thead>
                   <tr>
                     <th>#</th>
@@ -205,26 +205,29 @@ export default function PaymentHistoryModal({
                         <tr key={t.id || idx}>
                           <td className="text-muted fw-semibold">{transactions.length - idx}</td>
                           <td>
-                            <strong className="text-dark">
+                            <span className="cell-title">
                               {formatDatePeru(tDate)}
-                            </strong>
+                            </span>
                           </td>
                           <td>
-                            <code className="text-dark fw-semibold">{t.observaciones}</code>
+                            <span className="badge-wsp-chip">{t.observaciones}</span>
                           </td>
                           <td>
-                            <span className="badge bg-light text-dark border fw-bold">{mesTexto}</span>
+                            <span className="badge-tag badge-plan-tag">{mesTexto}</span>
                           </td>
                           <td>
-                            <span className={`badge ${t.badgeClass}`}>{t.tipoOperacion}</span>
+                            <span className="badge-tag badge-sub-mensual">{t.tipoOperacion}</span>
                           </td>
                           <td>
-                            <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25">
+                            <span className="badge-fb badge-fb-success">
+                              <span className="badge-dot badge-dot-success" />
                               {t.estado}
                             </span>
                           </td>
-                          <td className="fw-bold text-success fs-6 text-end">
-                            S/ {Number(t.monto || 0).toFixed(2)}
+                          <td className="text-end">
+                            <span className="cell-amount text-success">
+                              S/ {Number(t.monto || 0).toFixed(2)}
+                            </span>
                           </td>
                         </tr>
                       );

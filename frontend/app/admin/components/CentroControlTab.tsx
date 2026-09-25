@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw } from 'lucide-react';
+import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw, ChevronDown } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
@@ -32,12 +32,13 @@ export default function CentroControlTab({
   setHistoryClient,
   handleToggleAvisado,
   handleAdelantoPago,
-  handleRenovarPlan,
+  handleRenovarPlan: _handleRenovarPlan,
 }: CentroControlTabProps) {
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
   const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
   const [suscripcionFilter, setSuscripcionFilter] = React.useState<string>('');
   const [avisadoFilter, setAvisadoFilter] = React.useState<string>('');
+  const [openActionId, setOpenActionId] = React.useState<string | number | null>(null);
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
 
@@ -110,28 +111,29 @@ export default function CentroControlTab({
   }, [totalPages]);
 
   return (
-    <div className="custom-card p-4 shadow-sm">
-      <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
-        <div className="d-flex align-items-center gap-2">
-          <div className="p-2 bg-primary bg-opacity-10 text-primary rounded-3">
-            <Activity size={20} />
+    <div className="w-100">
+      {/* Encabezado con Icono Moderno y Badge */}
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs flex-wrap gap-2">
+        <div className="d-flex align-items-center gap-3">
+          <div className="section-header-icon section-header-icon-success">
+            <Activity size={22} strokeWidth={2.2} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Centro de Control</h2>
-            <small className="text-muted">Monitoreo detallado de vencimientos y cálculo prorrateado</small>
+            <h2 className="h6 fw-bold text-dark mb-0">Centro de Control y Cobranzas</h2>
+            <small className="text-muted fw-semibold">Monitoreo detallado de vencimientos y cálculo prorrateado</small>
           </div>
         </div>
         <div className="d-flex align-items-center gap-2">
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1 fw-semibold"
+              className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-1 fw-semibold"
             >
               <RotateCcw size={13} />
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge bg-primary rounded-pill px-3 py-1.5 fw-bold">
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#DEF7EC', color: '#03543F' }}>
             {hasActiveFilters ? `${filteredClients.length} de ${totalActivos} Clientes` : `${totalActivos} Clientes`}
           </span>
         </div>
@@ -140,253 +142,285 @@ export default function CentroControlTab({
       {/* Barra de Filtros: Buscador, Suscripción (Anual/Mensual) y Estado de Aviso (Stitch Style) */}
       <div className="stitch-filter-toolbar mb-4">
         <div className="row g-2 align-items-center">
-          <div className="col-12 col-md-5 col-lg-5">
+          <div className="col-12 col-md-6 col-lg-5">
             <div className="stitch-filter-search">
               <Search size={15} />
               <input
+                type="text"
                 className="form-control stitch-filter-input"
-                placeholder="Buscar empresa, RUC, DNI, teléfono, representante..."
+                placeholder="Buscar por RUC, Empresa, DNI, Teléfono, Plan..."
                 value={calendarSearch}
                 onChange={(e) => setCalendarSearch(e.target.value)}
               />
             </div>
           </div>
-          <div className="col-12 col-md-3 col-lg-3">
+          <div className="col-6 col-md-3 col-lg-3">
             <select
               className="form-select stitch-filter-select w-100"
               value={suscripcionFilter}
               onChange={(e) => setSuscripcionFilter(e.target.value)}
             >
-              <option value="">Suscripción: Todas</option>
-              <option value="MENSUAL">Mensual</option>
-              <option value="ANUAL">Anual</option>
+              <option value="">Modalidad: Todas</option>
+              <option value="MENSUAL">Suscripción Mensual</option>
+              <option value="ANUAL">Suscripción Anual</option>
             </select>
           </div>
-          <div className="col-12 col-md-4 col-lg-4">
+          <div className="col-6 col-md-3 col-lg-4">
             <select
               className="form-select stitch-filter-select w-100"
               value={avisadoFilter}
               onChange={(e) => setAvisadoFilter(e.target.value)}
             >
-              <option value="">Estado de Aviso: Todos</option>
-              <option value="AVISADO">🔔 Sólo Avisados</option>
-              <option value="NO_AVISADO">⏳ Sin Avisar (Pendientes)</option>
+              <option value="">Estado Aviso: Todos</option>
+              <option value="AVISADO">Solo Avisados</option>
+              <option value="NO_AVISADO">Sin Avisar (Pendientes)</option>
             </select>
           </div>
         </div>
       </div>
 
-      <div className="table-card-meta mb-3">
+      {/* Tabla Expandida al 100% con Dropdown de Acciones Unificadas */}
+      <div className="table-card-meta mb-4">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
-          <thead>
-            <tr>
-              <th style={{ width: '45px' }}>#</th>
-              <th>Representante</th>
-              <th>DNI</th>
-              <th>RUC</th>
-              <th>Empresa</th>
-              <th>Teléfono</th>
-              <th>Usuario WSP</th>
-              <th>Plan Actual</th>
-              <th>Próximo Cobro</th>
-              <th>Vencimiento</th>
-              <th>Plazo</th>
-              <th>Estado</th>
-              <th className="text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredClients.length === 0 ? (
+            <thead>
               <tr>
-                <td colSpan={13} className="text-center text-muted py-5 fw-semibold">
-                  {hasActiveFilters
-                    ? 'No se encontraron clientes con los filtros aplicados en el Centro de Control.'
-                    : 'No se encontraron clientes activos en el Centro de Control.'}
-                </td>
+                <th style={{ width: '45px' }}>#</th>
+                <th>RUC / Empresa</th>
+                <th>Contacto</th>
+                <th>Usuario WSP</th>
+                <th>Plan / Suscripción</th>
+                <th>Monto</th>
+                <th>Vencimiento</th>
+                <th>Plazo</th>
+                <th>Estado</th>
+                <th className="text-center" style={{ width: '130px' }}>Acciones</th>
               </tr>
-            ) : visibleClients.map((c, idx) => {
-                const { _vencDate: vencDate, _diffDays: diffDays } = c;
-                const estadoVisual = diffDays !== 9999 && diffDays <= 0 && c.estadoCuenta === 'HABILITADO'
-                  ? 'VENCIDO'
-                  : c.estadoCuenta;
+            </thead>
+            <tbody>
+              {filteredClients.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="text-center text-muted py-5 fw-semibold">
+                    No se encontraron clientes con los filtros aplicados.
+                  </td>
+                </tr>
+              ) : (
+                visibleClients.map((c, idx) => {
+                  const { _vencDate: vencDate, _diffDays: diffDays } = c;
+                  const isExpired = diffDays !== 9999 && diffDays <= 0;
+                  const isNearExpiry = diffDays <= 3 && diffDays >= 0;
+                  const cobroProximo = Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0);
+                  const estadoVisual = isExpired && c.estadoCuenta === 'HABILITADO' ? 'VENCIDO' : c.estadoCuenta;
+                  const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
+                  const isActionOpen = openActionId === c.id;
 
-                const cobroProximo = Number(c.montoSiguienteCobro ?? c.montoMensual ?? 0);
-
-                const isNearExpiry = diffDays <= 3 && diffDays >= 0;
-                const isExpired = diffDays <= 0;
-                const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
-
-                return (
-                  <tr key={c.id} className={isExpired ? 'bg-danger bg-opacity-10' : isNearExpiry ? 'bg-warning bg-opacity-10' : ''}>
-                    <td className="text-muted fw-semibold py-2.5">{(currentPage - 1) * pageSize + idx + 1}</td>
-                    <td className="py-2.5">
-                      {c.nombres || c.apellidos ? (
-                        <strong className="text-dark">
-                          {c.nombres} {c.apellidos || ''}
-                        </strong>
-                      ) : (
-                        <span className="text-muted small">Sin especificar</span>
-                      )}
-                    </td>
-                    <td className="py-2.5">
-                      {c.dni ? (
-                        <span className="fw-bold text-dark">{c.dni}</span>
-                      ) : (
-                        <span className="text-muted small">Sin DNI</span>
-                      )}
-                    </td>
-                    <td className="py-2.5">
-                      <span className="fw-bold text-dark font-monospace">{c.ruc}</span>
-                    </td>
-                    <td className="py-2.5">
-                      <div className="d-flex align-items-center gap-2">
-                        <div
-                          className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold"
-                          style={{
-                            width: '30px',
-                            height: '30px',
-                            backgroundColor: '#E7F3FF',
-                            color: '#0866FF',
-                            fontSize: '0.78rem',
-                            border: '1px solid #D0E2FF',
-                          }}
-                        >
-                          {initial}
+                  return (
+                    <tr
+                      key={c.id}
+                      className={isExpired ? 'bg-danger bg-opacity-10' : isNearExpiry ? 'bg-warning bg-opacity-10' : ''}
+                      style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}
+                    >
+                      <td className="text-muted fw-semibold py-2.5">
+                        {(currentPage - 1) * pageSize + idx + 1}
+                      </td>
+                      <td className="py-2.5">
+                        <div className="d-flex align-items-center gap-2">
+                          <div
+                            className="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 fw-bold shadow-xs"
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              backgroundColor: '#E7F3FF',
+                              color: '#0866FF',
+                              fontSize: '0.78rem',
+                              border: '1px solid #D0E2FF',
+                            }}
+                          >
+                            {initial}
+                          </div>
+                          <div>
+                            <span className="cell-title d-block">{c.razonSocial}</span>
+                            <span className="cell-subtext font-monospace">{c.ruc}</span>
+                          </div>
                         </div>
-                        <strong className="text-dark fw-bold" style={{ fontSize: '0.88rem' }}>{c.razonSocial}</strong>
-                      </div>
-                    </td>
-                    <td className="py-2.5">
-                      <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
-                      <small className="text-muted">{c.email || ''}</small>
-                    </td>
-                    <td className="py-2.5">
-                      {c.usuarioWsp ? (
-                        <span className="badge bg-light text-dark border fw-semibold font-monospace">{c.usuarioWsp}</span>
-                      ) : (
-                        <span className="text-muted small">—</span>
-                      )}
-                    </td>
-                    <td className="py-2.5">
-                      <div className="d-flex align-items-center gap-1">
-                        <span className="badge bg-light text-dark border fw-bold">{c.planContratado}</span>
-                        <span className="badge rounded-pill px-2 py-0.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>{c.tipoSuscripcion || 'MENSUAL'}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5">
-                      <strong className="fs-6" style={{ color: '#0866FF' }}>S/ {cobroProximo.toFixed(2)}</strong>
-                    </td>
-                    <td className="py-2.5">
-                      <strong className={isExpired ? 'text-danger' : isNearExpiry ? 'text-warning text-dark' : 'text-dark'}>
-                        {vencDate
-                          ? vencDate.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
-                          : 'Sin fecha'}
-                      </strong>
-                    </td>
-                    <td className="py-2.5">
-                      {diffDays === 9999 ? (
-                        <span className="badge bg-light text-muted border">Sin fecha</span>
-                      ) : diffDays > 0 ? (
+                      </td>
+                      <td className="py-2.5">
+                        <span className="cell-title d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
+                        <span className="cell-subtext">{c.email || ''}</span>
+                      </td>
+                      <td className="py-2.5">
+                        {c.usuarioWsp ? (
+                          <span className="badge-wsp-chip">{c.usuarioWsp}</span>
+                        ) : (
+                          <span className="cell-subtext">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5">
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <span className="badge-tag badge-plan-tag">{c.planContratado}</span>
+                          <span className={`badge-tag ${c.tipoSuscripcion === 'ANUAL' ? 'badge-sub-anual' : 'badge-sub-mensual'}`}>
+                            {c.tipoSuscripcion || 'MENSUAL'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5">
+                        <span className="cell-amount text-primary">S/ {cobroProximo.toFixed(2)}</span>
+                      </td>
+                      <td className="py-2.5">
+                        <span className={`cell-title ${isExpired ? 'text-danger' : isNearExpiry ? 'text-warning text-dark' : 'text-dark'}`}>
+                          {vencDate
+                            ? vencDate.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : 'Sin fecha'}
+                        </span>
+                      </td>
+                      <td className="py-2.5">
+                        {diffDays === 9999 ? (
+                          <span className="badge-tag badge-plazo-neutral">Sin fecha</span>
+                        ) : diffDays === 0 ? (
+                          <span className="badge-tag badge-plazo-today">
+                            <span className="badge-dot badge-dot-danger badge-dot-pulse" />
+                            HOY
+                          </span>
+                        ) : diffDays === 1 ? (
+                          <span className="badge-tag badge-plazo-urgent">
+                            <span className="badge-dot badge-dot-warning" />
+                            Mañana
+                          </span>
+                        ) : diffDays > 1 && diffDays <= 3 ? (
+                          <span className="badge-tag badge-plazo-urgent">
+                            <span className="badge-dot badge-dot-warning" />
+                            {diffDays} días
+                          </span>
+                        ) : diffDays >= 4 && diffDays <= 7 ? (
+                          <span className="badge-tag badge-plazo-soon">
+                            <span className="badge-dot badge-dot-info" />
+                            {diffDays} días
+                          </span>
+                        ) : diffDays > 7 ? (
+                          <span className="badge-tag badge-plazo-ok">
+                            <span className="badge-dot badge-dot-success" />
+                            {diffDays} días
+                          </span>
+                        ) : (
+                          <span className="badge-tag badge-plazo-expired">
+                            <span className="badge-dot badge-dot-danger" />
+                            Vencido {Math.abs(diffDays)}d
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2.5">
                         <span
-                          className={`badge rounded-pill px-2.5 py-1 fw-bold ${
-                            diffDays <= 3 ? 'bg-warning bg-opacity-25 text-dark border border-warning' : diffDays <= 7 ? 'bg-info bg-opacity-25 text-dark border border-info' : 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
+                          className={`badge-fb ${
+                            estadoVisual === 'HABILITADO'
+                              ? 'badge-fb-success'
+                              : estadoVisual === 'POR_COBRAR'
+                              ? 'badge-fb-warning'
+                              : estadoVisual === 'BLOQUEADO'
+                              ? 'badge-fb-secondary'
+                              : 'badge-fb-danger'
                           }`}
                         >
-                          {diffDays === 1 ? 'Mañana' : `${diffDays} días`}
+                          <span
+                            className={`badge-dot ${
+                              estadoVisual === 'HABILITADO'
+                                ? 'badge-dot-success'
+                                : estadoVisual === 'POR_COBRAR'
+                                ? 'badge-dot-warning'
+                                : estadoVisual === 'BLOQUEADO'
+                                ? 'badge-dot-neutral'
+                                : 'badge-dot-danger'
+                            }`}
+                          />
+                          {estadoVisual}
                         </span>
-                      ) : diffDays === 0 ? (
-                        <span className="badge bg-danger text-white fw-bold rounded-pill px-2.5 py-1">HOY</span>
-                      ) : (
-                        <span className="badge bg-danger text-white rounded-pill px-2.5 py-1">Vencido {Math.abs(diffDays)}d</span>
-                      )}
-                    </td>
-                    <td className="py-2.5">
-                      <span
-                        className={`badge-fb ${
-                          estadoVisual === 'HABILITADO'
-                            ? 'badge-fb-success'
-                            : estadoVisual === 'POR_COBRAR'
-                            ? 'badge-fb-warning'
-                            : estadoVisual === 'BLOQUEADO'
-                            ? 'badge-fb-secondary'
-                            : 'badge-fb-danger'
-                        }`}
-                      >
-                        {estadoVisual}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-center">
-                      <div className="d-flex justify-content-center align-items-center gap-1.5 flex-wrap">
-                        {c.avisado ? (
+                      </td>
+                      <td className="py-2.5 text-center position-relative">
+                        <div className="table-action-floating-container">
                           <button
-                            className="btn-meta-action btn-meta-action-success"
-                            onClick={() => handleToggleAvisado?.(c, false)}
-                            title="Cliente marcado como avisado en la Base de Datos. Clic para desmarcar."
+                            type="button"
+                            onClick={() => setOpenActionId(isActionOpen ? null : c.id)}
+                            className="btn-meta-action btn-meta-action-primary shadow-xs"
+                            title="Opciones de cobranza y control"
                           >
-                            <CheckCircle2 size={13} />
-                            <span>Avisado</span>
+                            <span>Acciones</span>
+                            <ChevronDown size={12} />
                           </button>
-                        ) : (
-                          <button
-                            className="btn-meta-action btn-meta-action-secondary"
-                            onClick={() => handleToggleAvisado?.(c, true)}
-                            title="Marcar cliente como avisado para su cobranza (guardado en BD)"
-                          >
-                            <BellRing size={13} />
-                            <span>Avisar</span>
-                          </button>
-                        )}
-                        <button
-                          className="btn-meta-action btn-meta-action-success"
-                          onClick={() => setBillingMessageClient(c)}
-                          title="Generar mensaje inteligente de cobranza para WhatsApp"
-                        >
-                          <MessageSquare size={13} />
-                          <span>Mensaje</span>
-                        </button>
-                        {diffDays > 0 && diffDays <= 10 ? (
-                          <button
-                            className="btn-meta-action btn-meta-action-warning"
-                            onClick={() => setAdelantoClient(c)}
-                            title="Registrar pago por adelantado (faltan 10 días o menos para el vencimiento)"
-                          >
-                            <CalendarPlus size={13} />
-                            <span>Adelanto</span>
-                          </button>
-                        ) : diffDays <= 0 ? (
-                          <span
-                            className="badge rounded-pill px-2.5 py-1 fw-bold"
-                            style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}
-                            title="Servicio vencido. Gestionar renovación o reanudación en la pestaña Vencidos."
-                          >
-                            Vencido
-                          </span>
-                        ) : (
-                          <span
-                            className="badge bg-light text-muted border rounded-pill px-2.5 py-1"
-                            title={`Servicio vigente. Restan ${diffDays} días para el vencimiento.`}
-                          >
-                            Al día
-                          </span>
-                        )}
-                        <button
-                          className="btn-meta-action btn-meta-action-primary"
-                          onClick={() => setHistoryClient(c)}
-                          title="Ver historial de movimientos"
-                        >
-                          <Eye size={13} />
-                          <span>Historial</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-          </tbody>
-        </table>
+
+                          {isActionOpen && (
+                            <>
+                              <div
+                                className="position-fixed top-0 start-0 w-100 h-100"
+                                style={{ zIndex: 100050, background: 'transparent' }}
+                                onClick={() => setOpenActionId(null)}
+                              />
+                              <div className="table-action-menu shadow-lg">
+                                {/* 1. Toggle Avisado */}
+                                <button
+                                  type="button"
+                                  className={`table-action-item ${c.avisado ? 'item-success' : ''}`}
+                                  onClick={() => {
+                                    setOpenActionId(null);
+                                    handleToggleAvisado?.(c, !c.avisado);
+                                  }}
+                                >
+                                  {c.avisado ? <CheckCircle2 size={15} /> : <BellRing size={15} />}
+                                  <span>{c.avisado ? 'Desmarcar Avisado' : 'Marcar como Avisado'}</span>
+                                </button>
+
+                                {/* 2. Mensaje Inteligente de Cobranza */}
+                                <button
+                                  type="button"
+                                  className="table-action-item item-success"
+                                  onClick={() => {
+                                    setOpenActionId(null);
+                                    setBillingMessageClient(c);
+                                  }}
+                                >
+                                  <MessageSquare size={15} />
+                                  <span>Mensaje de Cobranza</span>
+                                </button>
+
+                                {/* 3. Adelanto de Pago (si faltan 10 días o menos) */}
+                                {diffDays > 0 && diffDays <= 10 && (
+                                  <button
+                                    type="button"
+                                    className="table-action-item"
+                                    onClick={() => {
+                                      setOpenActionId(null);
+                                      setAdelantoClient(c);
+                                    }}
+                                  >
+                                    <CalendarPlus size={15} />
+                                    <span>Adelanto de Pago</span>
+                                  </button>
+                                )}
+
+                                {/* 4. Ver Historial */}
+                                <button
+                                  type="button"
+                                  className="table-action-item item-primary"
+                                  onClick={() => {
+                                    setOpenActionId(null);
+                                    setHistoryClient(c);
+                                  }}
+                                >
+                                  <Eye size={15} />
+                                  <span>Ver Historial</span>
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-      </div>
+
       <PaginationControls
         currentPage={currentPage}
         totalItems={filteredClients.length}

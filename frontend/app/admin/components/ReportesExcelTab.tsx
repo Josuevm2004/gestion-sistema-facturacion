@@ -1334,7 +1334,7 @@ export default function ReportesExcelTab({
 
           <div className="table-card-meta mb-3">
             <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
+              <table className="table table-hover align-middle mb-0 table-meta">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -1361,13 +1361,17 @@ export default function ReportesExcelTab({
                         {t.fechaObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
                         <span className="text-muted opacity-75">{t.fechaObj.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}</span>
                       </td>
-                      <td className="fw-bold text-dark">{t.cliente}</td>
-                      <td className="text-muted fw-semibold">{t.ruc}</td>
                       <td>
-                        <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{t.plan}</span>
+                        <span className="cell-title">{t.cliente}</span>
+                      </td>
+                      <td className="text-muted font-monospace">{t.ruc}</td>
+                      <td>
+                        <span className="badge-tag badge-plan-tag">{t.plan}</span>
                       </td>
                       <td className="text-dark fw-semibold">{t.vendedor}</td>
-                      <td className="fw-bold text-dark">S/ {t.monto.toFixed(2)}</td>
+                      <td>
+                        <span className="cell-amount text-dark">S/ {t.monto.toFixed(2)}</span>
+                      </td>
                       <td className="text-muted text-capitalize fw-semibold">{t.metodoPago.toLowerCase()}</td>
                       <td className="text-end">
                         <span
@@ -1375,6 +1379,11 @@ export default function ReportesExcelTab({
                             t.estado === 'PAGADO' ? 'badge-fb-success' : 'badge-fb-warning'
                           }`}
                         >
+                          <span
+                            className={`badge-dot ${
+                              t.estado === 'PAGADO' ? 'badge-dot-success' : 'badge-dot-warning'
+                            }`}
+                          />
                           {t.estado === 'PAGADO' ? 'Pagado' : 'Pendiente'}
                         </span>
                       </td>
@@ -1560,7 +1569,7 @@ export default function ReportesExcelTab({
 
                 <div className="table-card-meta mb-3">
                   <div className="table-responsive">
-                    <table className="table table-hover align-middle mb-0 table-meta" style={{ fontSize: '0.82rem' }}>
+                    <table className="table table-hover align-middle mb-0 table-meta">
                       <thead>
                         <tr>
                           <th>Fecha</th>
@@ -1585,19 +1594,30 @@ export default function ReportesExcelTab({
                               <td className="text-muted fw-semibold">
                                 {t.fechaObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                               </td>
-                              <td className="fw-bold text-dark">{t.cliente}</td>
                               <td>
-                                <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{t.plan}</span>
+                                <span className="cell-title">{t.cliente}</span>
                               </td>
-                              <td className="fw-bold text-dark">S/ {t.monto.toFixed(2)}</td>
+                              <td>
+                                <span className="badge-tag badge-plan-tag">{t.plan}</span>
+                              </td>
+                              <td>
+                                <span className="cell-amount text-dark">S/ {t.monto.toFixed(2)}</span>
+                              </td>
                               <td className="text-muted fw-semibold">Fija / ALTA</td>
-                              <td className="fw-bold" style={{ color: '#0866FF' }}>S/ {TASA_COMISION_ALTA.toFixed(2)}</td>
+                              <td>
+                                <span className="cell-amount text-primary">S/ {TASA_COMISION_ALTA.toFixed(2)}</span>
+                              </td>
                               <td className="text-end">
                                 <span
                                   className={`badge-fb ${
                                     t.estado === 'PAGADO' ? 'badge-fb-success' : 'badge-fb-primary'
                                   }`}
                                 >
+                                  <span
+                                    className={`badge-dot ${
+                                      t.estado === 'PAGADO' ? 'badge-dot-success' : 'badge-dot-info'
+                                    }`}
+                                  />
                                   {t.estado === 'PAGADO' ? 'Pagado' : 'Generada'}
                                 </span>
                               </td>

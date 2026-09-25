@@ -51,14 +51,14 @@ export default function ResumenTab({
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
-                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
-                  <DollarSign size={20} />
+                <div className="section-header-icon section-header-icon-primary">
+                  <DollarSign size={20} strokeWidth={2.2} />
                 </div>
                 <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Ingresos del Día
                 </span>
               </div>
-              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.68rem' }}>
+              <span className="badge-tag" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
                 Ventas
               </span>
             </div>
@@ -71,14 +71,14 @@ export default function ResumenTab({
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
-                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E8F8F0', color: '#0E8A42' }}>
-                  <CheckCircle size={20} />
+                <div className="section-header-icon section-header-icon-success">
+                  <CheckCircle size={20} strokeWidth={2.2} />
                 </div>
                 <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Clientes Activos
                 </span>
               </div>
-              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#E8F8F0', color: '#0E8A42', fontSize: '0.68rem' }}>
+              <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#065F46' }}>
                 Al Día
               </span>
             </div>
@@ -91,14 +91,14 @@ export default function ResumenTab({
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
-                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#FFF8E1', color: '#B78103' }}>
-                  <Clock size={20} />
+                <div className="section-header-icon section-header-icon-warning">
+                  <Clock size={20} strokeWidth={2.2} />
                 </div>
                 <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Por Cobrar
                 </span>
               </div>
-              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FFF8E1', color: '#B78103', fontSize: '0.68rem' }}>
+              <span className="badge-tag" style={{ backgroundColor: '#FFFBEB', color: '#92400E' }}>
                 Pendientes
               </span>
             </div>
@@ -111,14 +111,14 @@ export default function ResumenTab({
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
-                <div className="rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#FDE8E8', color: '#C81E1E' }}>
-                  <AlertTriangle size={20} />
+                <div className="section-header-icon section-header-icon-danger">
+                  <AlertTriangle size={20} strokeWidth={2.2} />
                 </div>
                 <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.74rem' }}>
                   Vencidos / Bloqueados
                 </span>
               </div>
-              <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#FDE8E8', color: '#C81E1E', fontSize: '0.68rem' }}>
+              <span className="badge-tag" style={{ backgroundColor: '#FEF2F2', color: '#991B1B' }}>
                 Alerta
               </span>
             </div>
@@ -164,7 +164,10 @@ export default function ResumenTab({
                           <span className="text-muted small">RUC: {c.ruc} | Plan: {c.planContratado}</span>
                         </div>
                       </div>
-                      <span className="badge badge-habilitado">HABILITADO</span>
+                      <span className="badge-fb badge-fb-success">
+                        <span className="badge-dot badge-dot-success" />
+                        HABILITADO
+                      </span>
                     </div>
                   ))
               )}
@@ -200,7 +203,10 @@ export default function ResumenTab({
                     </div>
                     <div className="text-end">
                       <strong className="text-warning d-block small">S/ {Number(c.montoSiguienteCobro ?? c.montoMensual).toFixed(2)}</strong>
-                      <span className="badge badge-pendiente">POR_COBRAR</span>
+                      <span className="badge-fb badge-fb-warning">
+                        <span className="badge-dot badge-dot-warning" />
+                        POR COBRAR
+                      </span>
                     </div>
                   </div>
                 ))
@@ -246,7 +252,10 @@ export default function ResumenTab({
                       <strong className="text-dark d-block small">{c.razonSocial}</strong>
                       <span className="text-muted small">RUC: {c.ruc} | {c.planContratado}</span>
                     </div>
-                    <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>VENCE EN 1 DÍA</span>
+                    <span className="badge-tag badge-plazo-urgent">
+                      <span className="badge-dot badge-dot-warning" />
+                      VENCE EN 1 DÍA
+                    </span>
                   </div>
                 ))
               )}

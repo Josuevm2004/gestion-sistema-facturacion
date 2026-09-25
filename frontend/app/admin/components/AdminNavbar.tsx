@@ -19,6 +19,7 @@ import {
   WalletCards,
   LockKeyhole,
   CheckCheck,
+  ChevronRight,
 } from 'lucide-react';
 
 interface AdminNavbarProps {
@@ -112,8 +113,8 @@ export default function AdminNavbar({
           </div>
 
           <div className="offcanvas-body h-100 d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between p-3 p-lg-0">
-            {/* Center Navigation Links (Stitch Style) */}
-            <ul className="navbar-nav d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0">
+            {/* Center Navigation Links (Stitch Style with Horizontal Scroll) */}
+            <ul className="navbar-nav stitch-navbar-nav-scroll d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0">
               {navItems.map((item) => {
                 const isActive = activeTab === item.key;
                 return (
@@ -338,87 +339,133 @@ export default function AdminNavbar({
                   <span className="small text-muted ms-0.5 d-none d-sm-inline">▾</span>
                 </button>
 
-                {/* Profile Flyout (Photo 3 Style) */}
+                {/* Profile Flyout (Photo 3 Facebook Style with Backdrop) */}
                 {showProfileDropdown && (
-                  <div className="position-absolute end-0 mt-2 bg-white text-dark rounded-4 shadow-lg p-2.5 border admin-profile-panel" style={{ width: '280px', zIndex: 100050 }}>
-                    <div className="p-3 border-bottom mb-2 bg-light rounded-3 text-start d-flex align-items-center gap-3">
-                      <div className="p-2.5 bg-primary text-white rounded-circle d-flex align-items-center justify-content-center shadow-sm" style={{ width: '42px', height: '42px' }}>
-                        <User size={20} />
+                  <>
+                    <div
+                      className="position-fixed top-0 start-0 w-100 h-100"
+                      style={{ zIndex: 100055, background: 'transparent' }}
+                      onClick={() => setShowProfileDropdown(false)}
+                    />
+                    <div
+                      className="admin-profile-panel text-dark"
+                      style={{ zIndex: 100060 }}
+                    >
+                      {/* User Top Card (Facebook Style) */}
+                      <div className="p-3 border rounded-3 mb-2 shadow-xs" style={{ backgroundColor: '#F0F2F5' }}>
+                        <div className="d-flex align-items-center gap-3">
+                          <div
+                            className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm flex-shrink-0"
+                            style={{ width: '46px', height: '46px', backgroundColor: '#0866FF', fontSize: '1.1rem' }}
+                          >
+                            <User size={22} />
+                          </div>
+                          <div className="overflow-hidden">
+                            <strong className="d-block text-dark text-truncate fw-bold" style={{ fontSize: '0.94rem' }}>
+                              {currentUser?.nombre || currentUser?.username || 'Usuario Admin'}
+                            </strong>
+                            <span className="badge rounded-pill mt-0.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.68rem' }}>
+                              {currentUser?.rol || 'ADMIN'}
+                            </span>
+                            {currentUser?.email && (
+                              <small className="d-block text-muted text-truncate mt-0.5" style={{ fontSize: '0.74rem' }}>
+                                {currentUser.email}
+                              </small>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="overflow-hidden">
-                        <strong className="d-block text-dark text-truncate fw-bold" style={{ fontSize: '0.92rem' }}>
-                          {currentUser?.nombre || currentUser?.username || 'Usuario'}
-                        </strong>
-                        <span className="badge bg-primary text-white mt-0.5 rounded-pill" style={{ fontSize: '0.65rem' }}>
-                          {currentUser?.rol || 'ADMIN'}
-                        </span>
-                        {currentUser?.email && (
-                          <small className="d-block text-muted text-truncate mt-0.5" style={{ fontSize: '0.73rem' }}>
-                            {currentUser.email}
-                          </small>
+
+                      {/* Menu Items (Facebook Settings List Style) */}
+                      <div className="d-flex flex-column gap-1">
+                        {currentUser?.rol === 'ADMIN' && (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-light w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 text-dark border-0"
+                              onClick={() => {
+                                setShowNewUserModal(true);
+                                setShowProfileDropdown(false);
+                              }}
+                            >
+                              <div className="d-flex align-items-center gap-2.5">
+                                <span
+                                  className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                                  style={{ width: '36px', height: '36px', backgroundColor: '#F0F2F5', color: '#0866FF' }}
+                                >
+                                  <UserPlus size={17} />
+                                </span>
+                                <span className="fw-semibold text-nowrap" style={{ fontSize: '0.84rem' }}>Registrar Nuevo Vendedor</span>
+                              </div>
+                              <ChevronRight size={16} className="text-muted flex-shrink-0" />
+                            </button>
+
+                            <button
+                              type="button"
+                              className="btn btn-light w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 text-dark border-0"
+                              onClick={() => {
+                                setActiveTab('usuarios');
+                                setShowProfileDropdown(false);
+                              }}
+                            >
+                              <div className="d-flex align-items-center gap-2.5">
+                                <span
+                                  className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                                  style={{ width: '36px', height: '36px', backgroundColor: '#F0F2F5', color: '#0866FF' }}
+                                >
+                                  <Users size={17} />
+                                </span>
+                                <span className="fw-semibold text-nowrap" style={{ fontSize: '0.84rem' }}>Gestión de Vendedores</span>
+                              </div>
+                              <ChevronRight size={16} className="text-muted flex-shrink-0" />
+                            </button>
+                          </>
                         )}
+
+                        <button
+                          type="button"
+                          className="btn btn-light w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 text-dark border-0"
+                          onClick={() => {
+                            setActiveTab('reporte');
+                            setShowProfileDropdown(false);
+                          }}
+                        >
+                          <div className="d-flex align-items-center gap-2.5">
+                            <span
+                              className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                              style={{ width: '36px', height: '36px', backgroundColor: '#F0F2F5', color: '#0284C7' }}
+                            >
+                              <Activity size={17} />
+                            </span>
+                            <span className="fw-semibold text-nowrap" style={{ fontSize: '0.84rem' }}>Reporte General</span>
+                          </div>
+                          <ChevronRight size={16} className="text-muted flex-shrink-0" />
+                        </button>
+
+                        <div className="border-top my-1"></div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowProfileDropdown(false);
+                            handleLogout();
+                          }}
+                          className="btn w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 border-0"
+                          style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}
+                        >
+                          <div className="d-flex align-items-center gap-2.5">
+                            <span
+                              className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                              style={{ width: '36px', height: '36px', backgroundColor: '#FFFFFF', color: '#DC2626' }}
+                            >
+                              <LogOut size={17} />
+                            </span>
+                            <span className="fw-bold text-nowrap" style={{ fontSize: '0.84rem' }}>Cerrar Sesión</span>
+                          </div>
+                        </button>
                       </div>
                     </div>
-
-                    {currentUser?.rol === 'ADMIN' && (
-                      <>
-                        <button
-                          className="btn btn-light w-100 text-start d-flex align-items-center gap-2.5 py-2 px-3 rounded-3 text-dark mb-1 border-0 fw-semibold"
-                          style={{ fontSize: '0.85rem' }}
-                          onClick={() => {
-                            setShowNewUserModal(true);
-                            setShowProfileDropdown(false);
-                          }}
-                        >
-                          <span className="p-1.5 bg-light rounded-circle text-primary d-inline-flex border">
-                            <UserPlus size={15} />
-                          </span>
-                          <span>Registrar Nuevo Vendedor</span>
-                        </button>
-                        <button
-                          className="btn btn-light w-100 text-start d-flex align-items-center gap-2.5 py-2 px-3 rounded-3 text-dark mb-1 border-0 fw-semibold"
-                          style={{ fontSize: '0.85rem' }}
-                          onClick={() => {
-                            setActiveTab('usuarios');
-                            setShowProfileDropdown(false);
-                          }}
-                        >
-                          <span className="p-1.5 bg-light rounded-circle text-primary d-inline-flex border">
-                            <Users size={15} />
-                          </span>
-                          <span>Gestión de Vendedores</span>
-                        </button>
-                      </>
-                    )}
-
-                    <button
-                      className="btn btn-light w-100 text-start d-flex align-items-center gap-2.5 py-2 px-3 rounded-3 text-dark mb-1 border-0 fw-semibold"
-                      style={{ fontSize: '0.85rem' }}
-                      onClick={() => {
-                        setActiveTab('reporte');
-                        setShowProfileDropdown(false);
-                      }}
-                    >
-                      <span className="p-1.5 bg-light rounded-circle text-info d-inline-flex border">
-                        <Activity size={15} />
-                      </span>
-                      <span>Reporte General</span>
-                    </button>
-
-                    <div className="border-top my-1.5"></div>
-
-                    <button
-                      onClick={() => {
-                        setShowProfileDropdown(false);
-                        handleLogout();
-                      }}
-                      className="btn btn-outline-danger w-100 text-start d-flex align-items-center gap-2.5 py-2 px-3 rounded-3 fw-bold mt-1"
-                      style={{ fontSize: '0.85rem' }}
-                    >
-                      <LogOut size={15} />
-                      <span>Cerrar Sesión</span>
-                    </button>
-                  </div>
+                  </>
                 )}
               </div>
             </div>

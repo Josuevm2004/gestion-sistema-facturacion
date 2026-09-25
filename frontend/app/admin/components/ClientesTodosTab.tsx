@@ -436,11 +436,11 @@ export default function ClientesTodosTab({
   const visibleColumnCount = AVAILABLE_COLUMNS.filter((col) => visibleColumns[col.id]).length;
 
   return (
-    <div className="custom-card p-4 shadow-sm rounded-4 border bg-white">
-      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3 flex-wrap gap-2">
+    <div className="w-100">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs flex-wrap gap-2">
         <div className="d-flex align-items-center gap-2.5">
-          <div className="p-2 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
-            <Users size={20} />
+          <div className="section-header-icon section-header-icon-primary">
+            <Users size={22} strokeWidth={2.2} />
           </div>
           <div>
             <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Gestión General de Clientes</h2>
@@ -599,7 +599,7 @@ export default function ClientesTodosTab({
       {/* Tabla de Clientes con Columnas Ajustables (Facebook Meta Style) */}
       <div className="table-card-meta mb-4">
         <div className="table-responsive" style={{ minHeight: '380px' }}>
-          <table className="table table-meta align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+          <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
             <tr>
               {visibleColumns.index && <th style={{ width: '45px' }} className="py-2.5">#</th>}
@@ -637,11 +637,13 @@ export default function ClientesTodosTab({
                 const isNearExpiry = diffDays <= 3 && diffDays >= 0;
                 const isExpired = diffDays <= 0;
                 const clientInitial = c.razonSocial ? c.razonSocial.charAt(0).toUpperCase() : 'C';
+                const isActionOpen = openActionClientId === c.id;
 
                 return (
                   <tr
                     key={c.id}
                     className={isExpired ? 'bg-danger bg-opacity-10' : isNearExpiry ? 'bg-warning bg-opacity-10' : ''}
+                    style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}
                   >
                     {visibleColumns.index && (
                       <td className="text-muted fw-semibold py-2.5">
@@ -652,13 +654,13 @@ export default function ClientesTodosTab({
                     {visibleColumns.empresa && (
                       <td className="py-2.5">
                         <div className="d-flex align-items-center gap-2.5">
-                          <div className="d-flex align-items-center justify-content-center flex-shrink-0 fw-bold rounded-circle shadow-sm" style={{ width: '32px', height: '32px', minWidth: '32px', backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.82rem' }}>
+                          <div className="d-flex align-items-center justify-content-center flex-shrink-0 fw-bold rounded-circle shadow-xs" style={{ width: '32px', height: '32px', minWidth: '32px', backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.78rem', border: '1px solid #D0E2FF' }}>
                             {clientInitial}
                           </div>
                           <div>
-                            <strong className="text-dark d-block fs-6" style={{ lineHeight: '1.2' }}>{c.razonSocial}</strong>
+                            <span className="cell-title d-block">{c.razonSocial}</span>
                             {c.nombreComercial && c.nombreComercial !== c.razonSocial && (
-                              <small className="text-muted d-block">{c.nombreComercial}</small>
+                              <span className="cell-subtext">{c.nombreComercial}</span>
                             )}
                           </div>
                         </div>
@@ -667,18 +669,18 @@ export default function ClientesTodosTab({
 
                     {visibleColumns.ruc && (
                       <td className="py-2.5">
-                        <span className="fw-bold text-dark font-monospace">{c.ruc}</span>
+                        <span className="cell-title font-monospace">{c.ruc}</span>
                       </td>
                     )}
 
                     {visibleColumns.representante && (
                       <td className="py-2.5">
                         {c.nombres || c.apellidos ? (
-                          <strong className="text-dark">
+                          <span className="cell-title">
                             {c.nombres} {c.apellidos || ''}
-                          </strong>
+                          </span>
                         ) : (
-                          <span className="text-muted small">Sin especificar</span>
+                          <span className="cell-subtext">Sin especificar</span>
                         )}
                       </td>
                     )}
@@ -686,56 +688,40 @@ export default function ClientesTodosTab({
                     {visibleColumns.dni && (
                       <td className="py-2.5">
                         {c.dni ? (
-                          <span className="fw-bold text-dark font-monospace">{c.dni}</span>
+                          <span className="cell-title font-monospace">{c.dni}</span>
                         ) : (
-                          <span className="text-muted small">—</span>
+                          <span className="cell-subtext">—</span>
                         )}
                       </td>
                     )}
 
                     {visibleColumns.contacto && (
                       <td className="py-2.5">
-                        <div className="d-flex align-items-center gap-2">
-                          <div>
-                            <span className="fw-bold text-dark d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
-                            <span className="small text-muted">{c.email || ''}</span>
-                          </div>
-                          {(c.telefono || c.telefonoPersonal) && (
-                            <a
-                              href={`https://wa.me/51${(c.telefono || c.telefonoPersonal || '').replace(/\D/g, '')}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn-meta-icon btn-meta-icon-whatsapp shadow-sm"
-                              style={{ width: '26px', height: '26px', minWidth: '26px' }}
-                              title="Abrir WhatsApp con cliente"
-                            >
-                              <MessageCircle size={13} />
-                            </a>
-                          )}
-                        </div>
+                        <span className="cell-title d-block">{c.telefono || c.telefonoPersonal || '—'}</span>
+                        <span className="cell-subtext">{c.email || ''}</span>
                       </td>
                     )}
 
                     {visibleColumns.usuarioWsp && (
                       <td className="py-2.5">
                         {c.usuarioWsp ? (
-                          <span className="badge bg-light text-dark border fw-semibold font-monospace rounded-pill">{c.usuarioWsp}</span>
+                          <span className="badge-wsp-chip">{c.usuarioWsp}</span>
                         ) : (
-                          <span className="text-muted small">—</span>
+                          <span className="cell-subtext">—</span>
                         )}
                       </td>
                     )}
 
                     {visibleColumns.plan && (
                       <td className="py-2.5">
-                        <div className="d-flex align-items-center gap-1.5">
-                          <span className="badge bg-light text-dark border rounded-pill px-2.5 py-1 fw-bold">{c.planContratado}</span>
-                          <span className={`badge rounded-pill px-2.5 py-1 fw-bold ${c.tipoSuscripcion === 'ANUAL' ? 'bg-purple text-white' : 'bg-primary-subtle text-primary border border-primary-subtle'}`}>
+                        <div className="d-flex align-items-center gap-1.5 flex-wrap">
+                          <span className="badge-tag badge-plan-tag">{c.planContratado}</span>
+                          <span className={`badge-tag ${c.tipoSuscripcion === 'ANUAL' ? 'badge-sub-anual' : 'badge-sub-mensual'}`}>
                             {c.tipoSuscripcion || 'MENSUAL'}
                           </span>
                         </div>
                         {c.entornoNombre && (
-                          <span className={`badge rounded-pill mt-1 ${c.entornoNombre.toLowerCase().includes('interno') ? 'bg-secondary bg-opacity-25 text-secondary border' : 'bg-info bg-opacity-10 text-info border'}`} style={{ fontSize: '0.68rem' }}>
+                          <span className="badge-tag badge-sub-entorno mt-1">
                             {c.entornoNombre}
                           </span>
                         )}
@@ -744,36 +730,54 @@ export default function ClientesTodosTab({
 
                     {visibleColumns.proximoCobro && (
                       <td className="py-2.5">
-                        <strong className="text-primary fs-6">S/ {cobroProximo.toFixed(2)}</strong>
+                        <span className="cell-amount text-primary">S/ {cobroProximo.toFixed(2)}</span>
                       </td>
                     )}
 
                     {visibleColumns.vencimiento && (
                       <td className="py-2.5">
-                        <strong className={isExpired ? 'text-danger' : isNearExpiry ? 'text-warning text-dark' : 'text-dark'}>
+                        <span className={`cell-title ${isExpired ? 'text-danger' : isNearExpiry ? 'text-warning text-dark' : 'text-dark'}`}>
                           {vencDate
                             ? vencDate.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' })
                             : 'Sin fecha'}
-                        </strong>
+                        </span>
                       </td>
                     )}
 
                     {visibleColumns.plazo && (
                       <td className="py-2.5">
                         {diffDays === 9999 ? (
-                          <span className="badge bg-light text-muted border">Sin fecha</span>
-                        ) : diffDays > 0 ? (
-                          <span
-                            className={`badge fw-bold ${
-                              diffDays <= 3 ? 'bg-warning bg-opacity-25 text-dark border border-warning' : diffDays <= 7 ? 'bg-info bg-opacity-25 text-dark border border-info' : 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
-                            }`}
-                          >
-                            {diffDays === 1 ? 'Mañana' : `${diffDays} días`}
-                          </span>
+                          <span className="badge-tag badge-plazo-neutral">Sin fecha</span>
                         ) : diffDays === 0 ? (
-                          <span className="badge bg-danger text-white fw-bold">HOY</span>
+                          <span className="badge-tag badge-plazo-today">
+                            <span className="badge-dot badge-dot-danger badge-dot-pulse" />
+                            HOY
+                          </span>
+                        ) : diffDays === 1 ? (
+                          <span className="badge-tag badge-plazo-urgent">
+                            <span className="badge-dot badge-dot-warning" />
+                            Mañana
+                          </span>
+                        ) : diffDays > 1 && diffDays <= 3 ? (
+                          <span className="badge-tag badge-plazo-urgent">
+                            <span className="badge-dot badge-dot-warning" />
+                            {diffDays} días
+                          </span>
+                        ) : diffDays >= 4 && diffDays <= 7 ? (
+                          <span className="badge-tag badge-plazo-soon">
+                            <span className="badge-dot badge-dot-info" />
+                            {diffDays} días
+                          </span>
+                        ) : diffDays > 7 ? (
+                          <span className="badge-tag badge-plazo-ok">
+                            <span className="badge-dot badge-dot-success" />
+                            {diffDays} días
+                          </span>
                         ) : (
-                          <span className="badge bg-danger text-white">Vencido {Math.abs(diffDays)}d</span>
+                          <span className="badge-tag badge-plazo-expired">
+                            <span className="badge-dot badge-dot-danger" />
+                            Vencido {Math.abs(diffDays)}d
+                          </span>
                         )}
                       </td>
                     )}
@@ -781,7 +785,7 @@ export default function ClientesTodosTab({
                     {visibleColumns.vendedor && (
                       <td className="py-2.5">
                         {c.vendedor && c.vendedor !== 'Por asignar' && c.vendedor !== 'Sin Asignar' ? (
-                          <span className="badge bg-secondary text-white fw-bold" style={{ fontSize: '0.75rem' }} title="Vendedor asignado">
+                          <span className="badge-seller-chip" title="Vendedor asignado">
                             {c.vendedor}
                           </span>
                         ) : currentUser?.rol === 'ADMIN' ? (
@@ -825,6 +829,17 @@ export default function ClientesTodosTab({
                               : 'badge-fb-secondary'
                           }`}
                         >
+                          <span
+                            className={`badge-dot ${
+                              estadoVisual === 'HABILITADO'
+                                ? 'badge-dot-success'
+                                : estadoVisual === 'POR_COBRAR'
+                                ? 'badge-dot-warning'
+                                : estadoVisual === 'VENCIDO'
+                                ? 'badge-dot-danger'
+                                : 'badge-dot-neutral'
+                            }`}
+                          />
                           {estadoVisual || 'SIN ESTADO'}
                         </span>
                       </td>
@@ -860,173 +875,151 @@ export default function ClientesTodosTab({
 
                     {visibleColumns.acciones && (
                       <td className="py-2.5 text-center position-relative">
-                        <div className="d-flex align-items-center justify-content-center gap-1.5 position-relative">
-                          {/* Botón Acción Rápida: WhatsApp Mensaje */}
+                        <div className="table-action-floating-container">
                           <button
                             type="button"
-                            className="btn-meta-icon btn-meta-icon-whatsapp shadow-sm"
-                            onClick={() => setBillingMessageClient(c)}
-                            title="Mensaje de Cobranza WhatsApp"
+                            onClick={() => setOpenActionClientId(isActionOpen ? null : c.id)}
+                            className="btn-meta-action btn-meta-action-primary shadow-xs"
+                            title="Opciones del cliente"
                           >
-                            <MessageSquare size={13} />
+                            <span>Acciones</span>
+                            <ChevronDown size={12} />
                           </button>
 
-                          {/* Botón Acción Rápida: Editar */}
-                          <button
-                            type="button"
-                            className="btn-meta-icon btn-meta-icon-edit shadow-sm"
-                            onClick={() => setEditingClient(c)}
-                            title="Editar datos del cliente"
-                          >
-                            <Edit2 size={13} />
-                          </button>
-
-                          {/* Menú Más Acciones (...) */}
-                          <div className="d-inline-block position-relative">
-                            <button
-                              type="button"
-                              onClick={() => setOpenActionClientId(openActionClientId === c.id ? null : c.id)}
-                              className="btn-meta-icon shadow-sm"
-                              title="Más opciones para este cliente"
-                              aria-expanded={openActionClientId === c.id}
-                            >
-                              <MoreVertical size={13} />
-                            </button>
-
-                            {openActionClientId === c.id && (
+                          {isActionOpen && (
+                            <>
                               <div
-                                ref={actionMenuRef}
-                                className="dropdown-menu show shadow-lg border rounded-4 p-1.5 position-absolute end-0 mt-1 bg-white text-dark"
-                                style={{
-                                  zIndex: 1060,
-                                  minWidth: '220px',
-                                }}
+                                className="position-fixed top-0 start-0 w-100 h-100"
+                                style={{ zIndex: 100050, background: 'transparent' }}
+                                onClick={() => setOpenActionClientId(null)}
+                              />
+                              <div
+                                className="table-action-menu shadow-lg"
+                                style={{ minWidth: '220px' }}
                               >
-                              {/* 1. Copiar Afiliación */}
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
-                                onClick={() => {
-                                  copyAffiliationMessage(c);
-                                  setOpenActionClientId(null);
-                                }}
-                              >
-                                <MessageCircle size={15} className="text-success flex-shrink-0" />
-                                <span>{copiedMessageClientId === c.id ? '¡Copiado!' : 'Copiar Afiliación'}</span>
-                              </button>
+                                {/* 1. Editar Datos */}
+                                <button
+                                  type="button"
+                                  className="table-action-item item-primary"
+                                  onClick={() => {
+                                    setEditingClient(c);
+                                    setOpenActionClientId(null);
+                                  }}
+                                >
+                                  <Edit2 size={15} />
+                                  <span>Editar Datos</span>
+                                </button>
 
-                              {/* 2. Mensaje de Cobranza (WhatsApp) */}
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
-                                onClick={() => {
-                                  setBillingMessageClient(c);
-                                  setOpenActionClientId(null);
-                                }}
-                              >
-                                <MessageSquare size={15} className="text-primary flex-shrink-0" />
-                                <span>Mensaje de Cobranza</span>
-                              </button>
+                                {/* 2. Mensaje de Cobranza (WhatsApp) */}
+                                <button
+                                  type="button"
+                                  className="table-action-item item-success"
+                                  onClick={() => {
+                                    setBillingMessageClient(c);
+                                    setOpenActionClientId(null);
+                                  }}
+                                >
+                                  <MessageSquare size={15} />
+                                  <span>Mensaje de Cobranza</span>
+                                </button>
 
-                              {/* 3. Avisar / Desmarcar */}
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
-                                onClick={() => {
-                                  handleToggleAvisado?.(c, !c.avisado);
-                                  setOpenActionClientId(null);
-                                }}
-                              >
-                                {c.avisado ? (
+                                {/* 3. Copiar Afiliación */}
+                                <button
+                                  type="button"
+                                  className="table-action-item"
+                                  onClick={() => {
+                                    copyAffiliationMessage(c);
+                                    setOpenActionClientId(null);
+                                  }}
+                                >
+                                  <MessageCircle size={15} />
+                                  <span>{copiedMessageClientId === c.id ? '¡Copiado!' : 'Copiar Afiliación'}</span>
+                                </button>
+
+                                {/* 4. Avisar / Desmarcar */}
+                                <button
+                                  type="button"
+                                  className="table-action-item"
+                                  onClick={() => {
+                                    handleToggleAvisado?.(c, !c.avisado);
+                                    setOpenActionClientId(null);
+                                  }}
+                                >
+                                  {c.avisado ? (
+                                    <>
+                                      <CheckCircle2 size={15} className="text-success" />
+                                      <span>Desmarcar de Avisado</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <BellRing size={15} className="text-secondary" />
+                                      <span>Marcar como Avisado</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                {/* 5. Registrar Adelanto */}
+                                <button
+                                  type="button"
+                                  className="table-action-item"
+                                  onClick={() => {
+                                    setAdelantoClient(c);
+                                    setOpenActionClientId(null);
+                                  }}
+                                >
+                                  <CalendarPlus size={15} />
+                                  <span>Registrar Adelanto</span>
+                                </button>
+
+                                {/* 6. Ver Historial */}
+                                <button
+                                  type="button"
+                                  className="table-action-item"
+                                  onClick={() => {
+                                    setHistoryClient?.(c);
+                                    setOpenActionClientId(null);
+                                  }}
+                                >
+                                  <Eye size={15} />
+                                  <span>Ver Historial</span>
+                                </button>
+
+                                {/* 7. Mejorar Plan (Upgrade) */}
+                                <button
+                                  type="button"
+                                  className="table-action-item"
+                                  onClick={() => {
+                                    setMejoraPlanClient(c);
+                                    setMejoraPlanSeleccionado(c.planContratado || '');
+                                    setOpenActionClientId(null);
+                                  }}
+                                >
+                                  <TrendingUp size={15} />
+                                  <span>Mejorar Plan (Upgrade)</span>
+                                </button>
+
+                                {/* 8. Eliminar Cliente (solo ADMIN) */}
+                                {currentUser?.rol === 'ADMIN' && (
                                   <>
-                                    <CheckCircle2 size={15} className="text-success flex-shrink-0" />
-                                    <span>Desmarcar de Avisado</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <BellRing size={15} className="text-secondary flex-shrink-0" />
-                                    <span>Marcar como Avisado</span>
+                                    <div className="border-top my-1"></div>
+                                    <button
+                                      type="button"
+                                      className="table-action-item item-danger"
+                                      onClick={() => {
+                                        setDeletingClient(c);
+                                        setOpenActionClientId(null);
+                                      }}
+                                    >
+                                      <Trash2 size={15} />
+                                      <span>Eliminar Cliente</span>
+                                    </button>
                                   </>
                                 )}
-                              </button>
-
-                              {/* 4. Adelanto de Pago */}
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
-                                onClick={() => {
-                                  setAdelantoClient(c);
-                                  setOpenActionClientId(null);
-                                }}
-                              >
-                                <CalendarPlus size={15} className="text-warning text-dark flex-shrink-0" />
-                                <span>Registrar Adelanto</span>
-                              </button>
-
-                              {/* 5. Historial de Pagos y Movimientos */}
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
-                                onClick={() => {
-                                  setHistoryClient?.(c);
-                                  setOpenActionClientId(null);
-                                }}
-                              >
-                                <Eye size={15} className="text-info flex-shrink-0" />
-                                <span>Ver Historial</span>
-                              </button>
-
-                              <div className="dropdown-divider my-1"></div>
-
-                              {/* 6. Editar Cliente */}
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
-                                onClick={() => {
-                                  setEditingClient(c);
-                                  setOpenActionClientId(null);
-                                }}
-                              >
-                                <Edit2 size={15} className="text-primary flex-shrink-0" />
-                                <span>Editar Cliente</span>
-                              </button>
-
-                              {/* 7. Mejorar Plan (Upgrade) */}
-                              <button
-                                type="button"
-                                className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold"
-                                onClick={() => {
-                                  setMejoraPlanClient(c);
-                                  setMejoraPlanSeleccionado(c.planContratado || '');
-                                  setOpenActionClientId(null);
-                                }}
-                              >
-                                <TrendingUp size={15} className="text-success flex-shrink-0" />
-                                <span>Mejorar Plan (Upgrade)</span>
-                              </button>
-
-                              {/* 8. Eliminar Cliente (solo ADMIN) */}
-                              {currentUser?.rol === 'ADMIN' && (
-                                <>
-                                  <div className="dropdown-divider my-1"></div>
-                                  <button
-                                    type="button"
-                                    className="dropdown-item d-flex align-items-center gap-2 py-1.5 px-2.5 rounded-2 small fw-semibold text-danger"
-                                    onClick={() => {
-                                      setDeletingClient(c);
-                                      setOpenActionClientId(null);
-                                    }}
-                                  >
-                                    <Trash2 size={15} className="text-danger flex-shrink-0" />
-                                    <span>Eliminar Cliente</span>
-                                  </button>
-                                </>
-                              )}
-                            </div>
+                              </div>
+                            </>
                           )}
                         </div>
-                      </div>
-                    </td>
+                      </td>
                     )}
                   </tr>
                 );

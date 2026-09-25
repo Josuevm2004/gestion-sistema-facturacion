@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -15,10 +15,18 @@
   --card-shadow-hover: 0 4px 14px -2px rgba(0, 0, 0, 0.1);
 }
 
+body,
+button,
+input,
+select,
+textarea,
+table {
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
 body {
   background-color: #F0F2F5 !important;
   color: #050505;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -453,35 +461,38 @@ body {
   transform: scale(1.04);
 }
 
-/* Facebook High-Density Table Style */
+/* Standardized High-Density Table Style (All Tables Share Exact Unified Sizing) */
 .table-meta {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  margin-bottom: 0;
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin-bottom: 0 !important;
+  font-size: 0.8125rem !important; /* 13px base table cell font */
 }
 
 .table-meta th {
-  background-color: #F9FAFB !important;
-  color: #65676B !important;
-  font-size: 0.70rem !important;
+  background-color: #F8FAFC !important;
+  color: #475569 !important;
+  font-size: 0.72rem !important;
   font-weight: 700 !important;
   text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  border-bottom: 1px solid #E4E6EB !important;
+  letter-spacing: 0.04em !important;
+  border-bottom: 1px solid #E2E8F0 !important;
   border-top: none !important;
-  padding: 0.75rem 0.85rem !important;
+  padding: 0.7rem 0.85rem !important;
   white-space: nowrap;
   font-family: inherit;
 }
 
 .table-meta td {
   padding: 0.65rem 0.85rem !important;
-  border-bottom: 1px solid #E4E6EB !important;
+  border-bottom: 1px solid #E2E8F0 !important;
   border-top: none !important;
-  vertical-align: middle;
-  font-size: 0.83rem !important;
-  color: #050505;
+  vertical-align: middle !important;
+  font-size: 0.8125rem !important;
+  color: #1E293B !important;
+  line-height: 1.35 !important;
+  font-family: inherit;
 }
 
 .table-meta tbody tr {
@@ -490,57 +501,369 @@ body {
 }
 
 .table-meta tbody tr:hover {
-  background-color: #F2F4F7 !important;
+  background-color: #F8FAFC !important;
 }
 
-/* Facebook Micro-Badges */
+/* Unified internal cell element typography */
+.table-meta .cell-title {
+  font-size: 0.8125rem !important;
+  font-weight: 700 !important;
+  color: #0F172A !important;
+  line-height: 1.25 !important;
+  margin: 0 !important;
+}
+
+.table-meta .cell-subtext {
+  font-size: 0.72rem !important;
+  color: #64748B !important;
+  line-height: 1.25 !important;
+  display: block;
+}
+
+.table-meta .cell-amount {
+  font-size: 0.8125rem !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+}
+
+/* ============================================================
+   SISTEMA DE ETIQUETAS Y BADGES UNIFICADO (Stitch / Facebook UI)
+   ============================================================ */
+
+/* Base badge pill con alineación perfecta y micro-tipografía */
+.badge-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  padding: 0.22rem 0.6rem !important;
+  border-radius: 9999px !important;
+  font-size: 0.70rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  white-space: nowrap !important;
+  line-height: 1.25 !important;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+/* Indicador de punto (Dot indicator) */
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.badge-dot-danger {
+  background-color: #EF4444;
+}
+.badge-dot-warning {
+  background-color: #F59E0B;
+}
+.badge-dot-success {
+  background-color: #10B981;
+}
+.badge-dot-info {
+  background-color: #3B82F6;
+}
+.badge-dot-neutral {
+  background-color: #94A3B8;
+}
+
+/* Dot con efecto pulsing suave para HOY y estados críticos */
+.badge-dot-pulse {
+  animation: badgePulse 1.8s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+@keyframes badgePulse {
+  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* 1. ETIQUETAS DE PLAZO (Días restantes / Vencimiento) */
+.badge-plazo-today {
+  background-color: #FEF2F2 !important;
+  color: #991B1B !important;
+  border: 1px solid #FECACA !important;
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.1);
+}
+.badge-plazo-urgent {
+  background-color: #FFFBEB !important;
+  color: #92400E !important;
+  border: 1px solid #FDE68A !important;
+}
+.badge-plazo-soon {
+  background-color: #EFF6FF !important;
+  color: #1E40AF !important;
+  border: 1px solid #BFDBFE !important;
+}
+.badge-plazo-ok {
+  background-color: #ECFDF5 !important;
+  color: #065F46 !important;
+  border: 1px solid #A7F3D0 !important;
+}
+.badge-plazo-expired {
+  background-color: #FEF2F2 !important;
+  color: #B91C1C !important;
+  border: 1px solid #FCA5A5 !important;
+}
+.badge-plazo-neutral {
+  background-color: #F8FAFC !important;
+  color: #64748B !important;
+  border: 1px solid #E2E8F0 !important;
+}
+
+/* 2. ETIQUETAS DE PLAN Y SUSCRIPCIÓN */
+.badge-plan-tag {
+  background-color: #F8FAFC !important;
+  color: #0F172A !important;
+  border: 1px solid #CBD5E1 !important;
+  font-weight: 700 !important;
+}
+.badge-sub-mensual {
+  background-color: #E0F2FE !important;
+  color: #0369A1 !important;
+  border: 1px solid #BAE6FD !important;
+}
+.badge-sub-anual {
+  background-color: #F3E8FF !important;
+  color: #6D28D9 !important;
+  border: 1px solid #DDD6FE !important;
+}
+.badge-sub-entorno {
+  background-color: #F1F5F9 !important;
+  color: #475569 !important;
+  border: 1px solid #CBD5E1 !important;
+}
+
+/* 3. ETIQUETAS DE ESTADO DE CUENTA / CLIENTE (Modern Facebook / Meta) */
 .badge-fb {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.18rem 0.55rem;
-  border-radius: 4px;
-  font-size: 0.69rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  line-height: 1.25;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+  padding: 0.22rem 0.6rem !important;
+  border-radius: 9999px !important;
+  font-size: 0.70rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.03em !important;
+  white-space: nowrap !important;
+  line-height: 1.25 !important;
 }
 .badge-fb-success {
-  background-color: #E8F8F0;
-  color: #059669;
-  border: 1px solid #A7F3D0;
+  background-color: #ECFDF5 !important;
+  color: #065F46 !important;
+  border: 1px solid #A7F3D0 !important;
 }
 .badge-fb-warning {
-  background-color: #FEF3C7;
-  color: #B45309;
-  border: 1px solid #FDE68A;
+  background-color: #FFFBEB !important;
+  color: #92400E !important;
+  border: 1px solid #FDE68A !important;
 }
 .badge-fb-danger {
-  background-color: #FEE2E2;
-  color: #DC2626;
-  border: 1px solid #FECACA;
+  background-color: #FEF2F2 !important;
+  color: #B91C1C !important;
+  border: 1px solid #FECACA !important;
 }
 .badge-fb-secondary {
-  background-color: #F0F2F5;
-  color: #4B5563;
-  border: 1px solid #E4E6EB;
+  background-color: #F1F5F9 !important;
+  color: #475569 !important;
+  border: 1px solid #E2E8F0 !important;
 }
 .badge-fb-primary {
-  background-color: #E7F3FF;
-  color: #0866FF;
-  border: 1px solid #D0E2FF;
+  background-color: #EFF6FF !important;
+  color: #1D4ED8 !important;
+  border: 1px solid #BFDBFE !important;
 }
 
-/* Facebook Table Container Card (Stitch Full-Width) */
+/* 4. CHIP DE USUARIO WSP & VENDEDOR */
+.badge-wsp-chip {
+  background-color: #F8FAFC !important;
+  color: #1E293B !important;
+  border: 1px solid #E2E8F0 !important;
+  font-family: var(--bs-font-monospace, monospace);
+  font-size: 0.70rem !important;
+  font-weight: 600 !important;
+  padding: 0.2rem 0.55rem !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+.badge-seller-chip {
+  background-color: #F1F5F9 !important;
+  color: #334155 !important;
+  border: 1px solid #CBD5E1 !important;
+  font-size: 0.70rem !important;
+  font-weight: 700 !important;
+  padding: 0.2rem 0.55rem !important;
+  border-radius: 9999px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+/* Facebook Table Container Card (Stitch Full-Width, Non-clipping) */
 .table-card-meta {
   background: #FFFFFF;
   border: 1px solid #E4E6EB;
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: visible !important;
   width: 100% !important;
+  position: relative;
+}
+
+/* Ensure table responsive handles overflow horizontally while letting dropdowns escape vertically */
+.table-card-meta > .table-responsive {
+  overflow-x: auto;
+  overflow-y: visible !important;
+  width: 100% !important;
+}
+
+/* High-Density Facebook / Stitch Section Header Icons */
+.section-header-icon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.section-header-icon-primary {
+  background: linear-gradient(135deg, #1877F2 0%, #0866FF 55%, #0052CC 100%);
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(8, 102, 255, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(8, 102, 255, 0.25);
+}
+
+.section-header-icon-warning {
+  background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.section-header-icon-danger {
+  background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.section-header-icon-dark {
+  background: linear-gradient(135deg, #4B5563 0%, #1F2937 100%);
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(31, 41, 55, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(31, 41, 55, 0.25);
+}
+
+.section-header-icon-success {
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(5, 150, 105, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(5, 150, 105, 0.25);
+}
+
+.section-header-icon-indigo {
+  background: linear-gradient(135deg, #818CF8 0%, #4F46E5 100%);
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.28), inset 0 1px 1px rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(79, 70, 229, 0.25);
+}
+
+/* Floating Table Unified Action Dropdown (Overlays on top of everything) */
+.table-action-floating-container {
+  position: relative;
+  display: inline-block;
+}
+
+.table-action-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  min-width: 210px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E4E6EB;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16), 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: 0.4rem;
+  z-index: 100060 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.table-action-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #050505;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+  text-decoration: none;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table-action-item:hover {
+  background-color: #F2F4F7;
+  color: #050505;
+}
+
+.table-action-item.item-danger {
+  color: #DC2626;
+}
+.table-action-item.item-danger:hover {
+  background-color: #FEE2E2;
+  color: #B91C1C;
+}
+
+.table-action-item.item-success {
+  color: #059669;
+}
+.table-action-item.item-success:hover {
+  background-color: #DEF7EC;
+  color: #047857;
+}
+
+.table-action-item.item-primary {
+  color: #0866FF;
+}
+.table-action-item.item-primary:hover {
+  background-color: #E7F3FF;
+  color: #0866FF;
+}
+
+/* Horizontal Responsive Scroll Container for Stitch Navbar */
+.stitch-navbar-nav-scroll {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  white-space: nowrap !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  max-width: 100% !important;
+}
+.stitch-navbar-nav-scroll::-webkit-scrollbar {
+  display: none !important;
+}
+.stitch-navbar-nav-scroll .nav-item {
+  flex-shrink: 0 !important;
 }
 
 /* Stitch Filter Toolbar Style */
@@ -911,10 +1234,20 @@ body {
 }
 
 .admin-main {
-  max-width: 1600px;
+  width: 100% !important;
+  max-width: 100% !important;
   min-width: 0;
-  margin-left: auto;
-  margin-right: auto;
+  padding-left: 0.75rem !important;
+  padding-right: 0.75rem !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+@media (min-width: 768px) {
+  .admin-main {
+    padding-left: 1.5rem !important;
+    padding-right: 1.5rem !important;
+  }
 }
 
 .admin-main > * {
@@ -1191,8 +1524,16 @@ body {
 }
 
 .admin-profile-panel {
-  z-index: 99999;
-  width: 260px;
+  position: absolute !important;
+  right: 0 !important;
+  top: calc(100% + 8px) !important;
+  width: min(320px, 94vw) !important;
+  background: #FFFFFF !important;
+  border-radius: 16px !important;
+  border: 1px solid #E4E6EB !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+  padding: 0.75rem !important;
+  z-index: 100060 !important;
 }
 
 .admin-notification-panel {
@@ -1276,11 +1617,11 @@ body {
   }
 
   .admin-profile-panel {
-    position: fixed !important;
-    top: 68px;
-    left: 12px;
-    right: 12px;
-    width: auto;
+    position: absolute !important;
+    top: calc(100% + 8px) !important;
+    right: 0 !important;
+    left: auto !important;
+    width: min(300px, 92vw) !important;
     margin-top: 0 !important;
   }
 

@@ -363,8 +363,8 @@ export default function FormularioPublicoPage() {
         {step === 1 && (
           <div className="card rounded-4 border bg-white p-4 p-md-5 shadow-sm">
             <div className="d-flex align-items-center gap-3 border-bottom pb-4 mb-4">
-              <div className="d-flex align-items-center justify-content-center flex-shrink-0" style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
-                <Building2 size={24} />
+              <div className="section-header-icon section-header-icon-primary flex-shrink-0" style={{ width: '52px', height: '52px', borderRadius: '15px' }}>
+                <Building2 size={26} strokeWidth={2.2} />
               </div>
               <div>
                 <h1 className="h4 fw-bold text-dark mb-0">Formulario de Registro de Cliente</h1>
