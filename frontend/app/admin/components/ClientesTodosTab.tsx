@@ -487,17 +487,15 @@ export default function ClientesTodosTab({
         </div>
       </div>
 
-      {/* Panel Avanzado de Filtros */}
-      <div className="p-3 rounded-4 border mb-4 shadow-sm" style={{ backgroundColor: '#F0F2F5' }}>
+      {/* Panel Avanzado de Filtros (Stitch Style) */}
+      <div className="stitch-filter-toolbar">
         <div className="row g-2 mb-2">
           <div className="col-lg-4 col-md-6">
-            <div className="input-group input-group-sm rounded-pill overflow-hidden bg-white border shadow-sm">
-              <span className="input-group-text bg-white border-0 text-muted ps-3">
-                <Search size={15} />
-              </span>
+            <div className="stitch-filter-search">
+              <Search size={15} />
               <input
                 type="text"
-                className="form-control border-0 shadow-none py-1.5"
+                className="form-control stitch-filter-input"
                 placeholder="Buscar por RUC, Empresa, DNI, Teléfono..."
                 value={currentSearch}
                 onChange={(e) => handleSearchChange(e.target.value)}
@@ -506,7 +504,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-3 col-6">
             <select
-              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
+              className="form-select stitch-filter-select"
               value={estadoCuentaFilter}
               onChange={(e) => setEstadoCuentaFilter(e.target.value)}
             >
@@ -520,7 +518,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-3 col-6">
             <select
-              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
+              className="form-select stitch-filter-select"
               value={suscripcionFilter}
               onChange={(e) => setSuscripcionFilter(e.target.value)}
             >
@@ -531,7 +529,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-6 col-6">
             <select
-              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
+              className="form-select stitch-filter-select"
               value={planFilter}
               onChange={(e) => setPlanFilter(e.target.value)}
             >
@@ -545,7 +543,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-2 col-md-6 col-6">
             <select
-              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
+              className="form-select stitch-filter-select"
               value={regimenFilter}
               onChange={(e) => setRegimenFilter(e.target.value)}
             >
@@ -561,7 +559,7 @@ export default function ClientesTodosTab({
         <div className="row g-2">
           <div className="col-lg-3 col-md-4 col-6">
             <select
-              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
+              className="form-select stitch-filter-select"
               value={capacitacionFilter}
               onChange={(e) => setCapacitacionFilter(e.target.value)}
             >
@@ -572,7 +570,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-3 col-md-4 col-6">
             <select
-              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
+              className="form-select stitch-filter-select"
               value={sellerFilter}
               onChange={(e) => setSellerFilter(e.target.value)}
             >
@@ -586,7 +584,7 @@ export default function ClientesTodosTab({
           </div>
           <div className="col-lg-3 col-md-4 col-12">
             <select
-              className="form-select form-select-sm rounded-pill fw-semibold bg-white border shadow-sm"
+              className="form-select stitch-filter-select"
               value={avisadoFilter}
               onChange={(e) => setAvisadoFilter(e.target.value)}
             >

@@ -70,8 +70,8 @@ export default function BloqueadosTab({
   }, [totalPages]);
 
   return (
-    <div className="card rounded-4 border bg-white p-4 shadow-sm">
-      <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-3">
+    <div className="w-100">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs">
         <div className="d-flex align-items-center gap-3">
           <div className="d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#F0F2F5', color: '#4B5563' }}>
             <ShieldCheck size={20} />
@@ -97,17 +97,15 @@ export default function BloqueadosTab({
         </div>
       </div>
 
-      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual */}
-      <div className="p-3 rounded-4 border mb-4" style={{ backgroundColor: '#F0F2F5' }}>
+      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual (Stitch Style) */}
+      <div className="stitch-filter-toolbar mb-4">
         <div className="row g-2 align-items-center">
           <div className="col-12 col-md-8 col-lg-6">
-            <div className="input-group input-group-sm">
-              <span className="input-group-text bg-white border-end-0 text-muted rounded-start-pill ps-3">
-                <Search size={14} />
-              </span>
+            <div className="stitch-filter-search">
+              <Search size={15} />
               <input
                 type="text"
-                className="form-control border-start-0 rounded-end-pill pe-3"
+                className="form-control stitch-filter-input"
                 placeholder="Buscar por RUC, Empresa, DNI, Teléfono, Plan..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -116,7 +114,7 @@ export default function BloqueadosTab({
           </div>
           <div className="col-12 col-md-4 col-lg-3">
             <select
-              className="form-select form-select-sm fw-semibold rounded-pill px-3"
+              className="form-select stitch-filter-select w-100"
               value={suscripcionFilter}
               onChange={(e) => setSuscripcionFilter(e.target.value)}
             >

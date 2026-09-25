@@ -533,13 +533,185 @@ body {
   border: 1px solid #D0E2FF;
 }
 
-/* Facebook Table Container Card */
+/* Facebook Table Container Card (Stitch Full-Width) */
 .table-card-meta {
   background: #FFFFFF;
   border: 1px solid #E4E6EB;
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   overflow: hidden;
+  width: 100% !important;
+}
+
+/* Stitch Filter Toolbar Style */
+.stitch-filter-toolbar {
+  background: #FFFFFF;
+  border: 1px solid #E4E6EB;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  width: 100%;
+}
+
+.stitch-filter-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.stitch-filter-search svg,
+.stitch-filter-search .search-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: #65676B;
+  pointer-events: none;
+  font-size: 1rem;
+}
+
+.stitch-filter-input {
+  background-color: #F0F2F5 !important;
+  color: #050505 !important;
+  border: 1px solid #E4E6EB !important;
+  border-radius: 9999px !important;
+  height: 38px !important;
+  padding-left: 2.35rem !important;
+  padding-right: 1rem !important;
+  font-size: 0.84rem !important;
+  width: 100%;
+  transition: all 0.15s ease !important;
+  box-shadow: none !important;
+}
+
+.stitch-filter-input:focus {
+  background-color: #FFFFFF !important;
+  border-color: #0866FF !important;
+  box-shadow: 0 0 0 2px rgba(8, 102, 255, 0.18) !important;
+  outline: none !important;
+}
+
+.stitch-filter-select {
+  background-color: #F0F2F5 !important;
+  color: #050505 !important;
+  border: 1px solid #E4E6EB !important;
+  border-radius: 9999px !important;
+  height: 38px !important;
+  padding: 0.35rem 2rem 0.35rem 0.95rem !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all 0.15s ease !important;
+  box-shadow: none !important;
+}
+
+.stitch-filter-select:focus {
+  background-color: #FFFFFF !important;
+  border-color: #0866FF !important;
+  box-shadow: 0 0 0 2px rgba(8, 102, 255, 0.18) !important;
+  outline: none !important;
+}
+
+/* Facebook / Stitch Notifications Panel */
+.admin-notification-panel-fb {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: min(420px, 94vw);
+  max-height: 84vh;
+  background: #FFFFFF;
+  border-radius: 16px;
+  border: 1px solid #E4E6EB;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  z-index: 100050;
+  display: flex;
+  flex-direction: column;
+}
+
+.fb-notif-header {
+  padding: 1rem 1rem 0.65rem 1rem;
+  border-bottom: 1px solid #E4E6EB;
+  background: #FFFFFF;
+}
+
+.fb-notif-tab {
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1.2;
+}
+
+.fb-notif-tab.active {
+  background-color: #E7F3FF !important;
+  color: #0866FF !important;
+}
+
+.fb-notif-tab:not(.active) {
+  background-color: transparent !important;
+  color: #65676B !important;
+}
+
+.fb-notif-tab:not(.active):hover {
+  background-color: #F2F4F7 !important;
+  color: #050505 !important;
+}
+
+.fb-notif-list {
+  padding: 0.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.fb-notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  transition: background-color 0.12s ease;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  border: 1px solid transparent;
+}
+
+.fb-notif-item:hover {
+  background-color: #F2F4F7;
+}
+
+.fb-notif-item.unread {
+  background-color: #F0F6FF;
+  border-color: #E0EDFF;
+}
+
+.fb-notif-icon {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.fb-notif-unread-dot {
+  width: 9px;
+  height: 9px;
+  min-width: 9px;
+  border-radius: 50%;
+  background-color: #0866FF;
+  margin-left: auto;
+  align-self: center;
 }
 
 /* Meta Action Buttons & Utility Chips */

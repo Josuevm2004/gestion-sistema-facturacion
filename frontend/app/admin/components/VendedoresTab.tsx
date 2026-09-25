@@ -41,8 +41,8 @@ export default function VendedoresTab({
   }
 
   return (
-    <div className="card rounded-4 border bg-white p-4 shadow-sm">
-      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-4 border-bottom pb-3">
+    <div className="w-100">
+      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3 p-3 bg-white rounded-3 border shadow-xs">
         <div>
           <h2 className="h6 fw-bold text-dark mb-1">Gestión de Usuarios y Vendedores</h2>
           <p className="text-muted small mb-0">Módulo exclusivo para Administrador: alta, edición y baja de colaboradores.</p>

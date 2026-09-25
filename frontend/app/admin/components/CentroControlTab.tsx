@@ -137,16 +137,14 @@ export default function CentroControlTab({
         </div>
       </div>
 
-      {/* Barra de Filtros: Buscador, Suscripción (Anual/Mensual) y Estado de Aviso */}
-      <div className="p-3 bg-light rounded-3 border mb-4">
+      {/* Barra de Filtros: Buscador, Suscripción (Anual/Mensual) y Estado de Aviso (Stitch Style) */}
+      <div className="stitch-filter-toolbar mb-4">
         <div className="row g-2 align-items-center">
           <div className="col-12 col-md-5 col-lg-5">
-            <div className="input-group input-group-sm">
-              <span className="input-group-text bg-white border-end-0 text-muted">
-                <Search size={14} />
-              </span>
+            <div className="stitch-filter-search">
+              <Search size={15} />
               <input
-                className="form-control border-start-0"
+                className="form-control stitch-filter-input"
                 placeholder="Buscar empresa, RUC, DNI, teléfono, representante..."
                 value={calendarSearch}
                 onChange={(e) => setCalendarSearch(e.target.value)}
@@ -155,7 +153,7 @@ export default function CentroControlTab({
           </div>
           <div className="col-12 col-md-3 col-lg-3">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select stitch-filter-select w-100"
               value={suscripcionFilter}
               onChange={(e) => setSuscripcionFilter(e.target.value)}
             >
@@ -166,7 +164,7 @@ export default function CentroControlTab({
           </div>
           <div className="col-12 col-md-4 col-lg-4">
             <select
-              className="form-select form-select-sm fw-semibold"
+              className="form-select stitch-filter-select w-100"
               value={avisadoFilter}
               onChange={(e) => setAvisadoFilter(e.target.value)}
             >

@@ -33,8 +33,8 @@ export default function PorCobrarTab({
   }, [totalPages]);
 
   return (
-    <div className="card rounded-4 border bg-white p-4 shadow-sm">
-      <div className="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3">
+    <div className="w-100">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs">
         <div className="d-flex align-items-center gap-3">
           <div className="d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#FEF3C7', color: '#D97706' }}>
             <CreditCard size={20} />

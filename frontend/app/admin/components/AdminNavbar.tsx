@@ -197,79 +197,116 @@ export default function AdminNavbar({
                     ></div>
 
                     <div
-                      className="notification-dropdown-responsive admin-notification-panel bg-white text-dark rounded-4 shadow-lg p-3 border"
-                      style={{ maxHeight: '82vh', overflowY: 'auto' }}
+                      className="admin-notification-panel-fb text-dark"
                     >
-                      <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-                        <strong className="text-dark fs-5 fw-bold d-flex align-items-center gap-2">
-                          <Bell size={20} className="text-primary" />
-                          <span>Notificaciones</span>
-                        </strong>
-                        <div className="d-flex align-items-center gap-2">
-                          {alertCount > 0 && (
+                      {/* Facebook Style Notifications Header */}
+                      <div className="fb-notif-header">
+                        <div className="d-flex justify-content-between align-items-center mb-2">
+                          <h3 className="h6 fw-bold text-dark mb-0 fs-5">Notificaciones</h3>
+                          <div className="d-flex align-items-center gap-2">
+                            {alertCount > 0 && (
+                              <button
+                                type="button"
+                                className="btn btn-sm rounded-pill px-2.5 py-1 fw-bold text-primary border-0 d-inline-flex align-items-center gap-1"
+                                style={{ fontSize: '0.74rem', backgroundColor: '#E7F3FF' }}
+                                onClick={() => handleMarkAllNotificationsAsRead?.()}
+                                title="Marcar todas como leídas"
+                              >
+                                <CheckCheck size={13} />
+                                <span>Marcar leídas</span>
+                              </button>
+                            )}
                             <button
                               type="button"
-                              className="btn btn-sm btn-light rounded-pill px-2.5 py-1 fw-bold text-primary d-inline-flex align-items-center gap-1 border-0"
-                              style={{ fontSize: '0.74rem', backgroundColor: '#E7F3FF' }}
-                              onClick={() => {
-                                handleMarkAllNotificationsAsRead?.();
-                              }}
-                              title="Marcar todas las alertas como leídas"
-                            >
-                              <CheckCheck size={13} />
-                              <span>Marcar leídas</span>
-                            </button>
-                          )}
+                              className="btn-close btn-sm"
+                              onClick={() => setShowNotificationsDropdown(false)}
+                              aria-label="Cerrar"
+                            ></button>
+                          </div>
+                        </div>
+
+                        {/* Facebook Tabs: Todas / No leídas */}
+                        <div className="d-flex align-items-center gap-1.5 pt-1">
                           <button
                             type="button"
-                            className="btn-close btn-sm"
-                            onClick={() => setShowNotificationsDropdown(false)}
-                            aria-label="Cerrar"
-                          ></button>
+                            className="fb-notif-tab active"
+                          >
+                            Todas {alertCount > 0 && `(${alertCount})`}
+                          </button>
+                          <button
+                            type="button"
+                            className="fb-notif-tab"
+                            onClick={() => handleMarkAllNotificationsAsRead?.()}
+                          >
+                            No leídas
+                          </button>
                         </div>
                       </div>
 
-                      {alertCount === 0 ? (
-                        <div className="text-center text-muted py-4">
-                          <CheckCircle size={28} className="text-success mb-2 d-block mx-auto" />
-                          <p className="small mb-0 fw-semibold">No hay alertas de recordatorio activas.</p>
-                          <small className="text-muted">Todas tus cobranzas están al día.</small>
-                        </div>
-                      ) : (
-                        <div className="d-flex flex-column gap-2">
-                          {activeNotifications.map((n: any) => (
+                      {/* Notifications List (Facebook Feed Style) */}
+                      <div className="fb-notif-list">
+                        {alertCount === 0 ? (
+                          <div className="text-center text-muted py-5 px-3">
                             <div
-                              key={`notif-${n.id}`}
-                              className="p-3 border rounded-3 bg-light text-start shadow-sm position-relative"
-                              style={{ cursor: n.clienteId ? 'pointer' : 'default', transition: 'background-color 0.15s ease' }}
-                              onClick={() => {
-                                if (n.id && handleMarkNotificationAsRead) {
-                                  handleMarkNotificationAsRead(n.id);
-                                }
-                                if (n.clienteRazonSocial) {
-                                  setCalendarSearch(n.clienteRazonSocial);
-                                  setActiveTab('todos');
-                                  setShowNotificationsDropdown(false);
-                                }
-                              }}
+                              className="mx-auto rounded-circle d-flex align-items-center justify-content-center mb-3"
+                              style={{ width: '56px', height: '56px', backgroundColor: '#E8F8F0', color: '#059669' }}
                             >
-                              <div className="d-flex justify-content-between align-items-start mb-1">
-                                <strong className="text-dark text-truncate me-2 fw-bold" style={{ maxWidth: '210px', fontSize: '0.88rem' }}>
-                                  {n.clienteRazonSocial || n.titulo}
-                                </strong>
-                                <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill flex-shrink-0" style={{ fontSize: '0.65rem' }}>
-                                  {n.tipo}
-                                </span>
-                              </div>
-                              <div className="small text-muted mb-1" style={{ fontSize: '0.82rem' }}>{n.mensaje}</div>
-                              <div className="d-flex align-items-center justify-content-between mt-1">
-                                <small className="text-primary fw-semibold" style={{ fontSize: '0.72rem' }}>Hacer clic para ver cliente</small>
-                                <span className="p-1 rounded-circle bg-primary" style={{ width: '7px', height: '7px' }}></span>
-                              </div>
+                              <CheckCircle size={28} />
                             </div>
-                          ))}
-                        </div>
-                      )}
+                            <h4 className="h6 fw-bold text-dark mb-1">¡Estás al día!</h4>
+                            <p className="small text-muted mb-0">No tienes alertas pendientes ni vencimientos sin atender.</p>
+                          </div>
+                        ) : (
+                          activeNotifications.map((n: any) => {
+                            const isVencido = n.tipo?.toLowerCase().includes('venc') || n.mensaje?.toLowerCase().includes('venc');
+                            const isCobro = n.tipo?.toLowerCase().includes('cobr') || n.tipo?.toLowerCase().includes('pago');
+                            
+                            const iconBg = isVencido ? '#FEE2E2' : isCobro ? '#FEF3C7' : '#E7F3FF';
+                            const iconColor = isVencido ? '#DC2626' : isCobro ? '#D97706' : '#0866FF';
+
+                            return (
+                              <div
+                                key={`notif-${n.id}`}
+                                className="fb-notif-item unread"
+                                onClick={() => {
+                                  if (n.id && handleMarkNotificationAsRead) {
+                                    handleMarkNotificationAsRead(n.id);
+                                  }
+                                  if (n.clienteRazonSocial) {
+                                    setCalendarSearch(n.clienteRazonSocial);
+                                    setActiveTab('todos');
+                                    setShowNotificationsDropdown(false);
+                                  }
+                                }}
+                              >
+                                <div
+                                  className="fb-notif-icon shadow-xs flex-shrink-0"
+                                  style={{ backgroundColor: iconBg, color: iconColor }}
+                                >
+                                  {isVencido ? <AlertTriangle size={18} /> : isCobro ? <WalletCards size={18} /> : <Bell size={18} />}
+                                </div>
+                                <div className="flex-grow-1 overflow-hidden">
+                                  <div className="text-dark small lh-sm mb-1">
+                                    <strong className="fw-bold">{n.clienteRazonSocial || n.titulo || 'Cliente'}</strong>
+                                    <span className="text-secondary d-block text-truncate mt-0.5" style={{ fontSize: '0.80rem' }}>
+                                      {n.mensaje}
+                                    </span>
+                                  </div>
+                                  <div className="d-flex align-items-center gap-1.5 mt-1">
+                                    <span className="badge-fb badge-fb-secondary" style={{ fontSize: '0.62rem', padding: '0.15rem 0.45rem' }}>
+                                      {n.tipo || 'Aviso'}
+                                    </span>
+                                    <span className="text-muted small" style={{ fontSize: '0.72rem' }}>
+                                      Revisar cliente &bull; Clic aquí
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className="fb-notif-unread-dot" title="No leído"></span>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
                     </div>
                   </>
                 )}
