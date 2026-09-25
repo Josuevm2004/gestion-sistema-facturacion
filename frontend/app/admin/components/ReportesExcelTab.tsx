@@ -1258,7 +1258,7 @@ export default function ReportesExcelTab({
                 <span className="text-muted fw-semibold">
                   Efectividad de Cobro:{' '}
                   <strong className="text-success fw-bold">
-                    {totalVentas > 0 ? `${((ingresosCobrados / totalVentas) * 100).toFixed(1)}%` : '100%'}
+                    {totalVentas > 0 ? `${((totalIngresos / totalVentas) * 100).toFixed(1)}%` : '100%'}
                   </strong>
                 </span>
                 <span className="text-muted fw-semibold">
