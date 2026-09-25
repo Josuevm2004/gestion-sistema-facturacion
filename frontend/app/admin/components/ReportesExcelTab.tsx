@@ -17,6 +17,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
+import { SalesTimelineChart, PlanDoughnutChart, CommissionsBarChart } from './ReportCharts';
 
 export type SellerMetric = {
   vendedor: string;
@@ -1223,153 +1224,65 @@ export default function ReportesExcelTab({
           </div>
         </div>
 
-        {/* Gráficos Rediseñados: Evolución Temporal Suave + Donut Radial por Plan */}
+        {/* Gráficos con Chart.js: Evolución Temporal Interactiva + Donut por Plan */}
         <div className="row g-3 mb-4">
-          {/* Gráfico 1: Área y Tendencia de Ventas e Ingresos */}
+          {/* Gráfico 1: Área y Tendencia de Ventas e Ingresos con Chart.js */}
           <div className="col-12 col-lg-7">
             <div className="custom-card p-4 h-100 d-flex flex-column justify-content-between">
               <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3 pb-2 border-bottom">
                 <div>
-                  <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.90rem' }}>
-                    Evolución de Ventas e Ingresos
+                  <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
+                    Evolución de Facturación y Cobranza
                   </strong>
                   <small className="text-muted" style={{ fontSize: '0.74rem' }}>
-                    Comportamiento temporal de facturación vs cobranza efectiva
+                    Comparativa de ventas generadas vs recaudación efectiva en Soles (S/)
                   </small>
                 </div>
                 <div className="d-flex align-items-center gap-2 flex-wrap">
                   <span className="badge-tag" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
                     <span className="badge-dot badge-dot-info" />
-                    Ventas (S/)
+                    Ventas Facturadas
                   </span>
                   <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
                     <span className="badge-dot badge-dot-success" />
-                    Ingresos (S/)
+                    Cobrado Efectivo
                   </span>
                 </div>
               </div>
 
-              {/* Render SVG moderno con curvas suaves y áreas con gradientes */}
-              <div className="w-100 position-relative" style={{ height: '210px' }}>
-                {timelineData.length === 0 || (timelineData.length === 1 && timelineData[0].label === 'Sin datos') ? (
-                  <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted small">
-                    <TrendingUp size={32} className="text-muted opacity-30 mb-2" />
-                    <span>Sin transacciones en el periodo seleccionado</span>
-                  </div>
-                ) : (
-                  <svg viewBox="0 0 520 180" className="w-100 h-100" preserveAspectRatio="none">
-                    <defs>
-                      <linearGradient id="ventasAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#0866FF" stopOpacity="0.28" />
-                        <stop offset="100%" stopColor="#0866FF" stopOpacity="0.0" />
-                      </linearGradient>
-                      <linearGradient id="ingresosAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.22" />
-                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
-                      </linearGradient>
-                      <filter id="glowVentas" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#0866FF" floodOpacity="0.25" />
-                      </filter>
-                      <filter id="glowIngresos" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#10B981" floodOpacity="0.25" />
-                      </filter>
-                    </defs>
+              {/* Componente Gráfico Chart.js interactivo con Tooltips */}
+              <SalesTimelineChart data={timelineData} />
 
-                    {/* Líneas de cuadrícula sutiles */}
-                    <line x1="45" y1="20" x2="505" y2="20" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="45" y1="60" x2="505" y2="60" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="45" y1="100" x2="505" y2="100" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
-                    <line x1="45" y1="145" x2="505" y2="145" stroke="#E2E8F0" strokeWidth="1.2" />
-
-                    {(() => {
-                      const maxVal = Math.max(...timelineData.map((d) => Math.max(d.ventas, d.ingresos)), 100);
-
-                      const coords = timelineData.map((d, i) => {
-                        const x = 50 + (i / Math.max(timelineData.length - 1, 1)) * 450;
-                        const yV = 145 - (d.ventas / maxVal) * 120;
-                        const yI = 145 - (d.ingresos / maxVal) * 120;
-                        return { x, yV, yI, ...d };
-                      });
-
-                      const buildSmoothPath = (pts: { x: number; y: number }[]) => {
-                        if (pts.length === 0) return '';
-                        if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-                        let path = `M ${pts[0].x},${pts[0].y}`;
-                        for (let i = 0; i < pts.length - 1; i++) {
-                          const p0 = pts[i];
-                          const p1 = pts[i + 1];
-                          const cp1x = p0.x + (p1.x - p0.x) / 2;
-                          const cp1y = p0.y;
-                          const cp2x = p0.x + (p1.x - p0.x) / 2;
-                          const cp2y = p1.y;
-                          path += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p1.x},${p1.y}`;
-                        }
-                        return path;
-                      };
-
-                      const ventasPts = coords.map((c) => ({ x: c.x, y: c.yV }));
-                      const ingresosPts = coords.map((c) => ({ x: c.x, y: c.yI }));
-
-                      const ventasCurve = buildSmoothPath(ventasPts);
-                      const ingresosCurve = buildSmoothPath(ingresosPts);
-
-                      const lastX = coords[coords.length - 1]?.x ?? 500;
-                      const firstX = coords[0]?.x ?? 50;
-
-                      const ventasArea = `${ventasCurve} L ${lastX},145 L ${firstX},145 Z`;
-                      const ingresosArea = `${ingresosCurve} L ${lastX},145 L ${firstX},145 Z`;
-
-                      return (
-                        <>
-                          {/* Áreas con gradientes suaves */}
-                          <path d={ventasArea} fill="url(#ventasAreaGrad)" />
-                          <path d={ingresosArea} fill="url(#ingresosAreaGrad)" />
-
-                          {/* Curvas suavizadas */}
-                          <path d={ventasCurve} fill="none" stroke="#0866FF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" filter="url(#glowVentas)" />
-                          <path d={ingresosCurve} fill="none" stroke="#10B981" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" filter="url(#glowIngresos)" />
-
-                          {/* Etiquetas de valores en eje Y */}
-                          <text x="6" y="24" fontSize="9" fill="#94A3B8" fontWeight="600" fontFamily="inherit">S/{maxVal >= 1000 ? `${(maxVal/1000).toFixed(1)}k` : maxVal.toFixed(0)}</text>
-                          <text x="6" y="84" fontSize="9" fill="#94A3B8" fontWeight="600" fontFamily="inherit">S/{(maxVal/2) >= 1000 ? `${(maxVal/2000).toFixed(1)}k` : (maxVal/2).toFixed(0)}</text>
-                          <text x="6" y="145" fontSize="9" fill="#94A3B8" fontWeight="600" fontFamily="inherit">S/0</text>
-
-                          {/* Puntos interactivos con doble anillo concéntrico */}
-                          {coords.map((c, i) => (
-                            <g key={i}>
-                              <circle cx={c.x} cy={c.yV} r="6" fill="#0866FF" fillOpacity="0.15" />
-                              <circle cx={c.x} cy={c.yV} r="3.5" fill="#FFFFFF" stroke="#0866FF" strokeWidth="2.2" />
-
-                              <circle cx={c.x} cy={c.yI} r="6" fill="#10B981" fillOpacity="0.15" />
-                              <circle cx={c.x} cy={c.yI} r="3.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.2" />
-                            </g>
-                          ))}
-                        </>
-                      );
-                    })()}
-                  </svg>
-                )}
-              </div>
-
-              {/* Eje X Fechas */}
-              <div className="d-flex justify-content-between text-muted mt-2 pt-1 border-top" style={{ fontSize: '0.70rem' }}>
-                {timelineData.slice(0, 7).map((d, i) => (
-                  <span key={i} className="fw-semibold text-secondary">{d.label}</span>
-                ))}
+              {/* Resumen Humano Explicativo al pie del gráfico */}
+              <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 mt-2 border-top gap-2" style={{ fontSize: '0.75rem' }}>
+                <span className="text-muted fw-semibold">
+                  Efectividad de Cobro:{' '}
+                  <strong className="text-success fw-bold">
+                    {totalVentas > 0 ? `${((ingresosCobrados / totalVentas) * 100).toFixed(1)}%` : '100%'}
+                  </strong>
+                </span>
+                <span className="text-muted fw-semibold">
+                  Ticket Promedio:{' '}
+                  <strong className="text-dark fw-bold">S/ {ticketPromedio.toFixed(2)}</strong>
+                </span>
+                <span className="text-muted fw-semibold">
+                  Transacciones:{' '}
+                  <strong className="text-primary fw-bold">{filteredTransactions.length} operaciones</strong>
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Gráfico 2: Donut Radial Moderno + Desglose por Plan */}
+          {/* Gráfico 2: Donut Radial con Chart.js + Desglose por Plan */}
           <div className="col-12 col-lg-5">
             <div className="custom-card p-4 h-100 d-flex flex-column justify-content-between">
               <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                 <div>
-                  <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.90rem' }}>
+                  <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
                     Distribución por Plan
                   </strong>
                   <small className="text-muted" style={{ fontSize: '0.74rem' }}>
-                    Proporción de recaudación por paquete
+                    Proporción de ingresos generados por cada paquete
                   </small>
                 </div>
                 <span className="badge-tag badge-plan-tag">
@@ -1378,55 +1291,9 @@ export default function ReportesExcelTab({
               </div>
 
               <div className="row align-items-center g-3 flex-grow-1">
-                {/* Donut SVG con Centro Métrico */}
+                {/* Donut Chart.js con Centro Métrico */}
                 <div className="col-5 d-flex justify-content-center">
-                  <div style={{ width: '130px', height: '130px', position: 'relative' }}>
-                    <svg viewBox="0 0 100 100" className="w-100 h-100" style={{ transform: 'rotate(-90deg)' }}>
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="38"
-                        fill="transparent"
-                        stroke="#F1F5F9"
-                        strokeWidth="10"
-                      />
-                      {(() => {
-                        const circumference = 2 * Math.PI * 38;
-                        let accumulatedPct = 0;
-                        return planDistribution.map((p, idx) => {
-                          const pct = (parseFloat(p.percentage) || 0) / 100;
-                          const strokeDasharray = `${pct * circumference} ${circumference * (1 - pct)}`;
-                          const strokeDashoffset = -accumulatedPct * circumference;
-                          accumulatedPct += pct;
-                          return (
-                            <circle
-                              key={idx}
-                              cx="50"
-                              cy="50"
-                              r="38"
-                              fill="transparent"
-                              stroke={p.color}
-                              strokeWidth="10"
-                              strokeDasharray={strokeDasharray}
-                              strokeDashoffset={strokeDashoffset}
-                              strokeLinecap="round"
-                              style={{ transition: 'stroke-dasharray 0.5s ease' }}
-                            />
-                          );
-                        });
-                      })()}
-                    </svg>
-                    {/* Hub central con métrica total */}
-                    <div
-                      className="position-absolute top-50 start-50 translate-middle text-center d-flex flex-column align-items-center justify-content-center rounded-circle bg-white shadow-xs"
-                      style={{ width: '68px', height: '68px', border: '1px solid #E2E8F0' }}
-                    >
-                      <span className="text-muted text-uppercase fw-bold" style={{ fontSize: '0.55rem', letterSpacing: '0.5px' }}>Total</span>
-                      <strong className="text-dark fw-bolder" style={{ fontSize: '0.86rem', lineHeight: '1' }}>
-                        S/{totalVentas >= 1000 ? `${(totalVentas/1000).toFixed(1)}k` : totalVentas.toFixed(0)}
-                      </strong>
-                    </div>
-                  </div>
+                  <PlanDoughnutChart data={planDistribution} totalVentas={totalVentas} />
                 </div>
 
                 {/* Desglose con barras y badges estructurados */}
@@ -1678,69 +1545,9 @@ export default function ReportesExcelTab({
                 </div>
                 <p className="text-muted small mb-3" style={{ fontSize: '0.75rem' }}>Rendimiento mensual de comisiones ganadas</p>
 
-                {/* Render de Barras con pistas verticales modernas */}
-                <div className="position-relative pt-3 pb-1" style={{ minHeight: '190px' }}>
-                  {/* Líneas guía sutiles */}
-                  <div className="position-absolute w-100 d-flex flex-column justify-content-between" style={{ top: '28px', bottom: '38px', pointerEvents: 'none' }}>
-                    <div style={{ borderBottom: '1px dashed #F1F5F9' }}></div>
-                    <div style={{ borderBottom: '1px dashed #F1F5F9' }}></div>
-                    <div style={{ borderBottom: '1px solid #E2E8F0' }}></div>
-                  </div>
-
-                  <div className="d-flex align-items-end justify-content-between gap-1 gap-sm-2 position-relative" style={{ height: '160px', zIndex: 1 }}>
-                    {(() => {
-                      const maxCom = Math.max(...monthlyCommissions.map((m) => m.comision), 50);
-                      return monthlyCommissions.map((m, idx) => {
-                        const hasVal = m.comision > 0;
-                        const pct = Math.max((m.comision / maxCom) * 100, hasVal ? 12 : 0);
-                        return (
-                          <div key={idx} className="d-flex flex-column align-items-center flex-grow-1" style={{ minWidth: 0 }}>
-                            {/* Valor flotante */}
-                            <div className="mb-1 text-center" style={{ minHeight: '18px' }}>
-                              {hasVal ? (
-                                <span className="badge-tag fw-bold" style={{ fontSize: '0.62rem', padding: '1px 5px', color: '#0866FF', borderColor: '#BFDBFE', backgroundColor: '#EFF6FF' }}>
-                                  S/{m.comision.toFixed(0)}
-                                </span>
-                              ) : (
-                                <span className="text-muted opacity-50" style={{ fontSize: '0.62rem' }}>—</span>
-                              )}
-                            </div>
-
-                            {/* Pista de columna vertical moderna */}
-                            <div
-                              className="w-100 d-flex align-items-end justify-content-center p-1 rounded-3"
-                              style={{
-                                height: '110px',
-                                backgroundColor: '#F8FAFC',
-                                border: '1px solid #F1F5F9',
-                                maxWidth: '34px',
-                              }}
-                            >
-                              <div
-                                className="w-100 rounded-pill"
-                                style={{
-                                  height: `${pct}%`,
-                                  background: hasVal
-                                    ? 'linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)'
-                                    : 'transparent',
-                                  boxShadow: hasVal ? '0 2px 6px rgba(37,99,235,0.25)' : 'none',
-                                  transition: 'height 0.4s ease',
-                                }}
-                              />
-                            </div>
-
-                            {/* Nombre del mes */}
-                            <span
-                              className={`mt-1.5 text-truncate ${hasVal ? 'fw-bold text-dark' : 'text-muted'}`}
-                              style={{ fontSize: '0.68rem', maxWidth: '36px' }}
-                            >
-                              {m.month}
-                            </span>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
+                {/* Gráfico interactivo con Chart.js */}
+                <div className="pt-2 pb-1">
+                  <CommissionsBarChart data={monthlyCommissions} />
                 </div>
               </div>
 

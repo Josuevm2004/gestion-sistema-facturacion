@@ -28,6 +28,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
           strategy="afterInteractive"
         />
+        <Script
+          src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );

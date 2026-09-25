@@ -1689,10 +1689,8 @@ body {
   }
 
   .admin-alert-wrap,
-  .admin-profile-wrap,
-  .admin-profile-button,
-  .admin-alert-button {
-    width: 100%;
+  .admin-profile-wrap {
+    width: auto !important;
     max-width: none;
   }
 

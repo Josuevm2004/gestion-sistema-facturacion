@@ -200,7 +200,7 @@ export default function AdminNavbar({
             </ul>
 
             {/* Right Side Utility Actions (Stitch Circular Buttons) */}
-            <div className="d-flex align-items-center justify-content-between justify-content-lg-end gap-2 mt-auto mt-lg-0 ms-lg-2 pt-3 pt-lg-0 border-top border-top-lg-0 position-relative w-100 w-lg-auto">
+            <div className="d-flex align-items-center justify-content-between justify-content-lg-end gap-2 mt-auto mt-lg-0 ms-lg-2 position-relative w-100 w-lg-auto">
               {/* En móvil: Indicador de sesión activa a la izquierda */}
               <div className="d-flex d-lg-none align-items-center gap-2 overflow-hidden">
                 <span className="text-dark small fw-bold text-truncate" style={{ maxWidth: '140px' }}>
