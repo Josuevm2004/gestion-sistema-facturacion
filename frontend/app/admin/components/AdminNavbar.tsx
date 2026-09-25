@@ -61,6 +61,8 @@ export default function AdminNavbar({
   handleMarkNotificationAsRead,
   handleMarkAllNotificationsAsRead,
 }: AdminNavbarProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+
   // Las alertas activas provienen directamente de la tabla notificacion de la base de datos (leida = false)
   const activeNotifications = React.useMemo(() => {
     return (Array.isArray(notifications) ? notifications : []).filter((n: any) => n && !n.leida);
@@ -94,6 +96,7 @@ export default function AdminNavbar({
           className="navbar-toggler border-0 text-dark p-2 rounded-circle d-lg-none"
           style={{ backgroundColor: '#F0F2F5' }}
           type="button"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           data-bs-toggle="offcanvas"
           data-bs-target="#adminNavbarOffcanvas"
           aria-controls="adminNavbarOffcanvas"
@@ -102,26 +105,52 @@ export default function AdminNavbar({
           <Menu size={20} aria-hidden="true" />
         </button>
 
+        {/* Backdrop en móvil */}
+        {isMobileMenuOpen && (
+          <div
+            className="offcanvas-backdrop fade show d-lg-none"
+            onClick={() => setIsMobileMenuOpen(false)}
+            style={{ zIndex: 1040 }}
+          />
+        )}
+
         {/* Navigation Content */}
-        <div className="offcanvas offcanvas-start offcanvas-lg bg-white text-dark h-100 flex-grow-1" tabIndex={-1} id="adminNavbarOffcanvas">
-          <div className="offcanvas-header border-bottom d-lg-none">
-            <div className="d-flex align-items-center gap-2">
-              <Image src="/logo.jpeg" alt="Miquipu Logo" width={32} height={32} className="rounded-circle" />
-              <h5 className="offcanvas-title text-dark fw-bold mb-0">Menu Miquipu</h5>
+        <div
+          className={`offcanvas offcanvas-start offcanvas-lg bg-white text-dark flex-grow-1 ${isMobileMenuOpen ? 'show' : ''}`}
+          tabIndex={-1}
+          id="adminNavbarOffcanvas"
+          style={{ visibility: isMobileMenuOpen ? 'visible' : undefined }}
+        >
+          <div className="offcanvas-header border-bottom d-lg-none py-3 px-3.5">
+            <div className="d-flex align-items-center gap-2.5">
+              <Image src="/logo.jpeg" alt="Miquipu Logo" width={34} height={34} className="rounded-circle shadow-xs" />
+              <div>
+                <h5 className="offcanvas-title text-dark fw-bolder mb-0 fs-6">Miquipu Facturación</h5>
+                <span className="text-muted" style={{ fontSize: '0.72rem' }}>Panel de Control</span>
+              </div>
             </div>
-            <button type="button" className="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+            <button
+              type="button"
+              className="btn-close"
+              onClick={() => setIsMobileMenuOpen(false)}
+              data-bs-dismiss="offcanvas"
+              aria-label="Cerrar"
+            ></button>
           </div>
 
           <div className="offcanvas-body h-100 d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between p-3 p-lg-0">
-            {/* Center Navigation Links (Stitch Style with Horizontal Scroll) */}
-            <ul className="navbar-nav stitch-navbar-nav-scroll d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0">
+            {/* Center Navigation Links (Vertical in Mobile, Horizontal in Desktop) */}
+            <ul className="navbar-nav stitch-navbar-nav-scroll d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0 w-100 w-lg-auto">
               {navItems.map((item) => {
                 const isActive = activeTab === item.key;
                 return (
-                  <li className="nav-item h-100 d-flex align-items-center" key={item.key}>
+                  <li className="nav-item h-lg-100 w-100 w-lg-auto d-flex align-items-center" key={item.key}>
                     <button
-                      className={`stitch-nav-tab ${isActive ? 'active' : ''}`}
-                      onClick={() => setActiveTab(item.key)}
+                      className={`stitch-nav-tab w-100 w-lg-auto ${isActive ? 'active' : ''}`}
+                      onClick={() => {
+                        setActiveTab(item.key);
+                        setIsMobileMenuOpen(false);
+                      }}
                       data-bs-dismiss="offcanvas"
                       aria-current={isActive ? 'page' : undefined}
                     >
@@ -131,7 +160,7 @@ export default function AdminNavbar({
                       <span>{item.label}</span>
                       {!!item.count && (
                         <span
-                          className={`badge rounded-pill fw-bold ${
+                          className={`badge rounded-pill fw-bold ms-auto ms-lg-0 ${
                             item.key === 'cobrar'
                               ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
                               : item.key === 'vencidos'
@@ -140,7 +169,7 @@ export default function AdminNavbar({
                               ? 'bg-secondary-subtle text-secondary border'
                               : 'bg-primary text-white'
                           }`}
-                          style={{ fontSize: '0.68rem', padding: '0.2em 0.5em' }}
+                          style={{ fontSize: '0.68rem', padding: '0.22em 0.55em' }}
                         >
                           {item.count}
                         </span>
@@ -151,10 +180,13 @@ export default function AdminNavbar({
               })}
 
               {currentUser?.rol === 'ADMIN' && (
-                <li className="nav-item h-100 d-flex align-items-center">
+                <li className="nav-item h-lg-100 w-100 w-lg-auto d-flex align-items-center">
                   <button
-                    className={`stitch-nav-tab ${activeTab === 'usuarios' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('usuarios')}
+                    className={`stitch-nav-tab w-100 w-lg-auto ${activeTab === 'usuarios' ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveTab('usuarios');
+                      setIsMobileMenuOpen(false);
+                    }}
                     data-bs-dismiss="offcanvas"
                     aria-current={activeTab === 'usuarios' ? 'page' : undefined}
                   >
@@ -168,7 +200,18 @@ export default function AdminNavbar({
             </ul>
 
             {/* Right Side Utility Actions (Stitch Circular Buttons) */}
-            <div className="d-flex align-items-center gap-2 mt-auto mt-lg-0 ms-lg-2 position-relative">
+            <div className="d-flex align-items-center justify-content-between justify-content-lg-end gap-2 mt-auto mt-lg-0 ms-lg-2 pt-3 pt-lg-0 border-top border-top-lg-0 position-relative w-100 w-lg-auto">
+              {/* En móvil: Indicador de sesión activa a la izquierda */}
+              <div className="d-flex d-lg-none align-items-center gap-2 overflow-hidden">
+                <span className="text-dark small fw-bold text-truncate" style={{ maxWidth: '140px' }}>
+                  {currentUser?.nombre || currentUser?.username || 'Admin'}
+                </span>
+                <span className="badge rounded-pill" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.65rem' }}>
+                  {currentUser?.rol || 'ADMIN'}
+                </span>
+              </div>
+
+              <div className="d-flex align-items-center gap-2">
               {/* Notifications Button */}
               <div className="position-relative admin-alert-wrap">
                 <button
@@ -314,12 +357,13 @@ export default function AdminNavbar({
               </div>
 
               {/* Profile Avatar / Menu Button (Meta Photo 3 Style) */}
-              {/* Profile Avatar / Menu Button (Stitch Style) */}
+              {/* Profile Avatar / Menu Button (Stitch Style - Icon Only) */}
               <div className="position-relative admin-profile-wrap">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="btn p-0 border-0 bg-transparent d-flex align-items-center gap-2"
+                  className="btn p-0 border-0 bg-transparent d-flex align-items-center"
                   title="Perfil de Usuario"
+                  aria-label="Perfil de Usuario"
                 >
                   <div className="position-relative">
                     <div
@@ -333,10 +377,6 @@ export default function AdminNavbar({
                       style={{ width: '11px', height: '11px' }}
                     ></span>
                   </div>
-                  <span className="fw-bold text-dark text-truncate d-none d-sm-inline" style={{ maxWidth: '120px', fontSize: '0.84rem' }}>
-                    {currentUser?.nombre || currentUser?.username || 'Admin'}
-                  </span>
-                  <span className="small text-muted ms-0.5 d-none d-sm-inline">▾</span>
                 </button>
 
                 {/* Profile Flyout (Photo 3 Facebook Style with Backdrop) */}
@@ -472,6 +512,7 @@ export default function AdminNavbar({
           </div>
         </div>
       </div>
-    </nav>
+    </div>
+  </nav>
   );
 }

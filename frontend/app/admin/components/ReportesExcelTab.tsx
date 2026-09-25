@@ -803,11 +803,11 @@ export default function ReportesExcelTab({
   // Desglose de Ventas por Plan
   const planDistribution = useMemo(() => {
     const plans = [
-      { key: 'INICIA', label: 'Básico / Inicia', color: '#0d6efd' },
-      { key: 'EMPRENDE', label: 'Emprende', color: '#198754' },
-      { key: 'IMPULSA', label: 'Impulsa', color: '#fd7e14' },
-      { key: 'EMPRESARIAL', label: 'Empresarial', color: '#6f42c1' },
-      { key: 'LIDER', label: 'Líder', color: '#20c997' },
+      { key: 'INICIA', label: 'Plan Inicia', color: '#0284C7' },
+      { key: 'EMPRENDE', label: 'Plan Emprende', color: '#0866FF' },
+      { key: 'IMPULSA', label: 'Plan Impulsa', color: '#8B5CF6' },
+      { key: 'EMPRESARIAL', label: 'Plan Empresarial', color: '#059669' },
+      { key: 'LIDER', label: 'Plan Líder', color: '#EA580C' },
     ];
 
     const counts = new Map<string, { label: string; color: string; amount: number; count: number }>();
@@ -915,11 +915,16 @@ export default function ReportesExcelTab({
 
   return (
     <div className="reporte-general-container pb-5">
-      {/* Header Principal */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 bg-white p-3.5 rounded-4 shadow-sm border">
-        <div>
-          <h1 className="h5 fw-bold text-dark mb-1">Reporte general</h1>
-          <p className="text-muted small mb-0">Reporte consolidado de ventas, recaudación y comisiones</p>
+      {/* Header Principal con Icono de Sección */}
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 custom-card p-3.5">
+        <div className="d-flex align-items-center gap-3">
+          <div className="section-header-icon section-header-icon-primary">
+            <FileSpreadsheet size={24} strokeWidth={2.2} />
+          </div>
+          <div>
+            <h1 className="h5 fw-bold text-dark mb-0.5">Reporte General</h1>
+            <p className="text-muted small mb-0">Reporte consolidado de ventas, recaudación y comisiones</p>
+          </div>
         </div>
         <div className="d-flex align-items-center gap-2">
           <button
@@ -944,12 +949,28 @@ export default function ReportesExcelTab({
 
       {/* SECCIÓN 1: REPORTE DE VENTAS */}
       <div className="mb-5">
-        <h2 className="h6 fw-bold text-dark mb-3">Reporte de ventas</h2>
+        <div className="d-flex align-items-center gap-2.5 mb-3">
+          <div className="section-header-icon section-header-icon-primary" style={{ width: '36px', height: '36px' }}>
+            <ShoppingCart size={18} strokeWidth={2.2} />
+          </div>
+          <div>
+            <h2 className="h6 fw-bold text-dark mb-0">Reporte de Ventas</h2>
+            <small className="text-muted">Métricas de facturación, ingresos y transacciones</small>
+          </div>
+        </div>
 
-        {/* Tarjeta de Filtros de Ventas */}
-        <div className="bg-white p-3.5 rounded-4 shadow-sm border mb-4">
-          <div className="small fw-bold text-muted mb-3 text-uppercase tracking-wider" style={{ fontSize: '0.75rem' }}>
-            Filtros de ventas
+        {/* Tarjeta de Filtros de Ventas (Stitch Facebook Design) */}
+        <div className="custom-card p-3.5 mb-4">
+          <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge-tag badge-plan-tag">
+                <Search size={12} />
+                Filtros de Ventas
+              </span>
+            </div>
+            <span className="cell-subtext">
+              Filtrado dinámico en tiempo real
+            </span>
           </div>
 
           <div className="row g-2.5 mb-2.5">
@@ -978,7 +999,7 @@ export default function ReportesExcelTab({
                 value={selectedMes}
                 onChange={(e) => setSelectedMes(e.target.value)}
               >
-                <option value="ALL">Todos</option>
+                <option value="ALL">Todos los meses</option>
                 {availableMonths.map(([k, label]) => (
                   <option key={k} value={k}>
                     {label}
@@ -993,7 +1014,7 @@ export default function ReportesExcelTab({
                 value={selectedEstadoPago}
                 onChange={(e) => setSelectedEstadoPago(e.target.value)}
               >
-                <option value="ALL">Todos</option>
+                <option value="ALL">Todos los estados</option>
                 <option value="PAGADO">Pagado</option>
                 <option value="PENDIENTE">Pendiente</option>
               </select>
@@ -1005,7 +1026,7 @@ export default function ReportesExcelTab({
                 value={selectedPlan}
                 onChange={(e) => setSelectedPlan(e.target.value)}
               >
-                <option value="ALL">Todos</option>
+                <option value="ALL">Todos los planes</option>
                 <option value="INICIA">Plan Inicia</option>
                 <option value="EMPRENDE">Plan Emprende</option>
                 <option value="IMPULSA">Plan Impulsa</option>
@@ -1020,7 +1041,7 @@ export default function ReportesExcelTab({
                 value={selectedVendedor}
                 onChange={(e) => setSelectedVendedor(e.target.value)}
               >
-                <option value="ALL">Todos</option>
+                <option value="ALL">Todos los asesores</option>
                 {uniqueSellers.map((v) => (
                   <option key={v} value={v}>
                     {v}
@@ -1057,7 +1078,7 @@ export default function ReportesExcelTab({
               </select>
             </div>
             <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Tipo de suscripción</label>
+              <label className="form-label small fw-semibold text-muted mb-1">Tipo suscripción</label>
               <select
                 className="form-select form-select-sm rounded-3"
                 value={selectedTipoSub}
@@ -1075,7 +1096,7 @@ export default function ReportesExcelTab({
                 value={selectedRegimen}
                 onChange={(e) => setSelectedRegimen(e.target.value)}
               >
-                <option value="ALL">Todos</option>
+                <option value="ALL">Todos los regímenes</option>
                 <option value="MYPE">MYPE Tributario</option>
                 <option value="GENERAL">General</option>
                 <option value="ESPECIAL">Especial / RER</option>
@@ -1097,155 +1118,232 @@ export default function ReportesExcelTab({
                 onClick={resetFilters}
               >
                 <RotateCcw size={14} />
-                <span>Limpiar filtros</span>
+                <span>Limpiar</span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* 4 KPI Stat Cards */}
+        {/* 4 KPI Stat Cards Rediseñadas (Alineadas a Resumen) */}
         <div className="row g-3 mb-4">
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#EFF6FF', color: '#2563EB' }}
-              >
-                <ShoppingCart size={22} />
+            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="d-flex align-items-center gap-2.5">
+                  <div className="section-header-icon section-header-icon-primary" style={{ width: '38px', height: '38px' }}>
+                    <ShoppingCart size={18} strokeWidth={2.2} />
+                  </div>
+                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
+                    Ventas Totales
+                  </span>
+                </div>
+                <span className="badge-tag" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+                  Total
+                </span>
               </div>
-              <div>
-                <small className="text-muted fw-semibold d-block">Ventas totales</small>
-                <strong className="fs-5 text-dark fw-bold d-block" style={{ lineHeight: '1.2' }}>
-                  S/ {totalVentas.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>{totalVentasCount} ventas</small>
+              <div className="fs-4 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
+                S/ {totalVentas.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
+              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
+                {totalVentasCount} ventas registradas
+              </small>
             </div>
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#ECFDF5', color: '#059669' }}
-              >
-                <DollarSign size={22} />
+            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="d-flex align-items-center gap-2.5">
+                  <div className="section-header-icon section-header-icon-success" style={{ width: '38px', height: '38px' }}>
+                    <DollarSign size={18} strokeWidth={2.2} />
+                  </div>
+                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
+                    Ingresos Cobrados
+                  </span>
+                </div>
+                <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#065F46' }}>
+                  Cobrado
+                </span>
               </div>
-              <div>
-                <small className="text-muted fw-semibold d-block">Ingresos generados</small>
-                <strong className="fs-5 text-dark fw-bold d-block" style={{ lineHeight: '1.2' }}>
-                  S/ {totalIngresos.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Monto cobrado</small>
+              <div className="fs-4 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
+                S/ {totalIngresos.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
+              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
+                Monto efectivamente recaudado
+              </small>
             </div>
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#FEF2F2', color: '#DC2626' }}
-              >
-                <AlertCircle size={22} />
+            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="d-flex align-items-center gap-2.5">
+                  <div className="section-header-icon section-header-icon-danger" style={{ width: '38px', height: '38px' }}>
+                    <AlertCircle size={18} strokeWidth={2.2} />
+                  </div>
+                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
+                    Por Cobrar
+                  </span>
+                </div>
+                <span className="badge-tag" style={{ backgroundColor: '#FEF2F2', color: '#B91C1C' }}>
+                  Pendiente
+                </span>
               </div>
-              <div>
-                <small className="text-muted fw-semibold d-block">Pagos pendientes</small>
-                <strong className="fs-5 fw-bold d-block text-danger" style={{ lineHeight: '1.2' }}>
-                  S/ {totalPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>{totalPendienteCount} ventas pendientes</small>
+              <div className="fs-4 fw-bolder text-danger mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
+                S/ {totalPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
+              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
+                {totalPendienteCount} transacciones pendientes
+              </small>
             </div>
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#FAF5FF', color: '#9333EA' }}
-              >
-                <Ticket size={22} />
+            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="d-flex align-items-center gap-2.5">
+                  <div className="section-header-icon section-header-icon-indigo" style={{ width: '38px', height: '38px' }}>
+                    <Ticket size={18} strokeWidth={2.2} />
+                  </div>
+                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
+                    Ticket Promedio
+                  </span>
+                </div>
+                <span className="badge-tag" style={{ backgroundColor: '#EDE9FE', color: '#6D28D9' }}>
+                  Promedio
+                </span>
               </div>
-              <div>
-                <small className="text-muted fw-semibold d-block">Ticket promedio</small>
-                <strong className="fs-5 text-dark fw-bold d-block" style={{ lineHeight: '1.2' }}>
-                  S/ {ticketPromedio.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Por venta</small>
+              <div className="fs-4 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
+                S/ {ticketPromedio.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
+              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
+                Monto medio por operación
+              </small>
             </div>
           </div>
         </div>
 
-        {/* Gráficos: Ventas e Ingresos por Periodo + Ventas por Plan */}
+        {/* Gráficos Rediseñados: Evolución Temporal Suave + Donut Radial por Plan */}
         <div className="row g-3 mb-4">
-          {/* Gráfico de Líneas: Ventas e Ingresos */}
+          {/* Gráfico 1: Área y Tendencia de Ventas e Ingresos */}
           <div className="col-12 col-lg-7">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <strong className="small text-dark fw-bold">Ventas e ingresos por periodo</strong>
-                <div className="d-flex align-items-center gap-3" style={{ fontSize: '0.75rem' }}>
-                  <span className="d-inline-flex align-items-center gap-1.5 text-muted fw-semibold">
-                    <span className="d-inline-block rounded-circle" style={{ width: '8px', height: '8px', backgroundColor: '#2563EB' }}></span>
+            <div className="custom-card p-4 h-100 d-flex flex-column justify-content-between">
+              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3 pb-2 border-bottom">
+                <div>
+                  <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.90rem' }}>
+                    Evolución de Ventas e Ingresos
+                  </strong>
+                  <small className="text-muted" style={{ fontSize: '0.74rem' }}>
+                    Comportamiento temporal de facturación vs cobranza efectiva
+                  </small>
+                </div>
+                <div className="d-flex align-items-center gap-2 flex-wrap">
+                  <span className="badge-tag" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
+                    <span className="badge-dot badge-dot-info" />
                     Ventas (S/)
                   </span>
-                  <span className="d-inline-flex align-items-center gap-1.5 text-muted fw-semibold">
-                    <span className="d-inline-block rounded-circle" style={{ width: '8px', height: '8px', backgroundColor: '#059669' }}></span>
+                  <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
+                    <span className="badge-dot badge-dot-success" />
                     Ingresos (S/)
                   </span>
                 </div>
               </div>
 
-              {/* Renderizado de gráfico SVG estilizado */}
-              <div className="w-100" style={{ height: '180px' }}>
-                {timelineData.length === 0 ? (
-                  <div className="d-flex align-items-center justify-content-center h-100 text-muted small">
-                    Sin datos en el periodo seleccionado
+              {/* Render SVG moderno con curvas suaves y áreas con gradientes */}
+              <div className="w-100 position-relative" style={{ height: '210px' }}>
+                {timelineData.length === 0 || (timelineData.length === 1 && timelineData[0].label === 'Sin datos') ? (
+                  <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted small">
+                    <TrendingUp size={32} className="text-muted opacity-30 mb-2" />
+                    <span>Sin transacciones en el periodo seleccionado</span>
                   </div>
                 ) : (
-                  <svg viewBox="0 0 500 160" className="w-100 h-100" preserveAspectRatio="none">
+                  <svg viewBox="0 0 520 180" className="w-100 h-100" preserveAspectRatio="none">
                     <defs>
-                      <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2563EB" stopOpacity="0.18" />
-                        <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+                      <linearGradient id="ventasAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#0866FF" stopOpacity="0.28" />
+                        <stop offset="100%" stopColor="#0866FF" stopOpacity="0.0" />
                       </linearGradient>
+                      <linearGradient id="ingresosAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.22" />
+                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                      </linearGradient>
+                      <filter id="glowVentas" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#0866FF" floodOpacity="0.25" />
+                      </filter>
+                      <filter id="glowIngresos" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodColor="#10B981" floodOpacity="0.25" />
+                      </filter>
                     </defs>
-                    {/* Líneas de cuadrícula */}
-                    <line x1="30" y1="20" x2="490" y2="20" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="30" y1="60" x2="490" y2="60" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="30" y1="100" x2="490" y2="100" stroke="#F1F5F9" strokeWidth="1" />
-                    <line x1="30" y1="140" x2="490" y2="140" stroke="#E2E8F0" strokeWidth="1" />
+
+                    {/* Líneas de cuadrícula sutiles */}
+                    <line x1="45" y1="20" x2="505" y2="20" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="45" y1="60" x2="505" y2="60" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="45" y1="100" x2="505" y2="100" stroke="#F1F5F9" strokeWidth="1" strokeDasharray="3 3" />
+                    <line x1="45" y1="145" x2="505" y2="145" stroke="#E2E8F0" strokeWidth="1.2" />
 
                     {(() => {
                       const maxVal = Math.max(...timelineData.map((d) => Math.max(d.ventas, d.ingresos)), 100);
-                      const pointsVentas = timelineData.map((d, i) => {
-                        const x = 40 + (i / Math.max(timelineData.length - 1, 1)) * 440;
-                        const y = 140 - (d.ventas / maxVal) * 115;
-                        return `${x},${y}`;
+
+                      const coords = timelineData.map((d, i) => {
+                        const x = 50 + (i / Math.max(timelineData.length - 1, 1)) * 450;
+                        const yV = 145 - (d.ventas / maxVal) * 120;
+                        const yI = 145 - (d.ingresos / maxVal) * 120;
+                        return { x, yV, yI, ...d };
                       });
-                      const pointsIngresos = timelineData.map((d, i) => {
-                        const x = 40 + (i / Math.max(timelineData.length - 1, 1)) * 440;
-                        const y = 140 - (d.ingresos / maxVal) * 115;
-                        return `${x},${y}`;
-                      });
+
+                      const buildSmoothPath = (pts: { x: number; y: number }[]) => {
+                        if (pts.length === 0) return '';
+                        if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+                        let path = `M ${pts[0].x},${pts[0].y}`;
+                        for (let i = 0; i < pts.length - 1; i++) {
+                          const p0 = pts[i];
+                          const p1 = pts[i + 1];
+                          const cp1x = p0.x + (p1.x - p0.x) / 2;
+                          const cp1y = p0.y;
+                          const cp2x = p0.x + (p1.x - p0.x) / 2;
+                          const cp2y = p1.y;
+                          path += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p1.x},${p1.y}`;
+                        }
+                        return path;
+                      };
+
+                      const ventasPts = coords.map((c) => ({ x: c.x, y: c.yV }));
+                      const ingresosPts = coords.map((c) => ({ x: c.x, y: c.yI }));
+
+                      const ventasCurve = buildSmoothPath(ventasPts);
+                      const ingresosCurve = buildSmoothPath(ingresosPts);
+
+                      const lastX = coords[coords.length - 1]?.x ?? 500;
+                      const firstX = coords[0]?.x ?? 50;
+
+                      const ventasArea = `${ventasCurve} L ${lastX},145 L ${firstX},145 Z`;
+                      const ingresosArea = `${ingresosCurve} L ${lastX},145 L ${firstX},145 Z`;
 
                       return (
                         <>
-                          <polyline fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={pointsVentas.join(' ')} />
-                          <polyline fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" points={pointsIngresos.join(' ')} />
+                          {/* Áreas con gradientes suaves */}
+                          <path d={ventasArea} fill="url(#ventasAreaGrad)" />
+                          <path d={ingresosArea} fill="url(#ingresosAreaGrad)" />
 
-                          {timelineData.map((d, i) => {
-                            const x = 40 + (i / Math.max(timelineData.length - 1, 1)) * 440;
-                            const yVentas = 140 - (d.ventas / maxVal) * 115;
-                            const yIngresos = 140 - (d.ingresos / maxVal) * 115;
-                            return (
-                              <g key={i}>
-                                <circle cx={x} cy={yVentas} r="3.5" fill="#FFFFFF" stroke="#2563EB" strokeWidth="2" />
-                                <circle cx={x} cy={yIngresos} r="3.5" fill="#FFFFFF" stroke="#059669" strokeWidth="2" />
-                              </g>
-                            );
-                          })}
+                          {/* Curvas suavizadas */}
+                          <path d={ventasCurve} fill="none" stroke="#0866FF" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" filter="url(#glowVentas)" />
+                          <path d={ingresosCurve} fill="none" stroke="#10B981" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" filter="url(#glowIngresos)" />
+
+                          {/* Etiquetas de valores en eje Y */}
+                          <text x="6" y="24" fontSize="9" fill="#94A3B8" fontWeight="600" fontFamily="inherit">S/{maxVal >= 1000 ? `${(maxVal/1000).toFixed(1)}k` : maxVal.toFixed(0)}</text>
+                          <text x="6" y="84" fontSize="9" fill="#94A3B8" fontWeight="600" fontFamily="inherit">S/{(maxVal/2) >= 1000 ? `${(maxVal/2000).toFixed(1)}k` : (maxVal/2).toFixed(0)}</text>
+                          <text x="6" y="145" fontSize="9" fill="#94A3B8" fontWeight="600" fontFamily="inherit">S/0</text>
+
+                          {/* Puntos interactivos con doble anillo concéntrico */}
+                          {coords.map((c, i) => (
+                            <g key={i}>
+                              <circle cx={c.x} cy={c.yV} r="6" fill="#0866FF" fillOpacity="0.15" />
+                              <circle cx={c.x} cy={c.yV} r="3.5" fill="#FFFFFF" stroke="#0866FF" strokeWidth="2.2" />
+
+                              <circle cx={c.x} cy={c.yI} r="6" fill="#10B981" fillOpacity="0.15" />
+                              <circle cx={c.x} cy={c.yI} r="3.5" fill="#FFFFFF" stroke="#10B981" strokeWidth="2.2" />
+                            </g>
+                          ))}
                         </>
                       );
                     })()}
@@ -1254,68 +1352,114 @@ export default function ReportesExcelTab({
               </div>
 
               {/* Eje X Fechas */}
-              <div className="d-flex justify-content-between text-muted mt-2" style={{ fontSize: '0.68rem' }}>
+              <div className="d-flex justify-content-between text-muted mt-2 pt-1 border-top" style={{ fontSize: '0.70rem' }}>
                 {timelineData.slice(0, 7).map((d, i) => (
-                  <span key={i}>{d.label}</span>
+                  <span key={i} className="fw-semibold text-secondary">{d.label}</span>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Gráfico Donut + Tabla: Ventas por Plan */}
+          {/* Gráfico 2: Donut Radial Moderno + Desglose por Plan */}
           <div className="col-12 col-lg-5">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border h-100 d-flex flex-column">
-              <strong className="small text-dark fw-bold mb-3">Ventas por plan</strong>
+            <div className="custom-card p-4 h-100 d-flex flex-column justify-content-between">
+              <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                <div>
+                  <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.90rem' }}>
+                    Distribución por Plan
+                  </strong>
+                  <small className="text-muted" style={{ fontSize: '0.74rem' }}>
+                    Proporción de recaudación por paquete
+                  </small>
+                </div>
+                <span className="badge-tag badge-plan-tag">
+                  {planDistribution.length} planes
+                </span>
+              </div>
 
               <div className="row align-items-center g-3 flex-grow-1">
-                {/* Donut SVG */}
+                {/* Donut SVG con Centro Métrico */}
                 <div className="col-5 d-flex justify-content-center">
-                  <div style={{ width: '110px', height: '110px', position: 'relative' }}>
-                    <svg viewBox="0 0 36 36" className="w-100 h-100">
+                  <div style={{ width: '130px', height: '130px', position: 'relative' }}>
+                    <svg viewBox="0 0 100 100" className="w-100 h-100" style={{ transform: 'rotate(-90deg)' }}>
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="38"
+                        fill="transparent"
+                        stroke="#F1F5F9"
+                        strokeWidth="10"
+                      />
                       {(() => {
-                        let accum = 0;
+                        const circumference = 2 * Math.PI * 38;
+                        let accumulatedPct = 0;
                         return planDistribution.map((p, idx) => {
-                          const pct = parseFloat(p.percentage) || 0;
-                          const strokeDasharray = `${pct} ${100 - pct}`;
-                          const strokeDashoffset = 100 - accum + 25;
-                          accum += pct;
+                          const pct = (parseFloat(p.percentage) || 0) / 100;
+                          const strokeDasharray = `${pct * circumference} ${circumference * (1 - pct)}`;
+                          const strokeDashoffset = -accumulatedPct * circumference;
+                          accumulatedPct += pct;
                           return (
                             <circle
                               key={idx}
-                              cx="18"
-                              cy="18"
-                              r="15.915"
+                              cx="50"
+                              cy="50"
+                              r="38"
                               fill="transparent"
                               stroke={p.color}
-                              strokeWidth="4.2"
+                              strokeWidth="10"
                               strokeDasharray={strokeDasharray}
                               strokeDashoffset={strokeDashoffset}
+                              strokeLinecap="round"
+                              style={{ transition: 'stroke-dasharray 0.5s ease' }}
                             />
                           );
                         });
                       })()}
                     </svg>
+                    {/* Hub central con métrica total */}
+                    <div
+                      className="position-absolute top-50 start-50 translate-middle text-center d-flex flex-column align-items-center justify-content-center rounded-circle bg-white shadow-xs"
+                      style={{ width: '68px', height: '68px', border: '1px solid #E2E8F0' }}
+                    >
+                      <span className="text-muted text-uppercase fw-bold" style={{ fontSize: '0.55rem', letterSpacing: '0.5px' }}>Total</span>
+                      <strong className="text-dark fw-bolder" style={{ fontSize: '0.86rem', lineHeight: '1' }}>
+                        S/{totalVentas >= 1000 ? `${(totalVentas/1000).toFixed(1)}k` : totalVentas.toFixed(0)}
+                      </strong>
+                    </div>
                   </div>
                 </div>
 
-                {/* Tabla de desglose */}
+                {/* Desglose con barras y badges estructurados */}
                 <div className="col-7">
-                  <div className="d-flex flex-column gap-1.5" style={{ fontSize: '0.75rem' }}>
+                  <div className="d-flex flex-column gap-2" style={{ fontSize: '0.75rem' }}>
                     {planDistribution.map((p, idx) => (
-                      <div key={idx} className="d-flex justify-content-between align-items-center">
-                        <span className="d-inline-flex align-items-center gap-1.5 text-muted fw-semibold">
-                          <span className="rounded-circle d-inline-block flex-shrink-0" style={{ width: '7px', height: '7px', backgroundColor: p.color }}></span>
-                          <span className="text-truncate" style={{ maxWidth: '75px' }}>{p.label}</span>
-                        </span>
-                        <span className="text-muted fw-medium">{p.percentage}%</span>
-                        <strong className="text-dark fw-bold">S/ {p.amount.toFixed(2)}</strong>
+                      <div key={idx} className="p-1.5 rounded-3" style={{ backgroundColor: '#F8FAFC' }}>
+                        <div className="d-flex justify-content-between align-items-center mb-1">
+                          <span className="d-inline-flex align-items-center gap-1.5 fw-bold text-dark">
+                            <span className="rounded-circle d-inline-block flex-shrink-0" style={{ width: '8px', height: '8px', backgroundColor: p.color }}></span>
+                            <span className="text-truncate" style={{ maxWidth: '85px' }}>{p.label}</span>
+                          </span>
+                          <span className="badge-tag" style={{ backgroundColor: '#FFFFFF', color: p.color, border: `1px solid ${p.color}40`, fontSize: '0.66rem', padding: '0.1rem 0.4rem' }}>
+                            {p.percentage}%
+                          </span>
+                        </div>
+                        <div className="d-flex justify-content-between align-items-center">
+                          <div className="progress flex-grow-1 me-2" style={{ height: '4px', backgroundColor: '#E2E8F0' }}>
+                            <div
+                              className="progress-bar rounded-pill"
+                              role="progressbar"
+                              style={{ width: `${p.percentage}%`, backgroundColor: p.color }}
+                            />
+                          </div>
+                          <strong className="text-dark fw-bold" style={{ fontSize: '0.78rem' }}>
+                            S/ {p.amount.toFixed(2)}
+                          </strong>
+                        </div>
                       </div>
                     ))}
-                    <div className="d-flex justify-content-between align-items-center pt-1.5 mt-1 border-top fw-bold text-dark">
-                      <span>Total</span>
-                      <span>100%</span>
-                      <span>S/ {totalVentas.toFixed(2)}</span>
-                    </div>
+                    {planDistribution.length === 0 && (
+                      <div className="text-muted small py-2 text-center">Sin ventas de planes</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1324,7 +1468,7 @@ export default function ReportesExcelTab({
         </div>
 
         {/* Tabla: Detalle de Ventas */}
-        <div className="bg-white p-3.5 rounded-4 shadow-sm border">
+        <div className="custom-card p-3.5">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <strong className="small text-dark fw-bold">Detalle de ventas</strong>
             <small className="text-muted fw-semibold">
@@ -1433,39 +1577,47 @@ export default function ReportesExcelTab({
 
       {/* SECCIÓN 2: MIS COMISIONES POR VENTA DE SISTEMA */}
       <div>
-        <h2 className="h6 fw-bold text-dark mb-3">Mis comisiones por venta de sistema</h2>
+        <div className="d-flex align-items-center gap-2 mb-3">
+          <div className="section-header-icon section-header-icon-indigo">
+            <Coins size={18} strokeWidth={2.2} />
+          </div>
+          <div>
+            <h2 className="fs-6 fw-bold text-dark mb-0">Mis comisiones por venta de sistema</h2>
+            <p className="text-muted small mb-0">Liquidación y balance de comisiones por altas y activaciones de clientes</p>
+          </div>
+        </div>
 
         {/* 4 KPI Stat Cards Comisiones */}
         <div className="row g-3 mb-4">
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#EFF6FF', color: '#2563EB' }}
-              >
-                <Coins size={22} />
+            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="section-header-icon section-header-icon-primary">
+                  <Coins size={18} strokeWidth={2.2} />
+                </div>
+                <span className="badge-tag">Total</span>
               </div>
               <div>
-                <small className="text-muted fw-semibold d-block">Comisión acumulada</small>
-                <strong className="fs-5 text-primary fw-bold d-block" style={{ lineHeight: '1.2' }}>
+                <span className="text-muted fw-semibold small d-block mb-1">Comisión acumulada</span>
+                <strong className="fs-4 text-primary fw-bolder d-block" style={{ lineHeight: '1.2' }}>
                   S/ {comisionAcumulada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>{totalAltasCount} afiliaciones</small>
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>{totalAltasCount} afiliaciones registradas</small>
               </div>
             </div>
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#ECFDF5', color: '#059669' }}
-              >
-                <TrendingUp size={22} />
+            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="section-header-icon section-header-icon-success">
+                  <TrendingUp size={18} strokeWidth={2.2} />
+                </div>
+                <span className="badge-tag">Altas</span>
               </div>
               <div>
-                <small className="text-muted fw-semibold d-block">Ventas realizadas</small>
-                <strong className="fs-5 text-dark fw-bold d-block" style={{ lineHeight: '1.2' }}>
+                <span className="text-muted fw-semibold small d-block mb-1">Ventas realizadas</span>
+                <strong className="fs-4 text-dark fw-bolder d-block" style={{ lineHeight: '1.2' }}>
                   {totalAltasCount}
                 </strong>
                 <small className="text-muted" style={{ fontSize: '0.75rem' }}>Afiliaciones de sistema</small>
@@ -1474,37 +1626,39 @@ export default function ReportesExcelTab({
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#FAF5FF', color: '#9333EA' }}
-              >
-                <Percent size={22} />
+            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="section-header-icon section-header-icon-indigo">
+                  <Percent size={18} strokeWidth={2.2} />
+                </div>
+                <span className="badge-tag">Por alta</span>
               </div>
               <div>
-                <small className="text-muted fw-semibold d-block">Tasa de comisión</small>
-                <strong className="fs-5 text-dark fw-bold d-block" style={{ lineHeight: '1.2' }}>
-                  S/ 9.00
+                <span className="text-muted fw-semibold small d-block mb-1">Tasa de comisión</span>
+                <strong className="fs-4 text-dark fw-bolder d-block" style={{ lineHeight: '1.2' }}>
+                  S/ {TASA_COMISION_ALTA.toFixed(2)}
                 </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Por afiliación (ALTA)</small>
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Comisión fija por cliente</small>
               </div>
             </div>
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border d-flex align-items-center gap-3">
-              <div
-                className="d-flex align-items-center justify-content-center rounded-3 flex-shrink-0"
-                style={{ width: '48px', height: '48px', backgroundColor: '#FFFBEB', color: '#D97706' }}
-              >
-                <Clock size={22} />
+            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
+              <div className="d-flex justify-content-between align-items-start mb-2">
+                <div className="section-header-icon section-header-icon-warning">
+                  <Clock size={18} strokeWidth={2.2} />
+                </div>
+                <span className="badge-tag" style={{ color: '#D97706', borderColor: '#FDE68A', backgroundColor: '#FFFBEB' }}>
+                  {altasPendientesCount} pendientes
+                </span>
               </div>
               <div>
-                <small className="text-muted fw-semibold d-block">Pendiente de pago</small>
-                <strong className="fs-5 fw-bold d-block" style={{ lineHeight: '1.2', color: '#D97706' }}>
+                <span className="text-muted fw-semibold small d-block mb-1">Pendiente de pago</span>
+                <strong className="fs-4 fw-bolder d-block" style={{ lineHeight: '1.2', color: '#D97706' }}>
                   S/ {comisionPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>{altasPendientesCount} por liquidar</small>
+                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Por conciliar y liquidar</small>
               </div>
             </div>
           </div>
@@ -1512,53 +1666,99 @@ export default function ReportesExcelTab({
 
         {/* Gráfico Comisiones por Mes + Detalle de Comisiones */}
         <div className="row g-3">
-          {/* Gráfico de Barras Comisiones */}
+          {/* Gráfico de Barras Comisiones Moderno */}
           <div className="col-12 col-lg-5">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <strong className="small text-dark fw-bold">Comisiones por mes</strong>
-                <span className="d-inline-flex align-items-center gap-1.5 text-muted fw-semibold" style={{ fontSize: '0.72rem' }}>
-                  <span className="d-inline-block rounded" style={{ width: '10px', height: '10px', backgroundColor: '#2563EB' }}></span>
-                  Comisión (S/)
-                </span>
+            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
+              <div>
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <strong className="small text-dark fw-bold">Comisiones por mes</strong>
+                  <span className="badge-tag" style={{ color: '#0866FF', borderColor: '#BFDBFE', backgroundColor: '#EFF6FF' }}>
+                    S/ {comisionAcumulada.toFixed(2)} acumulado
+                  </span>
+                </div>
+                <p className="text-muted small mb-3" style={{ fontSize: '0.75rem' }}>Rendimiento mensual de comisiones ganadas</p>
+
+                {/* Render de Barras con pistas verticales modernas */}
+                <div className="position-relative pt-3 pb-1" style={{ minHeight: '190px' }}>
+                  {/* Líneas guía sutiles */}
+                  <div className="position-absolute w-100 d-flex flex-column justify-content-between" style={{ top: '28px', bottom: '38px', pointerEvents: 'none' }}>
+                    <div style={{ borderBottom: '1px dashed #F1F5F9' }}></div>
+                    <div style={{ borderBottom: '1px dashed #F1F5F9' }}></div>
+                    <div style={{ borderBottom: '1px solid #E2E8F0' }}></div>
+                  </div>
+
+                  <div className="d-flex align-items-end justify-content-between gap-1 gap-sm-2 position-relative" style={{ height: '160px', zIndex: 1 }}>
+                    {(() => {
+                      const maxCom = Math.max(...monthlyCommissions.map((m) => m.comision), 50);
+                      return monthlyCommissions.map((m, idx) => {
+                        const hasVal = m.comision > 0;
+                        const pct = Math.max((m.comision / maxCom) * 100, hasVal ? 12 : 0);
+                        return (
+                          <div key={idx} className="d-flex flex-column align-items-center flex-grow-1" style={{ minWidth: 0 }}>
+                            {/* Valor flotante */}
+                            <div className="mb-1 text-center" style={{ minHeight: '18px' }}>
+                              {hasVal ? (
+                                <span className="badge-tag fw-bold" style={{ fontSize: '0.62rem', padding: '1px 5px', color: '#0866FF', borderColor: '#BFDBFE', backgroundColor: '#EFF6FF' }}>
+                                  S/{m.comision.toFixed(0)}
+                                </span>
+                              ) : (
+                                <span className="text-muted opacity-50" style={{ fontSize: '0.62rem' }}>—</span>
+                              )}
+                            </div>
+
+                            {/* Pista de columna vertical moderna */}
+                            <div
+                              className="w-100 d-flex align-items-end justify-content-center p-1 rounded-3"
+                              style={{
+                                height: '110px',
+                                backgroundColor: '#F8FAFC',
+                                border: '1px solid #F1F5F9',
+                                maxWidth: '34px',
+                              }}
+                            >
+                              <div
+                                className="w-100 rounded-pill"
+                                style={{
+                                  height: `${pct}%`,
+                                  background: hasVal
+                                    ? 'linear-gradient(180deg, #3B82F6 0%, #1D4ED8 100%)'
+                                    : 'transparent',
+                                  boxShadow: hasVal ? '0 2px 6px rgba(37,99,235,0.25)' : 'none',
+                                  transition: 'height 0.4s ease',
+                                }}
+                              />
+                            </div>
+
+                            {/* Nombre del mes */}
+                            <span
+                              className={`mt-1.5 text-truncate ${hasVal ? 'fw-bold text-dark' : 'text-muted'}`}
+                              style={{ fontSize: '0.68rem', maxWidth: '36px' }}
+                            >
+                              {m.month}
+                            </span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
               </div>
 
-              {/* Render de Barras */}
-              <div className="d-flex align-items-end justify-content-between gap-1.5 pt-4 pb-2" style={{ height: '180px' }}>
-                {(() => {
-                  const maxCom = Math.max(...monthlyCommissions.map((m) => m.comision), 50);
-                  return monthlyCommissions.map((m, idx) => {
-                    const barHeight = Math.max((m.comision / maxCom) * 120, 6);
-                    return (
-                      <div key={idx} className="d-flex flex-column align-items-center flex-grow-1" style={{ minWidth: 0 }}>
-                        {m.comision > 0 && (
-                          <span className="text-dark fw-bold mb-1" style={{ fontSize: '0.62rem' }}>
-                            {m.comision.toFixed(0)}
-                          </span>
-                        )}
-                        <div
-                          className="w-100 rounded-top"
-                          style={{
-                            height: `${barHeight}px`,
-                            backgroundColor: m.comision > 0 ? '#2563EB' : '#E2E8F0',
-                            maxWidth: '28px',
-                            transition: 'height 0.3s ease',
-                          }}
-                        ></div>
-                        <span className="text-muted mt-1.5" style={{ fontSize: '0.68rem' }}>
-                          {m.month}
-                        </span>
-                      </div>
-                    );
-                  });
-                })()}
+              {/* Pie con métricas clave */}
+              <div className="d-flex justify-content-between align-items-center pt-2.5 mt-2 border-top" style={{ fontSize: '0.74rem' }}>
+                <span className="text-muted fw-semibold">
+                  Promedio: <strong className="text-dark">S/ {(comisionAcumulada / Math.max(monthlyCommissions.filter(m => m.comision > 0).length, 1)).toFixed(1)}/mes</strong>
+                </span>
+                <span className="text-muted fw-semibold">
+                  Pico máx: <strong className="text-primary">S/ {Math.max(...monthlyCommissions.map(m => m.comision), 0).toFixed(0)}</strong>
+                </span>
               </div>
             </div>
           </div>
 
           {/* Tabla: Detalle de Comisiones */}
           <div className="col-12 col-lg-7">
-            <div className="bg-white p-3.5 rounded-4 shadow-sm border h-100 d-flex flex-column justify-content-between">
+            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
               <div>
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <strong className="small text-dark fw-bold">Detalle de comisiones</strong>

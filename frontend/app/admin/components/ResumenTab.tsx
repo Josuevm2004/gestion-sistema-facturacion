@@ -47,7 +47,7 @@ export default function ResumenTab({
     <div>
       {/* Tarjetas de Métricas Ejecutivas (Meta UI Style) */}
       <div className="row g-3 mb-4">
-        <div className="col-md-3">
+        <div className="col-12 col-sm-6 col-xl-3">
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
@@ -67,7 +67,7 @@ export default function ResumenTab({
           </div>
         </div>
 
-        <div className="col-md-3">
+        <div className="col-12 col-sm-6 col-xl-3">
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
@@ -87,7 +87,7 @@ export default function ResumenTab({
           </div>
         </div>
 
-        <div className="col-md-3">
+        <div className="col-12 col-sm-6 col-xl-3">
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
@@ -107,7 +107,7 @@ export default function ResumenTab({
           </div>
         </div>
 
-        <div className="col-md-3">
+        <div className="col-12 col-sm-6 col-xl-3">
           <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
@@ -131,7 +131,7 @@ export default function ResumenTab({
       {/* Dashboard Grid 2 Columnas */}
       <div className="row g-4">
         {/* Columna Izquierda: Listas rápidas de Clientes */}
-        <div className="col-lg-6">
+        <div className="col-12 col-lg-6">
           {/* Panel 1: Clientes Habilitados Recientes */}
           <div className="custom-card p-4 mb-4 shadow-sm">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
@@ -216,7 +216,7 @@ export default function ResumenTab({
         </div>
 
         {/* Columna Derecha: Notificaciones y Distribución */}
-        <div className="col-lg-6">
+        <div className="col-12 col-lg-6">
           {/* Panel 3: Notificaciones y Vencimientos */}
           <div className="custom-card p-4 mb-4 shadow-sm">
             <div className="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">

@@ -45,7 +45,7 @@ export default function VendedoresTab({
   return (
     <div className="w-100">
       {/* Encabezado con Icono Moderno y Botón de Registro */}
-      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3 p-3 bg-white rounded-3 border shadow-xs">
+      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3 p-3 custom-card">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-primary">
             <Users size={22} strokeWidth={2.2} />

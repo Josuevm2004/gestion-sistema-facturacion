@@ -437,7 +437,7 @@ export default function ClientesTodosTab({
 
   return (
     <div className="w-100">
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-3 border shadow-xs flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card flex-wrap gap-2">
         <div className="d-flex align-items-center gap-2.5">
           <div className="section-header-icon section-header-icon-primary">
             <Users size={22} strokeWidth={2.2} />
