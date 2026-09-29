@@ -562,7 +562,7 @@ public class ClienteServiceImpl implements ClienteService {
 
         clienteRepository.save(cliente);
 
-        // Actualizar Plan y Precio si el cliente aún tiene venta pendiente (ej. estado POR_COBRAR)
+        // Actualizar Plan y Precio SOLO si el plan o la suscripción cambiaron efectivamente
         if (request.getPlanId() != null || request.getPlanContratado() != null || request.getTipoSuscripcion() != null) {
             Long nuevoPlanId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
             TipoSuscripcion tipoSub = null;
@@ -593,36 +593,65 @@ public class ClienteServiceImpl implements ClienteService {
                         .findByPlanIdAndTipoSuscripcionAndActivoTrue(nuevoPlanId, tipoSub)
                         .orElse(null);
 
-                if (nuevaSuscripcion != null) {
-                    if (ventaPendiente != null) {
+                if (nuevaSuscripcion != null && ventaPendiente != null) {
+                    boolean planCambio = ventaPendiente.getSuscripcion() == null
+                            || !nuevaSuscripcion.getId().equals(ventaPendiente.getSuscripcion().getId());
+
+                    // Solo actualizar venta y servicio si el plan realmente cambió
+                    if (planCambio) {
                         ventaPendiente.setSuscripcion(nuevaSuscripcion);
                         ventaPendiente.setPrecioLista(nuevaSuscripcion.getPrecio());
-                        ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
-                        ventaRepository.save(ventaPendiente);
-                    }
 
-                    List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
-                    if (!servicios.isEmpty()) {
-                        ServicioCliente servicio = servicios.get(0);
-                        String estadoNombre = cliente.getEstado() != null ? cliente.getEstado().getNombre() : null;
-                        if (servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION || "POR_COBRAR".equals(estadoNombre)) {
-                            LocalDateTime inicio = servicio.getFechaInicio() != null ? servicio.getFechaInicio() : LocalDateTime.now();
-                            if (tipoSub == TipoSuscripcion.ANUAL) {
-                                servicio.setFechaFin(inicio.plusYears(1));
-                            } else if (inicio.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
-                                LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
-                                        nuevaSuscripcion.getPrecio(),
-                                        inicio.toLocalDate()
-                                ).fechaFin().plusDays(1);
-                                servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
-                            } else {
-                                LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(inicio.toLocalDate(), monthlyBillingDay);
-                                servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
-                            }
-                            if (ventaPendiente != null) {
+                        if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
+                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+                            ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
+                            LocalDate fechaBase = (serv != null && serv.getFechaCapacitacion() != null)
+                                    ? serv.getFechaCapacitacion().toLocalDate()
+                                    : (serv != null && serv.getFechaInicio() != null ? serv.getFechaInicio().toLocalDate() : LocalDate.now());
+
+                            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resSegundo =
+                                    ProrrateoCalculatorUtil.calcularSegundoProrrateo(nuevaSuscripcion.getPrecio(), fechaBase);
+                            ventaPendiente.setMontoProrrateoAdicional(resSegundo.montoAdicional());
+                            ventaPendiente.setDiasProrrateoAdicional(resSegundo.diasProrrateados());
+                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio().add(resSegundo.montoAdicional()));
+                        } else if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO) {
+                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+                            ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
+                            LocalDate fechaBase = (serv != null && serv.getFechaCapacitacion() != null)
+                                    ? serv.getFechaCapacitacion().toLocalDate()
+                                    : (serv != null && serv.getFechaInicio() != null ? serv.getFechaInicio().toLocalDate() : LocalDate.now());
+
+                            ProrrateoCalculatorUtil.ResultadoProrrateo resPrimer =
+                                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(nuevaSuscripcion.getPrecio(), fechaBase, monthlyBillingDay);
+                            ventaPendiente.setMontoProrrateado(resPrimer.descuento());
+                            ventaPendiente.setMontoTotal(resPrimer.montoFinal());
+                        } else {
+                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
+                        }
+
+                        ventaRepository.save(ventaPendiente);
+
+                        List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+                        if (!servicios.isEmpty()) {
+                            ServicioCliente servicio = servicios.get(0);
+                            String estadoNombre = cliente.getEstado() != null ? cliente.getEstado().getNombre() : null;
+                            if (servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION || "POR_COBRAR".equals(estadoNombre)) {
+                                LocalDateTime inicio = servicio.getFechaInicio() != null ? servicio.getFechaInicio() : LocalDateTime.now();
+                                if (tipoSub == TipoSuscripcion.ANUAL) {
+                                    servicio.setFechaFin(inicio.plusYears(1));
+                                } else if (inicio.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
+                                    LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
+                                            nuevaSuscripcion.getPrecio(),
+                                            inicio.toLocalDate()
+                                    ).fechaFin().plusDays(1);
+                                    servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
+                                } else {
+                                    LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(inicio.toLocalDate(), monthlyBillingDay);
+                                    servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
+                                }
                                 servicio.setVenta(ventaPendiente);
+                                servicioClienteRepository.save(servicio);
                             }
-                            servicioClienteRepository.save(servicio);
                         }
                     }
                 }

@@ -1085,6 +1085,9 @@ export function useAdminData() {
       }
     }
 
+    const planLocked = Boolean(editingClient.fechaCapacitacion) ||
+      ['HABILITADO', 'VENCIDO', 'BLOQUEADO'].includes(editingClient.estadoCuenta || '');
+
     const rawPlanContratado = (formData.get('planContratado') as string) || editingClient.planContratado;
     const planKey = normalizePlanKey(rawPlanContratado);
     const rawTipoSub = (formData.get('tipoSuscripcion') as string) || editingClient.tipoSuscripcion || 'MENSUAL';
@@ -1099,6 +1102,8 @@ export function useAdminData() {
     };
     const planPriceConfig = PLAN_PRICES[planKey] || { MENSUAL: 19, ANUAL: 190 };
     const nuevoPrecio = tipoSuscripcion === 'ANUAL' ? planPriceConfig.ANUAL : planPriceConfig.MENSUAL;
+
+    const planCambio = !planLocked && (planKey !== editingClient.planContratado || tipoSuscripcion !== (editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase());
 
     const PLAN_ID_MAP: Record<string, number> = {
       INICIA: 1,
@@ -1141,20 +1146,20 @@ export function useAdminData() {
       tipoIgv: formData.get('tipoIgv') as string,
       entornoId: parsedEntornoId,
       vendedorId: canEditVendedor ? (foundVendedorId ?? null) : (editingClient.vendedorId ?? null),
-      planId: planIdNum,
-      planContratado: planKey,
-      tipoSuscripcion: tipoSuscripcion,
+      planId: planLocked ? undefined : planIdNum,
+      planContratado: planLocked ? undefined : planKey,
+      tipoSuscripcion: planLocked ? undefined : tipoSuscripcion,
     };
 
     const clientIdStr = String(editingClient.id);
     const optimisticClient: Partial<Client> = {
       ...apiPayload,
       entornoNombre: matchedEntorno ? matchedEntorno.nombre : editingClient.entornoNombre,
-      planContratado: planKey,
-      tipoSuscripcion: tipoSuscripcion,
-      planId: String(planIdNum),
-      montoMensual: nuevoPrecio,
-      montoSiguienteCobro: nuevoPrecio,
+      planContratado: planLocked ? editingClient.planContratado : planKey,
+      tipoSuscripcion: planLocked ? editingClient.tipoSuscripcion : tipoSuscripcion,
+      planId: planLocked ? editingClient.planId : String(planIdNum),
+      montoMensual: planLocked || !planCambio ? editingClient.montoMensual : nuevoPrecio,
+      montoSiguienteCobro: planLocked || !planCambio ? editingClient.montoSiguienteCobro : nuevoPrecio,
       vendedor: selectedVendedor || editingClient.vendedor,
     };
 
