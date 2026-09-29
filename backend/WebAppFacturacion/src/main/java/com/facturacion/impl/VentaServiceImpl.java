@@ -508,19 +508,115 @@ public class VentaServiceImpl implements VentaService {
         pendiente.setVendedor(mejora.getVendedor());
         BigDecimal precioNuevo = nuevaSuscripcion.getPrecio();
 
-        // En una mejora de plan, la siguiente renovación es el mes completo regular del nuevo plan sin prorrateos
-        pendiente.setTipoProrrateo(TipoProrrateo.NINGUNO);
-        pendiente.setMontoProrrateado(BigDecimal.ZERO);
-        pendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
-        pendiente.setDiasProrrateoAdicional(0);
-        pendiente.setFechaInicioProrrateoAdicional(null);
-        pendiente.setFechaFinProrrateoAdicional(null);
         pendiente.setPrecioLista(precioNuevo);
-        pendiente.setMontoTotal(precioNuevo);
-        LocalDate fechaCobro = fechaFinServicio != null ? fechaFinServicio.toLocalDate() : fechaRef.toLocalDate().plusMonths(1);
-        pendiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+
+        LocalDate fechaBaseProrrateo = (servicioActual != null && servicioActual.getFechaCapacitacion() != null)
+                ? servicioActual.getFechaCapacitacion().toLocalDate()
+                : (servicioActual != null && servicioActual.getFechaInicio() != null
+                        ? servicioActual.getFechaInicio().toLocalDate()
+                        : null);
+
+        Venta ventaAnterior = mejora.getVentaAnterior();
+
+        boolean eraSegundoProrrateo = (pendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO)
+                || (ventaAnterior != null && ventaAnterior.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO)
+                || (ventaAnterior != null && ventaAnterior.getTipoVenta() == TipoVenta.ALTA
+                        && correspondeSegundoProrrateo(fechaBaseProrrateo)
+                        && nuevaSuscripcion.getTipoSuscripcion() == TipoSuscripcion.MENSUAL);
+
+        boolean eraPrimerProrrateo = !eraSegundoProrrateo && (
+                (pendiente.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO)
+                || (ventaAnterior != null && ventaAnterior.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO)
+        );
+
+        if (nuevaSuscripcion.getTipoSuscripcion() == TipoSuscripcion.MENSUAL && eraSegundoProrrateo && fechaBaseProrrateo != null) {
+            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resSegundo =
+                    ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioNuevo, fechaBaseProrrateo);
+
+            Integer diasExistentes = pendiente.getDiasProrrateoAdicional() != null && pendiente.getDiasProrrateoAdicional() > 0
+                    ? pendiente.getDiasProrrateoAdicional()
+                    : (ventaAnterior != null && ventaAnterior.getDiasProrrateoAdicional() != null && ventaAnterior.getDiasProrrateoAdicional() > 0
+                            ? ventaAnterior.getDiasProrrateoAdicional()
+                            : null);
+
+            int dias = diasExistentes != null ? diasExistentes : resSegundo.diasProrrateados();
+            int diasDelMes = resSegundo.fechaInicio().lengthOfMonth();
+
+            BigDecimal montoAdicional = (dias == resSegundo.diasProrrateados())
+                    ? resSegundo.montoAdicional()
+                    : precioNuevo.divide(BigDecimal.valueOf(diasDelMes), 10, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(dias))
+                            .setScale(2, RoundingMode.HALF_UP);
+
+            LocalDateTime fechaInicioAdicional = pendiente.getFechaInicioProrrateoAdicional() != null
+                    ? pendiente.getFechaInicioProrrateoAdicional()
+                    : (ventaAnterior != null && ventaAnterior.getFechaInicioProrrateoAdicional() != null
+                            ? ventaAnterior.getFechaInicioProrrateoAdicional()
+                            : LocalDateTime.of(resSegundo.fechaInicio(), LocalTime.NOON));
+
+            LocalDateTime fechaFinAdicional = pendiente.getFechaFinProrrateoAdicional() != null
+                    ? pendiente.getFechaFinProrrateoAdicional()
+                    : (ventaAnterior != null && ventaAnterior.getFechaFinProrrateoAdicional() != null
+                            ? ventaAnterior.getFechaFinProrrateoAdicional()
+                            : LocalDateTime.of(resSegundo.fechaFin(), LocalTime.NOON));
+
+            LocalDate fechaCobro = resSegundo.fechaFin().plusDays(1);
+
+            pendiente.setTipoProrrateo(TipoProrrateo.SEGUNDO_PRORRATEO);
+            pendiente.setMontoProrrateado(BigDecimal.ZERO);
+            pendiente.setMontoProrrateoAdicional(montoAdicional);
+            pendiente.setDiasProrrateoAdicional(dias);
+            pendiente.setFechaInicioProrrateoAdicional(fechaInicioAdicional);
+            pendiente.setFechaFinProrrateoAdicional(fechaFinAdicional);
+            pendiente.setMontoTotal(precioNuevo.add(montoAdicional));
+            pendiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+            pendiente.setObservaciones("Renovacion con segundo prorrateo del "
+                    + fechaInicioAdicional.toLocalDate() + " al " + fechaFinAdicional.toLocalDate()
+                    + " (" + (nuevaSuscripcion.getPlan() != null ? nuevaSuscripcion.getPlan().getNombrePlan() : "nuevo plan") + ")");
+
+            if (servicioActual != null) {
+                servicioActual.setMontoProrrateo(pendiente.getMontoTotal());
+                servicioActual.setDiasProrrateados(dias);
+                servicioClienteRepository.save(servicioActual);
+            }
+        } else if (nuevaSuscripcion.getTipoSuscripcion() == TipoSuscripcion.MENSUAL && eraPrimerProrrateo && fechaBaseProrrateo != null) {
+            ProrrateoCalculatorUtil.ResultadoProrrateo resPrimer =
+                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(precioNuevo, fechaBaseProrrateo, monthlyBillingDay);
+
+            LocalDate fechaCobro = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaBaseProrrateo, monthlyBillingDay);
+
+            pendiente.setTipoProrrateo(TipoProrrateo.PRIMER_PRORRATEO);
+            pendiente.setMontoProrrateado(resPrimer.descuento());
+            pendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
+            pendiente.setDiasProrrateoAdicional(0);
+            pendiente.setFechaInicioProrrateoAdicional(null);
+            pendiente.setFechaFinProrrateoAdicional(null);
+            pendiente.setMontoTotal(resPrimer.montoFinal());
+            pendiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+            pendiente.setObservaciones("Renovacion prorrateada del "
+                    + (nuevaSuscripcion.getPlan() != null ? nuevaSuscripcion.getPlan().getNombrePlan() : "nuevo plan")
+                    + " generada por capacitacion del " + fechaBaseProrrateo);
+
+            if (servicioActual != null) {
+                servicioActual.setMontoProrrateo(resPrimer.montoFinal());
+                servicioActual.setDiasProrrateados(Math.max(1, resPrimer.diasTotales() - resPrimer.diasNoConsumidos()));
+                servicioClienteRepository.save(servicioActual);
+            }
+        } else {
+            // En una mejora de plan regular sin prorrateos, la siguiente renovación es el mes completo regular del nuevo plan
+            pendiente.setTipoProrrateo(TipoProrrateo.NINGUNO);
+            pendiente.setMontoProrrateado(BigDecimal.ZERO);
+            pendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
+            pendiente.setDiasProrrateoAdicional(0);
+            pendiente.setFechaInicioProrrateoAdicional(null);
+            pendiente.setFechaFinProrrateoAdicional(null);
+            pendiente.setMontoTotal(precioNuevo);
+            LocalDate fechaCobro = fechaFinServicio != null ? fechaFinServicio.toLocalDate() : fechaRef.toLocalDate().plusMonths(1);
+            pendiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+            pendiente.setObservaciones("Renovacion mensual regular del " + (nuevaSuscripcion.getPlan() != null ? nuevaSuscripcion.getPlan().getNombrePlan() : "nuevo plan") + " para " + fechaCobro);
+        }
+
         pendiente.setFechaActualizacion(fechaRef);
-        pendiente.setObservaciones("Renovacion mensual regular del " + (nuevaSuscripcion.getPlan() != null ? nuevaSuscripcion.getPlan().getNombrePlan() : "nuevo plan") + " para " + fechaCobro);
         ventaRepository.save(pendiente);
     }
 

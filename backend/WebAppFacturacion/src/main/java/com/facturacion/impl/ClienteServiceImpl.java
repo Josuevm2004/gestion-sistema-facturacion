@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -611,9 +612,22 @@ public class ClienteServiceImpl implements ClienteService {
 
                             ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resSegundo =
                                     ProrrateoCalculatorUtil.calcularSegundoProrrateo(nuevaSuscripcion.getPrecio(), fechaBase);
-                            ventaPendiente.setMontoProrrateoAdicional(resSegundo.montoAdicional());
-                            ventaPendiente.setDiasProrrateoAdicional(resSegundo.diasProrrateados());
-                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio().add(resSegundo.montoAdicional()));
+                            Integer diasExistentes = ventaPendiente.getDiasProrrateoAdicional();
+                            int dias = (diasExistentes != null && diasExistentes > 0)
+                                    ? diasExistentes
+                                    : resSegundo.diasProrrateados();
+                            int diasDelMes = resSegundo.fechaInicio().lengthOfMonth();
+
+                            BigDecimal montoAdicional = (dias == resSegundo.diasProrrateados())
+                                    ? resSegundo.montoAdicional()
+                                    : nuevaSuscripcion.getPrecio()
+                                            .divide(BigDecimal.valueOf(diasDelMes), 10, RoundingMode.HALF_UP)
+                                            .multiply(BigDecimal.valueOf(dias))
+                                            .setScale(2, RoundingMode.HALF_UP);
+
+                            ventaPendiente.setMontoProrrateoAdicional(montoAdicional);
+                            ventaPendiente.setDiasProrrateoAdicional(dias);
+                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio().add(montoAdicional));
                         } else if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO) {
                             List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
                             ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
