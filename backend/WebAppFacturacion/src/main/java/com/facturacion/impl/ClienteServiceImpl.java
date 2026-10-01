@@ -855,7 +855,22 @@ public class ClienteServiceImpl implements ClienteService {
         res.setTipoIgv(c.getTipoIgv());
         res.setAvisado(c.getAvisado());
 
+        LocalDateTime ahora = LocalDateTime.now();
         String estadoNombre = c.getEstado() != null ? c.getEstado().getNombre() : null;
+
+        if ("VENCIDO".equalsIgnoreCase(estadoNombre)
+                && servicio != null
+                && servicio.getEstado() == EstadoServicio.ACTIVO
+                && servicio.getFechaFin() != null
+                && servicio.getFechaFin().isAfter(ahora)) {
+            EstadoCliente estadoHabilitado = estadoClienteRepository.findByNombreAndActivoTrue("HABILITADO").orElse(null);
+            if (estadoHabilitado != null) {
+                c.setEstado(estadoHabilitado);
+                clienteRepository.save(c);
+                estadoNombre = estadoHabilitado.getNombre();
+            }
+        }
+
         if (c.getEstado() != null) {
             res.setEstadoId(c.getEstado().getId());
             res.setEstadoNombre(estadoNombre);
@@ -872,7 +887,6 @@ public class ClienteServiceImpl implements ClienteService {
             res.setEntornoNombre(c.getEntorno().getNombre());
         }
 
-        LocalDateTime ahora = LocalDateTime.now();
         Venta ventaPendiente = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
                 .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))

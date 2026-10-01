@@ -129,12 +129,31 @@ public class VentaServiceImpl implements VentaService {
             diasProrrateados = 365;
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
+            if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+                montoTotal = request.getMonto();
+            }
+        } else if (usarMontoPendienteProgramado) {
+            descuentoProrrateo = ventaPendiente.getMontoProrrateado() != null ? ventaPendiente.getMontoProrrateado() : BigDecimal.ZERO;
+            montoTotal = ventaPendiente.getMontoTotal() != null ? ventaPendiente.getMontoTotal() : precioLista;
+            tipoProrrateo = ventaPendiente.getTipoProrrateo() != null ? ventaPendiente.getTipoProrrateo() : TipoProrrateo.NINGUNO;
+            montoAdicionalProrrateo = ventaPendiente.getMontoProrrateoAdicional() != null ? ventaPendiente.getMontoProrrateoAdicional() : BigDecimal.ZERO;
+            diasProrrateoAdicional = ventaPendiente.getDiasProrrateoAdicional() != null ? ventaPendiente.getDiasProrrateoAdicional() : 0;
+            fechaInicioProrrateoAdicional = ventaPendiente.getFechaInicioProrrateoAdicional();
+            fechaFinProrrateoAdicional = ventaPendiente.getFechaFinProrrateoAdicional();
+            fechaFin = fechaInicio.plusMonths(1);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+                montoTotal = request.getMonto();
+            }
         } else if (tipo == TipoVenta.RENOVACION && !conProrrateo) {
             // FLUJO: "Reanudar fecha de pago" (cobra ciclo completo desde el dia de corte porque siguio consumiendo)
             fechaFin = fechaInicio.plusMonths(1);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
+            if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+                montoTotal = request.getMonto();
+            }
         } else if (tipo == TipoVenta.RENOVACION && conProrrateo) {
             // FLUJO: "Renovar" (con prorrateo por atraso de pago desde la fecha real de pago)
             if (correspondeSegundoProrrateo(fechaInicioDate)) {
@@ -175,17 +194,17 @@ public class VentaServiceImpl implements VentaService {
             }
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
-        } else if (usarMontoPendienteProgramado) {
-            descuentoProrrateo = ventaPendiente.getMontoProrrateado() != null ? ventaPendiente.getMontoProrrateado() : BigDecimal.ZERO;
-            montoTotal = ventaPendiente.getMontoTotal() != null ? ventaPendiente.getMontoTotal() : precioLista;
-            LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
-            fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
-            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
+            if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+                montoTotal = request.getMonto();
+            }
         } else {
             fechaFin = fechaInicio.plusMonths(1);
             diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
             descuentoProrrateo = BigDecimal.ZERO;
             montoTotal = precioLista;
+            if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+                montoTotal = request.getMonto();
+            }
         }
 
         if (tipo == TipoVenta.CAMBIO_PLAN) {
@@ -319,6 +338,12 @@ public class VentaServiceImpl implements VentaService {
 
         Venta ventaAdelanto = ventaPendiente != null ? ventaPendiente : new Venta();
 
+        if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
+            montoTotal = request.getMonto();
+        } else if (ventaPendiente != null && ventaPendiente.getMontoTotal() != null && ventaPendiente.getMontoTotal().compareTo(BigDecimal.ZERO) > 0) {
+            montoTotal = ventaPendiente.getMontoTotal();
+        }
+
         // Cancelar unicamente pendientes obsoletas no relacionadas
         cancelarVentasPendientesCliente(cliente.getId(), ventaAdelanto, fechaRef);
 
@@ -330,8 +355,21 @@ public class VentaServiceImpl implements VentaService {
             ventaAdelanto.setVentaAnterior(ventaAnterior);
         }
         ventaAdelanto.setPrecioLista(precioLista);
-        ventaAdelanto.setMontoProrrateado(BigDecimal.ZERO);
+        if (ventaPendiente != null && ventaPendiente.getMontoProrrateado() != null) {
+            ventaAdelanto.setMontoProrrateado(ventaPendiente.getMontoProrrateado());
+        } else {
+            ventaAdelanto.setMontoProrrateado(BigDecimal.ZERO);
+        }
         ventaAdelanto.setMontoTotal(montoTotal);
+        if (ventaPendiente != null) {
+            if (ventaPendiente.getTipoProrrateo() != null && ventaPendiente.getTipoProrrateo() != TipoProrrateo.NINGUNO) {
+                ventaAdelanto.setTipoProrrateo(ventaPendiente.getTipoProrrateo());
+                ventaAdelanto.setMontoProrrateoAdicional(ventaPendiente.getMontoProrrateoAdicional());
+                ventaAdelanto.setDiasProrrateoAdicional(ventaPendiente.getDiasProrrateoAdicional());
+                ventaAdelanto.setFechaInicioProrrateoAdicional(ventaPendiente.getFechaInicioProrrateoAdicional());
+                ventaAdelanto.setFechaFinProrrateoAdicional(ventaPendiente.getFechaFinProrrateoAdicional());
+            }
+        }
         ventaAdelanto.setEstadoVenta(EstadoVenta.PAGADA);
         ventaAdelanto.setObservaciones(request.getObservaciones() != null && !request.getObservaciones().isBlank()
                 ? request.getObservaciones()

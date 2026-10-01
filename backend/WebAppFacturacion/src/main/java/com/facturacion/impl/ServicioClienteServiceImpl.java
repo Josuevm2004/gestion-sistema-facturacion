@@ -351,6 +351,9 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
 
         List<ServicioCliente> vencenHoy = servicioClienteRepository.findActivosQueVencenEntre(hoyStart, hoyEnd);
         for (ServicioCliente s : vencenHoy) {
+            if (s.getCliente() != null && servicioClienteRepository.tieneServicioActivoVigente(s.getCliente().getId(), hoyEnd)) {
+                continue;
+            }
             if (!notificacionRepository.existsByClienteIdAndTipoAndFechaCreacionBetween(
                     s.getCliente().getId(), TipoNotificacion.VENCE_HOY, diaInicio, diaFin)) {
                 Notificacion n = new Notificacion();
@@ -367,6 +370,9 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
         // 1. Alertas VENCIMIENTO_MANANA
         List<ServicioCliente> vencenManana = servicioClienteRepository.findActivosQueVencenEntre(mananaStart, mananaEnd);
         for (ServicioCliente s : vencenManana) {
+            if (s.getCliente() != null && servicioClienteRepository.tieneServicioActivoVigente(s.getCliente().getId(), mananaEnd)) {
+                continue;
+            }
             if (!notificacionRepository.existsByClienteIdAndTipoAndFechaCreacionBetween(
                     s.getCliente().getId(), TipoNotificacion.VENCIMIENTO_MANANA, diaInicio, diaFin)) {
                 Notificacion n = new Notificacion();
@@ -390,7 +396,23 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             s.setFechaActualizacion(LocalDateTime.now());
             servicioClienteRepository.save(s);
 
-            if (estadoVencido != null && !estadoVencido.equals(s.getCliente().getEstado())) {
+            boolean tieneServicioVigente = s.getCliente() != null
+                    && servicioClienteRepository.tieneServicioActivoVigente(s.getCliente().getId(), now);
+
+            if (tieneServicioVigente) {
+                // El cliente ya renovó o tiene un ciclo posterior activo. Si estaba en VENCIDO, restaurarlo a HABILITADO.
+                if (estadoVencido != null && estadoVencido.equals(s.getCliente().getEstado())) {
+                    EstadoCliente estadoHabilitado = estadoClienteRepository.findByNombreAndActivoTrue("HABILITADO").orElse(null);
+                    if (estadoHabilitado != null) {
+                        s.getCliente().setEstado(estadoHabilitado);
+                        clienteRepository.save(s.getCliente());
+                    }
+                }
+                continue;
+            }
+
+            if (estadoVencido != null && !estadoVencido.equals(s.getCliente().getEstado())
+                    && (s.getCliente().getEstado() == null || !"BLOQUEADO".equalsIgnoreCase(s.getCliente().getEstado().getNombre()))) {
                 EstadoCliente viejo = s.getCliente().getEstado();
                 s.getCliente().setEstado(estadoVencido);
                 clienteRepository.save(s.getCliente());

@@ -31,4 +31,7 @@ public interface ServicioClienteRepository extends JpaRepository<ServicioCliente
 
     @Query("SELECT s FROM ServicioCliente s WHERE s.estado = 'ACTIVO' AND s.fechaFin <= :now")
     List<ServicioCliente> findActivosVencidos(@Param("now") LocalDateTime now);
+
+    @Query("SELECT COUNT(s) > 0 FROM ServicioCliente s WHERE s.cliente.id = :clienteId AND s.estado = 'ACTIVO' AND s.fechaFin > :now")
+    boolean tieneServicioActivoVigente(@Param("clienteId") Long clienteId, @Param("now") LocalDateTime now);
 }
