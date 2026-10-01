@@ -913,7 +913,8 @@ public class ClienteServiceImpl implements ClienteService {
             if (ventaPendienteVencida != null
                     && !"BLOQUEADO".equals(estadoNombre)
                     && !"POR_CAPACITAR".equals(estadoNombre)
-                    && !"VENCIDO".equals(estadoNombre)) {
+                    && !"VENCIDO".equals(estadoNombre)
+                    && (servicio == null || servicio.getEstado() != EstadoServicio.ACTIVO || servicio.getFechaFin() == null || !servicio.getFechaFin().isAfter(ahora))) {
                 res.setEstadoNombre("POR_COBRAR");
             }
         } else if (ventaPlan != null) {
@@ -1041,10 +1042,15 @@ public class ClienteServiceImpl implements ClienteService {
     }
 
     private boolean esPendienteObsoletaPorServicioActivo(Venta venta, ServicioCliente servicio) {
-        return venta != null
-                && venta.getFechaVenta() != null
-                && servicio != null
-                && servicio.getEstado() == EstadoServicio.ACTIVO
+        if (venta == null || servicio == null || servicio.getEstado() != EstadoServicio.ACTIVO) {
+            return false;
+        }
+        if (servicio.getFechaFin() != null && servicio.getFechaFin().isAfter(LocalDateTime.now())) {
+            if (venta.getFechaVenta() != null && venta.getFechaVenta().toLocalDate().isBefore(servicio.getFechaFin().toLocalDate())) {
+                return true;
+            }
+        }
+        return venta.getFechaVenta() != null
                 && servicio.getFechaInicio() != null
                 && venta.getFechaVenta().isBefore(servicio.getFechaInicio());
     }

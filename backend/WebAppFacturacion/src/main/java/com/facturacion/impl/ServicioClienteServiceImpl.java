@@ -445,6 +445,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
     private void asegurarServiciosParaVentasPagadas() {
         List<Venta> ventasPagadas = ventaRepository.findAll().stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+                .filter(v -> v.getTipoVenta() != TipoVenta.MEJORA_PLAN)
                 .filter(v -> v.getCliente() != null && Boolean.TRUE.equals(v.getCliente().getActivo()))
                 .sorted(java.util.Comparator.comparing(Venta::getFechaVenta, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
                 .toList();
@@ -509,8 +510,12 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
             if (servicio.getVenta() != null && servicio.getVenta().getObservaciones() != null && servicio.getVenta().getObservaciones().toLowerCase().contains("adelanto")) {
                 continue;
             }
+            // Si el servicio ya finalizó su periodo, no se realinea como activo
+            if (servicio.getFechaFin() != null && !servicio.getFechaFin().isAfter(ahora)) {
+                continue;
+            }
             // Proteger servicios con ciclos adelantados o fechas futuras del recálculo automático del cron
-            if (servicio.getFechaFin() != null && servicio.getFechaFin().toLocalDate().isAfter(ahora.toLocalDate().plusMonths(1).withDayOfMonth(1))) {
+            if (servicio.getFechaFin() != null && !servicio.getFechaFin().toLocalDate().isBefore(ahora.toLocalDate().plusMonths(1).withDayOfMonth(1))) {
                 continue;
             }
 
@@ -716,7 +721,10 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 ? pendiente.getPrecioLista()
                 : ventaServicio.getSuscripcion().getPrecio();
 
-        pendiente.setFechaVenta(LocalDateTime.of(fechaCobro, LocalTime.NOON));
+        LocalDate fechaObjetivoCobro = servicio != null && servicio.getFechaFin() != null
+                ? servicio.getFechaFin().toLocalDate()
+                : fechaCobro;
+        pendiente.setFechaVenta(LocalDateTime.of(fechaObjetivoCobro, LocalTime.NOON));
         pendiente.setPrecioLista(precioBase);
         if (ventaServicio.getTipoVenta() == TipoVenta.ALTA) {
             ProrrateoCalculatorUtil.ResultadoProrrateo r =
