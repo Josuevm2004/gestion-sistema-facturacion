@@ -311,9 +311,9 @@ public class PagoServiceImpl implements PagoService {
         siguienteVenta.setTipoVenta(TipoVenta.RENOVACION);
         siguienteVenta.setVentaAnterior(ventaActual);
         siguienteVenta.setPrecioLista(precioLista);
-        siguienteVenta.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
-
-        if (ventaActual.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL
+        boolean esNuevoProrrateo = ventaActual.getTipoVenta() == TipoVenta.ALTA;
+        if (esNuevoProrrateo
+                && ventaActual.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.MENSUAL
                 && correspondeSegundoProrrateo(fechaInicioServicio)) {
             ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resultado =
                     ProrrateoCalculatorUtil.calcularSegundoProrrateo(precioLista, fechaInicioServicio);

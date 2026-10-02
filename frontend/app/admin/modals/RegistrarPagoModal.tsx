@@ -131,6 +131,21 @@ export default function RegistrarPagoModal({
       };
     }
 
+    // Si el cliente ya tiene una renovación pendiente con 2.° prorrateo programado:
+    if (client.tipoProrrateo === 'SEGUNDO_PRORRATEO' && Number(client.montoSiguienteCobro || 0) > 0) {
+      const scheduledMonto = Number(client.montoSiguienteCobro);
+      const fin = new Date(inicio);
+      fin.setMonth(fin.getMonth() + 1);
+      const diasAdic = client.diasProrrateoAdicional ? ` + ${client.diasProrrateoAdicional} días adic.` : '';
+      const montoAdic = client.montoProrrateoAdicional ? ` (S/ ${Number(client.montoProrrateoAdicional).toFixed(2)})` : '';
+      return {
+        monto: scheduledMonto,
+        fechaInicioPeriodo: inicio,
+        fechaFinPeriodo: fin,
+        detalleCalculo: `Renovación programada con 2.° prorrateo pendiente: S/ ${scheduledMonto.toFixed(2)} (Mes regular S/ ${precioOficialPlan.toFixed(2)}${diasAdic}${montoAdic})`,
+      };
+    }
+
     const dia = payDate.getDate();
     const y = payDate.getFullYear();
     const m = payDate.getMonth();
@@ -166,7 +181,7 @@ export default function RegistrarPagoModal({
         detalleCalculo: `Primer prorrateo (día ${dia}): ${diasCobrados} días cobrados hasta el 1.° del próximo mes`,
       };
     }
-  }, [isAdelanto, isReanudarPago, isRenovarProrrateo, precioOficialPlan, vencDate, now, isAnual, payDate]);
+  }, [isAdelanto, isReanudarPago, isRenovarProrrateo, precioOficialPlan, vencDate, now, isAnual, payDate, client]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

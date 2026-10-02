@@ -109,7 +109,7 @@ public class VentaServiceImpl implements VentaService {
 
         LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
         boolean conProrrateo = Boolean.TRUE.equals(request.getConProrrateo());
-        boolean usarMontoPendienteProgramado = !conProrrateo && debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
+        boolean usarMontoPendienteProgramado = debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
         LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, servicioActual, tipo, conProrrateo, fechaRef, fechaPagoReal);
         LocalDateTime fechaInicio = LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
 

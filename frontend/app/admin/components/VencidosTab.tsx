@@ -228,7 +228,9 @@ export default function VencidosTab({
                         )}
                       </td>
                       <td>
-                        <span className="cell-amount text-danger">S/ {c.montoMensual?.toFixed(2)}</span>
+                        <span className="cell-amount text-danger">
+                          S/ {Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0).toFixed(2)}
+                        </span>
                       </td>
                       <td>
                         {vencDate ? (
