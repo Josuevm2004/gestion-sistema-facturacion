@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { MessageSquare, Copy, Check, ExternalLink, RefreshCw, UserCheck } from 'lucide-react';
+import { MessageSquare, Copy, Check, ExternalLink, RefreshCw, UserCheck, X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 
 interface BillingMessageModalProps {
