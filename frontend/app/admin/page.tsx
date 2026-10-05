@@ -23,12 +23,25 @@ import TrainingModal from './modals/TrainingModal';
 import PaymentHistoryModal from './modals/PaymentHistoryModal';
 import UserModal from './modals/UserModal';
 import CreateClientModal from './modals/CreateClientModal';
+import './admin-theme.css';
+
+const ADMIN_PAGE_TITLES: Record<string, string> = {
+  resumen: 'Resumen',
+  todos: 'Todos los clientes',
+  cobrar: 'Por cobrar',
+  vencidos: 'Vencidos',
+  bloqueados: 'Bloqueados',
+  capacitaciones: 'Capacitaciones',
+  reporte: 'Reporte general',
+  usuarios: 'Vendedores y usuarios',
+};
 
 export default function AdminPage() {
   const adminData = useAdminData();
+  const activePageTitle = ADMIN_PAGE_TITLES[adminData.activeTab] || 'Administración';
 
   return (
-    <div className="admin-shell min-h-screen pb-5">
+    <div className={`admin-shell min-h-screen pb-5 ${adminData.token ? 'admin-shell--authenticated' : ''}`}>
       {adminData.token && (
         <AdminNavbar
           activeTab={adminData.activeTab}
@@ -51,6 +64,15 @@ export default function AdminPage() {
         />
       )}
 
+      {adminData.token && (
+        <header className="admin-topbar" aria-label="Encabezado del panel">
+          <div className="admin-topbar-heading">
+            <span className="admin-topbar-eyebrow">MIQUIPU / ADMINISTRACIÓN</span>
+            <h1>{activePageTitle}</h1>
+          </div>
+        </header>
+      )}
+
       <main className="admin-main container-fluid px-2 px-md-3 my-3">
         {adminData.notice && (
           <div className="alert admin-notice alert-info alert-dismissible fade show shadow-sm rounded-4 mb-4 border-0" role="alert">
@@ -60,31 +82,40 @@ export default function AdminPage() {
         )}
 
         {!adminData.token ? (
-          <div className="admin-login-shell row justify-content-center my-5 pt-4">
-            <div className="col-12 col-sm-10 col-md-7 col-lg-5 col-xl-4">
-              <div className="card rounded-4 border bg-white shadow-sm p-4 p-md-5">
-                <div className="text-center mb-4">
-                  <Image src="/logo.jpeg" alt="Miquipu Logo" width={56} height={56} className="rounded-circle shadow-sm mb-2" />
-                  <h1 className="h5 fw-bold text-dark mb-1">Acceso Administrativo</h1>
-                  <p className="text-muted small">Ingresa tus credenciales de colaborador.</p>
-                </div>
+          <div className="admin-login-shell">
+            <section className="admin-login-form-side">
+              <div className="admin-login-card-wrap">
+                <div className="card admin-login-card rounded-4 border bg-white shadow-sm p-4 p-md-5">
+                  <div className="text-center mb-4">
+                    <Image src="/logo.jpeg" alt="Miquipu Logo" width={56} height={56} className="rounded-circle shadow-sm mb-2" />
+                    <h1 className="h5 fw-bold text-dark mb-1">Acceso Administrativo</h1>
+                    <p className="text-muted small">Ingresa tus credenciales de colaborador.</p>
+                  </div>
 
-                <form onSubmit={adminData.handleLogin} className="needs-validation">
-                  <div className="mb-3">
-                    <label className="form-label text-secondary fw-semibold small">Usuario</label>
-                    <input className="form-control rounded-pill px-3" name="username" placeholder="Ingresa tu usuario" required />
-                  </div>
-                  <div className="mb-4">
-                    <label className="form-label text-secondary fw-semibold small">Contraseña</label>
-                    <input className="form-control rounded-pill px-3" name="password" type="password" placeholder="Ingresa tu contraseña" required />
-                  </div>
-                  <button type="submit" className="btn btn-primary rounded-pill w-100 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2" style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}>
-                    <LogIn size={16} />
-                    <span>Entrar al Dashboard</span>
-                  </button>
-                </form>
+                  <form onSubmit={adminData.handleLogin} className="needs-validation">
+                    <div className="mb-3">
+                      <label className="form-label text-secondary fw-semibold small">Usuario</label>
+                      <input className="form-control rounded-pill px-3" name="username" placeholder="Ingresa tu usuario" required />
+                    </div>
+                    <div className="mb-4">
+                      <label className="form-label text-secondary fw-semibold small">Contraseña</label>
+                      <input className="form-control rounded-pill px-3" name="password" type="password" placeholder="Ingresa tu contraseña" required />
+                    </div>
+                    <button type="submit" className="btn btn-primary rounded-pill w-100 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2" style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}>
+                      <LogIn size={16} />
+                      <span>Entrar al Dashboard</span>
+                    </button>
+                  </form>
+                </div>
               </div>
-            </div>
+            </section>
+            <aside className="admin-login-brand-side">
+              <div className="admin-login-brand-content">
+                <Image src="/logo.jpeg" alt="" width={54} height={54} className="admin-login-brand-logo" />
+                <div className="admin-login-brand-name">Miquipu</div>
+                <p>Administración de facturación electrónica</p>
+              </div>
+            </aside>
           </div>
         ) : (
           <div>

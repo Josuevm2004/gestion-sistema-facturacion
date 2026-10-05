@@ -308,7 +308,7 @@ export default function FormularioPublicoPage() {
   }
 
   return (
-    <div className="min-h-screen pb-5" style={{ backgroundColor: '#F0F2F5' }}>
+    <div className="public-registration-page min-h-screen pb-5" style={{ backgroundColor: '#F8FAFC' }}>
       <nav className="navbar sticky-top py-2.5 bg-white border-bottom shadow-sm">
         <div className="container">
           <Link href="/" className="navbar-brand d-flex align-items-center gap-2.5 text-decoration-none">
