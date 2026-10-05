@@ -246,7 +246,7 @@ export default function ReportesExcelTab({
 
       // Determinar los meses a mostrar asegurando que cubra las fechas de los clientes y sus 2 prorrateos
       reportFilteredList.forEach((c) => {
-        const startD = parseLocalDateSafe(c.fechaCapacitacion || c.fechaRegistro || c.fechaCreacion);
+        const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
         if (startD) {
           const startKey = monthKeyFromDate(startD);
           if (startKey) {
@@ -379,38 +379,19 @@ export default function ReportesExcelTab({
 
         const rawOps = operacionesByClient.get(idKey(c.id)) || [];
 
-        // 1. Procesar operaciones de ventas registradas
-        rawOps.forEach((op) => {
-          const opD = parseLocalDateSafe(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
-          if (!opD) return;
-          const key = monthKeyFromDate(opD);
-          if (!key) return;
+        // 1. Procesar primero los pagos de caja confirmados (Fuente de verdad de ingresos)
+        const coveredVentaIds = new Set<string>();
+        const coveredMonthKeys = new Set<string>();
 
-          const montoOperacion = Number(op?.montoPagado || op?.montoVenta || op?.montoTotal || op?.precioLista || 0) || clientMonthlyPlanPrice;
-          const isAnnualOp = (op?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-          const isSegundoProrrateoOp = op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || (opD.getDate() >= 10 && op?.tipoProrrateo !== 'PRIMER_PRORRATEO');
-
-          if (isAnnualOp) {
-            if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: montoOperacion || (clientMonthlyPlanPrice * 10), monthsCovered: 12, type: 'ANUAL' });
-            }
-          } else if (isSegundoProrrateoOp) {
-            // El 2.° prorrateo chapa los 2 meses
-            if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: montoOperacion || Number(c.montoSiguienteCobro || 0) || clientMonthlyPlanPrice, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
-            }
-          } else {
-            // 1.° prorrateo o mensualidad regular
-            monthlySums.set(key, (monthlySums.get(key) || 0) + montoOperacion);
-          }
-        });
-
-        // 2. Procesar pagos de caja
         clPayments.forEach((p) => {
-          const payD = parseLocalDateSafe(p?.fechaPago || p?.fechaRegistro);
+          const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
           if (!payD) return;
           const key = monthKeyFromDate(payD);
           if (!key) return;
+
+          const vId = String(p?.ventaId || p?.venta?.id || '');
+          if (vId) coveredVentaIds.add(vId);
+          coveredMonthKeys.add(key);
 
           const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
           if (pAmount <= 0) return;
@@ -427,61 +408,68 @@ export default function ReportesExcelTab({
               spans.push({ startKey: key, amount: pAmount, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
             }
           } else {
+            // Asignar el monto al mes correspondiente sin duplicar
             monthlySums.set(key, (monthlySums.get(key) || 0) + pAmount);
           }
         });
 
-        // 3. Fallback inteligente directo con los datos del cliente (Garantiza que ningún cliente activo salga en blanco)
-        const startD = parseLocalDateSafe(c.fechaCapacitacion || c.fechaRegistro || c.fechaCreacion);
-        if (startD) {
-          const startKey = monthKeyFromDate(startD)!;
+        // 2. Procesar operaciones de ventas que no tengan pago registrado en caja (evitando duplicar)
+        rawOps.forEach((op) => {
+          const vId = String(op?.ventaId || '');
+          if (vId && coveredVentaIds.has(vId)) return; // Ya contabilizado por clPayments
 
-          if (isClientAnnual) {
-            if (!spans.some((s) => s.startKey === startKey)) {
-              const annualAmount = Number(c.precioPlan || c.montoMensual || 0);
-              spans.push({ startKey, amount: annualAmount, monthsCovered: 12, type: 'ANUAL' });
+          const opD = parseLocalDateSafe(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
+          if (!opD) return;
+          const key = monthKeyFromDate(opD);
+          if (!key || coveredMonthKeys.has(key)) return; // Mes ya cubierto por un pago confirmado
+
+          const montoOperacion = Number(op?.montoPagado || op?.montoVenta || op?.montoTotal || op?.precioLista || 0);
+          if (montoOperacion <= 0) return;
+
+          const isAnnualOp = (op?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+          const isSegundoProrrateoOp = op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || (opD.getDate() >= 10 && op?.tipoProrrateo !== 'PRIMER_PRORRATEO');
+
+          if (isAnnualOp) {
+            if (!spans.some((s) => s.startKey === key)) {
+              spans.push({ startKey: key, amount: montoOperacion || (clientMonthlyPlanPrice * 10), monthsCovered: 12, type: 'ANUAL' });
+            }
+          } else if (isSegundoProrrateoOp) {
+            if (!spans.some((s) => s.startKey === key)) {
+              spans.push({ startKey: key, amount: montoOperacion || Number(c.montoSiguienteCobro || 0) || clientMonthlyPlanPrice, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
             }
           } else {
-            const isSegundoProrrateoCli = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || (startD.getDate() >= 10 && c.tipoProrrateo !== 'PRIMER_PRORRATEO');
-            const isPrimerProrrateoCli = c.tipoProrrateo === 'PRIMER_PRORRATEO' || startD.getDate() < 10;
-
-            if (isSegundoProrrateoCli) {
-              if (!spans.some((s) => s.startKey === startKey)) {
-                const baseMonto = Number(c.montoMensual || c.precioPlan || 0);
-                const adicMonto = Number(c.montoProrrateoAdicional || 0);
-                const totalSegundo = Number(c.montoSiguienteCobro || 0) || (baseMonto + adicMonto) || baseMonto;
-                // Chapa los 2 meses (mes de inicio + siguiente mes)
-                spans.push({ startKey, amount: totalSegundo, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
-              }
-            } else if (isPrimerProrrateoCli) {
-              if ((monthlySums.get(startKey) || 0) === 0 && !spans.some((s) => s.startKey === startKey)) {
-                const totalPrimer = Number(c.montoSiguienteCobro || c.montoProrrateado || 0) || clientMonthlyPlanPrice;
-                monthlySums.set(startKey, totalPrimer);
-              }
-            }
+            monthlySums.set(key, (monthlySums.get(key) || 0) + montoOperacion);
           }
+        });
 
-          // Para clientes habilitados: meses posteriores hasta fechaVencimientoMensual o mes actual
-          if ((c.estadoCuenta || '').toUpperCase() === 'HABILITADO' && clientMonthlyPlanPrice > 0) {
-            const vencD = parseLocalDateSafe(c.fechaVencimientoMensual);
-            const endD = vencD && vencD > startD ? vencD : new Date();
-            const endKey = monthKeyFromDate(endD) || currentMonthKey;
-            const startIdx = monthIndexFromKey(startKey);
-            const endIdx = monthIndexFromKey(endKey);
+        // 3. Fallback ÚNICAMENTE para clientes que no tienen ningún pago ni operación en base de datos
+        const hasExistingRecords = clPayments.length > 0 || rawOps.length > 0;
+        if (!hasExistingRecords) {
+          const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
+          if (startD) {
+            const startKey = monthKeyFromDate(startD)!;
 
-            for (let idx = startIdx; idx <= endIdx; idx += 1) {
-              const y = Math.floor(idx / 12);
-              const m = (idx % 12) + 1;
-              const mKey = `${y}-${String(m).padStart(2, '0')}`;
+            if (isClientAnnual) {
+              if (!spans.some((s) => s.startKey === startKey)) {
+                const annualAmount = Number(c.precioPlan || c.montoMensual || 0);
+                spans.push({ startKey, amount: annualAmount, monthsCovered: 12, type: 'ANUAL' });
+              }
+            } else {
+              const isSegundoProrrateoCli = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || (startD.getDate() >= 10 && c.tipoProrrateo !== 'PRIMER_PRORRATEO');
+              const isPrimerProrrateoCli = c.tipoProrrateo === 'PRIMER_PRORRATEO' || startD.getDate() < 10;
 
-              // Verificar si este mes está dentro de algún span
-              const coveredBySpan = spans.some((s) => {
-                const sIdx = monthIndexFromKey(s.startKey);
-                return idx >= sIdx && idx < sIdx + s.monthsCovered;
-              });
-
-              if (!coveredBySpan && (monthlySums.get(mKey) || 0) === 0) {
-                monthlySums.set(mKey, clientMonthlyPlanPrice);
+              if (isSegundoProrrateoCli) {
+                if (!spans.some((s) => s.startKey === startKey)) {
+                  const baseMonto = Number(c.montoMensual || c.precioPlan || 0);
+                  const adicMonto = Number(c.montoProrrateoAdicional || 0);
+                  const totalSegundo = Number(c.montoSiguienteCobro || 0) || (baseMonto + adicMonto) || baseMonto;
+                  spans.push({ startKey, amount: totalSegundo, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
+                }
+              } else if (isPrimerProrrateoCli) {
+                if ((monthlySums.get(startKey) || 0) === 0 && !spans.some((s) => s.startKey === startKey)) {
+                  const totalPrimer = Number(c.montoSiguienteCobro || c.montoProrrateado || 0) || clientMonthlyPlanPrice;
+                  monthlySums.set(startKey, totalPrimer);
+                }
               }
             }
           }

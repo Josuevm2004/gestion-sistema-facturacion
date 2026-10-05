@@ -71,35 +71,6 @@ export default function PaymentHistoryModal({
   // Lista consolidada de transacciones
   const transactions: any[] = [];
 
-  [...dbHistory, ...rawPayments].forEach((p) => {
-    const estadoPago = (p.estadoPago || '').toUpperCase();
-    const estadoVenta = (p.venta?.estadoVenta || p.estadoVenta || '').toUpperCase();
-    if (estadoPago !== 'PAGADO' || estadoVenta === 'CANCELADA') return;
-
-    const ventaId = p.ventaId || p.venta?.id;
-    const pagoId = p.pagoId || p.id;
-    if (!transactions.some((t) => t.id === `pago-${pagoId}` || (ventaId && t.ventaId === String(ventaId)))) {
-      const tipo = p.venta?.tipoVenta || p.tipoVenta || p.codigoOperacion?.split('-')?.[0] || 'PAGO';
-      transactions.push({
-        id: `pago-${pagoId || `${ventaId}-${p.fechaPago}`}`,
-        ventaId: ventaId ? String(ventaId) : '',
-        fecha: p.fechaPago || historyClient.fechaRegistro,
-        periodoInicio: p.periodoInicio || p.venta?.periodoInicio,
-        periodoFin: p.periodoFin || p.venta?.periodoFin,
-        tipoOperacion: tipo === 'ALTA' ? 'Pago Inicial / Alta' : tipo === 'RENOVACION' ? 'Renovación' : tipo === 'CAMBIO_PLAN' ? 'Cambio de Plan' : tipo === 'MEJORA_PLAN' ? 'Mejora de Plan' : 'Pago de Servicio',
-        badgeClass: tipo === 'ALTA' ? 'bg-success' : tipo === 'RENOVACION' ? 'bg-info text-dark' : tipo === 'CAMBIO_PLAN' ? 'bg-warning text-dark' : tipo === 'MEJORA_PLAN' ? 'bg-success' : 'bg-primary',
-        monto: p.monto || historyClient.montoMensual,
-        estado: p.estadoPago || 'CONFIRMADO',
-        observaciones: p.codigoOperacion || 'Pago verificado',
-      });
-    }
-  });
-
-  transactions.sort((a, b) => {
-    const aTime = a.fecha ? new Date(a.fecha).getTime() : 0;
-    const bTime = b.fecha ? new Date(b.fecha).getTime() : 0;
-    return bTime - aTime;
-  });
   const MESES = [
     'Enero',
     'Febrero',
@@ -109,11 +80,72 @@ export default function PaymentHistoryModal({
     'Junio',
     'Julio',
     'Agosto',
-    'Septiembre',
+    'Setiembre',
     'Octubre',
     'Noviembre',
     'Diciembre',
   ];
+
+  [...dbHistory, ...rawPayments].forEach((p) => {
+    const estadoPago = (p.estadoPago || '').toUpperCase();
+    const estadoVenta = (p.venta?.estadoVenta || p.estadoVenta || '').toUpperCase();
+    if (estadoPago !== 'PAGADO' || estadoVenta === 'CANCELADA') return;
+
+    const ventaId = p.ventaId || p.venta?.id;
+    const pagoId = p.pagoId || p.id;
+    if (!transactions.some((t) => t.id === `pago-${pagoId}` || (ventaId && t.ventaId === String(ventaId)))) {
+      const tipo = p.venta?.tipoVenta || p.tipoVenta || p.codigoOperacion?.split('-')?.[0] || 'PAGO';
+      const obsRaw = String(p.observaciones || p.codigoOperacion || '');
+      const isExcel =
+        obsRaw.toLowerCase().includes('excel') ||
+        (!p.codigoOperacion && (obsRaw.toLowerCase().includes('importad') || !p.medioPago));
+
+      transactions.push({
+        id: `pago-${pagoId || `${ventaId}-${p.fechaPago}`}`,
+        ventaId: ventaId ? String(ventaId) : '',
+        fecha: p.fechaPago || historyClient.fechaRegistro,
+        periodoInicio: p.periodoInicio || p.venta?.periodoInicio,
+        periodoFin: p.periodoFin || p.venta?.periodoFin,
+        tipoOperacion:
+          tipo === 'ALTA'
+            ? 'Pago Inicial / Alta'
+            : tipo === 'RENOVACION'
+            ? 'Renovación'
+            : tipo === 'CAMBIO_PLAN'
+            ? 'Cambio de Plan'
+            : tipo === 'MEJORA_PLAN'
+            ? 'Mejora de Plan'
+            : 'Pago de Servicio',
+        badgeClass:
+          tipo === 'ALTA'
+            ? 'bg-success'
+            : tipo === 'RENOVACION'
+            ? 'bg-info text-dark'
+            : tipo === 'CAMBIO_PLAN'
+            ? 'bg-warning text-dark'
+            : tipo === 'MEJORA_PLAN'
+            ? 'bg-success'
+            : 'bg-primary',
+        monto: Number(p.monto || historyClient.montoMensual || 0),
+        estado: p.estadoPago || 'CONFIRMADO',
+        observaciones:
+          p.observaciones ||
+          (isExcel ? 'Pago histórico importado desde Excel' : p.codigoOperacion || 'Pago verificado'),
+        isExcel,
+        codigoOperacion: p.codigoOperacion,
+      });
+    }
+  });
+
+  transactions.sort((a, b) => {
+    const aTime = a.fecha ? new Date(a.fecha).getTime() : 0;
+    const bTime = b.fecha ? new Date(b.fecha).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  const countExcel = transactions.filter((t) => t.isExcel).length;
+  const countSistema = transactions.length - countExcel;
+  const totalMontoAbonado = transactions.reduce((acc, t) => acc + (t.monto || 0), 0);
 
   return (
     <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
@@ -121,7 +153,7 @@ export default function PaymentHistoryModal({
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
             <div>
-              <h5 className="modal-title fw-bold text-dark mb-0">Historial de Pagos de Base de Datos</h5>
+              <h5 className="modal-title fw-bold text-dark mb-0">Historial de Pagos y Facturación</h5>
               <small className="text-muted fw-semibold">
                 {historyClient.razonSocial} | RUC: {historyClient.ruc}
               </small>
@@ -138,34 +170,38 @@ export default function PaymentHistoryModal({
           <div className="modal-body p-4">
             <div className="card rounded-4 border bg-white shadow-sm p-3 mb-4">
               <div className="row g-3 small">
-                <div className="col-md-6">
-                  <span className="text-muted">Plan Contratado:</span> <strong className="text-dark">{historyClient.planContratado}</strong> ({historyClient.tipoSuscripcion || 'MENSUAL'})
+                <div className="col-md-6 col-lg-3">
+                  <span className="text-muted d-block">Plan Contratado:</span>
+                  <strong className="text-dark">{historyClient.planContratado || 'Plan Estándar'}</strong>{' '}
+                  <span className="text-muted">({historyClient.tipoSuscripcion || 'MENSUAL'})</span>
                 </div>
-                <div className="col-md-6">
-                  <span className="text-muted">Monto Base del Plan:</span> <strong className="text-dark">S/ {Number(historyClient.montoMensual || 0).toFixed(2)}</strong>
+                <div className="col-md-6 col-lg-3">
+                  <span className="text-muted d-block">Tarifa Mensual Base:</span>
+                  <strong className="text-dark">S/ {Number(historyClient.montoMensual || 0).toFixed(2)}</strong>
                 </div>
-                <div className="col-md-6">
-                  <span className="text-muted">Estado de Cuenta:</span>{' '}
-                  <span
-                    className={`badge ms-1 ${
-                      historyClient.estadoCuenta === 'HABILITADO' || historyClient.estadoCuenta === 'ACTIVO'
-                        ? 'bg-success bg-opacity-10 text-success border border-success border-opacity-25'
-                        : historyClient.estadoCuenta === 'VENCIDO'
-                        ? 'bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25'
-                        : 'bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25'
-                    }`}
-                  >
-                    {historyClient.estadoCuenta}
+                <div className="col-md-6 col-lg-3">
+                  <span className="text-muted d-block">Pagos Confirmados:</span>
+                  <strong className="text-primary fs-6">{transactions.length}</strong>{' '}
+                  <span className="text-muted">
+                    ({countExcel > 0 ? `${countExcel} Excel` : ''}
+                    {countExcel > 0 && countSistema > 0 ? ' + ' : ''}
+                    {countSistema > 0 ? `${countSistema} Sistema` : ''})
                   </span>
                 </div>
-                <div className="col-md-6">
-                  <span className="text-muted">Pagos confirmados:</span> <strong className="text-primary fs-6 ms-1">{transactions.length}</strong>
+                <div className="col-md-6 col-lg-3">
+                  <span className="text-muted d-block">Monto Total Pagado:</span>
+                  <strong className="text-success fs-6">S/ {totalMontoAbonado.toFixed(2)}</strong>
                 </div>
               </div>
             </div>
 
             <div className="d-flex justify-content-between align-items-center mb-3">
-              <h6 className="fw-bold text-dark mb-0">Transacciones Registradas ({transactions.length})</h6>
+              <div>
+                <h6 className="fw-bold text-dark mb-0">Transacciones Registradas ({transactions.length})</h6>
+                <small className="text-muted">
+                  Detalle de meses cubiertos y procedencia (Plantilla Excel y Renovaciones en Sistema)
+                </small>
+              </div>
               {loading && <span className="badge bg-warning text-dark">Cargando desde base de datos...</span>}
             </div>
 
@@ -175,8 +211,8 @@ export default function PaymentHistoryModal({
                   <tr>
                     <th>#</th>
                     <th>Fecha Pago</th>
-                    <th>Código / Operación</th>
-                    <th>Período Facturado</th>
+                    <th>Mes Cubierto</th>
+                    <th>Procedencia / Detalle</th>
                     <th>Tipo</th>
                     <th>Estado</th>
                     <th className="text-end">Monto</th>
@@ -192,13 +228,22 @@ export default function PaymentHistoryModal({
                   ) : (
                     transactions.map((t, idx) => {
                       const tDate = parseLocalDate(t.fecha) || new Date();
-                      let mesTexto = '';
                       const pInicio = parseLocalDate(t.periodoInicio);
                       const pFin = parseLocalDate(t.periodoFin);
-                      if (pInicio && pFin) {
-                        mesTexto = `${formatDatePeru(pInicio)} al ${formatDatePeru(pFin)}`;
+
+                      let mesNombre = '';
+                      let rangoFechas = '';
+
+                      if (pInicio) {
+                        mesNombre = `${MESES[pInicio.getMonth()]} ${pInicio.getFullYear()}`;
+                        if (pFin) {
+                          rangoFechas = `${formatDatePeru(pInicio)} al ${formatDatePeru(pFin)}`;
+                        } else {
+                          rangoFechas = `Desde ${formatDatePeru(pInicio)}`;
+                        }
                       } else {
-                        mesTexto = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
+                        mesNombre = `${MESES[tDate.getMonth()]} ${tDate.getFullYear()}`;
+                        rangoFechas = formatDatePeru(tDate);
                       }
 
                       return (
@@ -210,10 +255,44 @@ export default function PaymentHistoryModal({
                             </span>
                           </td>
                           <td>
-                            <span className="badge-wsp-chip">{t.observaciones}</span>
+                            <div className="d-flex flex-column">
+                              <span className="fw-bold text-dark" style={{ fontSize: '0.84rem' }}>
+                                {mesNombre}
+                              </span>
+                              <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+                                {rangoFechas}
+                              </span>
+                            </div>
                           </td>
                           <td>
-                            <span className="badge-tag badge-plan-tag">{mesTexto}</span>
+                            <div className="d-flex flex-column gap-1">
+                              <div>
+                                {t.isExcel ? (
+                                  <span
+                                    className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25"
+                                    style={{ fontSize: '0.72rem' }}
+                                    title="Importado directamente de la plantilla Excel original"
+                                  >
+                                    Histórico Excel
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25"
+                                    style={{ fontSize: '0.72rem' }}
+                                    title="Operación o renovación registrada en el sistema"
+                                  >
+                                    Sistema MiQuipu
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className="text-muted text-truncate"
+                                style={{ fontSize: '0.74rem', maxWidth: '240px' }}
+                                title={t.observaciones}
+                              >
+                                {t.observaciones}
+                              </span>
+                            </div>
                           </td>
                           <td>
                             <span className="badge-tag badge-sub-mensual">{t.tipoOperacion}</span>

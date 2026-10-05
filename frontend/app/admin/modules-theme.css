@@ -568,24 +568,33 @@
 }
 
 .table-action-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  z-index: 100060;
-  min-width: 210px;
+  position: fixed;
+  z-index: 999990 !important;
+  min-width: 220px;
   background-color: #FFFFFF;
-  border: 1px solid var(--module-border);
+  border: 1px solid var(--module-border, #E2E8F0);
   border-radius: 14px;
-  box-shadow: 0 16px 36px -4px rgba(16, 24, 40, 0.14);
+  box-shadow: 0 20px 40px -4px rgba(16, 24, 40, 0.18), 0 8px 16px -2px rgba(16, 24, 40, 0.08);
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  animation: tableActionMenuPop 0.14s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tableActionMenuPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .table-action-menu-up {
-  top: auto;
-  bottom: calc(100% + 6px);
+  transform-origin: bottom right;
 }
 
 .table-action-item {
@@ -602,6 +611,7 @@
   border: 0;
   text-align: left;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.12s ease;
 }
 

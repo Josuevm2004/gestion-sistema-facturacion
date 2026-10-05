@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Edit, Trash2, UserPlus, Users, ChevronDown } from 'lucide-react';
+import { ShieldCheck, Edit, Trash2, UserPlus, Users } from 'lucide-react';
+import { TableActionDropdown } from './TableActionDropdown';
 
 export type UserAccount = {
   id: string | number;
@@ -91,10 +92,9 @@ export default function VendedoresTab({
                 usersList.map((u, idx) => {
                   const initial = (u.nombre || u.username || 'U').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === u.id;
-                  const isDropup = usersList.length >= 2 && idx >= usersList.length - 2;
 
                   return (
-                    <tr key={u.id} style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}>
+                    <tr key={u.id}>
                       <td className="text-muted fw-semibold py-2.5">{idx + 1}</td>
                       <td>
                         <div className="d-flex align-items-center gap-2.5">
@@ -132,54 +132,40 @@ export default function VendedoresTab({
                           {u.rol}
                         </span>
                       </td>
-                      <td className="text-center position-relative">
-                        <div className="table-action-floating-container">
+                      <td className="text-center">
+                        <TableActionDropdown
+                          isOpen={isActionOpen}
+                          onToggle={() => setOpenActionId(isActionOpen ? null : u.id)}
+                          onClose={() => setOpenActionId(null)}
+                          buttonVariant="secondary"
+                          buttonTitle="Opciones de usuario"
+                          menuWidth={210}
+                        >
                           <button
                             type="button"
-                            onClick={() => setOpenActionId(isActionOpen ? null : u.id)}
-                            className="btn-meta-action btn-meta-action-secondary shadow-xs"
-                            title="Opciones de usuario"
+                            className="table-action-item item-primary"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              setEditingUser(u);
+                            }}
                           >
-                            <span>Acciones</span>
-                            <ChevronDown size={12} />
+                            <Edit size={15} />
+                            <span>Editar Información</span>
                           </button>
-
-                          {isActionOpen && (
-                            <>
-                              <div
-                                className="position-fixed top-0 start-0 w-100 h-100"
-                                style={{ zIndex: 100050, background: 'transparent' }}
-                                onClick={() => setOpenActionId(null)}
-                              />
-                              <div className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}>
-                                <button
-                                  type="button"
-                                  className="table-action-item item-primary"
-                                  onClick={() => {
-                                    setOpenActionId(null);
-                                    setEditingUser(u);
-                                  }}
-                                >
-                                  <Edit size={15} />
-                                  <span>Editar Información</span>
-                                </button>
-                                {u.username !== 'admin' && (
-                                  <button
-                                    type="button"
-                                    className="table-action-item item-danger"
-                                    onClick={() => {
-                                      setOpenActionId(null);
-                                      handleDeleteUser(u);
-                                    }}
-                                  >
-                                    <Trash2 size={15} />
-                                    <span>Eliminar Usuario</span>
-                                  </button>
-                                )}
-                              </div>
-                            </>
+                          {u.username !== 'admin' && (
+                            <button
+                              type="button"
+                              className="table-action-item item-danger"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                handleDeleteUser(u);
+                              }}
+                            >
+                              <Trash2 size={15} />
+                              <span>Eliminar Usuario</span>
+                            </button>
                           )}
-                        </div>
+                        </TableActionDropdown>
                       </td>
                     </tr>
                   );

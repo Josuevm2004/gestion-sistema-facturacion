@@ -473,7 +473,7 @@ body {
    ========================================================================== */
 
 .dropdown-menu {
-  z-index: 9999 !important;
+  z-index: 999990 !important;
   background: var(--admin-surface) !important;
   border: 1px solid var(--admin-border) !important;
   border-radius: var(--radius-xl) !important;

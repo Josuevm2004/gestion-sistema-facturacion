@@ -23,6 +23,7 @@ import {
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
 import RegistrarPagoModal from '../modals/RegistrarPagoModal';
+import { TableActionDropdown } from './TableActionDropdown';
 import { parseLocalDate, getDiffDays } from '@/lib/billing';
 
 export type EntityId = number | string;
@@ -188,7 +189,6 @@ export default function ClientesTodosTab({
 
   // Estado del menú desplegable de acciones
   const [openActionClientId, setOpenActionClientId] = React.useState<EntityId | null>(null);
-  const actionMenuRef = React.useRef<HTMLDivElement | null>(null);
 
   // Modales adicionales unificados de Centro de Control
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
@@ -216,21 +216,6 @@ export default function ClientesTodosTab({
   });
 
   const [showColumnModal, setShowColumnModal] = React.useState(false);
-
-  // Cerrar menú de acciones al hacer clic fuera
-  React.useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
-        setOpenActionClientId(null);
-      }
-    };
-    if (openActionClientId !== null) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [openActionClientId]);
 
   const toggleColumn = (columnId: string) => {
     setVisibleColumns((prev) => {
@@ -639,7 +624,6 @@ export default function ClientesTodosTab({
                 const isExpired = diffDays <= 0;
                 const clientInitial = c.razonSocial ? c.razonSocial.charAt(0).toUpperCase() : 'C';
                 const isActionOpen = openActionClientId === c.id;
-                const isDropup = visibleClients.length >= 3 && idx >= visibleClients.length - 3;
 
                 return (
                   <tr
@@ -876,151 +860,133 @@ export default function ClientesTodosTab({
                     )}
 
                     {visibleColumns.acciones && (
-                      <td className="py-2.5 text-center position-relative">
-                        <div className="table-action-floating-container">
+                      <td className="py-2.5 text-center">
+                        <TableActionDropdown
+                          isOpen={isActionOpen}
+                          onToggle={() => setOpenActionClientId(isActionOpen ? null : c.id)}
+                          onClose={() => setOpenActionClientId(null)}
+                          buttonTitle="Opciones del cliente"
+                          menuWidth={220}
+                        >
+                          {/* 1. Editar Datos */}
                           <button
                             type="button"
-                            onClick={() => setOpenActionClientId(isActionOpen ? null : c.id)}
-                            className="btn-meta-action btn-meta-action-primary shadow-xs"
-                            title="Opciones del cliente"
+                            className="table-action-item item-primary"
+                            onClick={() => {
+                              setEditingClient(c);
+                              setOpenActionClientId(null);
+                            }}
                           >
-                            <span>Acciones</span>
-                            <ChevronDown size={12} />
+                            <Edit2 size={15} />
+                            <span>Editar Datos</span>
                           </button>
 
-                          {isActionOpen && (
+                          {/* 2. Mensaje de Cobranza (WhatsApp) */}
+                          <button
+                            type="button"
+                            className="table-action-item item-success"
+                            onClick={() => {
+                              setBillingMessageClient(c);
+                              setOpenActionClientId(null);
+                            }}
+                          >
+                            <MessageSquare size={15} />
+                            <span>Mensaje de Cobranza</span>
+                          </button>
+
+                          {/* 3. Copiar Afiliación */}
+                          <button
+                            type="button"
+                            className="table-action-item"
+                            onClick={() => {
+                              copyAffiliationMessage(c);
+                              setOpenActionClientId(null);
+                            }}
+                          >
+                            <MessageCircle size={15} />
+                            <span>{copiedMessageClientId === c.id ? '¡Copiado!' : 'Copiar Afiliación'}</span>
+                          </button>
+
+                          {/* 4. Avisar / Desmarcar */}
+                          <button
+                            type="button"
+                            className="table-action-item"
+                            onClick={() => {
+                              handleToggleAvisado?.(c, !c.avisado);
+                              setOpenActionClientId(null);
+                            }}
+                          >
+                            {c.avisado ? (
+                              <>
+                                <CheckCircle2 size={15} className="text-success" />
+                                <span>Desmarcar de Avisado</span>
+                              </>
+                            ) : (
+                              <>
+                                <BellRing size={15} className="text-secondary" />
+                                <span>Marcar como Avisado</span>
+                              </>
+                            )}
+                          </button>
+
+                          {/* 5. Registrar Adelanto */}
+                          <button
+                            type="button"
+                            className="table-action-item"
+                            onClick={() => {
+                              setAdelantoClient(c);
+                              setOpenActionClientId(null);
+                            }}
+                          >
+                            <CalendarPlus size={15} />
+                            <span>Registrar Adelanto</span>
+                          </button>
+
+                          {/* 6. Ver Historial */}
+                          <button
+                            type="button"
+                            className="table-action-item"
+                            onClick={() => {
+                              setHistoryClient?.(c);
+                              setOpenActionClientId(null);
+                            }}
+                          >
+                            <Eye size={15} />
+                            <span>Ver Historial</span>
+                          </button>
+
+                          {/* 7. Mejorar Plan (Upgrade) */}
+                          <button
+                            type="button"
+                            className="table-action-item"
+                            onClick={() => {
+                              setMejoraPlanClient(c);
+                              setMejoraPlanSeleccionado(c.planContratado || '');
+                              setOpenActionClientId(null);
+                            }}
+                          >
+                            <TrendingUp size={15} />
+                            <span>Mejorar Plan (Upgrade)</span>
+                          </button>
+
+                          {/* 8. Eliminar Cliente (solo ADMIN) */}
+                          {currentUser?.rol === 'ADMIN' && (
                             <>
-                              <div
-                                className="position-fixed top-0 start-0 w-100 h-100"
-                                style={{ zIndex: 100050, background: 'transparent' }}
-                                onClick={() => setOpenActionClientId(null)}
-                              />
-                              <div
-                                className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}
-                                style={{ minWidth: '220px' }}
+                              <div className="border-top my-1"></div>
+                              <button
+                                type="button"
+                                className="table-action-item item-danger"
+                                onClick={() => {
+                                  setDeletingClient(c);
+                                  setOpenActionClientId(null);
+                                }}
                               >
-                                {/* 1. Editar Datos */}
-                                <button
-                                  type="button"
-                                  className="table-action-item item-primary"
-                                  onClick={() => {
-                                    setEditingClient(c);
-                                    setOpenActionClientId(null);
-                                  }}
-                                >
-                                  <Edit2 size={15} />
-                                  <span>Editar Datos</span>
-                                </button>
-
-                                {/* 2. Mensaje de Cobranza (WhatsApp) */}
-                                <button
-                                  type="button"
-                                  className="table-action-item item-success"
-                                  onClick={() => {
-                                    setBillingMessageClient(c);
-                                    setOpenActionClientId(null);
-                                  }}
-                                >
-                                  <MessageSquare size={15} />
-                                  <span>Mensaje de Cobranza</span>
-                                </button>
-
-                                {/* 3. Copiar Afiliación */}
-                                <button
-                                  type="button"
-                                  className="table-action-item"
-                                  onClick={() => {
-                                    copyAffiliationMessage(c);
-                                    setOpenActionClientId(null);
-                                  }}
-                                >
-                                  <MessageCircle size={15} />
-                                  <span>{copiedMessageClientId === c.id ? '¡Copiado!' : 'Copiar Afiliación'}</span>
-                                </button>
-
-                                {/* 4. Avisar / Desmarcar */}
-                                <button
-                                  type="button"
-                                  className="table-action-item"
-                                  onClick={() => {
-                                    handleToggleAvisado?.(c, !c.avisado);
-                                    setOpenActionClientId(null);
-                                  }}
-                                >
-                                  {c.avisado ? (
-                                    <>
-                                      <CheckCircle2 size={15} className="text-success" />
-                                      <span>Desmarcar de Avisado</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <BellRing size={15} className="text-secondary" />
-                                      <span>Marcar como Avisado</span>
-                                    </>
-                                  )}
-                                </button>
-
-                                {/* 5. Registrar Adelanto */}
-                                <button
-                                  type="button"
-                                  className="table-action-item"
-                                  onClick={() => {
-                                    setAdelantoClient(c);
-                                    setOpenActionClientId(null);
-                                  }}
-                                >
-                                  <CalendarPlus size={15} />
-                                  <span>Registrar Adelanto</span>
-                                </button>
-
-                                {/* 6. Ver Historial */}
-                                <button
-                                  type="button"
-                                  className="table-action-item"
-                                  onClick={() => {
-                                    setHistoryClient?.(c);
-                                    setOpenActionClientId(null);
-                                  }}
-                                >
-                                  <Eye size={15} />
-                                  <span>Ver Historial</span>
-                                </button>
-
-                                {/* 7. Mejorar Plan (Upgrade) */}
-                                <button
-                                  type="button"
-                                  className="table-action-item"
-                                  onClick={() => {
-                                    setMejoraPlanClient(c);
-                                    setMejoraPlanSeleccionado(c.planContratado || '');
-                                    setOpenActionClientId(null);
-                                  }}
-                                >
-                                  <TrendingUp size={15} />
-                                  <span>Mejorar Plan (Upgrade)</span>
-                                </button>
-
-                                {/* 8. Eliminar Cliente (solo ADMIN) */}
-                                {currentUser?.rol === 'ADMIN' && (
-                                  <>
-                                    <div className="border-top my-1"></div>
-                                    <button
-                                      type="button"
-                                      className="table-action-item item-danger"
-                                      onClick={() => {
-                                        setDeletingClient(c);
-                                        setOpenActionClientId(null);
-                                      }}
-                                    >
-                                      <Trash2 size={15} />
-                                      <span>Eliminar Cliente</span>
-                                    </button>
-                                  </>
-                                )}
-                              </div>
+                                <Trash2 size={15} />
+                                <span>Eliminar Cliente</span>
+                              </button>
                             </>
                           )}
-                        </div>
+                        </TableActionDropdown>
                       </td>
                     )}
                   </tr>

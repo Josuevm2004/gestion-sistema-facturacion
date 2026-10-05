@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { GraduationCap, CheckCircle, Calendar, ChevronDown } from 'lucide-react';
+import { GraduationCap, CheckCircle, Calendar } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
+import { TableActionDropdown } from './TableActionDropdown';
 import { parseLocalDate, formatDatePeru as libFormatDatePeru } from '@/lib/billing';
 
 interface CapacitacionesTabProps {
@@ -129,10 +130,9 @@ export default function CapacitacionesTab({
                   const phone = c.telefono || c.telefonoPersonal;
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;
-                  const isDropup = visibleClients.length >= 2 && idx >= visibleClients.length - 2;
 
                   return (
-                    <tr key={c.id} style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}>
+                    <tr key={c.id}>
                       <td className="text-muted fw-semibold py-2.5">
                         {(currentPage - 1) * pageSize + idx + 1}
                       </td>
@@ -195,41 +195,26 @@ export default function CapacitacionesTab({
                           <span className="cell-subtext">Sin programar</span>
                         )}
                       </td>
-                      <td className="text-center position-relative">
-                        <div className="table-action-floating-container">
+                      <td className="text-center">
+                        <TableActionDropdown
+                          isOpen={isActionOpen}
+                          onToggle={() => setOpenActionId(isActionOpen ? null : c.id)}
+                          onClose={() => setOpenActionId(null)}
+                          buttonTitle="Opciones de capacitación"
+                          menuWidth={210}
+                        >
                           <button
                             type="button"
-                            onClick={() => setOpenActionId(isActionOpen ? null : c.id)}
-                            className="btn-meta-action btn-meta-action-primary shadow-xs"
-                            title="Opciones de capacitación"
+                            className="table-action-item item-primary"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              setTrainingClient(c);
+                            }}
                           >
-                            <span>Acciones</span>
-                            <ChevronDown size={12} />
+                            <Calendar size={15} />
+                            <span>{isCapacitado ? 'Reagendar Capacitación' : 'Programar Capacitación'}</span>
                           </button>
-
-                          {isActionOpen && (
-                            <>
-                              <div
-                                className="position-fixed top-0 start-0 w-100 h-100"
-                                style={{ zIndex: 100050, background: 'transparent' }}
-                                onClick={() => setOpenActionId(null)}
-                              />
-                              <div className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}>
-                                <button
-                                  type="button"
-                                  className="table-action-item item-primary"
-                                  onClick={() => {
-                                    setOpenActionId(null);
-                                    setTrainingClient(c);
-                                  }}
-                                >
-                                  <Calendar size={15} />
-                                  <span>{isCapacitado ? 'Reagendar Capacitación' : 'Programar Capacitación'}</span>
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                        </TableActionDropdown>
                       </td>
                     </tr>
                   );

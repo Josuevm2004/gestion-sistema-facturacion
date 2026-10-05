@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw, ChevronDown } from 'lucide-react';
+import { Activity, Search, Eye, MessageSquare, BellRing, CheckCircle2, CalendarPlus, RotateCcw } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
+import { TableActionDropdown } from './TableActionDropdown';
 import BillingMessageModal from '../modals/BillingMessageModal';
 import RegistrarPagoModal from '../modals/RegistrarPagoModal';
 import { parseLocalDate, getDiffDays } from '@/lib/billing';
@@ -214,13 +215,11 @@ export default function CentroControlTab({
                   const estadoVisual = isExpired && c.estadoCuenta === 'HABILITADO' ? 'VENCIDO' : c.estadoCuenta;
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;
-                  const isDropup = visibleClients.length >= 3 && idx >= visibleClients.length - 3;
 
                   return (
                     <tr
                       key={c.id}
                       className={isExpired ? 'bg-danger bg-opacity-10' : isNearExpiry ? 'bg-warning bg-opacity-10' : ''}
-                      style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}
                     >
                       <td className="text-muted fw-semibold py-2.5">
                         {(currentPage - 1) * pageSize + idx + 1}
@@ -336,83 +335,68 @@ export default function CentroControlTab({
                           {estadoVisual}
                         </span>
                       </td>
-                      <td className="py-2.5 text-center position-relative">
-                        <div className="table-action-floating-container">
+                      <td className="py-2.5 text-center">
+                        <TableActionDropdown
+                          isOpen={isActionOpen}
+                          onToggle={() => setOpenActionId(isActionOpen ? null : c.id)}
+                          onClose={() => setOpenActionId(null)}
+                          buttonTitle="Opciones de cobranza y control"
+                          menuWidth={220}
+                        >
+                          {/* 1. Toggle Avisado */}
                           <button
                             type="button"
-                            onClick={() => setOpenActionId(isActionOpen ? null : c.id)}
-                            className="btn-meta-action btn-meta-action-primary shadow-xs"
-                            title="Opciones de cobranza y control"
+                            className={`table-action-item ${c.avisado ? 'item-success' : ''}`}
+                            onClick={() => {
+                              setOpenActionId(null);
+                              handleToggleAvisado?.(c, !c.avisado);
+                            }}
                           >
-                            <span>Acciones</span>
-                            <ChevronDown size={12} />
+                            {c.avisado ? <CheckCircle2 size={15} /> : <BellRing size={15} />}
+                            <span>{c.avisado ? 'Desmarcar Avisado' : 'Marcar como Avisado'}</span>
                           </button>
 
-                          {isActionOpen && (
-                            <>
-                              <div
-                                className="position-fixed top-0 start-0 w-100 h-100"
-                                style={{ zIndex: 100050, background: 'transparent' }}
-                                onClick={() => setOpenActionId(null)}
-                              />
-                              <div className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}>
-                                {/* 1. Toggle Avisado */}
-                                <button
-                                  type="button"
-                                  className={`table-action-item ${c.avisado ? 'item-success' : ''}`}
-                                  onClick={() => {
-                                    setOpenActionId(null);
-                                    handleToggleAvisado?.(c, !c.avisado);
-                                  }}
-                                >
-                                  {c.avisado ? <CheckCircle2 size={15} /> : <BellRing size={15} />}
-                                  <span>{c.avisado ? 'Desmarcar Avisado' : 'Marcar como Avisado'}</span>
-                                </button>
+                          {/* 2. Mensaje Inteligente de Cobranza */}
+                          <button
+                            type="button"
+                            className="table-action-item item-success"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              setBillingMessageClient(c);
+                            }}
+                          >
+                            <MessageSquare size={15} />
+                            <span>Mensaje de Cobranza</span>
+                          </button>
 
-                                {/* 2. Mensaje Inteligente de Cobranza */}
-                                <button
-                                  type="button"
-                                  className="table-action-item item-success"
-                                  onClick={() => {
-                                    setOpenActionId(null);
-                                    setBillingMessageClient(c);
-                                  }}
-                                >
-                                  <MessageSquare size={15} />
-                                  <span>Mensaje de Cobranza</span>
-                                </button>
-
-                                {/* 3. Adelanto de Pago (si faltan 10 días o menos) */}
-                                {diffDays > 0 && diffDays <= 10 && (
-                                  <button
-                                    type="button"
-                                    className="table-action-item"
-                                    onClick={() => {
-                                      setOpenActionId(null);
-                                      setAdelantoClient(c);
-                                    }}
-                                  >
-                                    <CalendarPlus size={15} />
-                                    <span>Adelanto de Pago</span>
-                                  </button>
-                                )}
-
-                                {/* 4. Ver Historial */}
-                                <button
-                                  type="button"
-                                  className="table-action-item item-primary"
-                                  onClick={() => {
-                                    setOpenActionId(null);
-                                    setHistoryClient(c);
-                                  }}
-                                >
-                                  <Eye size={15} />
-                                  <span>Ver Historial</span>
-                                </button>
-                              </div>
-                            </>
+                          {/* 3. Adelanto de Pago (si faltan 10 días o menos) */}
+                          {diffDays > 0 && diffDays <= 10 && (
+                            <button
+                              type="button"
+                              className="table-action-item"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                setAdelantoClient(c);
+                              }}
+                            >
+                              <CalendarPlus size={15} />
+                              <span>Adelanto de Pago</span>
+                            </button>
                           )}
-                        </div>
+
+                          {/* 4. Ver Historial */}
+                          <button
+                            type="button"
+                            className="table-action-item item-primary"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              setHistoryClient(c);
+                            }}
+                          >
+                            <Eye size={15} />
+                            <span>Ver Historial</span>
+                          </button>
+                        </TableActionDropdown>
                       </td>
                     </tr>
                   );

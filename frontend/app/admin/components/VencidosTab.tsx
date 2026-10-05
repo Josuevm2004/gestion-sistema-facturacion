@@ -6,6 +6,7 @@ import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import { parseLocalDate, formatDatePeru } from '@/lib/billing';
 import RegistrarPagoModal from '../modals/RegistrarPagoModal';
+import { TableActionDropdown } from './TableActionDropdown';
 
 interface VencidosTabProps {
   clientesVencidosList: Client[];
@@ -172,10 +173,9 @@ export default function VencidosTab({
                   const isBloqueado = c.estadoCuenta === 'BLOQUEADO';
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;
-                  const isDropup = visibleClients.length >= 2 && idx >= visibleClients.length - 2;
 
                   return (
-                    <tr key={c.id} style={{ position: isActionOpen ? 'relative' : undefined, zIndex: isActionOpen ? 1050 : undefined }}>
+                    <tr key={c.id}>
                       <td className="text-muted fw-semibold py-2.5">
                         {(currentPage - 1) * pageSize + idx + 1}
                       </td>
@@ -243,82 +243,67 @@ export default function VencidosTab({
                           <span className="badge-tag badge-plazo-neutral">Sin fecha</span>
                         )}
                       </td>
-                      <td className="text-center position-relative">
-                        <div className="table-action-floating-container">
+                      <td className="text-center">
+                        <TableActionDropdown
+                          isOpen={isActionOpen}
+                          onToggle={() => setOpenActionId(isActionOpen ? null : c.id)}
+                          onClose={() => setOpenActionId(null)}
+                          buttonTitle="Opciones de regularización y renovación"
+                          menuWidth={230}
+                        >
                           <button
                             type="button"
-                            onClick={() => setOpenActionId(isActionOpen ? null : c.id)}
-                            className="btn-meta-action btn-meta-action-primary shadow-xs"
-                            title="Opciones de regularización y renovación"
+                            className="table-action-item item-primary"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              setPagoModalConfig({ client: c });
+                            }}
                           >
-                            <span>Acciones</span>
-                            <ChevronDown size={12} />
+                            <RotateCcw size={15} />
+                            <span>Registrar Pago / Renovar</span>
                           </button>
-
-                          {isActionOpen && (
-                            <>
-                              <div
-                                className="position-fixed top-0 start-0 w-100 h-100"
-                                style={{ zIndex: 100050, background: 'transparent' }}
-                                onClick={() => setOpenActionId(null)}
-                              />
-                              <div className={`table-action-menu shadow-lg ${isDropup ? 'table-action-menu-up' : ''}`}>
-                                <button
-                                  type="button"
-                                  className="table-action-item item-primary"
-                                  onClick={() => {
-                                    setOpenActionId(null);
-                                    setPagoModalConfig({ client: c });
-                                  }}
-                                >
-                                  <RotateCcw size={15} />
-                                  <span>Registrar Pago / Renovar</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className="table-action-item"
-                                  onClick={() => {
-                                    setOpenActionId(null);
-                                    setCambioPlanClient(c);
-                                    setCambioPlanSeleccionado(c.planContratado || '');
-                                    if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
-                                  }}
-                                >
-                                  <Settings size={15} />
-                                  <span>Cambiar Plan</span>
-                                </button>
-                                {!isBloqueado ? (
-                                  <button
-                                    type="button"
-                                    className="table-action-item item-danger"
-                                    onClick={() => {
-                                      setOpenActionId(null);
-                                      const ok = window.confirm(
-                                        `¿Bloquear cliente ${c.razonSocial}? Su acceso se suspenderá.`
-                                      );
-                                      if (ok && handleEstadoCuentaChange) handleEstadoCuentaChange(c, 'BLOQUEADO');
-                                    }}
-                                  >
-                                    <X size={15} />
-                                    <span>Bloquear Acceso</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="table-action-item item-success"
-                                    onClick={() => {
-                                      setOpenActionId(null);
-                                      if (handleDevolverAcceso) handleDevolverAcceso(c);
-                                    }}
-                                  >
-                                    <Unlock size={15} />
-                                    <span>Desbloquear Acceso</span>
-                                  </button>
-                                )}
-                              </div>
-                            </>
+                          <button
+                            type="button"
+                            className="table-action-item"
+                            onClick={() => {
+                              setOpenActionId(null);
+                              setCambioPlanClient(c);
+                              setCambioPlanSeleccionado(c.planContratado || '');
+                              if (setCambioPlanTipo) setCambioPlanTipo(c.tipoSuscripcion || 'MENSUAL');
+                            }}
+                          >
+                            <Settings size={15} />
+                            <span>Cambiar Plan</span>
+                          </button>
+                          {!isBloqueado ? (
+                            <button
+                              type="button"
+                              className="table-action-item item-danger"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                const ok = window.confirm(
+                                  `¿Bloquear cliente ${c.razonSocial}? Su acceso se suspenderá.`
+                                );
+                                if (ok && handleEstadoCuentaChange) handleEstadoCuentaChange(c, 'BLOQUEADO');
+                              }}
+                            >
+                              <X size={15} />
+                              <span>Bloquear Acceso</span>
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="table-action-item item-success"
+                              onClick={() => {
+                                setOpenActionId(null);
+                                if (handleDevolverAcceso) handleDevolverAcceso(c);
+                              }}
+                            >
+                              <Unlock size={15} />
+                              <span>Desbloquear Acceso</span>
+                            </button>
                           )}
-                        </div>
+                        </TableActionDropdown>
                       </td>
                     </tr>
                   );
