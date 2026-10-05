@@ -94,426 +94,503 @@ export default function ReportesExcelTab({
   setEditingClient = () => {},
   COLOR_MAP,
 }: ReportesExcelTabProps) {
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
   const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
   const filterFn = filterClientUnified || (() => true);
   const reportFilteredList = safeClients.filter((c) => filterFn(c));
 
-  // Generador avanzado de Excel en formato Excel XML (Diseño con estilos, colores y fuentes formateadas)
+  // Helper robusto para parsear cualquier fecha a Date local sin desfases UTC
+  const parseLocalDateSafe = (dateInput?: any): Date | null => {
+    if (!dateInput) return null;
+    if (dateInput instanceof Date) {
+      if (isNaN(dateInput.getTime())) return null;
+      return new Date(dateInput.getFullYear(), dateInput.getMonth(), dateInput.getDate(), 0, 0, 0, 0);
+    }
+    if (Array.isArray(dateInput) && dateInput.length >= 3) {
+      const y = Number(dateInput[0]);
+      const m = Number(dateInput[1]);
+      const d = Number(dateInput[2]);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return new Date(y, m - 1, d, 0, 0, 0, 0);
+      }
+    }
+    const str = String(dateInput).trim();
+    if (!str) return null;
+    const dateOnly = str.split('T')[0].split(' ')[0].replace(/Z$/i, '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateOnly)) {
+      const [y, m, d] = dateOnly.split('-').map(Number);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return new Date(y, m - 1, d, 0, 0, 0, 0);
+      }
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateOnly)) {
+      const [d, m, y] = dateOnly.split('/').map(Number);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        return new Date(y, m - 1, d, 0, 0, 0, 0);
+      }
+    }
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+  };
+
+  const monthKeyFromDate = (rawDate?: any): string | null => {
+    const d = parseLocalDateSafe(rawDate);
+    if (!d) return null;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const addMonthsToKey = (key: string, monthsToAdd: number): string => {
+    const [year, month] = key.split('-').map(Number);
+    const d = new Date(year, month - 1 + monthsToAdd, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  const monthIndexFromKey = (key: string): number => {
+    const [year, month] = key.split('-').map(Number);
+    return year * 12 + month - 1;
+  };
+
+  const formatExcelDate = (val?: any): string => {
+    const d = parseLocalDateSafe(val);
+    if (!d) return '';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Generador avanzado de Excel en formato Excel XML (Diseño con estilos, 2 prorrateos y soporte anual)
   const exportToExcelLocal = async () => {
     if (handleExportExcel) {
       handleExportExcel();
       return;
     }
 
-    const detailResults = await Promise.all(
-      reportFilteredList.map(async (c) => {
-        if (!token) return { clientId: c.id, operaciones: [] as any[], pagos: [] as any[] };
-        try {
-          const res = await fetch(`/api/admin/clientes/${c.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const data = await res.json();
-          return {
-            clientId: c.id,
-            operaciones: data?.data?.operacionesHistorial || [],
-            pagos: data?.data?.pagosHistorial || [],
-          };
-        } catch (e) {
-          return { clientId: c.id, operaciones: [] as any[], pagos: [] as any[] };
+    setIsExportingExcel(true);
+    try {
+      const idKey = (value: any) => (value === undefined || value === null || value === '' ? '' : String(value));
+      const operacionesByClient = new Map<string, any[]>();
+      const paymentsByClient = new Map<string, any[]>();
+      const seenPaymentKeys = new Set<string>();
+
+      const registerPaymentForClient = (p: any, cId?: string, ruc?: string) => {
+        const uniquePaymentKey = String(p?.id ?? p?.pagoId ?? `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}-${cId || ruc}`);
+        if (seenPaymentKeys.has(uniquePaymentKey)) return;
+        seenPaymentKeys.add(uniquePaymentKey);
+
+        if (cId) {
+          const list = paymentsByClient.get(cId) || [];
+          list.push(p);
+          paymentsByClient.set(cId, list);
         }
-      })
-    );
-    const idKey = (value: any) => (value === undefined || value === null || value === '' ? '' : String(value));
-    const operacionesByClient = new Map<string, any[]>();
-    detailResults.forEach((item) => operacionesByClient.set(idKey(item.clientId), item.operaciones));
-    const detailPayments = detailResults.flatMap((item) =>
-      (item.pagos || []).map((p: any) => ({ ...p, clienteId: item.clientId }))
-    );
-    const rawPaymentsForExcel = [...(Array.isArray(payments) ? payments : []), ...detailPayments];
-    const paidPayments = rawPaymentsForExcel.filter((p) => {
-      const estadoPago = (p?.estadoPago || '').toUpperCase();
-      const estadoVenta = (p?.venta?.estadoVenta || p?.estadoVenta || '').toUpperCase();
-      return estadoPago === 'PAGADO' && estadoVenta !== 'CANCELADA' && (p?.fechaPago || p?.fechaRegistro);
-    });
-    const paymentClientId = (p: any) => idKey(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId);
-    const paymentVentaId = (p: any) => idKey(p?.venta?.id ?? p?.ventaId);
-    const paymentsByClient = new Map<string, any[]>();
-    const paymentsByVenta = new Map<string, any>();
-    const seenPaymentKeys = new Set<string>();
-    paidPayments.forEach((p) => {
-      const clienteId = paymentClientId(p);
-      const ventaId = paymentVentaId(p);
-      const uniquePaymentKey = String(p?.id ?? p?.pagoId ?? (ventaId ? `venta-${ventaId}` : `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}`));
-      if (seenPaymentKeys.has(uniquePaymentKey)) return;
-      seenPaymentKeys.add(uniquePaymentKey);
-      if (clienteId) {
-        const list = paymentsByClient.get(clienteId) || [];
-        list.push(p);
-        paymentsByClient.set(clienteId, list);
-      }
-      if (ventaId && !paymentsByVenta.has(ventaId)) {
-        paymentsByVenta.set(ventaId, p);
-      }
-    });
-
-    const monthKeyFromDate = (rawDate?: string) => {
-      if (!rawDate) return null;
-      const d = new Date(rawDate);
-      if (isNaN(d.getTime())) return null;
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    };
-
-    const addMonthsToKey = (key: string, monthsToAdd: number) => {
-      const [year, month] = key.split('-').map(Number);
-      const d = new Date(year, month - 1 + monthsToAdd, 1);
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    };
-
-    const normalizeSubscription = (value?: string) => (value || '').toUpperCase().trim();
-    const normalizePlanKey = (value?: string) => {
-      const normalized = (value || '')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toUpperCase()
-        .replace(/^PLAN\s+/, '')
-        .trim();
-      if (normalized === 'INICIAL' || normalized === 'INICIA') return 'INICIA';
-      if (normalized === 'LIDER') return 'LIDER';
-      return normalized;
-    };
-    const isUpgradeOperation = (op: any) => (op?.tipoVenta || op?.tipoOperacion || '').toUpperCase() === 'MEJORA_PLAN';
-    const isAnnualSubscriptionOperation = (op: any, client?: Client) =>
-      normalizeSubscription(op?.tipoSuscripcion || client?.tipoSuscripcion) === 'ANUAL';
-    const isAnnualOperation = (op: any, client?: Client) =>
-      !isUpgradeOperation(op) && isAnnualSubscriptionOperation(op, client);
-    const isAnnualUpgradeOperation = (op: any, client?: Client) =>
-      isUpgradeOperation(op) && isAnnualSubscriptionOperation(op, client);
-    const isAnnualClient = (client?: Client) => normalizeSubscription(client?.tipoSuscripcion) === 'ANUAL';
-    const operationAmount = (op: any) => {
-      const ventaId = idKey(op?.ventaId ?? op?.venta?.id);
-      const paymentForVenta = ventaId ? paymentsByVenta.get(ventaId) : null;
-      return Number(op?.montoPagado ?? paymentForVenta?.monto ?? op?.montoVenta ?? op?.montoTotal ?? op?.precioLista ?? 0);
-    };
-    const operationMonthSource = (op: any, _client?: Client) =>
-      op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion;
-    const annualClientAmount = (client: Client) => {
-      const directAmount = Number(client.montoMensual || client.montoSiguienteCobro || 0);
-      return directAmount;
-    };
-    const annualOperationAmount = (op: any, client: Client) => {
-      const planAmount = annualClientAmount(client);
-      const listAmount = Number(op?.precioLista || 0);
-      const rawAmount = operationAmount(op);
-      return rawAmount || listAmount || planAmount;
-    };
-    const excelOperationAmount = (op: any, client: Client) =>
-      isAnnualOperation(op, client) ? annualOperationAmount(op, client) : operationAmount(op);
-    const paymentMonthKey = (p: any) => monthKeyFromDate(p?.fechaPago || p?.fechaRegistro);
-    const paymentAmount = (p: any) => Number(p?.monto ?? p?.venta?.montoTotal ?? 0);
-    const isPaidOperation = (op: any) => {
-      const estadoPago = (op?.estadoPago || '').toUpperCase();
-      const estadoVenta = (op?.estadoVenta || '').toUpperCase();
-      return estadoPago === 'PAGADO' || estadoVenta === 'PAGADA';
-    };
-    const operationCoversPayment = (op: any, p: any) => {
-      const pagoId = idKey(p?.id ?? p?.pagoId);
-      const ventaId = paymentVentaId(p);
-      return Boolean((pagoId && idKey(op?.pagoId) === pagoId) || (ventaId && idKey(op?.ventaId) === ventaId));
-    };
-    const shouldUsePaymentFallback = (p: any, client: Client, operaciones: any[]) => {
-      if (isAnnualClient(client)) return false;
-      return !operaciones.some((op) => operationCoversPayment(op, p));
-    };
-    const monthIndexFromKey = (key: string) => {
-      const [year, month] = key.split('-').map(Number);
-      return year * 12 + month - 1;
-    };
-    const addMonthRangeToSet = (startKey: string, endKey: string) => {
-      const startIndex = monthIndexFromKey(startKey);
-      const endIndex = monthIndexFromKey(endKey);
-      if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return;
-
-      const first = Math.min(startIndex, endIndex);
-      const last = Math.max(startIndex, endIndex);
-      for (let index = first; index <= last; index += 1) {
-        const year = Math.floor(index / 12);
-        const month = (index % 12) + 1;
-        monthKeysSet.add(`${year}-${String(month).padStart(2, '0')}`);
-      }
-    };
-    const annualMonthsCovered = (op: any) => {
-      const startKey = monthKeyFromDate(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
-      const endKey = monthKeyFromDate(op?.fechaFinServicio);
-      if (!startKey || !endKey) return 12;
-
-      const diff = monthIndexFromKey(endKey) - monthIndexFromKey(startKey);
-      return diff >= 1 ? diff : 12;
-    };
-
-    const monthNames = [
-      'Enero',
-      'Febrero',
-      'Marzo',
-      'Abril',
-      'Mayo',
-      'Junio',
-      'Julio',
-      'Agosto',
-      'Setiembre',
-      'Octubre',
-      'Noviembre',
-      'Diciembre',
-    ];
-
-    const monthKeysSet = new Set<string>();
-    const today = new Date();
-    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-    reportFilteredList.forEach((c) => {
-      const registroKey = monthKeyFromDate(c.fechaRegistro);
-      if (registroKey) addMonthRangeToSet(registroKey, currentMonthKey);
-
-      const vencKey = monthKeyFromDate(c.fechaVencimientoMensual);
-      if (vencKey) monthKeysSet.add(vencKey);
-
-      const operaciones = (operacionesByClient.get(idKey(c.id)) || []).filter(isPaidOperation);
-      operaciones.forEach((op) => {
-        const key = monthKeyFromDate(operationMonthSource(op, c));
-        if (!key) return;
-        if (isAnnualOperation(op, c)) {
-          const monthsCovered = annualMonthsCovered(op);
-          for (let i = 0; i < monthsCovered; i += 1) {
-            monthKeysSet.add(addMonthsToKey(key, i));
-          }
-        } else {
-          addMonthRangeToSet(key, currentMonthKey);
+        if (ruc) {
+          const listRuc = paymentsByClient.get(`ruc-${ruc}`) || [];
+          listRuc.push(p);
+          paymentsByClient.set(`ruc-${ruc}`, listRuc);
         }
-      });
-      (paymentsByClient.get(idKey(c.id)) || []).forEach((p) => {
-        if (!shouldUsePaymentFallback(p, c, operaciones)) return;
-        const key = paymentMonthKey(p);
-        if (key) monthKeysSet.add(key);
-      });
-
-    });
-
-    if (monthKeysSet.size === 0) {
-      monthKeysSet.add(currentMonthKey);
-    }
-
-    const monthKeys = Array.from(monthKeysSet).sort();
-    const monthHeaders = monthKeys.map((key) => {
-      const [year, month] = key.split('-').map(Number);
-      return `${monthNames[month - 1]} ${year} (S/)`;
-    });
-
-    const headers = [
-      'RUC',
-      'Razón Social',
-      'Nombre Comercial',
-      'Dirección',
-      'Departamento',
-      'Provincia',
-      'Distrito',
-      'Teléfono WhatsApp',
-      'Email Empresa',
-      'Representante Legal',
-      'DNI',
-      'Teléfono Personal',
-      'Email Personal',
-      'Régimen Tributario',
-      'Plan Contratado',
-      'Tipo Suscripción',
-      'Tarifa Mensual (S/)',
-      'Vendedor Asignado',
-      'Color Atención',
-      'Estado Comercial',
-      'Estado Capacitación',
-      'Fecha Capacitación',
-      'Fecha Vencimiento',
-      'Monto Prorrateado Vigente (S/)',
-      'Dias Prorrateados',
-      'Tipo Prorrateo',
-      'Prorrateo Adicional (S/)',
-      'Dias Prorrateo Adicional',
-      'Inicio Prorrateo Adicional',
-      'Fin Prorrateo Adicional',
-      'Fecha Alta / Registro',
-      'Usuario SOL',
-      'Usuario Sistema',
-      'Clave Sistema',
-      'URL Sistema',
-      ...monthHeaders,
-      'TOTAL COBROS (S/)',
-    ];
-
-    const xmlRows = reportFilteredList.map((c) => {
-      const repNombre = `${c.nombres || ''} ${c.apellidos || ''}`.trim() || '—';
-      const monthlySums = new Map<string, number>();
-      monthKeys.forEach((key) => monthlySums.set(key, 0));
-      const annualSpans: Array<{ startKey: string; amount: number; monthsCovered: number }> = [];
-
-      // Consolidar pagos y operaciones confirmadas de forma única por ID de transacción
-      const seenTransactionKeys = new Set<string>();
-      const rawOps = operacionesByClient.get(idKey(c.id)) || [];
-      const rawClPayments = paymentsByClient.get(idKey(c.id)) || [];
-
-      // 1. Procesar operaciones de ventas pagadas
-      rawOps.filter(isPaidOperation).forEach((op) => {
-        const ventaId = idKey(op?.ventaId ?? op?.id);
-        const uniqueKey = `venta-${ventaId || op?.fechaOperacion || op?.fechaPago}-${op?.montoTotal || op?.montoPagado}`;
-        if (seenTransactionKeys.has(uniqueKey)) return;
-        seenTransactionKeys.add(uniqueKey);
-
-        const rawDate = operationMonthSource(op, c);
-        const key = monthKeyFromDate(rawDate);
-        if (key) {
-          const montoOperacion = excelOperationAmount(op, c);
-          if (isAnnualOperation(op, c)) {
-            annualSpans.push({ startKey: key, amount: montoOperacion || annualClientAmount(c), monthsCovered: annualMonthsCovered(op) });
-          } else {
-            monthlySums.set(key, (monthlySums.get(key) || 0) + montoOperacion);
-          }
-        }
-      });
-
-      // 2. Procesar pagos de caja que no hayan sido cubiertos por las operaciones
-      rawClPayments.forEach((p) => {
-        const ventaId = paymentVentaId(p);
-        const pagoId = idKey(p?.id ?? p?.pagoId);
-        const uniqueKey = pagoId ? `pago-${pagoId}` : `venta-${ventaId}`;
-        if (seenTransactionKeys.has(uniqueKey) || (ventaId && seenTransactionKeys.has(`venta-${ventaId}`))) return;
-        seenTransactionKeys.add(uniqueKey);
-
-        const key = paymentMonthKey(p);
-        if (!key) return;
-        const montoPago = paymentAmount(p);
-        monthlySums.set(key, (monthlySums.get(key) || 0) + montoPago);
-      });
-
-      // Una mejora anual actualiza el monto del tramo anual vigente,
-      // conservando las mismas fechas y sus doce meses de cobertura.
-      rawOps
-        .filter(isPaidOperation)
-        .filter((op) => isAnnualUpgradeOperation(op, c))
-        .sort((a: any, b: any) => {
-          const aKey = monthKeyFromDate(a?.fechaPago || a?.fechaOperacion) || '';
-          const bKey = monthKeyFromDate(b?.fechaPago || b?.fechaOperacion) || '';
-          return monthIndexFromKey(aKey) - monthIndexFromKey(bKey);
-        })
-        .forEach((op: any) => {
-          const upgradeKey = monthKeyFromDate(op?.fechaPago || op?.fechaOperacion);
-          const updatedPlanAmount = Number(op?.precioPlan ?? c.montoMensual ?? 0);
-          if (!upgradeKey || updatedPlanAmount <= 0) return;
-
-          const upgradeIndex = monthIndexFromKey(upgradeKey);
-          const activeSpan = annualSpans
-            .filter((span: { startKey: string; amount: number; monthsCovered: number }) => {
-              const startIndex = monthIndexFromKey(span.startKey);
-              return upgradeIndex >= startIndex && upgradeIndex < startIndex + span.monthsCovered;
-            })
-            .sort((a: { startKey: string }, b: { startKey: string }) => monthIndexFromKey(b.startKey) - monthIndexFromKey(a.startKey))[0];
-
-          if (activeSpan) activeSpan.amount = updatedPlanAmount;
-        });
-
-      annualSpans.sort((a: { startKey: string }, b: { startKey: string }) => monthIndexFromKey(a.startKey) - monthIndexFromKey(b.startKey));
-
-      let totalCobros = 0;
-      monthlySums.forEach((val: number) => {
-        totalCobros += val;
-      });
-      annualSpans.forEach((span: { amount: number }) => {
-        totalCobros += span.amount;
-      });
-
-      const formatExcelDate = (val?: string) => {
-        if (!val) return '';
-        const d = new Date(val);
-        if (isNaN(d.getTime())) return String(val);
-        return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
       };
 
-      const cells = [
-        c.ruc,
-        c.razonSocial || '',
-        c.nombreComercial || '',
-        c.direccion || '',
-        c.departamento || '',
-        c.provincia || '',
-        c.distrito || '',
-        c.telefono || '',
-        c.email || '',
-        repNombre,
-        c.dni || '',
-        c.telefonoPersonal || '',
-        c.emailPersonal || '',
-        c.regimenTributario || '',
-        c.planContratado || '',
-        c.tipoSuscripcion || '',
-        Number(c.montoMensual || 0).toFixed(2),
-        c.vendedor || '',
-        c.colorTag || '',
-        c.estadoCuenta || '',
-        c.estadoCapacitacion || '',
-        formatExcelDate(c.fechaCapacitacion),
-        formatExcelDate(c.fechaVencimientoMensual),
-        Number(c.montoSiguienteCobro || 0).toFixed(2),
-        c.diasProrrateados || 0,
-        c.tipoProrrateo || 'NINGUNO',
-        Number(c.montoProrrateoAdicional || 0).toFixed(2),
-        c.diasProrrateoAdicional || 0,
-        formatExcelDate(c.fechaInicioProrrateoAdicional),
-        formatExcelDate(c.fechaFinProrrateoAdicional),
-        formatExcelDate(c.fechaRegistro),
-        c.usuarioSol || '',
-        c.usuarioSistema || '',
-        c.claveSistema || '',
-        c.linkSistema || '',
+      // 1. Cargar pagos existentes en memoria (rápido y garantizado)
+      (Array.isArray(payments) ? payments : []).forEach((p) => {
+        const cId = idKey(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId);
+        const ruc = p?.clienteRuc || p?.venta?.cliente?.ruc;
+        registerPaymentForClient(p, cId, ruc);
+      });
+
+      // 2. Intentar enriquecer con el detalle del servidor (con timeout de protección)
+      if (token) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
+          await Promise.allSettled(
+            reportFilteredList.map(async (c) => {
+              try {
+                const res = await fetch(`/api/admin/clientes/${c.id}`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                  signal: controller.signal,
+                });
+                const data = await res.json();
+                const operaciones = data?.data?.operacionesHistorial || [];
+                const pagos = data?.data?.pagosHistorial || [];
+                operacionesByClient.set(idKey(c.id), operaciones);
+                pagos.forEach((p: any) => registerPaymentForClient(p, idKey(c.id), c.ruc));
+              } catch (_) {}
+            })
+          );
+          clearTimeout(timeoutId);
+        } catch (_) {}
+      }
+
+      const monthNames = [
+        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+        'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre',
       ];
 
-      const numericBaseCellIndexes = new Set([16, 23, 24, 26, 27]);
-      const baseCellsXml = cells
-        .map(
-          (val, idx) => {
+      const monthKeysSet = new Set<string>();
+      const today = new Date();
+      const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+      const addMonthRangeToSet = (startKey: string, endKey: string) => {
+        const startIndex = monthIndexFromKey(startKey);
+        const endIndex = monthIndexFromKey(endKey);
+        if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return;
+        const first = Math.min(startIndex, endIndex);
+        const last = Math.max(startIndex, endIndex);
+        for (let index = first; index <= last; index += 1) {
+          const year = Math.floor(index / 12);
+          const month = (index % 12) + 1;
+          monthKeysSet.add(`${year}-${String(month).padStart(2, '0')}`);
+        }
+      };
+
+      // Determinar los meses a mostrar asegurando que cubra las fechas de los clientes y sus 2 prorrateos
+      reportFilteredList.forEach((c) => {
+        const startD = parseLocalDateSafe(c.fechaCapacitacion || c.fechaRegistro || c.fechaCreacion);
+        if (startD) {
+          const startKey = monthKeyFromDate(startD);
+          if (startKey) {
+            monthKeysSet.add(startKey);
+            const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+            const isSegundoProrrateo = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || startD.getDate() >= 10;
+
+            if (isAnual) {
+              for (let k = 0; k < 12; k += 1) monthKeysSet.add(addMonthsToKey(startKey, k));
+            } else if (isSegundoProrrateo) {
+              // El segundo prorrateo chapa los 2 meses: mes de inicio + mes siguiente
+              monthKeysSet.add(addMonthsToKey(startKey, 1));
+            }
+          }
+        }
+
+        const regKey = monthKeyFromDate(c.fechaRegistro);
+        if (regKey) addMonthRangeToSet(regKey, currentMonthKey);
+
+        const vencKey = monthKeyFromDate(c.fechaVencimientoMensual);
+        if (vencKey) {
+          monthKeysSet.add(vencKey);
+          if (regKey) addMonthRangeToSet(regKey, vencKey);
+        }
+
+        // Operaciones pagadas
+        const ops = operacionesByClient.get(idKey(c.id)) || [];
+        ops.forEach((op) => {
+          const opD = parseLocalDateSafe(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
+          if (!opD) return;
+          const opKey = monthKeyFromDate(opD);
+          if (!opKey) return;
+          monthKeysSet.add(opKey);
+          if ((op?.tipoSuscripcion || '').toUpperCase() === 'ANUAL') {
+            for (let k = 0; k < 12; k += 1) monthKeysSet.add(addMonthsToKey(opKey, k));
+          } else if (op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || opD.getDate() >= 10) {
+            monthKeysSet.add(addMonthsToKey(opKey, 1));
+          }
+        });
+
+        // Pagos
+        const pList = [
+          ...(paymentsByClient.get(idKey(c.id)) || []),
+          ...(c.ruc ? (paymentsByClient.get(`ruc-${c.ruc}`) || []) : [])
+        ];
+        pList.forEach((p) => {
+          const payD = parseLocalDateSafe(p?.fechaPago || p?.fechaRegistro);
+          if (!payD) return;
+          const pKey = monthKeyFromDate(payD);
+          if (!pKey) return;
+          monthKeysSet.add(pKey);
+          if ((p?.tipoSuscripcion || '').toUpperCase() === 'ANUAL') {
+            for (let k = 0; k < 12; k += 1) monthKeysSet.add(addMonthsToKey(pKey, k));
+          } else if (p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10)) {
+            monthKeysSet.add(addMonthsToKey(pKey, 1));
+          }
+        });
+      });
+
+      if (monthKeysSet.size === 0) {
+        monthKeysSet.add(currentMonthKey);
+      }
+
+      const monthKeys = Array.from(monthKeysSet).sort();
+      const monthHeaders = monthKeys.map((key) => {
+        const [year, month] = key.split('-').map(Number);
+        return `${monthNames[month - 1]} ${year} (S/)`;
+      });
+
+      const headers = [
+        'RUC',
+        'Razón Social',
+        'Nombre Comercial',
+        'Dirección',
+        'Departamento',
+        'Provincia',
+        'Distrito',
+        'Teléfono WhatsApp',
+        'Email Empresa',
+        'Representante Legal',
+        'DNI',
+        'Teléfono Personal',
+        'Email Personal',
+        'Régimen Tributario',
+        'Plan Contratado',
+        'Tipo Suscripción',
+        'Tarifa Mensual (S/)',
+        'Vendedor Asignado',
+        'Color Atención',
+        'Estado Comercial',
+        'Estado Capacitación',
+        'Fecha Capacitación',
+        'Fecha Vencimiento',
+        'Monto Prorrateado Vigente (S/)',
+        'Dias Prorrateados',
+        'Tipo Prorrateo',
+        'Prorrateo Adicional (S/)',
+        'Dias Prorrateo Adicional',
+        'Inicio Prorrateo Adicional',
+        'Fin Prorrateo Adicional',
+        'Fecha Alta / Registro',
+        'Usuario SOL',
+        'Usuario Sistema',
+        'Clave Sistema',
+        'URL Sistema',
+        ...monthHeaders,
+        'TOTAL COBROS (S/)',
+      ];
+
+      const xmlRows = reportFilteredList.map((c) => {
+        const repNombre = `${c.nombres || ''} ${c.apellidos || ''}`.trim() || '—';
+        const monthlySums = new Map<string, number>();
+        monthKeys.forEach((key) => monthlySums.set(key, 0));
+        const spans: Array<{ startKey: string; amount: number; monthsCovered: number; type: 'ANUAL' | 'SEGUNDO_PRORRATEO' }> = [];
+
+        const isClientAnnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+        const clientMonthlyPlanPrice = Number(c.montoMensual || c.precioPlan || 0);
+
+        // Deduplicar pagos del cliente
+        const rawClPayments = [
+          ...(paymentsByClient.get(idKey(c.id)) || []),
+          ...(c.ruc ? (paymentsByClient.get(`ruc-${c.ruc}`) || []) : [])
+        ];
+        const uniqueClPayments = new Map<string, any>();
+        rawClPayments.forEach((p, idx) => {
+          const key = String(p?.id ?? p?.pagoId ?? `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}-${idx}`);
+          if (!uniqueClPayments.has(key)) uniqueClPayments.set(key, p);
+        });
+        const clPayments = Array.from(uniqueClPayments.values());
+
+        const rawOps = operacionesByClient.get(idKey(c.id)) || [];
+
+        // 1. Procesar operaciones de ventas registradas
+        rawOps.forEach((op) => {
+          const opD = parseLocalDateSafe(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
+          if (!opD) return;
+          const key = monthKeyFromDate(opD);
+          if (!key) return;
+
+          const montoOperacion = Number(op?.montoPagado || op?.montoVenta || op?.montoTotal || op?.precioLista || 0) || clientMonthlyPlanPrice;
+          const isAnnualOp = (op?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+          const isSegundoProrrateoOp = op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || (opD.getDate() >= 10 && op?.tipoProrrateo !== 'PRIMER_PRORRATEO');
+
+          if (isAnnualOp) {
+            if (!spans.some((s) => s.startKey === key)) {
+              spans.push({ startKey: key, amount: montoOperacion || (clientMonthlyPlanPrice * 10), monthsCovered: 12, type: 'ANUAL' });
+            }
+          } else if (isSegundoProrrateoOp) {
+            // El 2.° prorrateo chapa los 2 meses
+            if (!spans.some((s) => s.startKey === key)) {
+              spans.push({ startKey: key, amount: montoOperacion || Number(c.montoSiguienteCobro || 0) || clientMonthlyPlanPrice, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
+            }
+          } else {
+            // 1.° prorrateo o mensualidad regular
+            monthlySums.set(key, (monthlySums.get(key) || 0) + montoOperacion);
+          }
+        });
+
+        // 2. Procesar pagos de caja
+        clPayments.forEach((p) => {
+          const payD = parseLocalDateSafe(p?.fechaPago || p?.fechaRegistro);
+          if (!payD) return;
+          const key = monthKeyFromDate(payD);
+          if (!key) return;
+
+          const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
+          if (pAmount <= 0) return;
+
+          const isAnnualPay = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+          const isSegundoProrrateoPay = p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || p?.venta?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10) || String(p?.observaciones || '').toLowerCase().includes('segundo');
+
+          if (isAnnualPay) {
+            if (!spans.some((s) => s.startKey === key)) {
+              spans.push({ startKey: key, amount: pAmount, monthsCovered: 12, type: 'ANUAL' });
+            }
+          } else if (isSegundoProrrateoPay) {
+            if (!spans.some((s) => s.startKey === key)) {
+              spans.push({ startKey: key, amount: pAmount, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
+            }
+          } else {
+            monthlySums.set(key, (monthlySums.get(key) || 0) + pAmount);
+          }
+        });
+
+        // 3. Fallback inteligente directo con los datos del cliente (Garantiza que ningún cliente activo salga en blanco)
+        const startD = parseLocalDateSafe(c.fechaCapacitacion || c.fechaRegistro || c.fechaCreacion);
+        if (startD) {
+          const startKey = monthKeyFromDate(startD)!;
+
+          if (isClientAnnual) {
+            if (!spans.some((s) => s.startKey === startKey)) {
+              const annualAmount = Number(c.precioPlan || c.montoMensual || 0);
+              spans.push({ startKey, amount: annualAmount, monthsCovered: 12, type: 'ANUAL' });
+            }
+          } else {
+            const isSegundoProrrateoCli = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || (startD.getDate() >= 10 && c.tipoProrrateo !== 'PRIMER_PRORRATEO');
+            const isPrimerProrrateoCli = c.tipoProrrateo === 'PRIMER_PRORRATEO' || startD.getDate() < 10;
+
+            if (isSegundoProrrateoCli) {
+              if (!spans.some((s) => s.startKey === startKey)) {
+                const baseMonto = Number(c.montoMensual || c.precioPlan || 0);
+                const adicMonto = Number(c.montoProrrateoAdicional || 0);
+                const totalSegundo = Number(c.montoSiguienteCobro || 0) || (baseMonto + adicMonto) || baseMonto;
+                // Chapa los 2 meses (mes de inicio + siguiente mes)
+                spans.push({ startKey, amount: totalSegundo, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
+              }
+            } else if (isPrimerProrrateoCli) {
+              if ((monthlySums.get(startKey) || 0) === 0 && !spans.some((s) => s.startKey === startKey)) {
+                const totalPrimer = Number(c.montoSiguienteCobro || c.montoProrrateado || 0) || clientMonthlyPlanPrice;
+                monthlySums.set(startKey, totalPrimer);
+              }
+            }
+          }
+
+          // Para clientes habilitados: meses posteriores hasta fechaVencimientoMensual o mes actual
+          if ((c.estadoCuenta || '').toUpperCase() === 'HABILITADO' && clientMonthlyPlanPrice > 0) {
+            const vencD = parseLocalDateSafe(c.fechaVencimientoMensual);
+            const endD = vencD && vencD > startD ? vencD : new Date();
+            const endKey = monthKeyFromDate(endD) || currentMonthKey;
+            const startIdx = monthIndexFromKey(startKey);
+            const endIdx = monthIndexFromKey(endKey);
+
+            for (let idx = startIdx; idx <= endIdx; idx += 1) {
+              const y = Math.floor(idx / 12);
+              const m = (idx % 12) + 1;
+              const mKey = `${y}-${String(m).padStart(2, '0')}`;
+
+              // Verificar si este mes está dentro de algún span
+              const coveredBySpan = spans.some((s) => {
+                const sIdx = monthIndexFromKey(s.startKey);
+                return idx >= sIdx && idx < sIdx + s.monthsCovered;
+              });
+
+              if (!coveredBySpan && (monthlySums.get(mKey) || 0) === 0) {
+                monthlySums.set(mKey, clientMonthlyPlanPrice);
+              }
+            }
+          }
+        }
+
+        // Ordenar spans cronológicamente
+        spans.sort((a, b) => monthIndexFromKey(a.startKey) - monthIndexFromKey(b.startKey));
+
+        let totalCobros = 0;
+        spans.forEach((span) => {
+          totalCobros += span.amount;
+        });
+        monthlySums.forEach((val) => {
+          totalCobros += val;
+        });
+
+        const cells = [
+          c.ruc,
+          c.razonSocial || '',
+          c.nombreComercial || '',
+          c.direccion || '',
+          c.departamento || '',
+          c.provincia || '',
+          c.distrito || '',
+          c.telefono || '',
+          c.email || '',
+          repNombre,
+          c.dni || '',
+          c.telefonoPersonal || '',
+          c.emailPersonal || '',
+          c.regimenTributario || '',
+          c.planContratado || '',
+          c.tipoSuscripcion || '',
+          Number(c.montoMensual || 0).toFixed(2),
+          c.vendedor || '',
+          c.colorTag || '',
+          c.estadoCuenta || '',
+          c.estadoCapacitacion || '',
+          formatExcelDate(c.fechaCapacitacion),
+          formatExcelDate(c.fechaVencimientoMensual),
+          Number(c.montoSiguienteCobro || 0).toFixed(2),
+          c.diasProrrateados || 0,
+          c.tipoProrrateo || 'NINGUNO',
+          Number(c.montoProrrateoAdicional || 0).toFixed(2),
+          c.diasProrrateoAdicional || 0,
+          formatExcelDate(c.fechaInicioProrrateoAdicional),
+          formatExcelDate(c.fechaFinProrrateoAdicional),
+          formatExcelDate(c.fechaRegistro),
+          c.usuarioSol || '',
+          c.usuarioSistema || '',
+          c.claveSistema || '',
+          c.linkSistema || '',
+        ];
+
+        const numericBaseCellIndexes = new Set([16, 23, 24, 26, 27]);
+        const baseCellsXml = cells
+          .map((val, idx) => {
             const isNumberCell = numericBaseCellIndexes.has(idx);
             return `<Cell ss:StyleID="${isNumberCell ? 'NumberStyle' : 'DataStyle'}"><Data ss:Type="${
               isNumberCell ? 'Number' : 'String'
             }">${String(val).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>`;
-          }
-        )
-        .join('');
+          })
+          .join('');
 
-      const monthCellsXml: string[] = [];
-      for (let i = 0; i < monthKeys.length; i += 1) {
-        const key = monthKeys[i];
-        const annualSpan = annualSpans.find((span) => span.startKey === key);
-        if (annualSpan) {
-          const remainingColumns = monthKeys.length - i;
-          const mergeCount = Math.min(Math.max(annualSpan.monthsCovered - 1, 0), remainingColumns - 1);
-          monthCellsXml.push(
-            `<Cell ss:StyleID="AnnualStyle" ss:MergeAcross="${mergeCount}"><Data ss:Type="Number">${annualSpan.amount.toFixed(2)}</Data></Cell>`
-          );
-          i += mergeCount;
-        } else {
-          const amount = monthlySums.get(key) || 0;
-          if (amount > 0) {
+        // Generar celdas mensuales con soporte para spans (2.° prorrateo chapa 2 meses, anual chapa 12 meses)
+        const monthCellsXml: string[] = [];
+        for (let i = 0; i < monthKeys.length; i += 1) {
+          const key = monthKeys[i];
+          const span = spans.find((s) => s.startKey === key);
+
+          if (span) {
+            const remainingColumns = monthKeys.length - i;
+            const mergeCount = Math.min(Math.max(span.monthsCovered - 1, 0), remainingColumns - 1);
+            const styleId = span.type === 'ANUAL' ? 'AnnualStyle' : 'SegundoProrrateoStyle';
             monthCellsXml.push(
-              `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
+              `<Cell ss:StyleID="${styleId}" ss:MergeAcross="${mergeCount}"><Data ss:Type="Number">${span.amount.toFixed(2)}</Data></Cell>`
             );
+            i += mergeCount; // Avanza el índice de meses cubiertos
           } else {
-            monthCellsXml.push(
-              '<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>'
-            );
+            // Verificar si el mes actual está dentro de un span anterior
+            const isCoveredByOtherSpan = spans.some((s) => {
+              const startIndex = monthIndexFromKey(s.startKey);
+              const currentIndex = monthIndexFromKey(key);
+              return currentIndex > startIndex && currentIndex < startIndex + s.monthsCovered;
+            });
+
+            if (isCoveredByOtherSpan) {
+              continue;
+            }
+
+            const amount = monthlySums.get(key) || 0;
+            if (amount > 0) {
+              monthCellsXml.push(
+                `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
+              );
+            } else {
+              monthCellsXml.push(
+                '<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>'
+              );
+            }
           }
         }
-      }
 
-      const totalCellXml = `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${totalCobros.toFixed(2)}</Data></Cell>`;
+        const totalCellXml = `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${totalCobros.toFixed(2)}</Data></Cell>`;
 
-      return `<Row>${baseCellsXml}${monthCellsXml.join('')}${totalCellXml}</Row>`;
-    });
+        return `<Row>${baseCellsXml}${monthCellsXml.join('')}${totalCellXml}</Row>`;
+      });
 
-    const excelTemplate = `<?xml version="1.0" encoding="UTF-8"?>
+      const excelTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:o="urn:schemas-microsoft-com:office:office"
@@ -556,14 +633,27 @@ export default function ReportesExcelTab({
    </Borders>
   </Style>
   <Style ss:ID="AnnualStyle">
-   <Font ss:Size="10" ss:FontName="Calibri" ss:Bold="1" ss:Color="#0F5132"/>
-   <Interior ss:Color="#D1E7DD" ss:Pattern="Solid"/>
+   <Font ss:Size="10" ss:FontName="Calibri" ss:Bold="1" ss:Color="#065F46"/>
+   <Interior ss:Color="#D1FAE5" ss:Pattern="Solid"/>
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <NumberFormat ss:Format="#,##0.00"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BADBCC"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BADBCC"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BADBCC"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="SegundoProrrateoStyle">
+   <Font ss:Size="10" ss:FontName="Calibri" ss:Bold="1" ss:Color="#1E40AF"/>
+   <Interior ss:Color="#DBEAFE" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="#,##0.00"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
    </Borders>
   </Style>
  </Styles>
@@ -579,14 +669,17 @@ export default function ReportesExcelTab({
  </Worksheet>
 </Workbook>`;
 
-    const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Reporte_Consolidado_Clientes_${new Date().toISOString().slice(0, 10)}.xls`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Reporte_Consolidado_Clientes_${new Date().toISOString().slice(0, 10)}.xls`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setIsExportingExcel(false);
+    }
   };
 
   // Cálculo de comisiones y métricas a partir de datos reales de la base de datos
@@ -930,11 +1023,16 @@ export default function ReportesExcelTab({
         <div className="d-flex align-items-center gap-2">
           <button
             onClick={exportToExcelLocal}
+            disabled={isExportingExcel}
             className="btn-meta-action btn-meta-action-success"
             title="Exportar reporte consolidado a formato Excel"
           >
-            <FileSpreadsheet size={16} />
-            <span>Exportar Excel</span>
+            {isExportingExcel ? (
+              <RefreshCw size={16} className="spin-anim" />
+            ) : (
+              <FileSpreadsheet size={16} />
+            )}
+            <span>{isExportingExcel ? 'Generando Excel...' : 'Exportar Excel'}</span>
           </button>
           <button
             onClick={() => loadData(token, true)}
