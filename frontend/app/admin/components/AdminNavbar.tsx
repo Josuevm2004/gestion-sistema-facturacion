@@ -81,7 +81,7 @@ export default function AdminNavbar({
   ];
 
   return (
-    <nav className="stitch-navbar navbar navbar-expand-lg sticky-top py-0">
+    <nav className="admin-navbar stitch-navbar navbar navbar-expand-lg sticky-top py-0">
       <div className="container-fluid h-100 d-flex align-items-center justify-content-between px-2 px-md-3">
         {/* Brand (Stitch Style: Logo & Title, Search Removed) */}
         <div className="d-flex align-items-center gap-2 gap-sm-2.5 flex-shrink-0 cursor-pointer" onClick={() => setActiveTab('resumen')}>
