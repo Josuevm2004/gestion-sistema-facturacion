@@ -48,28 +48,37 @@ export default function ResumenTab({
 
   return (
     <div className="admin-module admin-module--overview">
-      {/* TailAdmin Stat Cards Grid (Capturas 1 & 2) */}
+      {/* TailAdmin Signature KPI Stat Cards (Matches Captura 2) */}
       <div className="row g-3 g-xl-4 mb-4 admin-stat-strip">
         {/* Card 1: Ingresos del Día */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card admin-stat-card h-100">
-            <div className="admin-stat-card-top">
+            <div className="admin-stat-card-header">
               <span className="admin-stat-card-label">Ingresos del Día</span>
-              <div className="section-header-icon section-header-icon-primary">
-                <DollarSign size={20} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div className="admin-stat-card-value">S/ {totalCobradoDia.toFixed(2)}</div>
-            <div className="d-flex align-items-center justify-content-between mt-2">
-              <small className="text-muted" style={{ fontSize: '0.8125rem' }}>
-                Ventas confirmadas hoy
-              </small>
-              <span
-                className="badge rounded-pill"
-                style={{ backgroundColor: '#ECFDF5', color: '#027A48', border: '1px solid #A7F3D0' }}
-              >
-                <ArrowUpRight size={12} className="me-0.5" /> +20%
+              <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                <DollarSign size={18} strokeWidth={2.2} />
               </span>
+            </div>
+            <div className="d-flex align-items-center gap-1 mb-3">
+              <span className="admin-stat-card-trend">
+                <ArrowUpRight size={13} /> +20%
+              </span>
+              <span className="admin-stat-card-trend-label">frente al mes pasado</span>
+            </div>
+            <div className="d-flex align-items-end justify-content-between mt-auto">
+              <div className="admin-stat-card-value">S/ {totalCobradoDia.toFixed(2)}</div>
+              <div className="admin-stat-card-sparkline">
+                <svg width="90" height="34" viewBox="0 0 90 34" fill="none" aria-hidden="true">
+                  <path d="M0 26C15 22 25 6 40 18C55 30 70 4 80 12L90 4" stroke="#10B981" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M0 26C15 22 25 6 40 18C55 30 70 4 80 12L90 4V34H0V26Z" fill="url(#sparkline-green)" opacity="0.12" />
+                  <defs>
+                    <linearGradient id="sparkline-green" x1="45" y1="4" x2="45" y2="34" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#10B981" />
+                      <stop offset="1" stopColor="#10B981" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
             </div>
           </div>
         </div>
@@ -77,23 +86,32 @@ export default function ResumenTab({
         {/* Card 2: Clientes Activos */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card admin-stat-card h-100">
-            <div className="admin-stat-card-top">
+            <div className="admin-stat-card-header">
               <span className="admin-stat-card-label">Clientes Activos</span>
-              <div className="section-header-icon section-header-icon-success">
-                <CheckCircle size={20} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div className="admin-stat-card-value">{clientesActivos}</div>
-            <div className="d-flex align-items-center justify-content-between mt-2">
-              <small className="text-muted" style={{ fontSize: '0.8125rem' }}>
-                Con servicio habilitado
-              </small>
-              <span
-                className="badge rounded-pill"
-                style={{ backgroundColor: '#ECFDF5', color: '#027A48', border: '1px solid #A7F3D0' }}
-              >
-                Al Día
+              <span className="admin-stat-card-icon admin-stat-card-icon--blue">
+                <Users size={18} strokeWidth={2.2} />
               </span>
+            </div>
+            <div className="d-flex align-items-center gap-1 mb-3">
+              <span className="admin-stat-card-trend">
+                <ArrowUpRight size={13} /> +15%
+              </span>
+              <span className="admin-stat-card-trend-label">frente al mes pasado</span>
+            </div>
+            <div className="d-flex align-items-end justify-content-between mt-auto">
+              <div className="admin-stat-card-value">{clientesActivos}</div>
+              <div className="admin-stat-card-sparkline">
+                <svg width="90" height="34" viewBox="0 0 90 34" fill="none" aria-hidden="true">
+                  <path d="M0 24C12 20 28 8 45 16C62 24 75 6 82 10L90 6" stroke="#465FFF" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M0 24C12 20 28 8 45 16C62 24 75 6 82 10L90 6V34H0V24Z" fill="url(#sparkline-blue)" opacity="0.12" />
+                  <defs>
+                    <linearGradient id="sparkline-blue" x1="45" y1="6" x2="45" y2="34" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#465FFF" />
+                      <stop offset="1" stopColor="#465FFF" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
             </div>
           </div>
         </div>
@@ -101,47 +119,65 @@ export default function ResumenTab({
         {/* Card 3: Por Cobrar */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card admin-stat-card h-100">
-            <div className="admin-stat-card-top">
+            <div className="admin-stat-card-header">
               <span className="admin-stat-card-label">Por Cobrar</span>
-              <div className="section-header-icon section-header-icon-warning">
-                <CreditCard size={20} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div className="admin-stat-card-value">{clientesPorCobrarList.length}</div>
-            <div className="d-flex align-items-center justify-content-between mt-2">
-              <small className="text-muted" style={{ fontSize: '0.8125rem' }}>
-                Pendientes de confirmación
-              </small>
-              <span
-                className="badge rounded-pill"
-                style={{ backgroundColor: '#FFFBEB', color: '#B54708', border: '1px solid #FEDF89' }}
-              >
-                Cobro Pendiente
+              <span className="admin-stat-card-icon admin-stat-card-icon--amber">
+                <CreditCard size={18} strokeWidth={2.2} />
               </span>
+            </div>
+            <div className="d-flex align-items-center gap-1 mb-3">
+              <span className="admin-stat-card-trend" style={{ color: '#D97706' }}>
+                <Clock size={13} /> Pendientes
+              </span>
+              <span className="admin-stat-card-trend-label">de confirmación</span>
+            </div>
+            <div className="d-flex align-items-end justify-content-between mt-auto">
+              <div className="admin-stat-card-value">{clientesPorCobrarList.length}</div>
+              <div className="admin-stat-card-sparkline">
+                <svg width="90" height="34" viewBox="0 0 90 34" fill="none" aria-hidden="true">
+                  <path d="M0 16C15 24 30 10 45 20C60 30 75 8 82 14L90 10" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M0 16C15 24 30 10 45 20C60 30 75 8 82 14L90 10V34H0V16Z" fill="url(#sparkline-amber)" opacity="0.12" />
+                  <defs>
+                    <linearGradient id="sparkline-amber" x1="45" y1="10" x2="45" y2="34" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#F59E0B" />
+                      <stop offset="1" stopColor="#F59E0B" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Vencidos / Alerta */}
+        {/* Card 4: Vencidos / Bloqueados */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card admin-stat-card h-100">
-            <div className="admin-stat-card-top">
+            <div className="admin-stat-card-header">
               <span className="admin-stat-card-label">Vencidos / Bloqueados</span>
-              <div className="section-header-icon section-header-icon-danger">
-                <AlertTriangle size={20} strokeWidth={2.2} />
-              </div>
-            </div>
-            <div className="admin-stat-card-value">{clientesVencidosList.length}</div>
-            <div className="d-flex align-items-center justify-content-between mt-2">
-              <small className="text-muted" style={{ fontSize: '0.8125rem' }}>
-                Expirados o suspendidos
-              </small>
-              <span
-                className="badge rounded-pill"
-                style={{ backgroundColor: '#FEF2F2', color: '#B42318', border: '1px solid #FECDCA' }}
-              >
-                Alerta Crítica
+              <span className="admin-stat-card-icon admin-stat-card-icon--red">
+                <AlertTriangle size={18} strokeWidth={2.2} />
               </span>
+            </div>
+            <div className="d-flex align-items-center gap-1 mb-3">
+              <span className="admin-stat-card-trend admin-stat-card-trend--danger">
+                <AlertTriangle size={13} /> Atención
+              </span>
+              <span className="admin-stat-card-trend-label">expirados o suspendidos</span>
+            </div>
+            <div className="d-flex align-items-end justify-content-between mt-auto">
+              <div className="admin-stat-card-value">{clientesVencidosList.length}</div>
+              <div className="admin-stat-card-sparkline">
+                <svg width="90" height="34" viewBox="0 0 90 34" fill="none" aria-hidden="true">
+                  <path d="M0 18C15 14 30 26 45 12C60 22 75 16 82 20L90 14" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" />
+                  <path d="M0 18C15 14 30 26 45 12C60 22 75 16 82 20L90 14V34H0V18Z" fill="url(#sparkline-red)" opacity="0.12" />
+                  <defs>
+                    <linearGradient id="sparkline-red" x1="45" y1="12" x2="45" y2="34" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#EF4444" />
+                      <stop offset="1" stopColor="#EF4444" stopOpacity="0" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
             </div>
           </div>
         </div>

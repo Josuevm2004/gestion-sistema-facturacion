@@ -104,12 +104,12 @@
   border: 1px solid #E2E8F0 !important;
 }
 
-/* Action Buttons (TailAdmin Meta Action Buttons) */
+/* Action Buttons (TailAdmin Signature 8px Buttons - Capturas 1, 2, 4, 5, 6) */
 .admin-shell--authenticated .admin-module .btn-meta-action {
   min-height: 40px;
   padding: 0 16px !important;
   gap: 8px;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   font-size: 0.875rem !important;
   font-weight: 500 !important;
   line-height: 1.4;
@@ -210,12 +210,12 @@
 .admin-shell--authenticated .admin-module .stitch-filter-select,
 .admin-shell--authenticated .admin-module .form-control,
 .admin-shell--authenticated .admin-module .form-select {
-  min-height: 42px !important;
-  height: 42px !important;
+  min-height: 40px !important;
+  height: 40px !important;
   color: var(--module-ink) !important;
   background-color: #FFFFFF !important;
   border: 1px solid var(--module-border) !important;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   font-size: 0.875rem !important;
   font-weight: 450 !important;
   padding: 0 14px !important;
@@ -348,10 +348,12 @@
   position: relative;
   background-color: #FFFFFF !important;
   border: 1px solid var(--module-border) !important;
-  border-radius: 16px !important;
-  padding: 22px 24px !important;
+  border-radius: 14px !important;
+  padding: 24px !important;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05) !important;
   transition: all 0.18s ease !important;
+  display: flex;
+  flex-direction: column;
 }
 
 .admin-shell--authenticated .admin-main .admin-module .admin-stat-card:hover {
@@ -360,26 +362,81 @@
   transform: translateY(-2px);
 }
 
-.admin-shell--authenticated .admin-stat-card-top {
+.admin-shell--authenticated .admin-stat-card-top,
+.admin-shell--authenticated .admin-stat-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.admin-shell--authenticated .admin-stat-card-value {
-  color: var(--module-ink);
-  font-size: 1.875rem;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: -0.035em;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .admin-shell--authenticated .admin-stat-card-label {
   color: var(--module-muted);
   font-size: 0.875rem;
   font-weight: 500;
+}
+
+.admin-shell--authenticated .admin-stat-card-icon {
+  display: inline-flex;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
+
+.admin-shell--authenticated .admin-stat-card-icon--green {
+  background-color: #ECFDF5;
+  color: #10B981;
+}
+
+.admin-shell--authenticated .admin-stat-card-icon--blue {
+  background-color: #EEF4FE;
+  color: #465FFF;
+}
+
+.admin-shell--authenticated .admin-stat-card-icon--amber {
+  background-color: #FFFBEB;
+  color: #F59E0B;
+}
+
+.admin-shell--authenticated .admin-stat-card-icon--red {
+  background-color: #FEF2F2;
+  color: #EF4444;
+}
+
+.admin-shell--authenticated .admin-stat-card-trend {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #10B981;
+}
+
+.admin-shell--authenticated .admin-stat-card-trend--danger {
+  color: #EF4444;
+}
+
+.admin-shell--authenticated .admin-stat-card-trend-label {
+  color: #94A3B8;
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+.admin-shell--authenticated .admin-stat-card-value {
+  color: var(--module-ink);
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+
+.admin-shell--authenticated .admin-stat-card-sparkline {
+  display: flex;
+  align-items: flex-end;
 }
 
 /* Overview Panels & Chart Cards */
@@ -434,7 +491,7 @@
   min-width: 36px;
   height: 36px;
   padding: 0 8px;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--module-border);
   background-color: #FFFFFF;
   color: #344054;
@@ -461,6 +518,26 @@
   border-color: var(--module-blue) !important;
   color: #FFFFFF !important;
   font-weight: 600;
+}
+
+/* TailAdmin Modals */
+.modal-content {
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 40px -15px rgba(16, 24, 40, 0.15) !important;
+  overflow: hidden;
+}
+
+.modal-header {
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+  padding: 20px 24px !important;
+}
+
+.modal-footer {
+  background-color: #FFFFFF !important;
+  border-top: 1px solid #F1F5F9 !important;
+  padding: 16px 24px !important;
 }
 
 .admin-pagination-mobile-label {
@@ -551,5 +628,48 @@
 .table-action-item.item-danger:hover {
   background-color: #FEF2F2;
   color: #DC2626;
+}
+
+/* TailAdmin Module Header Count Pills */
+.admin-badge-count-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 12px !important;
+  font-size: 0.8125rem !important;
+  font-weight: 500 !important;
+  border-radius: 9999px !important;
+  line-height: 1.4 !important;
+  white-space: nowrap !important;
+}
+
+.admin-badge-count-pill--primary {
+  background-color: #EEF4FE !important;
+  color: #465FFF !important;
+  border: 1px solid #DCE4FF !important;
+}
+
+.admin-badge-count-pill--warning {
+  background-color: #FFFBEB !important;
+  color: #B54708 !important;
+  border: 1px solid #FEDF89 !important;
+}
+
+.admin-badge-count-pill--danger {
+  background-color: #FEF2F2 !important;
+  color: #B42318 !important;
+  border: 1px solid #FECDCA !important;
+}
+
+.admin-badge-count-pill--success {
+  background-color: #ECFDF5 !important;
+  color: #027A48 !important;
+  border: 1px solid #A7F3D0 !important;
+}
+
+.admin-badge-count-pill--neutral {
+  background-color: #F1F5F9 !important;
+  color: #475467 !important;
+  border: 1px solid #E2E8F0 !important;
 }
 

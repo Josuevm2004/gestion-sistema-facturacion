@@ -470,8 +470,8 @@ export default function ClientesTodosTab({
             <span>Columnas ({visibleColumnCount})</span>
           </button>
 
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#EEF2FF', color: '#465FFF', border: '1px solid #DCE4FF' }}>
-            {processedClients.length} Registros Total
+          <span className="admin-badge-count-pill admin-badge-count-pill--primary">
+            {processedClients.length} Registros
           </span>
 
           {onOpenCreateClient && (

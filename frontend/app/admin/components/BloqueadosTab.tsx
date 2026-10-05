@@ -94,7 +94,7 @@ export default function BloqueadosTab({
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#F1F5F9', color: '#475467', border: '1px solid #E2E8F0' }}>
+          <span className="admin-badge-count-pill admin-badge-count-pill--neutral">
             {hasActiveFilters ? `${filteredClients.length} de ${clientesBloqueadosList.length} Bloqueados` : `${clientesBloqueadosList.length} Bloqueados`}
           </span>
         </div>

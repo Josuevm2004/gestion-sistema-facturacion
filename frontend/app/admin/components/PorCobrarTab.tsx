@@ -48,7 +48,7 @@ export default function PorCobrarTab({
             <small className="text-muted fw-semibold">Clientes derivados del formulario web en espera de pago y confirmación</small>
           </div>
         </div>
-        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FFFBEB', color: '#B54708', border: '1px solid #FEDF89' }}>
+        <span className="admin-badge-count-pill admin-badge-count-pill--warning">
           {clientesPorCobrarList.length} Por Cobrar
         </span>
       </div>

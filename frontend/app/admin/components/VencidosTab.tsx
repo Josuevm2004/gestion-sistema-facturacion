@@ -107,7 +107,7 @@ export default function VencidosTab({
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3F2', color: '#D92D20', border: '1px solid #FECDCA' }}>
+          <span className="admin-badge-count-pill admin-badge-count-pill--danger">
             {hasActiveFilters ? `${filteredClients.length} de ${clientesVencidosList.length} Vencidos` : `${clientesVencidosList.length} Vencidos`}
           </span>
         </div>

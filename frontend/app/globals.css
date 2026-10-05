@@ -152,11 +152,11 @@ body {
   border-color: var(--admin-border-strong);
 }
 
-/* Buttons System */
+/* Buttons System (TailAdmin Signature 8px Radii) */
 .btn {
   font-weight: 500 !important;
-  border-radius: var(--radius-lg) !important;
-  padding: 0.6rem 1.15rem !important;
+  border-radius: 8px !important;
+  padding: 0.55rem 1.15rem !important;
   font-size: 0.875rem !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -239,9 +239,9 @@ body {
 }
 
 .btn-sm {
-  padding: 0.4rem 0.8rem !important;
+  padding: 0.35rem 0.75rem !important;
   font-size: 0.8125rem !important;
-  border-radius: var(--radius-md) !important;
+  border-radius: 6px !important;
 }
 
 .btn-circle-meta {
@@ -265,7 +265,7 @@ body {
   color: var(--admin-ink) !important;
 }
 
-/* Form Controls (Inputs, Selects, Textareas) */
+/* Form Controls (Inputs, Selects, Textareas - TailAdmin 8px Radii) */
 .form-control,
 .form-select {
   background-color: var(--admin-surface) !important;
@@ -273,9 +273,9 @@ body {
   color: var(--admin-ink) !important;
   font-size: 0.875rem !important;
   font-weight: 450 !important;
-  border-radius: var(--radius-lg) !important;
-  padding: 0.625rem 0.95rem !important;
-  min-height: 44px;
+  border-radius: 8px !important;
+  padding: 0.55rem 0.875rem !important;
+  min-height: 40px;
   line-height: 1.5;
   box-shadow: var(--admin-shadow-xs) !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease !important;

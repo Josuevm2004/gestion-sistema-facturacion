@@ -805,16 +805,16 @@
 }
 
 .admin-login-card .form-control {
-  min-height: 48px;
+  min-height: 44px;
   font-size: 0.9375rem;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   padding-left: 16px;
 }
 
 .admin-login-card .btn-primary {
-  min-height: 48px;
+  min-height: 44px;
   font-size: 0.9375rem;
-  border-radius: 12px !important;
+  border-radius: 8px !important;
   margin-top: 8px;
 }
 

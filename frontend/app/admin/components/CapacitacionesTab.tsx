@@ -91,7 +91,7 @@ export default function CapacitacionesTab({
             <small className="text-muted fw-semibold">Monitoreo y asignación de fechas de capacitación real</small>
           </div>
         </div>
-        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#EEF4FE', color: '#465FFF', border: '1px solid #DCE4FF' }}>
+        <span className="admin-badge-count-pill admin-badge-count-pill--primary">
           {targetList.length} Registros
         </span>
       </div>
