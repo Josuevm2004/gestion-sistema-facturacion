@@ -5,7 +5,7 @@ import Image from 'next/image';
 import {
   Activity, AlertTriangle, Bell, CheckCheck, CheckCircle2, ChevronDown, ChevronRight,
   FileSpreadsheet, GraduationCap, LayoutDashboard, LockKeyhole, LogOut, Menu,
-  Moon, PanelLeftClose, PanelLeftOpen, Search, Sun, UserPlus, Users, WalletCards, X,
+  Moon, Search, Sun, UserPlus, Users, WalletCards, X,
 } from 'lucide-react';
 
 type AdminNavItem = {
@@ -162,12 +162,9 @@ export default function AdminNavbar({
             aria-label="Ir al resumen"
           >
             <span className="admin-sidebar-brand-icon">
-              <Image src="/logo.jpeg" alt="" width={32} height={32} />
+              <Image src="/logo.jpeg" alt="" width={36} height={36} />
             </span>
-            <span className="admin-sidebar-brand-copy">
-              <strong>Miquipu</strong>
-              <small>Facturación</small>
-            </span>
+            <span className="admin-sidebar-brand-title">Miquipu</span>
           </button>
           <button
             type="button"
@@ -218,14 +215,6 @@ export default function AdminNavbar({
             </div>
           ))}
         </nav>
-
-        <div className="admin-sidebar-footer">
-          <span className="admin-sidebar-footer-dot" />
-          <span className="admin-sidebar-footer-copy">
-            <strong>Panel operativo</strong>
-            <small>Facturación electrónica</small>
-          </span>
-        </div>
       </aside>
 
       {/* TailAdmin Clean Header */}
@@ -233,23 +222,19 @@ export default function AdminNavbar({
         <div className="admin-topbar-start">
           <button
             type="button"
-            className="admin-header-icon-button admin-mobile-menu-button"
-            aria-label="Abrir menú lateral"
-            aria-expanded={isMobileMenuOpen}
-            onClick={() => setIsMobileMenuOpen(true)}
-          >
-            <Menu size={20} />
-          </button>
-
-          <button
-            type="button"
-            className="admin-header-icon-button admin-sidebar-toggle"
-            onClick={toggleSidebar}
+            className="admin-sidebar-toggle-btn"
+            onClick={() => {
+              if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+                setIsMobileMenuOpen((prev) => !prev);
+              } else {
+                toggleSidebar();
+              }
+            }}
             aria-label={isSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
             aria-expanded={!isSidebarCollapsed}
-            title={isSidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
+            title={isSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
           >
-            {isSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+            <Menu size={18} />
           </button>
 
           <form className="admin-topbar-search" role="search" onSubmit={handleHeaderSearch}>
@@ -294,7 +279,7 @@ export default function AdminNavbar({
             >
               <Bell size={18} />
               {activeNotifications.length > 0 && (
-                <span className="admin-notification-count">{activeNotifications.length}</span>
+                <span className="admin-notification-badge-dot" />
               )}
             </button>
 
@@ -409,11 +394,8 @@ export default function AdminNavbar({
               }}
             >
               <span className="admin-profile-avatar">{userInitials}</span>
-              <span className="admin-profile-meta">
-                <strong>{userName}</strong>
-                <small>{currentUser?.rol || 'ADMIN'}</small>
-              </span>
-              <ChevronDown size={15} className="admin-profile-chevron" />
+              <span className="admin-profile-name">{userName}</span>
+              <ChevronDown size={14} className="admin-profile-chevron" />
             </button>
 
             {showProfileDropdown && (

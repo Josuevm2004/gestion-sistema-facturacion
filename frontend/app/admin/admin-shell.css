@@ -70,44 +70,29 @@
 
 .admin-sidebar-brand-icon {
   display: inline-flex;
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: var(--admin-primary-light);
-  border: 1px solid var(--admin-primary-border);
-  border-radius: 12px;
+  background: #465FFF;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(70, 95, 255, 0.25);
 }
 
 .admin-sidebar-brand-icon img {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
   object-fit: cover;
 }
 
-.admin-sidebar-brand-copy {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-}
-
-.admin-sidebar-brand-copy strong {
+.admin-sidebar-brand-title {
   color: var(--admin-ink);
-  font-size: 1.25rem;
+  font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.035em;
-}
-
-.admin-sidebar-brand-copy small {
-  margin-top: 3px;
-  color: var(--admin-muted);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  line-height: 1;
 }
 
 .admin-sidebar-mobile-close {
@@ -118,18 +103,18 @@
 .admin-sidebar-nav {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 18px 12px 24px;
+  padding: 16px 12px 24px;
   overflow-x: hidden;
   overflow-y: auto;
 }
 
 .admin-sidebar-group + .admin-sidebar-group {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
 .admin-nav-group-title {
   margin: 0 0 8px;
-  padding: 0 14px;
+  padding: 0 12px;
   color: #94A3B8;
   font-size: 0.6875rem;
   font-weight: 700;
@@ -145,10 +130,11 @@
   gap: 3px;
 }
 
-/* Nav Item Pill */
+/* Nav Item (TailAdmin 8px radius) */
 .admin-sidebar-link {
   display: flex;
   width: 100%;
+  height: 44px;
   min-height: 44px;
   padding: 0 14px;
   align-items: center;
@@ -156,7 +142,7 @@
   color: #64748B;
   background: transparent;
   border: 0;
-  border-radius: 12px;
+  border-radius: 8px !important;
   cursor: pointer;
   font-size: 0.875rem;
   font-weight: 500;
@@ -168,7 +154,7 @@
 
 .admin-sidebar-link:hover {
   color: var(--admin-ink);
-  background-color: #F1F5F9;
+  background-color: #F8FAFC;
 }
 
 /* TailAdmin Active Nav Item */
@@ -180,8 +166,8 @@
 
 .admin-sidebar-link-icon {
   display: inline-flex;
-  width: 20px;
-  min-width: 20px;
+  width: 19px;
+  min-width: 19px;
   align-items: center;
   justify-content: center;
   color: inherit;
@@ -203,65 +189,19 @@
   min-width: 20px;
   height: 20px;
   margin-left: auto;
-  padding: 0 6px;
+  padding: 0 7px;
   align-items: center;
   justify-content: center;
-  color: #64748B;
-  background-color: #F1F5F9;
   border-radius: 9999px;
   font-size: 0.6875rem;
   font-weight: 700;
 }
 
-.admin-sidebar-link.active .admin-sidebar-count {
-  background-color: rgba(70, 95, 255, 0.14);
-  color: #465FFF;
-}
-
-/* Sidebar Footer */
-.admin-sidebar-footer {
-  display: flex;
-  min-height: 64px;
-  margin: 0 16px;
-  padding: 14px 12px;
-  align-items: center;
-  gap: 10px;
-  border-top: 1px solid var(--admin-line);
-}
-
-.admin-sidebar-footer-dot {
-  width: 8px;
-  height: 8px;
-  flex: 0 0 8px;
-  background: #10B981;
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px #D1FADF;
-}
-
-.admin-sidebar-footer-copy {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-
-.admin-sidebar-footer-copy strong {
-  color: var(--admin-ink);
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-.admin-sidebar-footer-copy small {
-  margin-top: 2px;
-  color: var(--admin-muted);
-  font-size: 0.6875rem;
-}
-
 /* Collapsed Sidebar */
-.admin-shell--sidebar-collapsed .admin-sidebar-brand-copy,
+.admin-shell--sidebar-collapsed .admin-sidebar-brand-title,
 .admin-shell--sidebar-collapsed .admin-nav-group-title,
 .admin-shell--sidebar-collapsed .admin-sidebar-link-label,
-.admin-shell--sidebar-collapsed .admin-sidebar-count,
-.admin-shell--sidebar-collapsed .admin-sidebar-footer-copy {
+.admin-shell--sidebar-collapsed .admin-sidebar-count {
   display: none;
 }
 
@@ -280,12 +220,6 @@
   width: 44px;
   height: 44px;
   margin: 2px auto;
-}
-
-.admin-shell--sidebar-collapsed .admin-sidebar-footer {
-  justify-content: center;
-  margin: 0 8px;
-  padding: 14px 0;
 }
 
 /* ==========================================================================
@@ -325,20 +259,43 @@
   gap: 14px;
 }
 
-/* Circular Icon Buttons */
-.admin-header-icon-button {
-  position: relative;
+/* Sidebar Toggle Button (Square with 8px radius like in TailAdmin Capturas 1, 2, 4, 5, 6) */
+.admin-sidebar-toggle-btn {
   display: inline-flex;
-  width: 42px;
-  height: 42px;
-  min-width: 42px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
   padding: 0;
   align-items: center;
   justify-content: center;
   color: #64748B;
-  background-color: var(--admin-surface);
+  background-color: #FFFFFF;
   border: 1px solid var(--admin-line);
-  border-radius: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.admin-sidebar-toggle-btn:hover {
+  color: #1C2434;
+  background-color: #F8FAFC;
+  border-color: #CBD5E1;
+}
+
+/* Circular Icon Buttons (Dark mode & Notifications) */
+.admin-header-icon-button {
+  position: relative;
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  color: #64748B;
+  background-color: #FFFFFF;
+  border: 1px solid var(--admin-line);
+  border-radius: 50%;
   cursor: pointer;
   transition: all 150ms ease;
 }
@@ -349,33 +306,36 @@
   border-color: #CBD5E1;
 }
 
-.admin-notification-trigger {
-  border-radius: 9999px !important;
+.admin-notification-badge-dot {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
+  background-color: #EF4444;
+  border-radius: 50%;
+  border: 1.5px solid #FFFFFF;
 }
 
-.admin-mobile-menu-button {
-  display: none;
-}
-
-/* Search Bar (TailAdmin Command Search) */
+/* Search Bar (TailAdmin 8px radius and 340px width) */
 .admin-topbar-search {
   display: flex;
-  width: min(100%, 380px);
-  height: 44px;
-  padding: 0 12px 0 16px;
+  width: min(100%, 340px);
+  height: 40px;
+  padding: 0 12px;
   align-items: center;
-  gap: 10px;
-  color: var(--admin-muted);
-  background-color: var(--admin-surface);
+  gap: 8px;
+  color: #64748B;
+  background-color: #FFFFFF;
   border: 1px solid var(--admin-line);
-  border-radius: 12px;
-  box-shadow: var(--admin-shadow-xs);
+  border-radius: 8px;
+  box-shadow: none;
   transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .admin-topbar-search:focus-within {
   border-color: var(--admin-primary);
-  box-shadow: 0 0 0 4px var(--admin-primary-focus);
+  box-shadow: 0 0 0 3px rgba(70, 95, 255, 0.12);
 }
 
 .admin-topbar-search input {
@@ -386,7 +346,7 @@
   background: transparent;
   border: 0;
   outline: 0;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 .admin-topbar-search input::placeholder {
@@ -395,11 +355,11 @@
 
 .admin-topbar-search kbd {
   flex: 0 0 auto;
-  padding: 3px 6px;
+  padding: 2px 6px;
   color: #64748B;
-  background: #F1F5F9;
+  background: #F8FAFC;
   border: 1px solid var(--admin-line);
-  border-radius: 6px;
+  border-radius: 4px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -584,53 +544,48 @@
   font-weight: 600;
 }
 
-/* User Profile Trigger */
+/* User Profile Trigger (TailAdmin Signature inline format) */
 .admin-profile-trigger {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 6px 4px 12px;
+  padding: 4px 8px;
   border: 0;
-  border-left: 1px solid var(--admin-line);
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.admin-profile-trigger:hover {
+  background-color: #F8FAFC;
 }
 
 .admin-profile-avatar {
   display: inline-flex;
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
   align-items: center;
   justify-content: center;
-  color: var(--admin-primary);
-  background-color: var(--admin-primary-light);
-  border: 1px solid var(--admin-primary-border);
+  color: #FFFFFF;
+  background: linear-gradient(135deg, #465FFF, #364FE0);
   border-radius: 50%;
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(70, 95, 255, 0.25);
 }
 
-.admin-profile-meta {
-  display: flex;
-  flex-direction: column;
-  text-align: left;
-  line-height: 1.25;
-}
-
-.admin-profile-meta strong {
+.admin-profile-name {
   color: var(--admin-ink);
   font-size: 0.875rem;
-  font-weight: 600;
-}
-
-.admin-profile-meta small {
-  color: var(--admin-muted);
-  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .admin-profile-chevron {
   color: #94A3B8;
+  transition: transform 150ms ease;
 }
 
 .admin-profile-panel {
