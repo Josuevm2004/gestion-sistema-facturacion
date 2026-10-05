@@ -1,0 +1,134 @@
+/* ==========================================================================
+   TAILADMIN MODAL DIALOGS THEME
+   Matches: TailAdmin React UI Specifications
+   ========================================================================== */
+
+.admin-dialog {
+  --dialog-primary: #465FFF;
+  --dialog-primary-hover: #364FE0;
+  --dialog-border: #E2E8F0;
+  --dialog-border-subtle: #F1F5F9;
+  --dialog-muted: #64748B;
+  --dialog-ink: #1C2434;
+  padding: 24px !important;
+  background: rgba(11, 20, 55, 0.5) !important;
+  backdrop-filter: blur(5px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.admin-dialog .modal-dialog {
+  width: min(100%, 540px);
+  max-width: 540px;
+  margin: 32px auto;
+}
+
+.admin-dialog .modal-dialog.modal-lg {
+  width: min(100%, 860px);
+  max-width: 860px;
+}
+
+.admin-dialog .modal-content {
+  border: 1px solid var(--dialog-border) !important;
+  border-radius: 16px !important;
+  background: #FFFFFF !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+  overflow: hidden;
+}
+
+/* Modal Header */
+.admin-dialog .modal-header {
+  padding: 20px 24px !important;
+  gap: 16px;
+  background: #FFFFFF !important;
+  border-bottom: 1px solid var(--dialog-border) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.admin-dialog .modal-title {
+  margin: 0;
+  color: var(--dialog-ink) !important;
+  font-size: 1.125rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.3;
+}
+
+.admin-dialog .modal-header small {
+  display: block;
+  margin-top: 2px;
+  color: var(--dialog-muted) !important;
+  font-size: 0.8125rem !important;
+  font-weight: 400 !important;
+}
+
+.admin-dialog .btn-circle-meta,
+.admin-dialog .modal-header .btn-close {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  padding: 0 !important;
+  color: #64748B !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--dialog-border) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.admin-dialog .btn-circle-meta:hover,
+.admin-dialog .modal-header .btn-close:hover {
+  color: var(--dialog-ink) !important;
+  background-color: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+}
+
+/* Modal Body */
+.admin-dialog .modal-body {
+  padding: 24px !important;
+  color: #344054;
+  background: #FFFFFF !important;
+  max-height: calc(85vh - 140px);
+  overflow-y: auto;
+}
+
+.admin-dialog .form-control,
+.admin-dialog .form-select {
+  border: 1px solid var(--dialog-border) !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  font-size: 0.875rem !important;
+  min-height: 44px;
+}
+
+.admin-dialog .form-control:focus,
+.admin-dialog .form-select:focus {
+  border-color: var(--dialog-primary) !important;
+  box-shadow: 0 0 0 4px rgba(70, 95, 255, 0.12) !important;
+  outline: none !important;
+}
+
+.admin-dialog .form-label {
+  color: #344054 !important;
+  font-size: 0.8125rem !important;
+  font-weight: 550 !important;
+  margin-bottom: 0.4rem !important;
+}
+
+/* Modal Footer */
+.admin-dialog .modal-footer {
+  padding: 16px 24px !important;
+  border-top: 1px solid var(--dialog-border) !important;
+  background-color: #F8FAFC !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+}

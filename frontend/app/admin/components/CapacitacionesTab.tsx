@@ -79,24 +79,25 @@ export default function CapacitacionesTab({
 
   return (
     <div className="w-100 admin-module admin-module--training">
+      <section className="admin-data-panel" aria-label="Gestión de capacitaciones">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
+      <div className="admin-module-heading d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-indigo">
-            <GraduationCap size={22} strokeWidth={2.2} />
+            <GraduationCap size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Gestión de Capacitaciones</h2>
+            <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Gestión de Capacitaciones</h2>
             <small className="text-muted fw-semibold">Monitoreo y asignación de fechas de capacitación real</small>
           </div>
         </div>
-        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE' }}>
+        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#EEF4FE', color: '#465FFF', border: '1px solid #DCE4FF' }}>
           {targetList.length} Registros
         </span>
       </div>
 
       {/* Tabla Expandida al 100% con Dropdown de Acciones */}
-      <div className="table-card-meta mb-3">
+      <div className="table-card-meta">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
             <thead>
@@ -245,6 +246,7 @@ export default function CapacitacionesTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+      </section>
     </div>
   );
 }

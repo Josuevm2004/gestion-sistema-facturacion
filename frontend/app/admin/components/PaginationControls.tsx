@@ -21,35 +21,50 @@ export default function PaginationControls({
 
   const firstItem = (currentPage - 1) * pageSize + 1;
   const lastItem = Math.min(currentPage * pageSize, totalItems);
+  const firstVisiblePage = Math.max(1, Math.min(currentPage - 2, totalPages - 4));
+  const visiblePages = Array.from(
+    { length: Math.min(5, totalPages) },
+    (_, index) => firstVisiblePage + index,
+  );
 
   return (
-    <div className="admin-pagination d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 pt-3 border-top">
-      <small className="text-muted fw-semibold">
-        Mostrando <strong className="text-dark">{firstItem}-{lastItem}</strong> de <strong className="text-dark">{totalItems}</strong> registros
+    <div className="admin-pagination d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3">
+      <small className="admin-pagination-summary">
+        Mostrando <strong>{firstItem}–{lastItem}</strong> de <strong>{totalItems}</strong> registros
       </small>
-      <div className="d-flex align-items-center gap-2" role="group" aria-label="Paginación de clientes">
+      <div className="admin-pagination-controls d-flex align-items-center gap-2" role="group" aria-label="Paginación de registros">
         <button
           type="button"
-          className="btn-meta-action btn-meta-action-secondary"
+          className="admin-pagination-arrow"
           disabled={currentPage === 1}
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+          aria-label="Página anterior"
         >
-          <ChevronLeft size={14} />
-          <span>Anterior</span>
+          <ChevronLeft size={16} />
         </button>
-        <span className="small fw-semibold text-muted px-2">
-          Página <strong className="text-dark">{currentPage}</strong> de {totalPages}
-        </span>
+        <div className="admin-pagination-pages">
+          {visiblePages.map((page) => (
+            <button
+              key={page}
+              type="button"
+              className={`admin-pagination-page${page === currentPage ? ' is-active' : ''}`}
+              onClick={() => onPageChange(page)}
+              aria-label={`Ir a página ${page}`}
+              aria-current={page === currentPage ? 'page' : undefined}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+        <span className="admin-pagination-mobile-label">{currentPage} / {totalPages}</span>
         <button
           type="button"
-          className="btn-meta-action btn-meta-action-secondary"
+          className="admin-pagination-arrow"
           disabled={currentPage === totalPages}
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          style={{ opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+          aria-label="Página siguiente"
         >
-          <span>Siguiente</span>
-          <ChevronRight size={14} />
+          <ChevronRight size={16} />
         </button>
       </div>
     </div>

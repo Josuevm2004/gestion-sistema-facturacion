@@ -18,7 +18,7 @@ export default function DeleteClientModal({
   if (!deletingClient) return null;
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
+    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
@@ -42,22 +42,21 @@ export default function DeleteClientModal({
               ¿Estás seguro de que deseas eliminar permanentemente a <strong className="text-dark">{deletingClient.razonSocial}</strong> (RUC:{' '}
               {deletingClient.ruc})?
             </p>
-            <div className="alert alert-warning mb-0 small rounded-4 border-0" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+            <div className="alert alert-warning mb-0 small rounded-3" style={{ backgroundColor: '#FFFBEB', color: '#B54708', border: '1px solid #FEDF89' }}>
               Esta acción eliminará el registro permanentemente del sistema y no se podrá deshacer.
             </div>
           </div>
-          <div className="modal-footer border-top bg-white px-4 py-3 d-flex justify-content-end gap-2">
+          <div className="modal-footer border-top bg-light px-4 py-3 d-flex justify-content-end gap-2">
             <button
               type="button"
-              className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
-              style={{ backgroundColor: '#E4E6EB' }}
+              className="btn-meta-action btn-meta-action-secondary"
               onClick={() => setDeletingClient(null)}
             >
               Cancelar
             </button>
             <button
               type="button"
-              className="btn btn-danger rounded-pill px-4 py-2 fw-bold text-white shadow-sm"
+              className="btn-meta-action btn-meta-action-danger"
               onClick={handleDeleteClientConfirm}
             >
               Sí, Eliminar Cliente

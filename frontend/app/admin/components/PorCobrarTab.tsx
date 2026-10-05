@@ -36,24 +36,25 @@ export default function PorCobrarTab({
 
   return (
     <div className="w-100 admin-module admin-module--receivables">
+      <section className="admin-data-panel" aria-label="Clientes por cobrar">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
+      <div className="admin-module-heading d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-warning">
-            <CreditCard size={22} strokeWidth={2.2} />
+            <CreditCard size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Clientes Por Cobrar</h2>
+            <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Clientes Por Cobrar</h2>
             <small className="text-muted fw-semibold">Clientes derivados del formulario web en espera de pago y confirmación</small>
           </div>
         </div>
-        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3C7', color: '#B45309' }}>
+        <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FFFBEB', color: '#B54708', border: '1px solid #FEDF89' }}>
           {clientesPorCobrarList.length} Por Cobrar
         </span>
       </div>
 
-      {/* Tabla Expandida al 100% con Dropdown que se sobrepone a todo */}
-      <div className="table-card-meta mb-3">
+      {/* Tabla Expandida al 100% con Dropdown */}
+      <div className="table-card-meta">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
             <thead>
@@ -200,6 +201,7 @@ export default function PorCobrarTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+      </section>
     </div>
   );
 }

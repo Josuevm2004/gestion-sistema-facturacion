@@ -85,14 +85,15 @@ export default function VencidosTab({
 
   return (
     <div className="w-100 admin-module admin-module--overdue">
+      <section className="admin-data-panel" aria-label="Clientes vencidos">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
+      <div className="admin-module-heading d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-danger">
-            <AlertCircle size={22} strokeWidth={2.2} />
+            <AlertCircle size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Clientes Vencidos</h2>
+            <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Clientes Vencidos</h2>
             <small className="text-muted fw-semibold">Clientes con fecha de servicio expirada que requieren renovación o corte</small>
           </div>
         </div>
@@ -100,20 +101,20 @@ export default function VencidosTab({
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-1 fw-semibold"
+              className="btn-meta-action btn-meta-action-secondary"
             >
               <RotateCcw size={13} />
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3F2', color: '#D92D20' }}>
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3F2', color: '#D92D20', border: '1px solid #FECDCA' }}>
             {hasActiveFilters ? `${filteredClients.length} de ${clientesVencidosList.length} Vencidos` : `${clientesVencidosList.length} Vencidos`}
           </span>
         </div>
       </div>
 
-      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual (Stitch Style) */}
-      <div className="stitch-filter-toolbar mb-4">
+      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual */}
+      <div className="stitch-filter-toolbar">
         <div className="row g-2 align-items-center">
           <div className="col-12 col-md-8 col-lg-6">
             <div className="stitch-filter-search">
@@ -141,8 +142,8 @@ export default function VencidosTab({
         </div>
       </div>
 
-      {/* Tabla Expandida al 100% con Dropdown que se sobrepone a todo */}
-      <div className="table-card-meta mb-3">
+      {/* Tabla Expandida al 100% con Dropdown */}
+      <div className="table-card-meta">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
             <thead>
@@ -334,6 +335,7 @@ export default function VencidosTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+      </section>
 
       {/* Modal Unificado de Renovación, Reanudación y Adelanto de Pago */}
       {pagoModalConfig && (

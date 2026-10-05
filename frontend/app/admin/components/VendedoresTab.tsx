@@ -44,14 +44,15 @@ export default function VendedoresTab({
 
   return (
     <div className="w-100 admin-module admin-module--users">
+      <section className="admin-data-panel" aria-label="Usuarios y vendedores">
       {/* Encabezado con Icono Moderno y Botón de Registro */}
-      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3 p-3 custom-card admin-module-heading">
+      <div className="admin-module-heading d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-primary">
-            <Users size={22} strokeWidth={2.2} />
+            <Users size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Gestión de Usuarios y Vendedores</h2>
+            <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Gestión de Usuarios y Vendedores</h2>
             <small className="text-muted fw-semibold">Módulo exclusivo para Administrador: alta, edición y baja de colaboradores.</small>
           </div>
         </div>
@@ -66,7 +67,7 @@ export default function VendedoresTab({
       </div>
 
       {/* Tabla Expandida al 100% con Dropdown de Acciones */}
-      <div className="table-card-meta mb-3">
+      <div className="table-card-meta">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
             <thead>
@@ -188,6 +189,7 @@ export default function VendedoresTab({
           </table>
         </div>
       </div>
+      </section>
     </div>
   );
 }

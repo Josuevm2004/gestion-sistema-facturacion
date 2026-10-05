@@ -437,10 +437,11 @@ export default function ClientesTodosTab({
 
   return (
     <div className="w-100 admin-module admin-module--clients">
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
-        <div className="d-flex align-items-center gap-2.5">
+      <section className="admin-data-panel" aria-label="Listado de clientes">
+      <div className="admin-module-heading d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-primary">
-            <Users size={22} strokeWidth={2.2} />
+            <Users size={20} strokeWidth={2.2} />
           </div>
           <div>
             <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Gestión General de Clientes</h2>
@@ -596,8 +597,8 @@ export default function ClientesTodosTab({
         </div>
       </div>
 
-      {/* Tabla de Clientes con Columnas Ajustables (Facebook Meta Style) */}
-      <div className="table-card-meta mb-4">
+      {/* Tabla de Clientes con Columnas Ajustables (TailAdmin Style) */}
+      <div className="table-card-meta">
         <div className="table-responsive" style={{ minHeight: '380px' }}>
           <table className="table table-hover align-middle mb-0 table-meta">
           <thead>
@@ -1037,11 +1038,12 @@ export default function ClientesTodosTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+      </section>
 
       {/* Modal de Personalización de Columnas */}
       {showColumnModal && (
         <div
-          className="modal fade show d-block admin-columns-modal"
+          className="modal fade show d-block admin-dialog admin-columns-modal"
           tabIndex={-1}
           style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1070 }}
         >
@@ -1126,7 +1128,7 @@ export default function ClientesTodosTab({
                 <small className="text-muted">Las preferencias se guardan de forma persistente en su navegador.</small>
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm px-4 fw-bold shadow-sm"
+                  className="btn-meta-action btn-meta-action-primary"
                   onClick={() => setShowColumnModal(false)}
                 >
                   Aceptar y Cerrar

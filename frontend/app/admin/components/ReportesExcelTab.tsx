@@ -960,14 +960,12 @@ export default function ReportesExcelTab({
           </div>
         </div>
 
-        {/* Tarjeta de Filtros de Ventas (Stitch Facebook Design) */}
-        <div className="custom-card p-3.5 mb-4">
+        {/* Filtros de ventas dentro de una tarjeta de contenido */}
+        <div className="custom-card admin-report-filter-panel p-3.5 mb-4">
           <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
             <div className="d-flex align-items-center gap-2">
-              <span className="badge-tag badge-plan-tag">
-                <Search size={12} />
-                Filtros de Ventas
-              </span>
+              <Search size={17} className="admin-report-filter-icon" />
+              <strong className="admin-report-filter-title">Filtros de Ventas</strong>
             </div>
             <span className="cell-subtext">
               Filtrado dinámico en tiempo real
@@ -1335,7 +1333,7 @@ export default function ReportesExcelTab({
         </div>
 
         {/* Tabla: Detalle de Ventas */}
-        <div className="custom-card p-3.5">
+        <div className="custom-card admin-report-table-card p-3.5">
           <div className="d-flex justify-content-between align-items-center mb-3">
             <strong className="small text-dark fw-bold">Detalle de ventas</strong>
             <small className="text-muted fw-semibold">
@@ -1455,7 +1453,7 @@ export default function ReportesExcelTab({
         </div>
 
         {/* 4 KPI Stat Cards Comisiones */}
-        <div className="row g-3 mb-4">
+        <div className="row g-3 mb-4 admin-commission-stat-strip">
           <div className="col-12 col-sm-6 col-lg-3">
             <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
               <div className="d-flex justify-content-between align-items-start mb-2">
@@ -1565,7 +1563,7 @@ export default function ReportesExcelTab({
 
           {/* Tabla: Detalle de Comisiones */}
           <div className="col-12 col-lg-7">
-            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
+            <div className="custom-card admin-report-table-card p-3.5 h-100 d-flex flex-column justify-content-between">
               <div>
                 <div className="d-flex justify-content-between align-items-center mb-3">
                   <strong className="small text-dark fw-bold">Detalle de comisiones</strong>

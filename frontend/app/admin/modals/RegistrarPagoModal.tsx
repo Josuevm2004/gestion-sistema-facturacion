@@ -232,10 +232,10 @@ export default function RegistrarPagoModal({
     : 'Cálculo proporcional según la fecha elegida en el calendario (1.º o 2.º prorrateo)';
 
   const submitButtonColor = isAdelanto
-    ? 'btn-warning text-dark'
+    ? 'btn-meta-action-warning'
     : isReanudarPago
-    ? 'btn-primary text-white'
-    : 'btn-success text-white';
+    ? 'btn-meta-action-primary'
+    : 'btn-meta-action-success';
 
   const submitButtonText = isAdelanto
     ? 'Confirmar Adelanto'
@@ -244,7 +244,7 @@ export default function RegistrarPagoModal({
     : 'Confirmar Renovación con Prorrateo';
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', zIndex: 1060 }}>
+    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', zIndex: 1060 }}>
       <div className="modal-dialog modal-dialog-centered my-4">
         <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
           <div className="modal-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
@@ -460,11 +460,10 @@ export default function RegistrarPagoModal({
               </div>
             </div>
 
-            <div className="modal-footer px-4 py-3 bg-white border-top d-flex justify-content-end gap-2">
+            <div className="modal-footer px-4 py-3 bg-light border-top d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
-                style={{ backgroundColor: '#E4E6EB' }}
+                className="btn-meta-action btn-meta-action-secondary"
                 onClick={onClose}
                 disabled={loading}
               >
@@ -472,7 +471,7 @@ export default function RegistrarPagoModal({
               </button>
               <button
                 type="submit"
-                className={`btn ${submitButtonColor} rounded-pill px-4 py-2 fw-bold shadow-sm d-inline-flex align-items-center gap-1.5`}
+                className={`btn-meta-action ${submitButtonColor} d-inline-flex align-items-center gap-1.5`}
                 disabled={loading || monto <= 0}
               >
                 {loading ? (

@@ -112,14 +112,15 @@ export default function CentroControlTab({
 
   return (
     <div className="w-100 admin-module admin-module--control">
+      <section className="admin-data-panel" aria-label="Centro de control">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
+      <div className="admin-module-heading d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-success">
-            <Activity size={22} strokeWidth={2.2} />
+            <Activity size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Centro de Control y Cobranzas</h2>
+            <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Centro de Control y Cobranzas</h2>
             <small className="text-muted fw-semibold">Monitoreo detallado de vencimientos y cálculo prorrateado</small>
           </div>
         </div>
@@ -127,20 +128,20 @@ export default function CentroControlTab({
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-1 fw-semibold"
+              className="btn-meta-action btn-meta-action-secondary"
             >
               <RotateCcw size={13} />
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#DEF7EC', color: '#03543F' }}>
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#ECFDF5', color: '#027A48', border: '1px solid #A6F4C5' }}>
             {hasActiveFilters ? `${filteredClients.length} de ${totalActivos} Clientes` : `${totalActivos} Clientes`}
           </span>
         </div>
       </div>
 
-      {/* Barra de Filtros: Buscador, Suscripción (Anual/Mensual) y Estado de Aviso (Stitch Style) */}
-      <div className="stitch-filter-toolbar mb-4">
+      {/* Barra de Filtros: Buscador, Suscripción (Anual/Mensual) y Estado de Aviso */}
+      <div className="stitch-filter-toolbar">
         <div className="row g-2 align-items-center">
           <div className="col-12 col-md-6 col-lg-5">
             <div className="stitch-filter-search">
@@ -428,6 +429,7 @@ export default function CentroControlTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+      </section>
 
       {/* Modal de Mensajes Inteligentes de Cobranza */}
       <BillingMessageModal

@@ -56,7 +56,7 @@ export default function UpgradePlanModal({
   const canUpgrade = Boolean(selectedSubscription && Number(selectedSubscription.precio || 0) > currentPrice);
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
+    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
@@ -110,25 +110,24 @@ export default function UpgradePlanModal({
                   })}
                 </select>
 
-                <div className="alert alert-success mt-3 mb-0 small border-success border-opacity-25 bg-success bg-opacity-10 text-dark">
+                <div className="alert alert-success mt-3 mb-0 small rounded-3" style={{ backgroundColor: '#ECFDF5', color: '#027A48', border: '1px solid #A7F3D0' }}>
                   <strong>Cálculo Automático:</strong> Se registrará el cobro proporcional únicamente por la diferencia del plan. Las fechas de vigencia y aniversario de cobro se conservan intactas.
                 </div>
               </>
             )}
           </div>
 
-          <div className="modal-footer border-top bg-white px-4 py-3 d-flex justify-content-end gap-2">
+          <div className="modal-footer border-top bg-light px-4 py-3 d-flex justify-content-end gap-2">
             <button
               type="button"
-              className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
-              style={{ backgroundColor: '#E4E6EB' }}
+              className="btn-meta-action btn-meta-action-secondary"
               onClick={() => setMejoraPlanClient(null)}
             >
               Cancelar
             </button>
             <button
               type="button"
-              className="btn btn-success fw-bold rounded-pill px-4 py-2 shadow-sm"
+              className="btn-meta-action btn-meta-action-success"
               disabled={!canUpgrade}
               onClick={async () => {
                 if (!selectedSubscription) return;

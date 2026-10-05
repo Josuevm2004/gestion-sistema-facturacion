@@ -137,7 +137,7 @@ export default function CreateClientModal({
 
   return (
     <div
-      className="modal d-block bg-dark bg-opacity-50"
+      className="modal admin-dialog d-block bg-dark bg-opacity-50"
       tabIndex={-1}
       style={{ backdropFilter: 'blur(6px)', overflowY: 'auto' }}
     >
@@ -184,7 +184,7 @@ export default function CreateClientModal({
               <div className="row g-3">
                 {/* --- SECCIÓN 1: MODALIDAD Y PLAN --- */}
                 <div className="col-12">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white rounded-pill px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>1</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Modalidad y Plan de Emisión</h6>
                   </div>
@@ -261,7 +261,7 @@ export default function CreateClientModal({
                         <div className="col" key={plan.key} style={{ minWidth: '120px' }}>
                           <div
                             onClick={() => setSelectedPlan(plan.key)}
-                            className={`p-2.5 rounded-3 text-center border position-relative h-100 ${
+                            className={`admin-modal-plan-card p-2.5 rounded-3 text-center border position-relative h-100 ${
                               isSelected
                                 ? 'bg-primary-subtle border-primary shadow-sm'
                                 : 'bg-white border-light-subtle'
@@ -338,7 +338,7 @@ export default function CreateClientModal({
 
                 {/* --- SECCIÓN 2: DATOS DE LA EMPRESA --- */}
                 <div className="col-12 mt-4">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>2</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Datos de la Empresa</h6>
                   </div>
@@ -416,7 +416,7 @@ export default function CreateClientModal({
 
                 {/* --- SECCIÓN 3: REPRESENTANTE LEGAL --- */}
                 <div className="col-12 mt-4">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>3</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Representante Legal / Contacto Personal</h6>
                   </div>
@@ -451,7 +451,7 @@ export default function CreateClientModal({
                 {isProduccion ? (
                   <>
                     <div className="col-12 mt-4">
-                      <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                      <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                         <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>4</span>
                         <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Accesos Clave SOL (SUNAT)</h6>
                       </div>
@@ -479,7 +479,7 @@ export default function CreateClientModal({
 
                     {/* --- SECCIÓN 5: PREGUNTAS ADICIONALES (SOLO PRODUCCIÓN) --- */}
                     <div className="col-12 mt-4">
-                      <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                      <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                         <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>5</span>
                         <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Preguntas Adicionales</h6>
                       </div>
@@ -513,11 +513,10 @@ export default function CreateClientModal({
               </div>
             </div>
 
-            <div className="modal-footer border-top bg-white px-4 py-3 flex-shrink-0 d-flex justify-content-end gap-2">
+            <div className="modal-footer border-top bg-light px-4 py-3 flex-shrink-0 d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-light rounded-pill px-4 py-2.5 fw-semibold text-dark border-0"
-                style={{ backgroundColor: '#E4E6EB' }}
+                className="btn-meta-action btn-meta-action-secondary"
                 onClick={onClose}
                 disabled={isSubmitting}
               >
@@ -525,7 +524,7 @@ export default function CreateClientModal({
               </button>
               <button
                 type="submit"
-                className="btn btn-primary rounded-pill px-4 py-2.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-2"
+                className="btn-meta-action btn-meta-action-primary"
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (

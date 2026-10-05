@@ -3,24 +3,9 @@
 import React from 'react';
 import Image from 'next/image';
 import {
-  Activity,
-  AlertTriangle,
-  Bell,
-  CalendarDays,
-  CheckCircle,
-  FileSpreadsheet,
-  GraduationCap,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  User,
-  UserPlus,
-  Users,
-  WalletCards,
-  LockKeyhole,
-  CheckCheck,
-  ChevronDown,
-  ChevronRight,
+  Activity, AlertTriangle, Bell, CheckCheck, CheckCircle2, ChevronDown, ChevronRight,
+  FileSpreadsheet, GraduationCap, LayoutDashboard, LockKeyhole, LogOut, Menu,
+  Moon, PanelLeftClose, PanelLeftOpen, Search, Sun, UserPlus, Users, WalletCards, X,
 } from 'lucide-react';
 
 type AdminNavItem = {
@@ -28,12 +13,19 @@ type AdminNavItem = {
   label: string;
   icon: React.ReactNode;
   count?: number;
+  countVariant?: 'danger' | 'warning' | 'default';
+  isNew?: boolean;
 };
 
 interface AdminNavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isSidebarCollapsed: boolean;
+  toggleSidebar: () => void;
+  headerSearch: string;
+  setHeaderSearch: (value: string) => void;
+  headerSearchRef: React.RefObject<HTMLInputElement>;
+  handleHeaderSearch: (event: React.FormEvent<HTMLFormElement>) => void;
   clientesPorCobrarList: any[];
   clientesVencidosList: any[];
   clientesBloqueadosList: any[];
@@ -41,12 +33,12 @@ interface AdminNavbarProps {
   notifications?: any[];
   currentUser: any;
   showNotificationsDropdown: boolean;
-  setShowNotificationsDropdown: (b: boolean) => void;
+  setShowNotificationsDropdown: (open: boolean) => void;
   showProfileDropdown: boolean;
-  setShowProfileDropdown: (b: boolean) => void;
-  setShowNewUserModal: (b: boolean) => void;
+  setShowProfileDropdown: (open: boolean) => void;
+  setShowNewUserModal: (open: boolean) => void;
   handleLogout: () => void;
-  setCalendarSearch: (s: string) => void;
+  setCalendarSearch: (value: string) => void;
   handleMarkNotificationAsRead?: (id: string | number) => void;
   handleMarkAllNotificationsAsRead?: () => void;
 }
@@ -55,10 +47,14 @@ export default function AdminNavbar({
   activeTab,
   setActiveTab,
   isSidebarCollapsed,
+  toggleSidebar,
+  headerSearch,
+  setHeaderSearch,
+  headerSearchRef,
+  handleHeaderSearch,
   clientesPorCobrarList,
   clientesVencidosList,
   clientesBloqueadosList,
-  clientesPorVencer1DiaList,
   notifications = [],
   currentUser,
   showNotificationsDropdown,
@@ -72,459 +68,423 @@ export default function AdminNavbar({
   handleMarkAllNotificationsAsRead,
 }: AdminNavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [isDarkMode, setIsDarkMode] = React.useState(false);
 
-  // Las alertas activas provienen directamente de la tabla notificacion de la base de datos (leida = false)
-  const activeNotifications = React.useMemo(() => {
-    return (Array.isArray(notifications) ? notifications : []).filter((n: any) => n && !n.leida);
-  }, [notifications]);
+  const activeNotifications = React.useMemo(
+    () => (Array.isArray(notifications) ? notifications : []).filter((notification: any) => notification && !notification.leida),
+    [notifications],
+  );
 
-  const alertCount = activeNotifications.length;
+  React.useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onEscape);
+    return () => window.removeEventListener('keydown', onEscape);
+  }, [isMobileMenuOpen]);
 
   const navGroups: Array<{ label: string; items: AdminNavItem[] }> = [
-    { label: 'Panel', items: [{ key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={17} /> }] },
+    {
+      label: 'CRM',
+      items: [
+        { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={19} strokeWidth={1.8} /> },
+      ],
+    },
     {
       label: 'Clientes',
       items: [
-        { key: 'todos', label: 'Todos los clientes', icon: <Users size={17} /> },
-        { key: 'cobrar', label: 'Por cobrar', icon: <WalletCards size={17} />, count: clientesPorCobrarList.length },
-        { key: 'vencidos', label: 'Vencidos', icon: <AlertTriangle size={17} />, count: clientesVencidosList.length },
-        { key: 'bloqueados', label: 'Bloqueados', icon: <LockKeyhole size={17} />, count: clientesBloqueadosList.length },
+        { key: 'todos', label: 'Todos los clientes', icon: <Users size={19} strokeWidth={1.8} /> },
+        {
+          key: 'cobrar',
+          label: 'Por cobrar',
+          icon: <WalletCards size={19} strokeWidth={1.8} />,
+          count: clientesPorCobrarList.length,
+          countVariant: 'warning',
+        },
+        {
+          key: 'vencidos',
+          label: 'Vencidos',
+          icon: <AlertTriangle size={19} strokeWidth={1.8} />,
+          count: clientesVencidosList.length,
+          countVariant: 'danger',
+        },
+        {
+          key: 'bloqueados',
+          label: 'Bloqueados',
+          icon: <LockKeyhole size={19} strokeWidth={1.8} />,
+          count: clientesBloqueadosList.length,
+          countVariant: 'default',
+        },
       ],
     },
     {
       label: 'Gestión',
       items: [
-        { key: 'capacitaciones', label: 'Capacitaciones', icon: <GraduationCap size={17} /> },
-        { key: 'reporte', label: 'Reporte general', icon: <FileSpreadsheet size={17} /> },
-        ...(currentUser?.rol === 'ADMIN' ? [{ key: 'usuarios', label: 'Vendedores / usuarios', icon: <Users size={17} /> }] : []),
+        { key: 'capacitaciones', label: 'Capacitaciones', icon: <GraduationCap size={19} strokeWidth={1.8} /> },
+        { key: 'reporte', label: 'Reporte general', icon: <FileSpreadsheet size={19} strokeWidth={1.8} /> },
+        ...(currentUser?.rol === 'ADMIN'
+          ? [{ key: 'usuarios', label: 'Vendedores y usuarios', icon: <Users size={19} strokeWidth={1.8} /> }]
+          : []),
       ],
     },
   ];
 
+  const selectTab = (key: string) => {
+    setActiveTab(key);
+    setIsMobileMenuOpen(false);
+  };
+
+  const userName = currentUser?.nombre || currentUser?.username || 'Usuario Admin';
+  const userInitials = String(userName).slice(0, 2).toUpperCase();
+
   return (
-    <nav className={`admin-navbar stitch-navbar navbar navbar-expand-lg sticky-top py-0 ${isSidebarCollapsed ? 'admin-navbar--collapsed' : ''}`} aria-label="Navegación principal">
-      <div className="container-fluid h-100 d-flex align-items-center justify-content-between px-2 px-md-3">
-        <button type="button" className="admin-sidebar-brand" onClick={() => setActiveTab('resumen')} aria-label="Ir al resumen">
-          <span className="admin-sidebar-brand-icon"><Image src="/logo.jpeg" alt="" width={36} height={36} /></span>
-          <span className="admin-sidebar-brand-copy"><strong>Miquipu</strong><small>Facturación</small></span>
-        </button>
-
-        {/* Mobile Toggler */}
+    <>
+      {isMobileMenuOpen && (
         <button
-          className="navbar-toggler border-0 text-dark p-2 rounded-circle d-lg-none"
-          style={{ backgroundColor: '#F2F4F7' }}
           type="button"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          aria-controls="adminNavbarOffcanvas"
-          aria-expanded={isMobileMenuOpen}
-          aria-label={isMobileMenuOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
-        >
-          <Menu size={20} aria-hidden="true" />
-        </button>
+          className="admin-sidebar-backdrop"
+          aria-label="Cerrar menú lateral"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
 
-        {/* Backdrop en móvil */}
-        {isMobileMenuOpen && (
-          <div
-            className="offcanvas-backdrop fade show d-lg-none"
+      {/* TailAdmin Clean Sidebar */}
+      <aside
+        className={`admin-sidebar ${isMobileMenuOpen ? 'admin-sidebar--open' : ''}`}
+        aria-label="Navegación principal"
+      >
+        <div className="admin-sidebar-top">
+          <button
+            type="button"
+            className="admin-sidebar-brand"
+            onClick={() => selectTab('resumen')}
+            aria-label="Ir al resumen"
+          >
+            <span className="admin-sidebar-brand-icon">
+              <Image src="/logo.jpeg" alt="" width={32} height={32} />
+            </span>
+            <span className="admin-sidebar-brand-copy">
+              <strong>Miquipu</strong>
+              <small>Facturación</small>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="admin-sidebar-mobile-close"
+            aria-label="Cerrar menú"
             onClick={() => setIsMobileMenuOpen(false)}
-            style={{ zIndex: 1040 }}
-          />
-        )}
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-        {/* Navigation Content */}
-        <div
-          className={`offcanvas offcanvas-start offcanvas-lg bg-white text-dark flex-grow-1 ${isMobileMenuOpen ? 'show' : ''}`}
-          tabIndex={-1}
-          id="adminNavbarOffcanvas"
-          style={{ visibility: isMobileMenuOpen ? 'visible' : undefined }}
-        >
-          <div className="offcanvas-header border-bottom d-lg-none py-3 px-3.5">
-            <div className="d-flex align-items-center gap-2.5">
-              <Image src="/logo.jpeg" alt="Miquipu Logo" width={34} height={34} className="rounded-circle shadow-xs" />
-              <div>
-                <h5 className="offcanvas-title text-dark fw-bolder mb-0 fs-6">Miquipu Facturación</h5>
-                <span className="text-muted" style={{ fontSize: '0.72rem' }}>Panel de Control</span>
+        <nav className="admin-sidebar-nav" aria-label="Módulos del sistema">
+          {navGroups.map((group) => (
+            <div className="admin-sidebar-group" key={group.label}>
+              <div className="admin-nav-group-title">{group.label}</div>
+              <div className="admin-sidebar-links">
+                {group.items.map((item) => {
+                  const active = activeTab === item.key;
+                  return (
+                    <button
+                      type="button"
+                      key={item.key}
+                      className={`admin-sidebar-link ${active ? 'active' : ''}`}
+                      onClick={() => selectTab(item.key)}
+                      aria-current={active ? 'page' : undefined}
+                      title={isSidebarCollapsed ? item.label : undefined}
+                    >
+                      <span className="admin-sidebar-link-icon">{item.icon}</span>
+                      <span className="admin-sidebar-link-label">{item.label}</span>
+                      {Boolean(item.count) && (
+                        <span
+                          className="admin-sidebar-count"
+                          style={
+                            item.countVariant === 'danger' && !active
+                              ? { backgroundColor: '#FEF2F2', color: '#B42318' }
+                              : item.countVariant === 'warning' && !active
+                              ? { backgroundColor: '#FFFBEB', color: '#B54708' }
+                              : undefined
+                          }
+                        >
+                          {item.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
+          ))}
+        </nav>
+
+        <div className="admin-sidebar-footer">
+          <span className="admin-sidebar-footer-dot" />
+          <span className="admin-sidebar-footer-copy">
+            <strong>Panel operativo</strong>
+            <small>Facturación electrónica</small>
+          </span>
+        </div>
+      </aside>
+
+      {/* TailAdmin Clean Header */}
+      <header className="admin-topbar" aria-label="Encabezado del panel">
+        <div className="admin-topbar-start">
+          <button
+            type="button"
+            className="admin-header-icon-button admin-mobile-menu-button"
+            aria-label="Abrir menú lateral"
+            aria-expanded={isMobileMenuOpen}
+            onClick={() => setIsMobileMenuOpen(true)}
+          >
+            <Menu size={20} />
+          </button>
+
+          <button
+            type="button"
+            className="admin-header-icon-button admin-sidebar-toggle"
+            onClick={toggleSidebar}
+            aria-label={isSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
+            aria-expanded={!isSidebarCollapsed}
+            title={isSidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+          </button>
+
+          <form className="admin-topbar-search" role="search" onSubmit={handleHeaderSearch}>
+            <Search size={18} aria-hidden="true" />
+            <input
+              ref={headerSearchRef}
+              type="search"
+              value={headerSearch}
+              onChange={(event) => setHeaderSearch(event.target.value)}
+              placeholder="Buscar o escribir un comando..."
+              aria-label="Buscar clientes o escribir comando"
+            />
+            <kbd>⌘K</kbd>
+          </form>
+        </div>
+
+        <div className="admin-topbar-actions">
+          {/* Theme toggle (Moon/Sun) matching TailAdmin */}
+          <button
+            type="button"
+            className="admin-header-icon-button"
+            style={{ borderRadius: '50%' }}
+            title={isDarkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            aria-label="Modo de color"
+            onClick={() => setIsDarkMode((prev) => !prev)}
+          >
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          {/* Notifications button */}
+          <div className="admin-header-popover-anchor">
             <button
               type="button"
-              className="btn-close"
-              onClick={() => setIsMobileMenuOpen(false)}
-              aria-label="Cerrar"
-            ></button>
+              className="admin-header-icon-button admin-notification-trigger"
+              title="Notificaciones"
+              aria-label={`Notificaciones${activeNotifications.length ? `, ${activeNotifications.length} pendientes` : ''}`}
+              aria-expanded={showNotificationsDropdown}
+              onClick={() => {
+                setShowNotificationsDropdown(!showNotificationsDropdown);
+                setShowProfileDropdown(false);
+              }}
+            >
+              <Bell size={18} />
+              {activeNotifications.length > 0 && (
+                <span className="admin-notification-count">{activeNotifications.length}</span>
+              )}
+            </button>
+
+            {showNotificationsDropdown && (
+              <>
+                <button
+                  type="button"
+                  className="admin-popover-backdrop"
+                  aria-label="Cerrar notificaciones"
+                  onClick={() => setShowNotificationsDropdown(false)}
+                />
+                <div className="admin-notification-panel-fb" role="dialog" aria-label="Notificaciones">
+                  <div className="admin-popover-header">
+                    <div>
+                      <strong>Notificaciones</strong>
+                      <span>Alertas y recordatorios recientes</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="admin-popover-close"
+                      aria-label="Cerrar"
+                      onClick={() => setShowNotificationsDropdown(false)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  {activeNotifications.length > 0 && (
+                    <div className="admin-notification-toolbar">
+                      <span>{activeNotifications.length} pendientes</span>
+                      <button type="button" onClick={() => handleMarkAllNotificationsAsRead?.()}>
+                        <CheckCheck size={14} /> Marcar todas como leídas
+                      </button>
+                    </div>
+                  )}
+                  <div className="admin-notification-list">
+                    {activeNotifications.length === 0 ? (
+                      <div className="admin-notification-empty p-4 text-center">
+                        <span className="d-inline-flex p-3 rounded-circle bg-success bg-opacity-10 text-success mb-2">
+                          <CheckCircle2 size={24} />
+                        </span>
+                        <strong className="d-block text-dark">¡Estás al día!</strong>
+                        <p className="text-muted small mb-0">No tienes alertas pendientes.</p>
+                      </div>
+                    ) : (
+                      activeNotifications.map((notification: any) => {
+                        const overdue =
+                          notification.tipo?.toLowerCase().includes('venc') ||
+                          notification.mensaje?.toLowerCase().includes('venc');
+                        const payment =
+                          notification.tipo?.toLowerCase().includes('cobr') ||
+                          notification.tipo?.toLowerCase().includes('pago');
+                        return (
+                          <button
+                            type="button"
+                            key={`notif-${notification.id}`}
+                            className="admin-notification-item"
+                            onClick={() => {
+                              if (notification.id && handleMarkNotificationAsRead) {
+                                handleMarkNotificationAsRead(notification.id);
+                              }
+                              if (notification.clienteRazonSocial) {
+                                setCalendarSearch(notification.clienteRazonSocial);
+                                selectTab('todos');
+                                setShowNotificationsDropdown(false);
+                              }
+                            }}
+                          >
+                            <span
+                              className={`admin-notification-icon ${
+                                overdue
+                                  ? 'admin-notification-icon--danger'
+                                  : payment
+                                  ? 'admin-notification-icon--warning'
+                                  : ''
+                              }`}
+                            >
+                              {overdue ? (
+                                <AlertTriangle size={18} />
+                              ) : payment ? (
+                                <WalletCards size={18} />
+                              ) : (
+                                <Bell size={18} />
+                              )}
+                            </span>
+                            <span className="admin-notification-copy">
+                              <strong>{notification.clienteRazonSocial || notification.titulo || 'Cliente'}</strong>
+                              <span>{notification.mensaje}</span>
+                              <small>{notification.tipo || 'Aviso'}</small>
+                            </span>
+                            <span className="admin-notification-unread" />
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
-          <div className="offcanvas-body h-100 d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between p-3 p-lg-0">
-            {/* Center Navigation Links (Vertical in Mobile, Horizontal in Desktop) */}
-            <ul className="navbar-nav stitch-navbar-nav-scroll admin-sidebar-nav d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0 w-100 w-lg-auto">
-              {navGroups.map((group) => (
-                <React.Fragment key={group.label}>
-                  <li className="admin-nav-group-title" aria-hidden="true">{group.label}</li>
-                  {group.items.map((item) => {
-                    const isActive = activeTab === item.key;
-                    return (
-                      <li className="nav-item h-lg-100 w-100 w-lg-auto d-flex align-items-center" key={item.key}>
-                        <button
-                          className={`stitch-nav-tab w-100 w-lg-auto ${isActive ? 'active' : ''}`}
-                          onClick={() => {
-                            setActiveTab(item.key);
-                            setIsMobileMenuOpen(false);
-                          }}
-                          aria-current={isActive ? 'page' : undefined}
-                          title={isSidebarCollapsed ? item.label : undefined}
-                        >
-                          <span className={`d-inline-flex align-items-center justify-content-center ${isActive ? 'text-primary' : 'text-muted'}`}>
-                            {item.icon}
-                          </span>
-                          <span>{item.label}</span>
-                          {!!item.count && (
-                            <span
-                              className={`badge rounded-pill fw-bold ms-auto ms-lg-0 ${
-                                item.key === 'cobrar'
-                                  ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
-                                  : item.key === 'vencidos'
-                                  ? 'bg-danger-subtle text-danger-emphasis border border-danger-subtle'
-                                  : item.key === 'bloqueados'
-                                  ? 'bg-secondary-subtle text-secondary border'
-                                  : 'bg-primary text-white'
-                              }`}
-                              style={{ fontSize: '0.68rem', padding: '0.22em 0.55em' }}
-                            >
-                              {item.count}
-                            </span>
-                          )}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </React.Fragment>
-              ))}
-            </ul>
+          {/* User profile dropdown */}
+          <div className="admin-header-popover-anchor">
+            <button
+              type="button"
+              className="admin-profile-trigger"
+              title="Perfil de usuario"
+              aria-label="Perfil de usuario"
+              aria-expanded={showProfileDropdown}
+              onClick={() => {
+                setShowProfileDropdown(!showProfileDropdown);
+                setShowNotificationsDropdown(false);
+              }}
+            >
+              <span className="admin-profile-avatar">{userInitials}</span>
+              <span className="admin-profile-meta">
+                <strong>{userName}</strong>
+                <small>{currentUser?.rol || 'ADMIN'}</small>
+              </span>
+              <ChevronDown size={15} className="admin-profile-chevron" />
+            </button>
 
-            <div className="admin-sidebar-footer" aria-hidden="true">
-              <span className="admin-sidebar-footer-dot" />
-              <span><strong>Panel operativo</strong><small>Facturación electrónica</small></span>
-            </div>
-
-            {/* Right Side Utility Actions (Stitch Circular Buttons) */}
-            <div className="d-flex align-items-center justify-content-between justify-content-lg-end gap-2 mt-auto mt-lg-0 ms-lg-2 position-relative w-100 w-lg-auto">
-              {/* En móvil: Indicador de sesión activa a la izquierda */}
-              <div className="d-flex d-lg-none align-items-center gap-2 overflow-hidden">
-                <span className="text-dark small fw-bold text-truncate" style={{ maxWidth: '140px' }}>
-                  {currentUser?.nombre || currentUser?.username || 'Admin'}
-                </span>
-                <span className="badge rounded-pill" style={{ backgroundColor: '#EEF2FF', color: '#465FFF', fontSize: '0.65rem' }}>
-                  {currentUser?.rol || 'ADMIN'}
-                </span>
-              </div>
-
-              <div className="d-flex align-items-center gap-2">
-              {/* Notifications Button */}
-              <div className="position-relative admin-alert-wrap">
+            {showProfileDropdown && (
+              <>
                 <button
-                  onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)}
-                  className="stitch-circle-btn shadow-xs"
-                  title="Notificaciones y Recordatorios"
-                  aria-label="Notificaciones"
-                >
-                  <Bell size={18} />
-                  {alertCount > 0 && (
-                    <span
-                      className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-white"
-                      style={{ fontSize: '0.62rem', padding: '0.2em 0.45em' }}
-                    >
-                      {alertCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Notifications Dropdown Card (Meta Photo 2 Style) */}
-                {showNotificationsDropdown && (
-                  <>
-                    <div
-                      className="d-block d-lg-none position-fixed top-0 start-0 w-100 h-100 bg-dark opacity-50"
-                      style={{ zIndex: 100040 }}
-                      onClick={() => setShowNotificationsDropdown(false)}
-                    ></div>
-
-                    <div
-                      className="admin-notification-panel-fb text-dark"
-                    >
-                      {/* Facebook Style Notifications Header */}
-                      <div className="fb-notif-header">
-                        <div className="d-flex justify-content-between align-items-center mb-2">
-                          <h3 className="h6 fw-bold text-dark mb-0 fs-5">Notificaciones</h3>
-                          <div className="d-flex align-items-center gap-2">
-                            {alertCount > 0 && (
-                              <button
-                                type="button"
-                                className="btn btn-sm rounded-pill px-2.5 py-1 fw-bold text-primary border-0 d-inline-flex align-items-center gap-1"
-                                style={{ fontSize: '0.74rem', backgroundColor: '#EEF2FF' }}
-                                onClick={() => handleMarkAllNotificationsAsRead?.()}
-                                title="Marcar todas como leídas"
-                              >
-                                <CheckCheck size={13} />
-                                <span>Marcar leídas</span>
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              className="btn-close btn-sm"
-                              onClick={() => setShowNotificationsDropdown(false)}
-                              aria-label="Cerrar"
-                            ></button>
-                          </div>
-                        </div>
-
-                        {/* Facebook Tabs: Todas / No leídas */}
-                        <div className="d-flex align-items-center gap-1.5 pt-1">
-                          <button
-                            type="button"
-                            className="fb-notif-tab active"
-                          >
-                            Todas {alertCount > 0 && `(${alertCount})`}
-                          </button>
-                          <button
-                            type="button"
-                            className="fb-notif-tab"
-                            onClick={() => handleMarkAllNotificationsAsRead?.()}
-                          >
-                            No leídas
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Notifications List (Facebook Feed Style) */}
-                      <div className="fb-notif-list">
-                        {alertCount === 0 ? (
-                          <div className="text-center text-muted py-5 px-3">
-                            <div
-                              className="mx-auto rounded-circle d-flex align-items-center justify-content-center mb-3"
-                              style={{ width: '56px', height: '56px', backgroundColor: '#E8F8F0', color: '#059669' }}
-                            >
-                              <CheckCircle size={28} />
-                            </div>
-                            <h4 className="h6 fw-bold text-dark mb-1">¡Estás al día!</h4>
-                            <p className="small text-muted mb-0">No tienes alertas pendientes ni vencimientos sin atender.</p>
-                          </div>
-                        ) : (
-                          activeNotifications.map((n: any) => {
-                            const isVencido = n.tipo?.toLowerCase().includes('venc') || n.mensaje?.toLowerCase().includes('venc');
-                            const isCobro = n.tipo?.toLowerCase().includes('cobr') || n.tipo?.toLowerCase().includes('pago');
-                            
-                            const iconBg = isVencido ? '#FEF3F2' : isCobro ? '#FEF3C7' : '#EEF2FF';
-                            const iconColor = isVencido ? '#D92D20' : isCobro ? '#D97706' : '#465FFF';
-
-                            return (
-                              <div
-                                key={`notif-${n.id}`}
-                                className="fb-notif-item unread"
-                                onClick={() => {
-                                  if (n.id && handleMarkNotificationAsRead) {
-                                    handleMarkNotificationAsRead(n.id);
-                                  }
-                                  if (n.clienteRazonSocial) {
-                                    setCalendarSearch(n.clienteRazonSocial);
-                                    setActiveTab('todos');
-                                    setShowNotificationsDropdown(false);
-                                  }
-                                }}
-                              >
-                                <div
-                                  className="fb-notif-icon shadow-xs flex-shrink-0"
-                                  style={{ backgroundColor: iconBg, color: iconColor }}
-                                >
-                                  {isVencido ? <AlertTriangle size={18} /> : isCobro ? <WalletCards size={18} /> : <Bell size={18} />}
-                                </div>
-                                <div className="flex-grow-1 overflow-hidden">
-                                  <div className="text-dark small lh-sm mb-1">
-                                    <strong className="fw-bold">{n.clienteRazonSocial || n.titulo || 'Cliente'}</strong>
-                                    <span className="text-secondary d-block text-truncate mt-0.5" style={{ fontSize: '0.80rem' }}>
-                                      {n.mensaje}
-                                    </span>
-                                  </div>
-                                  <div className="d-flex align-items-center gap-1.5 mt-1">
-                                    <span className="badge-fb badge-fb-secondary" style={{ fontSize: '0.62rem', padding: '0.15rem 0.45rem' }}>
-                                      {n.tipo || 'Aviso'}
-                                    </span>
-                                    <span className="text-muted small" style={{ fontSize: '0.72rem' }}>
-                                      Revisar cliente &bull; Clic aquí
-                                    </span>
-                                  </div>
-                                </div>
-                                <span className="fb-notif-unread-dot" title="No leído"></span>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
+                  type="button"
+                  className="admin-popover-backdrop"
+                  aria-label="Cerrar perfil"
+                  onClick={() => setShowProfileDropdown(false)}
+                />
+                <div className="admin-profile-panel" role="menu" aria-label="Opciones de usuario">
+                  <div className="admin-profile-panel-user">
+                    <span className="admin-profile-avatar">{userInitials}</span>
+                    <div>
+                      <strong className="d-block text-dark">{userName}</strong>
+                      <small className="text-muted">{currentUser?.email || currentUser?.rol || 'ADMIN'}</small>
                     </div>
-                  </>
-                )}
-              </div>
-
-              {/* Profile Avatar / Menu Button (Meta Photo 3 Style) */}
-              {/* Profile Avatar / Menu Button (Stitch Style - Icon Only) */}
-              <div className="position-relative admin-profile-wrap">
-                <button
-                  onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="btn p-0 border-0 bg-transparent d-flex align-items-center admin-profile-trigger"
-                  title="Perfil de Usuario"
-                  aria-label="Perfil de Usuario"
-                >
-                  <div className="position-relative">
-                    <div
-                      className="stitch-circle-btn shadow-xs fw-bold text-white"
-                      style={{ backgroundColor: '#101828', fontSize: '0.84rem' }}
-                    >
-                      {((currentUser?.nombre || currentUser?.username || 'AD') as string).slice(0, 2).toUpperCase()}
-                    </div>
-                    <span
-                      className="position-absolute bottom-0 end-0 rounded-circle bg-success border border-white border-2"
-                      style={{ width: '11px', height: '11px' }}
-                    ></span>
                   </div>
-                  <span className="admin-profile-meta d-none d-lg-flex">
-                    <strong>{currentUser?.nombre || currentUser?.username || 'Usuario Admin'}</strong>
-                    <small>{currentUser?.rol || 'ADMIN'}</small>
-                  </span>
-                  <ChevronDown size={15} className="admin-profile-chevron d-none d-lg-block" />
-                </button>
-
-                {/* Profile Flyout (Photo 3 Facebook Style with Backdrop) */}
-                {showProfileDropdown && (
-                  <>
-                    <div
-                      className="position-fixed top-0 start-0 w-100 h-100"
-                      style={{ zIndex: 100055, background: 'transparent' }}
-                      onClick={() => setShowProfileDropdown(false)}
-                    />
-                    <div
-                      className="admin-profile-panel text-dark"
-                      style={{ zIndex: 100060 }}
+                  <div className="admin-profile-panel-links">
+                    {currentUser?.rol === 'ADMIN' && (
+                      <>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowNewUserModal(true);
+                            setShowProfileDropdown(false);
+                          }}
+                        >
+                          <UserPlus size={16} /> Registrar nuevo vendedor <ChevronRight size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            selectTab('usuarios');
+                            setShowProfileDropdown(false);
+                          }}
+                        >
+                          <Users size={16} /> Gestión de vendedores <ChevronRight size={14} />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        selectTab('reporte');
+                        setShowProfileDropdown(false);
+                      }}
                     >
-                      {/* User Top Card (Facebook Style) */}
-                      <div className="p-3 border rounded-3 mb-2 shadow-xs" style={{ backgroundColor: '#F2F4F7' }}>
-                        <div className="d-flex align-items-center gap-3">
-                          <div
-                            className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm flex-shrink-0"
-                            style={{ width: '46px', height: '46px', backgroundColor: '#465FFF', fontSize: '1.1rem' }}
-                          >
-                            <User size={22} />
-                          </div>
-                          <div className="overflow-hidden">
-                            <strong className="d-block text-dark text-truncate fw-bold" style={{ fontSize: '0.94rem' }}>
-                              {currentUser?.nombre || currentUser?.username || 'Usuario Admin'}
-                            </strong>
-                            <span className="badge rounded-pill mt-0.5 fw-bold" style={{ backgroundColor: '#EEF2FF', color: '#465FFF', fontSize: '0.68rem' }}>
-                              {currentUser?.rol || 'ADMIN'}
-                            </span>
-                            {currentUser?.email && (
-                              <small className="d-block text-muted text-truncate mt-0.5" style={{ fontSize: '0.74rem' }}>
-                                {currentUser.email}
-                              </small>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Menu Items (Facebook Settings List Style) */}
-                      <div className="d-flex flex-column gap-1">
-                        {currentUser?.rol === 'ADMIN' && (
-                          <>
-                            <button
-                              type="button"
-                              className="btn btn-light w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 text-dark border-0"
-                              onClick={() => {
-                                setShowNewUserModal(true);
-                                setShowProfileDropdown(false);
-                              }}
-                            >
-                              <div className="d-flex align-items-center gap-2.5">
-                                <span
-                                  className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                                  style={{ width: '36px', height: '36px', backgroundColor: '#F2F4F7', color: '#465FFF' }}
-                                >
-                                  <UserPlus size={17} />
-                                </span>
-                                <span className="fw-semibold text-nowrap" style={{ fontSize: '0.84rem' }}>Registrar Nuevo Vendedor</span>
-                              </div>
-                              <ChevronRight size={16} className="text-muted flex-shrink-0" />
-                            </button>
-
-                            <button
-                              type="button"
-                              className="btn btn-light w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 text-dark border-0"
-                              onClick={() => {
-                                setActiveTab('usuarios');
-                                setShowProfileDropdown(false);
-                              }}
-                            >
-                              <div className="d-flex align-items-center gap-2.5">
-                                <span
-                                  className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                                  style={{ width: '36px', height: '36px', backgroundColor: '#F2F4F7', color: '#465FFF' }}
-                                >
-                                  <Users size={17} />
-                                </span>
-                                <span className="fw-semibold text-nowrap" style={{ fontSize: '0.84rem' }}>Gestión de Vendedores</span>
-                              </div>
-                              <ChevronRight size={16} className="text-muted flex-shrink-0" />
-                            </button>
-                          </>
-                        )}
-
-                        <button
-                          type="button"
-                          className="btn btn-light w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 text-dark border-0"
-                          onClick={() => {
-                            setActiveTab('reporte');
-                            setShowProfileDropdown(false);
-                          }}
-                        >
-                          <div className="d-flex align-items-center gap-2.5">
-                            <span
-                              className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                              style={{ width: '36px', height: '36px', backgroundColor: '#F2F4F7', color: '#0284C7' }}
-                            >
-                              <Activity size={17} />
-                            </span>
-                            <span className="fw-semibold text-nowrap" style={{ fontSize: '0.84rem' }}>Reporte General</span>
-                          </div>
-                          <ChevronRight size={16} className="text-muted flex-shrink-0" />
-                        </button>
-
-                        <div className="border-top my-1"></div>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowProfileDropdown(false);
-                            handleLogout();
-                          }}
-                          className="btn w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 border-0"
-                          style={{ backgroundColor: '#FEF3F2', color: '#D92D20' }}
-                        >
-                          <div className="d-flex align-items-center gap-2.5">
-                            <span
-                              className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                              style={{ width: '36px', height: '36px', backgroundColor: '#FFFFFF', color: '#D92D20' }}
-                            >
-                              <LogOut size={17} />
-                            </span>
-                            <span className="fw-bold text-nowrap" style={{ fontSize: '0.84rem' }}>Cerrar Sesión</span>
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
+                      <Activity size={16} /> Reporte general <ChevronRight size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="admin-profile-logout"
+                      onClick={() => {
+                        setShowProfileDropdown(false);
+                        handleLogout();
+                      }}
+                    >
+                      <LogOut size={16} /> Cerrar sesión
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      </div>
-    </div>
-  </nav>
+      </header>
+    </>
   );
 }

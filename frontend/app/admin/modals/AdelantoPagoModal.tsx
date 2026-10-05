@@ -56,7 +56,7 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
   };
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)' }}>
+    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)' }}>
       <div className="modal-dialog modal-dialog-centered my-4">
         <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
           <div className="modal-header bg-light border-bottom px-4 py-3">
@@ -87,9 +87,9 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
               </div>
 
               {/* Explicación Visual del Periodo Adelantado */}
-              <div className="alert alert-info border-info border-opacity-25 d-flex gap-2.5 p-3 rounded-3 mb-3">
-                <AlertCircle size={20} className="text-info flex-shrink-0 mt-0.5" />
-                <div className="small text-dark" style={{ lineHeight: '1.45' }}>
+              <div className="alert alert-info d-flex gap-2.5 p-3 rounded-3 mb-3" style={{ backgroundColor: '#EEF4FE', color: '#3538CD', border: '1px solid #DCE4FF' }}>
+                <AlertCircle size={20} className="text-primary flex-shrink-0 mt-0.5" />
+                <div className="small" style={{ lineHeight: '1.45' }}>
                   <strong>Lógica de Adelanto:</strong> El pago se registra hoy, pero la nueva vigencia del servicio iniciará el <strong>{formatDate(fechaInicioCalculada)}</strong> y vencerá el <strong>{formatDate(fechaFinCalculada)}</strong>. ¡El cliente no pierde sus días actuales!
                 </div>
               </div>
@@ -129,7 +129,7 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
             <div className="modal-footer px-4 py-3 bg-light border-top d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-outline-secondary px-3.5 py-1.5 fw-semibold"
+                className="btn-meta-action btn-meta-action-secondary"
                 onClick={onClose}
                 disabled={loading}
               >
@@ -137,7 +137,7 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
               </button>
               <button
                 type="submit"
-                className="btn btn-success px-4 py-1.5 fw-bold text-white shadow-sm d-inline-flex align-items-center gap-1.5"
+                className="btn-meta-action btn-meta-action-success"
                 disabled={loading || monto <= 0}
               >
                 {loading ? (

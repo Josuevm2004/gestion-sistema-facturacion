@@ -72,14 +72,15 @@ export default function BloqueadosTab({
 
   return (
     <div className="w-100 admin-module admin-module--blocked">
+      <section className="admin-data-panel" aria-label="Clientes bloqueados">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
+      <div className="admin-module-heading d-flex justify-content-between align-items-center flex-wrap gap-3">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-dark">
-            <ShieldCheck size={22} strokeWidth={2.2} />
+            <ShieldCheck size={20} strokeWidth={2.2} />
           </div>
           <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Clientes Bloqueados / Suspendidos</h2>
+            <h2 className="fw-bold text-dark mb-0 fs-5" style={{ letterSpacing: '-0.3px' }}>Clientes Bloqueados / Suspendidos</h2>
             <small className="text-muted fw-semibold">Clientes desafiliados o con acceso restringido que pueden rehabilitarse</small>
           </div>
         </div>
@@ -87,20 +88,20 @@ export default function BloqueadosTab({
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
-              className="btn btn-sm btn-outline-secondary rounded-pill px-3 d-inline-flex align-items-center gap-1 fw-semibold"
+              className="btn-meta-action btn-meta-action-secondary"
             >
               <RotateCcw size={13} />
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#F2F4F7', color: '#4B5563' }}>
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#F1F5F9', color: '#475467', border: '1px solid #E2E8F0' }}>
             {hasActiveFilters ? `${filteredClients.length} de ${clientesBloqueadosList.length} Bloqueados` : `${clientesBloqueadosList.length} Bloqueados`}
           </span>
         </div>
       </div>
 
-      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual (Stitch Style) */}
-      <div className="stitch-filter-toolbar mb-4">
+      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual */}
+      <div className="stitch-filter-toolbar">
         <div className="row g-2 align-items-center">
           <div className="col-12 col-md-8 col-lg-6">
             <div className="stitch-filter-search">
@@ -128,8 +129,8 @@ export default function BloqueadosTab({
         </div>
       </div>
 
-      {/* Tabla Expandida al 100% con Dropdown que se sobrepone a todo */}
-      <div className="table-card-meta mb-3">
+      {/* Tabla Expandida al 100% con Dropdown */}
+      <div className="table-card-meta">
         <div className="table-responsive">
           <table className="table table-hover align-middle mb-0 table-meta">
             <thead>
@@ -174,7 +175,7 @@ export default function BloqueadosTab({
                               backgroundColor: '#F2F4F7',
                               color: '#4B5563',
                               fontSize: '0.78rem',
-                              border: '1px solid #E4E6EB',
+                              border: '1px solid #E2E8F0',
                             }}
                           >
                             {initial}
@@ -274,6 +275,7 @@ export default function BloqueadosTab({
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />
+      </section>
     </div>
   );
 }

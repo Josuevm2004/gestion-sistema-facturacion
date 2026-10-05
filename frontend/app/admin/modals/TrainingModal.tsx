@@ -25,7 +25,7 @@ export default function TrainingModal({
   if (!trainingClient) return null;
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
+    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
@@ -135,18 +135,17 @@ export default function TrainingModal({
                 </div>
               )}
             </div>
-            <div className="modal-footer border-top bg-white px-4 py-3 d-flex justify-content-end gap-2">
+            <div className="modal-footer border-top bg-light px-4 py-3 d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
-                style={{ backgroundColor: '#E4E6EB' }}
+                className="btn-meta-action btn-meta-action-secondary"
                 onClick={() => setTrainingClient(null)}
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="btn btn-success rounded-pill px-4 py-2 fw-bold text-white shadow-sm"
+                className="btn-meta-action btn-meta-action-success"
               >
                 Confirmar Programación
               </button>

@@ -116,7 +116,7 @@ export default function PaymentHistoryModal({
   ];
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
+    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
       <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
@@ -237,11 +237,10 @@ export default function PaymentHistoryModal({
               </table>
             </div>
           </div>
-          <div className="modal-footer border-top bg-white px-4 py-3 d-flex justify-content-end">
+          <div className="modal-footer border-top bg-light px-4 py-3 d-flex justify-content-end">
             <button
               type="button"
-              className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
-              style={{ backgroundColor: '#E4E6EB' }}
+              className="btn-meta-action btn-meta-action-secondary"
               onClick={() => setHistoryClient(null)}
             >
               Cerrar Historial

@@ -77,7 +77,7 @@ export default function EditClientModal({
 
   return (
     <div
-      className="modal d-block bg-dark bg-opacity-50"
+      className="modal admin-dialog d-block bg-dark bg-opacity-50"
       tabIndex={-1}
       style={{ backdropFilter: 'blur(6px)', overflowY: 'auto' }}
     >
@@ -108,7 +108,7 @@ export default function EditClientModal({
               <div className="row g-3">
                 {/* --- Datos de la Empresa --- */}
                 <div className="col-12">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>1</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Datos de la Empresa</h6>
                   </div>
@@ -144,7 +144,7 @@ export default function EditClientModal({
 
                 {/* --- Datos del Representante --- */}
                 <div className="col-12 mt-4">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>2</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Representante Legal y Contacto</h6>
                   </div>
@@ -189,7 +189,7 @@ export default function EditClientModal({
 
                 {/* --- Plan y Acceso --- */}
                 <div className="col-12 mt-4">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>3</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Plan, Asignación y Credenciales</h6>
                   </div>
@@ -334,7 +334,7 @@ export default function EditClientModal({
 
                 {/* --- DNI y Correo Representante --- */}
                 <div className="col-12 mt-4">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>4</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Datos del Representante (Diferente al dueño y socios)</h6>
                   </div>
@@ -350,7 +350,7 @@ export default function EditClientModal({
 
                 {/* --- Preguntas Adicionales --- */}
                 <div className="col-12 mt-4">
-                  <div className="d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
+                  <div className="admin-dialog-section-heading d-flex align-items-center gap-2 mb-2 pb-1 border-bottom">
                     <span className="badge bg-primary text-white px-2.5 py-1 text-uppercase" style={{ fontSize: '0.72rem' }}>5</span>
                     <h6 className="fw-bold text-dark mb-0 text-uppercase" style={{ fontSize: '0.82rem', letterSpacing: '0.5px' }}>Preguntas Adicionales</h6>
                   </div>
@@ -369,19 +369,17 @@ export default function EditClientModal({
                 </div>
               </div>
             </div>
-            <div className="modal-footer border-top bg-white px-4 py-3 flex-shrink-0 d-flex justify-content-end gap-2">
+            <div className="modal-footer border-top bg-light px-4 py-3 flex-shrink-0 d-flex justify-content-end gap-2">
               <button
                 type="button"
-                className="btn btn-light rounded-pill px-4 py-2 fw-semibold text-dark border-0"
-                style={{ backgroundColor: '#E4E6EB' }}
+                className="btn-meta-action btn-meta-action-secondary"
                 onClick={() => setEditingClient(null)}
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="btn btn-primary rounded-pill px-4 py-2 fw-bold text-white shadow-sm"
-                style={{ backgroundColor: '#465FFF', borderColor: '#465FFF' }}
+                className="btn-meta-action btn-meta-action-primary"
               >
                 Guardar Cambios
               </button>

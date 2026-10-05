@@ -275,7 +275,7 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
   if (!client) return null;
 
   return (
-    <div className="modal d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', overflowY: 'auto' }}>
+    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', overflowY: 'auto' }}>
       <div className="modal-dialog modal-dialog-centered modal-lg my-3">
         <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
           <div className="modal-header border-bottom bg-light px-4 py-3">
@@ -286,7 +286,14 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
                 <small className="text-muted fw-semibold">Cliente: <strong className="text-primary">{client.razonSocial}</strong> ({client.ruc})</small>
               </div>
             </div>
-            <button type="button" className="btn-close" onClick={onClose}></button>
+            <button
+              type="button"
+              className="btn-circle-meta border-0 text-muted"
+              onClick={onClose}
+              aria-label="Cerrar"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           <div className="bg-white border-bottom px-4 pt-2.5">
@@ -371,7 +378,7 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
             )}
           </div>
 
-          <div className="modal-footer px-4 py-3 d-flex justify-content-between align-items-center border-top bg-white">
+          <div className="modal-footer px-4 py-3 d-flex justify-content-between align-items-center border-top bg-light">
             <div className="small text-muted">
               Destinatario: <strong className="text-dark">{client.usuarioWsp || client.telefono || client.telefonoPersonal || 'Sin número'}</strong>
             </div>

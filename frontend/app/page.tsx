@@ -361,7 +361,7 @@ export default function FormularioPublicoPage() {
         <div className="public-content-grid">
           <div className="public-content-main">
         {step === 1 && (
-          <div className="card public-form-card">
+          <div className="public-form-card">
             <div className="public-form-card__heading">
               <div className="public-form-card__icon">
                 <Building2 size={22} strokeWidth={2} />
@@ -372,11 +372,16 @@ export default function FormularioPublicoPage() {
               </div>
             </div>
 
-            <form ref={formRef} onSubmit={handleSubmit} className="row g-3 needs-validation public-registration-form" noValidate>
-
-              <div className="col-12 public-section-heading">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">1. Encuesta Inicial</h2>
-              </div>
+            <form ref={formRef} onSubmit={handleSubmit} className="needs-validation public-registration-form" noValidate>
+              <section className="public-form-section public-form-section--intro">
+                <div className="public-section-heading">
+                  <span className="public-section-index">01</span>
+                  <div>
+                    <h2>Encuesta inicial</h2>
+                    <p>Cuéntanos cómo llegaste a Miquipu.</p>
+                  </div>
+                </div>
+                <div className="row g-3 public-section-body">
 
               <div className="col-md-6">
                 <label className="form-label">¿Cómo nos conoció?</label>
@@ -401,13 +406,20 @@ export default function FormularioPublicoPage() {
                 <label className="form-label">Comentarios (opcional)</label>
                 <input type="text" name="comentarios" className="form-control" placeholder="Notas adicionales..." />
               </div>
+                </div>
+              </section>
 
               {/* SECCIÓN 2: MODALIDAD DE ENTORNO */}
-              <div className="col-12 mt-4 public-section-heading">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">2. Modalidad de Entorno</h2>
-                <p className="text-muted small mb-3">Elija si su facturación se conectará directamente a SUNAT o funcionará para control interno.</p>
+              <section className="public-form-section public-form-section--environment">
+                <div className="public-section-heading">
+                  <span className="public-section-index">02</span>
+                  <div>
+                    <h2>Modalidad de entorno</h2>
+                    <p>Elige cómo se usará el sistema de facturación.</p>
+                  </div>
+                </div>
 
-                <div className="row g-3">
+                <div className="row g-3 public-section-body">
                   {entornos.map((entorno) => {
                     const isSelected = selectedEntornoId === entorno.id;
                     const esProd = !entorno.nombre.toLowerCase().includes('interno');
@@ -440,12 +452,18 @@ export default function FormularioPublicoPage() {
                     );
                   })}
                 </div>
-              </div>
+              </section>
 
               {/* SECCIÓN 3: DATOS TRIBUTARIOS */}
-              <div className="col-12 mt-4 public-section-heading">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">3. Datos de la Empresa</h2>
-              </div>
+              <section className="public-form-section public-form-section--company">
+                <div className="public-section-heading">
+                  <span className="public-section-index">03</span>
+                  <div>
+                    <h2>Datos de la empresa</h2>
+                    <p>Información comercial y tributaria de tu negocio.</p>
+                  </div>
+                </div>
+                <div className="row g-3 public-section-body">
 
               <div className="col-md-4">
                 <label className="form-label">RUC {isProduccion ? '(11 dígitos)' : '(opcional)'}</label>
@@ -526,10 +544,19 @@ export default function FormularioPublicoPage() {
                 </div>
               )}
 
+                </div>
+              </section>
+
               {/* SECCIÓN 4: DATOS PERSONALES */}
-              <div className="col-12 mt-4 public-section-heading">
-                <h2 className="h6 fw-bold text-primary text-uppercase mb-1">4. Datos Personales del Representante</h2>
-              </div>
+              <section className="public-form-section public-form-section--person">
+                <div className="public-section-heading">
+                  <span className="public-section-index">04</span>
+                  <div>
+                    <h2>Datos personales del representante</h2>
+                    <p>Contacto de la persona responsable de la cuenta.</p>
+                  </div>
+                </div>
+                <div className="row g-3 public-section-body">
 
               <div className="col-md-4">
                 <label className="form-label">Nombres</label>
@@ -556,14 +583,22 @@ export default function FormularioPublicoPage() {
                 <input type="text" name="telefonoPersonal" className="form-control" placeholder="912345678" maxLength={9} />
               </div>
 
+                </div>
+              </section>
+
               {/* CONDICIONAL: SOLO SI ES PRODUCCIÓN SE SOLICITAN CREDENCIALES SOL Y VINCULACIÓN */}
               {isProduccion ? (
                 <>
                   {/* DATOS DEL REPRESENTANTE ADICIONAL */}
-                   <div className="col-12 mt-4 public-section-heading">
-                     <h2 className="h6 fw-bold text-primary text-uppercase mb-1">Datos del Representante (Diferente al dueño y socios)</h2>
-                    <p className="text-muted small mb-0">Datos de vinculación requeridos para la gestión de su facturación electrónica ante SUNAT.</p>
-                  </div>
+                  <section className="public-form-section public-form-section--representative">
+                    <div className="public-section-heading">
+                      <span className="public-section-index">05</span>
+                      <div>
+                        <h2>Datos de vinculación</h2>
+                        <p>Representante diferente al dueño y socios para la gestión ante SUNAT.</p>
+                      </div>
+                    </div>
+                    <div className="row g-3 public-section-body">
 
                   <div className="col-md-6">
                     <label className="form-label">Número de DNI (Diferente al dueño y socios, mayor de edad)</label>
@@ -592,19 +627,25 @@ export default function FormularioPublicoPage() {
                       Correo electrónico diferente al dueño y socios.
                     </div>
                   </div>
+                    </div>
+                  </section>
 
                   {/* SECCIÓN 5: CLAVE SOL */}
-                  <div className="col-12 mt-4">
+                  <section className="public-form-section public-form-section--sunat">
+                    <div className="public-section-heading">
+                      <span className="public-section-index"><KeyRound size={16} /></span>
+                      <div>
+                        <h2>Credenciales Clave SOL (SUNAT)</h2>
+                        <p>Conecta tu cuenta para emitir comprobantes electrónicos.</p>
+                      </div>
+                    </div>
+                    <div className="public-section-body">
                      <div className="public-sunat-panel p-3 rounded-3 border bg-light">
                       <div className="alert alert-info d-flex align-items-center gap-2 mb-3 border-0 shadow-sm rounded-3" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
                         <Info size={20} className="flex-shrink-0" />
                         <div>
                           <strong>Importante:</strong> Estas credenciales son necesarias para activar nuestro sistema de facturación electrónica y completar la afiliación con SUNAT.
                         </div>
-                      </div>
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <KeyRound size={16} className="text-primary" />
-                        <strong className="text-dark">5. Credenciales Clave SOL (SUNAT)</strong>
                       </div>
                       <div className="row g-3">
                         <div className="col-md-6">
@@ -641,10 +682,11 @@ export default function FormularioPublicoPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
+                    </div>
+                  </section>
                 </>
               ) : (
-                <div className="col-12 mt-4">
+                <div className="public-control-info">
                   <div className="alert alert-info d-flex align-items-center gap-3 p-3 shadow-sm rounded-3 border-0" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
                     <Info size={24} className="flex-shrink-0" />
                     <div>
@@ -657,10 +699,15 @@ export default function FormularioPublicoPage() {
 
               {/* SECCIÓN 6: PREGUNTAS ADICIONALES (SOLO PRODUCCIÓN) */}
               {isProduccion && (
-                <>
-                   <div className="col-12 mt-4 public-section-heading">
-                     <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Preguntas Adicionales</h2>
+                <section className="public-form-section public-form-section--questions">
+                  <div className="public-section-heading">
+                    <span className="public-section-index">06</span>
+                    <div>
+                      <h2>Preguntas adicionales</h2>
+                      <p>Información que nos ayuda a configurar tu facturación.</p>
+                    </div>
                   </div>
+                  <div className="row g-3 public-section-body">
 
                   <div className="col-12">
                     <label className="form-label">1. ¿Es su primera vez usando un sistema de facturación o viene de otro sistema de facturación?:</label>
@@ -691,10 +738,11 @@ export default function FormularioPublicoPage() {
                       placeholder="Escriba su respuesta aquí..."
                     />
                   </div>
-                </>
+                  </div>
+                </section>
               )}
 
-              <div className="col-12 mt-3">
+              <div className="public-privacy-note">
                 <div className="alert alert-secondary d-flex align-items-start gap-2 mb-0 small border rounded-3">
                   <Info size={17} className="flex-shrink-0 mt-1" />
                   <div>
@@ -713,10 +761,12 @@ export default function FormularioPublicoPage() {
               </div>
 
               {/* SECCIÓN 7: SELECCIÓN DE PLAN */}
-              <div className="col-12 mt-4 public-section-heading public-plan-section">
-                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+              <section className="public-form-section public-form-section--plans public-plan-section">
+                <div className="public-section-heading public-section-heading--plans">
+                  <span className="public-section-index">07</span>
                   <div>
-                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">7. Selección de Plan</h2>
+                    <h2>Selección de plan</h2>
+                    <p>Elige la suscripción que mejor se adapta a tu empresa.</p>
                     {plansLoading && <small className="text-muted">Cargando tarifas desde la base de datos...</small>}
                     {plansError && <small className="text-danger d-block">{plansError}</small>}
                   </div>
@@ -740,7 +790,7 @@ export default function FormularioPublicoPage() {
                   </div>
                 </div>
 
-                <div className="row g-3">
+                <div className="row g-3 public-section-body">
                   {availablePlans.map((plan) => {
                     const details = PLAN_DETAILS[plan.key] || { docs: '', users: '', features: '' };
                     const price = subscriptionPrice(plan.id);
@@ -752,17 +802,15 @@ export default function FormularioPublicoPage() {
                             selectedPlan === plan.key ? 'is-selected shadow-sm' : ''
                           }`}
                         >
-                          {selectedPlan === plan.key && (
-                            <span className="public-selected-badge position-absolute top-0 end-0 translate-middle badge rounded-pill fw-bold text-white shadow-sm">
-                              Seleccionado
-                            </span>
-                          )}
-                          <div className="d-flex justify-content-between align-items-center mb-1.5">
+                          <div className="public-plan-card__header d-flex justify-content-between align-items-center">
                             <strong className="text-dark fs-6">{plan.name}</strong>
-                            <span className={`public-price-badge badge rounded-pill px-2.5 py-1 fw-bold ${selectedPlan === plan.key ? 'is-selected' : ''}`}>
-                              {price != null ? `S/ ${price.toFixed(2)}${tipoSuscripcion === 'ANUAL' ? '/año' : '/mes'}` : 'No disponible'}
-                            </span>
+                            {selectedPlan === plan.key && (
+                              <span className="public-selected-badge badge fw-bold text-white">Seleccionado</span>
+                            )}
                           </div>
+                          <span className={`public-price-badge badge fw-bold ${selectedPlan === plan.key ? 'is-selected' : ''}`}>
+                            {price != null ? `S/ ${price.toFixed(2)}${tipoSuscripcion === 'ANUAL' ? '/año' : '/mes'}` : 'No disponible'}
+                          </span>
                           <p className="small text-muted mb-1">{details.docs}</p>
                           <div className="d-flex gap-2 small text-muted">
                             <span>{details.users}</span>
@@ -777,9 +825,9 @@ export default function FormularioPublicoPage() {
                     );
                   })}
                 </div>
-              </div>
+              </section>
 
-              <div className="col-12 mt-4">
+              <div className="public-submit-area">
                 <button
                   type="submit"
                   disabled={isSubmitting || plansLoading || !selectedSubscription}

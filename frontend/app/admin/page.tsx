@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { ArrowLeft, ArrowRight, ChevronRight, LogIn, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, LogIn } from 'lucide-react';
 import { useAdminData } from './hooks/useAdminData';
 
 import AdminNavbar from './components/AdminNavbar';
@@ -26,6 +26,7 @@ import CreateClientModal from './modals/CreateClientModal';
 import './admin-theme.css';
 import './admin-shell.css';
 import './modules-theme.css';
+import './modal-theme.css';
 
 const ADMIN_PAGE_TITLES: Record<string, string> = {
   resumen: 'Resumen',
@@ -80,6 +81,11 @@ export default function AdminPage() {
           activeTab={adminData.activeTab}
           setActiveTab={adminData.setActiveTab}
           isSidebarCollapsed={isSidebarCollapsed}
+          toggleSidebar={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+          headerSearch={headerSearch}
+          setHeaderSearch={setHeaderSearch}
+          headerSearchRef={headerSearchRef}
+          handleHeaderSearch={handleHeaderSearch}
           clientesPorCobrarList={adminData.clientesPorCobrarList}
           clientesVencidosList={adminData.clientesVencidosList}
           clientesBloqueadosList={adminData.clientesBloqueadosList}
@@ -98,35 +104,7 @@ export default function AdminPage() {
         />
       )}
 
-      {adminData.token && (
-        <header className="admin-topbar" aria-label="Encabezado del panel">
-          <button
-            type="button"
-            className="admin-sidebar-toggle"
-            onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
-            aria-label={isSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
-            aria-expanded={!isSidebarCollapsed}
-            title={isSidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
-          >
-            {isSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
-          </button>
-          <form className="admin-topbar-search" role="search" onSubmit={handleHeaderSearch}>
-            <Search size={19} aria-hidden="true" />
-            <input
-              ref={headerSearchRef}
-              type="search"
-              value={headerSearch}
-              onChange={(event) => setHeaderSearch(event.target.value)}
-              placeholder="Buscar clientes..."
-              aria-label="Buscar clientes"
-            />
-            <kbd>Ctrl K</kbd>
-          </form>
-          <span className="admin-topbar-context">Panel de administración</span>
-        </header>
-      )}
-
-      <main className="admin-main container-fluid px-2 px-md-3 my-3">
+      <main className={`admin-main ${!adminData.token ? 'admin-main--login' : ''}`}>
         {adminData.notice && (
           <div className="alert admin-notice alert-info alert-dismissible fade show shadow-sm rounded-4 mb-4 border-0" role="alert">
             <span>{adminData.notice}</span>
