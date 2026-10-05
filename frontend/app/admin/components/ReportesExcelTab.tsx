@@ -805,7 +805,7 @@ export default function ReportesExcelTab({
   const planDistribution = useMemo(() => {
     const plans = [
       { key: 'INICIA', label: 'Plan Inicia', color: '#0284C7' },
-      { key: 'EMPRENDE', label: 'Plan Emprende', color: '#0866FF' },
+      { key: 'EMPRENDE', label: 'Plan Emprende', color: '#465FFF' },
       { key: 'IMPULSA', label: 'Plan Impulsa', color: '#8B5CF6' },
       { key: 'EMPRESARIAL', label: 'Plan Empresarial', color: '#059669' },
       { key: 'LIDER', label: 'Plan Líder', color: '#EA580C' },

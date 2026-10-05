@@ -19,12 +19,21 @@ import {
   WalletCards,
   LockKeyhole,
   CheckCheck,
+  ChevronDown,
   ChevronRight,
 } from 'lucide-react';
+
+type AdminNavItem = {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  count?: number;
+};
 
 interface AdminNavbarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  isSidebarCollapsed: boolean;
   clientesPorCobrarList: any[];
   clientesVencidosList: any[];
   clientesBloqueadosList: any[];
@@ -45,6 +54,7 @@ interface AdminNavbarProps {
 export default function AdminNavbar({
   activeTab,
   setActiveTab,
+  isSidebarCollapsed,
   clientesPorCobrarList,
   clientesVencidosList,
   clientesBloqueadosList,
@@ -70,18 +80,29 @@ export default function AdminNavbar({
 
   const alertCount = activeNotifications.length;
 
-  const navItems = [
-    { key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={15} /> },
-    { key: 'todos', label: 'Todos los Clientes', icon: <Users size={15} /> },
-    { key: 'cobrar', label: 'Por Cobrar', icon: <WalletCards size={15} />, count: clientesPorCobrarList.length, badge: 'bg-warning text-dark' },
-    { key: 'vencidos', label: 'Vencidos', icon: <AlertTriangle size={15} />, count: clientesVencidosList.length, badge: 'bg-danger' },
-    { key: 'bloqueados', label: 'Bloqueados', icon: <LockKeyhole size={15} />, count: clientesBloqueadosList.length, badge: 'bg-secondary' },
-    { key: 'capacitaciones', label: 'Capacitaciones', icon: <GraduationCap size={15} /> },
-    { key: 'reporte', label: 'Reporte General', icon: <FileSpreadsheet size={15} /> },
+  const navGroups: Array<{ label: string; items: AdminNavItem[] }> = [
+    { label: 'Panel', items: [{ key: 'resumen', label: 'Resumen', icon: <LayoutDashboard size={17} /> }] },
+    {
+      label: 'Clientes',
+      items: [
+        { key: 'todos', label: 'Todos los clientes', icon: <Users size={17} /> },
+        { key: 'cobrar', label: 'Por cobrar', icon: <WalletCards size={17} />, count: clientesPorCobrarList.length },
+        { key: 'vencidos', label: 'Vencidos', icon: <AlertTriangle size={17} />, count: clientesVencidosList.length },
+        { key: 'bloqueados', label: 'Bloqueados', icon: <LockKeyhole size={17} />, count: clientesBloqueadosList.length },
+      ],
+    },
+    {
+      label: 'Gestión',
+      items: [
+        { key: 'capacitaciones', label: 'Capacitaciones', icon: <GraduationCap size={17} /> },
+        { key: 'reporte', label: 'Reporte general', icon: <FileSpreadsheet size={17} /> },
+        ...(currentUser?.rol === 'ADMIN' ? [{ key: 'usuarios', label: 'Vendedores / usuarios', icon: <Users size={17} /> }] : []),
+      ],
+    },
   ];
 
   return (
-    <nav className="admin-navbar stitch-navbar navbar navbar-expand-lg sticky-top py-0">
+    <nav className={`admin-navbar stitch-navbar navbar navbar-expand-lg sticky-top py-0 ${isSidebarCollapsed ? 'admin-navbar--collapsed' : ''}`}>
       <div className="container-fluid h-100 d-flex align-items-center justify-content-between px-2 px-md-3">
         {/* Brand (Stitch Style: Logo & Title, Search Removed) */}
         <div className="d-flex align-items-center gap-2 gap-sm-2.5 flex-shrink-0 cursor-pointer" onClick={() => setActiveTab('resumen')}>
@@ -140,63 +161,50 @@ export default function AdminNavbar({
 
           <div className="offcanvas-body h-100 d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between p-3 p-lg-0">
             {/* Center Navigation Links (Vertical in Mobile, Horizontal in Desktop) */}
-            <ul className="navbar-nav stitch-navbar-nav-scroll d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0 w-100 w-lg-auto">
-              {navItems.map((item) => {
-                const isActive = activeTab === item.key;
-                return (
-                  <li className="nav-item h-lg-100 w-100 w-lg-auto d-flex align-items-center" key={item.key}>
-                    <button
-                      className={`stitch-nav-tab w-100 w-lg-auto ${isActive ? 'active' : ''}`}
-                      onClick={() => {
-                        setActiveTab(item.key);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      data-bs-dismiss="offcanvas"
-                      aria-current={isActive ? 'page' : undefined}
-                    >
-                      <span className={`d-inline-flex align-items-center justify-content-center ${isActive ? 'text-primary' : 'text-muted'}`}>
-                        {item.icon}
-                      </span>
-                      <span>{item.label}</span>
-                      {!!item.count && (
-                        <span
-                          className={`badge rounded-pill fw-bold ms-auto ms-lg-0 ${
-                            item.key === 'cobrar'
-                              ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
-                              : item.key === 'vencidos'
-                              ? 'bg-danger-subtle text-danger-emphasis border border-danger-subtle'
-                              : item.key === 'bloqueados'
-                              ? 'bg-secondary-subtle text-secondary border'
-                              : 'bg-primary text-white'
-                          }`}
-                          style={{ fontSize: '0.68rem', padding: '0.22em 0.55em' }}
+            <ul className="navbar-nav stitch-navbar-nav-scroll admin-sidebar-nav d-flex flex-column flex-lg-row align-items-lg-center h-100 gap-1 mx-lg-auto mb-3 mb-lg-0 w-100 w-lg-auto">
+              {navGroups.map((group) => (
+                <React.Fragment key={group.label}>
+                  <li className="admin-nav-group-title" aria-hidden="true">{group.label}</li>
+                  {group.items.map((item) => {
+                    const isActive = activeTab === item.key;
+                    return (
+                      <li className="nav-item h-lg-100 w-100 w-lg-auto d-flex align-items-center" key={item.key}>
+                        <button
+                          className={`stitch-nav-tab w-100 w-lg-auto ${isActive ? 'active' : ''}`}
+                          onClick={() => {
+                            setActiveTab(item.key);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          data-bs-dismiss="offcanvas"
+                          aria-current={isActive ? 'page' : undefined}
+                          title={isSidebarCollapsed ? item.label : undefined}
                         >
-                          {item.count}
-                        </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-
-              {currentUser?.rol === 'ADMIN' && (
-                <li className="nav-item h-lg-100 w-100 w-lg-auto d-flex align-items-center">
-                  <button
-                    className={`stitch-nav-tab w-100 w-lg-auto ${activeTab === 'usuarios' ? 'active' : ''}`}
-                    onClick={() => {
-                      setActiveTab('usuarios');
-                      setIsMobileMenuOpen(false);
-                    }}
-                    data-bs-dismiss="offcanvas"
-                    aria-current={activeTab === 'usuarios' ? 'page' : undefined}
-                  >
-                    <span className={`d-inline-flex align-items-center justify-content-center ${activeTab === 'usuarios' ? 'text-primary' : 'text-muted'}`}>
-                      <Users size={15} />
-                    </span>
-                    <span>Vendedores / Usuarios</span>
-                  </button>
-                </li>
-              )}
+                          <span className={`d-inline-flex align-items-center justify-content-center ${isActive ? 'text-primary' : 'text-muted'}`}>
+                            {item.icon}
+                          </span>
+                          <span>{item.label}</span>
+                          {!!item.count && (
+                            <span
+                              className={`badge rounded-pill fw-bold ms-auto ms-lg-0 ${
+                                item.key === 'cobrar'
+                                  ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
+                                  : item.key === 'vencidos'
+                                  ? 'bg-danger-subtle text-danger-emphasis border border-danger-subtle'
+                                  : item.key === 'bloqueados'
+                                  ? 'bg-secondary-subtle text-secondary border'
+                                  : 'bg-primary text-white'
+                              }`}
+                              style={{ fontSize: '0.68rem', padding: '0.22em 0.55em' }}
+                            >
+                              {item.count}
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </React.Fragment>
+              ))}
             </ul>
 
             {/* Right Side Utility Actions (Stitch Circular Buttons) */}
@@ -361,7 +369,7 @@ export default function AdminNavbar({
               <div className="position-relative admin-profile-wrap">
                 <button
                   onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                  className="btn p-0 border-0 bg-transparent d-flex align-items-center"
+                  className="btn p-0 border-0 bg-transparent d-flex align-items-center admin-profile-trigger"
                   title="Perfil de Usuario"
                   aria-label="Perfil de Usuario"
                 >
@@ -377,6 +385,11 @@ export default function AdminNavbar({
                       style={{ width: '11px', height: '11px' }}
                     ></span>
                   </div>
+                  <span className="admin-profile-meta d-none d-lg-flex">
+                    <strong>{currentUser?.nombre || currentUser?.username || 'Usuario Admin'}</strong>
+                    <small>{currentUser?.rol || 'ADMIN'}</small>
+                  </span>
+                  <ChevronDown size={15} className="admin-profile-chevron d-none d-lg-block" />
                 </button>
 
                 {/* Profile Flyout (Photo 3 Facebook Style with Backdrop) */}

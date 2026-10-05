@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { LogIn } from 'lucide-react';
+import { LogIn, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useAdminData } from './hooks/useAdminData';
 
 import AdminNavbar from './components/AdminNavbar';
@@ -38,14 +38,16 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
 
 export default function AdminPage() {
   const adminData = useAdminData();
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
   const activePageTitle = ADMIN_PAGE_TITLES[adminData.activeTab] || 'Administración';
 
   return (
-    <div className={`admin-shell min-h-screen pb-5 ${adminData.token ? 'admin-shell--authenticated' : ''}`}>
+    <div className={`admin-shell min-h-screen pb-5 ${adminData.token ? 'admin-shell--authenticated' : ''} ${adminData.token && isSidebarCollapsed ? 'admin-shell--sidebar-collapsed' : ''}`}>
       {adminData.token && (
         <AdminNavbar
           activeTab={adminData.activeTab}
           setActiveTab={adminData.setActiveTab}
+          isSidebarCollapsed={isSidebarCollapsed}
           clientesPorCobrarList={adminData.clientesPorCobrarList}
           clientesVencidosList={adminData.clientesVencidosList}
           clientesBloqueadosList={adminData.clientesBloqueadosList}
@@ -66,6 +68,16 @@ export default function AdminPage() {
 
       {adminData.token && (
         <header className="admin-topbar" aria-label="Encabezado del panel">
+          <button
+            type="button"
+            className="admin-sidebar-toggle"
+            onClick={() => setIsSidebarCollapsed((collapsed) => !collapsed)}
+            aria-label={isSidebarCollapsed ? 'Expandir menú lateral' : 'Contraer menú lateral'}
+            aria-expanded={!isSidebarCollapsed}
+            title={isSidebarCollapsed ? 'Expandir menú' : 'Contraer menú'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
+          </button>
           <div className="admin-topbar-heading">
             <span className="admin-topbar-eyebrow">MIQUIPU / ADMINISTRACIÓN</span>
             <h1>{activePageTitle}</h1>

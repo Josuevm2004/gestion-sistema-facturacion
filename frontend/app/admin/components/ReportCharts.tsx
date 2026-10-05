@@ -79,12 +79,12 @@ export function SalesTimelineChart({ data }: SalesTimelineChartProps) {
 
     // Gradientes suaves
     const blueGrad = ctx.createLinearGradient(0, 0, 0, 220);
-    blueGrad.addColorStop(0, 'rgba(8, 102, 255, 0.28)');
-    blueGrad.addColorStop(1, 'rgba(8, 102, 255, 0.00)');
+    blueGrad.addColorStop(0, 'rgba(70, 95, 255, 0.24)');
+    blueGrad.addColorStop(1, 'rgba(70, 95, 255, 0.00)');
 
     const greenGrad = ctx.createLinearGradient(0, 0, 0, 220);
-    greenGrad.addColorStop(0, 'rgba(16, 185, 129, 0.22)');
-    greenGrad.addColorStop(1, 'rgba(16, 185, 129, 0.00)');
+    greenGrad.addColorStop(0, 'rgba(18, 183, 106, 0.20)');
+    greenGrad.addColorStop(1, 'rgba(18, 183, 106, 0.00)');
 
     const Chart = (window as any).Chart;
 
@@ -96,13 +96,13 @@ export function SalesTimelineChart({ data }: SalesTimelineChartProps) {
           {
             label: 'Ventas Totales (S/)',
             data: data.map((d) => d.ventas),
-            borderColor: '#0866FF',
+            borderColor: '#465FFF',
             backgroundColor: blueGrad,
             borderWidth: 2.5,
             fill: true,
             tension: 0.35,
             pointBackgroundColor: '#FFFFFF',
-            pointBorderColor: '#0866FF',
+            pointBorderColor: '#465FFF',
             pointBorderWidth: 2,
             pointRadius: 4,
             pointHoverRadius: 6,
@@ -110,13 +110,13 @@ export function SalesTimelineChart({ data }: SalesTimelineChartProps) {
           {
             label: 'Cobranza Efectiva (S/)',
             data: data.map((d) => d.ingresos),
-            borderColor: '#10B981',
+            borderColor: '#12B76A',
             backgroundColor: greenGrad,
             borderWidth: 2.5,
             fill: true,
             tension: 0.35,
             pointBackgroundColor: '#FFFFFF',
-            pointBorderColor: '#10B981',
+            pointBorderColor: '#12B76A',
             pointBorderWidth: 2,
             pointRadius: 4,
             pointHoverRadius: 6,
@@ -362,8 +362,8 @@ export function CommissionsBarChart({ data }: CommissionsBarChartProps) {
           {
             label: 'Comisión Ganada (S/)',
             data: data.map((d) => d.comision),
-            backgroundColor: data.map((d) => (d.comision > 0 ? '#0866FF' : '#E2E8F0')),
-            hoverBackgroundColor: data.map((d) => (d.comision > 0 ? '#0052CC' : '#CBD5E1')),
+            backgroundColor: data.map((d) => (d.comision > 0 ? '#465FFF' : '#E4E7EC')),
+            hoverBackgroundColor: data.map((d) => (d.comision > 0 ? '#3641F5' : '#D0D5DD')),
             borderRadius: 6,
             borderSkipped: false,
             maxBarThickness: 32,
