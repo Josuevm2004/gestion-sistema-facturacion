@@ -46,6 +46,10 @@ export default function ResumenTab({
     return normalized;
   };
 
+  const montoPerdidoVencidos = React.useMemo(() => {
+    return (clientesVencidosList || []).reduce((acc, c) => acc + Number(c.montoSiguienteCobro || c.montoMensual || 19), 0);
+  }, [clientesVencidosList]);
+
   return (
     <div className="admin-module admin-module--overview">
       {/* TailAdmin Signature KPI Stat Cards (Matches Captura 2) */}
@@ -149,7 +153,7 @@ export default function ResumenTab({
           </div>
         </div>
 
-        {/* Card 4: Vencidos / Bloqueados */}
+        {/* Card 4: Vencidos / Bloqueados (Pérdidas y Riesgo) */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card admin-stat-card h-100">
             <div className="admin-stat-card-header">
@@ -158,14 +162,21 @@ export default function ResumenTab({
                 <AlertTriangle size={18} strokeWidth={2.2} />
               </span>
             </div>
-            <div className="d-flex align-items-center gap-1 mb-3">
+            <div className="d-flex align-items-center gap-1 mb-2">
               <span className="admin-stat-card-trend admin-stat-card-trend--danger">
-                <AlertTriangle size={13} /> Atención
+                <AlertTriangle size={13} /> Pérdida en riesgo
               </span>
-              <span className="admin-stat-card-trend-label">expirados o suspendidos</span>
+              <span className="admin-stat-card-trend-label">{clientesVencidosList.length} en mora</span>
             </div>
             <div className="d-flex align-items-end justify-content-between mt-auto">
-              <div className="admin-stat-card-value">{clientesVencidosList.length}</div>
+              <div>
+                <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.45rem' }}>
+                  S/ {montoPerdidoVencidos.toFixed(2)}
+                </div>
+                <span className="text-muted" style={{ fontSize: '0.72rem' }}>
+                  {clientesVencidosList.length} clientes suspendidos / vencidos
+                </span>
+              </div>
               <div className="admin-stat-card-sparkline">
                 <svg width="90" height="34" viewBox="0 0 90 34" fill="none" aria-hidden="true">
                   <path d="M0 18C15 14 30 26 45 12C60 22 75 16 82 20L90 14" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" />

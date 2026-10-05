@@ -14,6 +14,7 @@ import BloqueadosTab from './components/BloqueadosTab';
 import CapacitacionesTab from './components/CapacitacionesTab';
 import VendedoresTab from './components/VendedoresTab';
 import ReportesExcelTab from './components/ReportesExcelTab';
+import ComisionesTab from './components/ComisionesTab';
 
 import EditClientModal from './modals/EditClientModal';
 import DeleteClientModal from './modals/DeleteClientModal';
@@ -36,6 +37,7 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
   bloqueados: 'Bloqueados',
   capacitaciones: 'Capacitaciones',
   reporte: 'Reporte general',
+  comisiones: 'Mis comisiones',
   usuarios: 'Vendedores y usuarios',
 };
 
@@ -47,6 +49,7 @@ const ADMIN_PAGE_DESCRIPTIONS: Record<string, string> = {
   bloqueados: 'Consulta las cuentas con acceso suspendido.',
   capacitaciones: 'Organiza las capacitaciones de tus clientes.',
   reporte: 'Explora los indicadores y exporta la información.',
+  comisiones: 'Monitorea las comisiones por afiliación y ventas de los asesores.',
   usuarios: 'Administra el equipo y sus asignaciones.',
 };
 
@@ -284,6 +287,16 @@ export default function AdminPage() {
                 token={adminData.token}
                 loadData={adminData.loadData}
                 isSyncing={adminData.isSyncing}
+              />
+            )}
+
+            {adminData.activeTab === 'comisiones' && (
+              <ComisionesTab
+                clients={adminData.clients}
+                payments={adminData.payments}
+                uniqueSellers={adminData.uniqueSellers}
+                currentUser={adminData.currentUser}
+                token={adminData.token}
               />
             )}
 

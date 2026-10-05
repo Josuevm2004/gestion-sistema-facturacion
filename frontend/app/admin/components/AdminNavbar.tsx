@@ -4,7 +4,7 @@ import React from 'react';
 import Image from 'next/image';
 import {
   Activity, AlertTriangle, Bell, CheckCheck, CheckCircle2, ChevronDown, ChevronRight,
-  FileSpreadsheet, GraduationCap, LayoutDashboard, LockKeyhole, LogOut, Menu,
+  Coins, FileSpreadsheet, GraduationCap, LayoutDashboard, LockKeyhole, LogOut, Menu,
   Moon, Search, Sun, UserPlus, Users, WalletCards, X,
 } from 'lucide-react';
 
@@ -123,6 +123,7 @@ export default function AdminNavbar({
       items: [
         { key: 'capacitaciones', label: 'Capacitaciones', icon: <GraduationCap size={19} strokeWidth={1.8} /> },
         { key: 'reporte', label: 'Reporte general', icon: <FileSpreadsheet size={19} strokeWidth={1.8} /> },
+        { key: 'comisiones', label: 'Mis Comisiones', icon: <Coins size={19} strokeWidth={1.8} /> },
         ...(currentUser?.rol === 'ADMIN'
           ? [{ key: 'usuarios', label: 'Vendedores y usuarios', icon: <Users size={19} strokeWidth={1.8} /> }]
           : []),

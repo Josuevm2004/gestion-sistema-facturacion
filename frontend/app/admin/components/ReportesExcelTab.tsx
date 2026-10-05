@@ -8,16 +8,31 @@ import {
   ShoppingCart,
   DollarSign,
   AlertCircle,
-  Ticket,
-  Coins,
+  AlertTriangle,
   TrendingUp,
   Percent,
   Clock,
   Search,
   RotateCcw,
+  ShieldAlert,
+  UserPlus,
+  Repeat,
+  Calendar,
+  Layers,
+  CheckCircle2,
+  XCircle,
+  PieChart as PieIcon,
+  BarChart3,
+  HelpCircle,
+  Eye,
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
-import { SalesTimelineChart, PlanDoughnutChart, CommissionsBarChart } from './ReportCharts';
+import {
+  SalesTimelineChart,
+  PlanDoughnutChart,
+  PortfolioHealthChart,
+  RevenueTypeBarChart,
+} from './ReportCharts';
 
 export type SellerMetric = {
   vendedor: string;
@@ -670,26 +685,50 @@ export default function ReportesExcelTab({
     }
   };
 
-  // Cálculo de comisiones y métricas a partir de datos reales de la base de datos
+  // --------------------------------------------------------------------------
+  // FILTROS AVANZADOS DE INDICADORES (Por Mes de Facturación, Fechas, Asesor, etc.)
+  // --------------------------------------------------------------------------
+  const [selectedMesFacturacion, setSelectedMesFacturacion] = React.useState<string>('ALL');
   const [fechaDesde, setFechaDesde] = React.useState<string>('');
   const [fechaHasta, setFechaHasta] = React.useState<string>('');
-  const [selectedMes, setSelectedMes] = React.useState<string>('ALL');
   const [selectedEstadoPago, setSelectedEstadoPago] = React.useState<string>('ALL');
   const [selectedPlan, setSelectedPlan] = React.useState<string>('ALL');
   const [selectedVendedor, setSelectedVendedor] = React.useState<string>('ALL');
   const [selectedCliente, setSelectedCliente] = React.useState<string>('');
+  const [selectedTipoIngreso, setSelectedTipoIngreso] = React.useState<string>('ALL');
   const [selectedMetodoPago, setSelectedMetodoPago] = React.useState<string>('ALL');
-  const [selectedTipoSub, setSelectedTipoSub] = React.useState<string>('ALL');
   const [selectedRegimen, setSelectedRegimen] = React.useState<string>('ALL');
 
-  // Paginación de tablas
+  // Paginación de tabla de transacciones
   const [ventasPage, setVentasPage] = React.useState<number>(1);
-  const [comisionesPage, setComisionesPage] = React.useState<number>(1);
   const [showAllVentas, setShowAllVentas] = React.useState<boolean>(false);
-  const [showAllComisiones, setShowAllComisiones] = React.useState<boolean>(false);
   const ITEMS_PER_PAGE = 8;
 
+  const monthNamesEs = [
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'
+  ];
+
+  // Helper para convertir Date a clave 'YYYY-MM'
+  const toMonthKey = (d: Date): string => {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  // Helper para sumar meses a una clave 'YYYY-MM'
+  const addMonthsToKeyHelper = (key: string, count: number): string => {
+    const [y, m] = key.split('-').map(Number);
+    const date = new Date(y, m - 1 + count, 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+  };
+
+  // Helper para formatear 'YYYY-MM' a 'Mes Año' en español
+  const formatMonthKeyLabel = (key: string): string => {
+    const [y, m] = key.split('-').map(Number);
+    return `${monthNamesEs[m - 1]} ${y}`;
+  };
+
   // Extraer todas las transacciones reales desde la base de datos (Pagos y Clientes)
+  // Con asignación inteligente de meses cubiertos (1.° prorrateo, 2.° prorrateo que cubre 2 meses, anual que cubre 12 meses)
   const rawTransactions = useMemo(() => {
     const list: Array<{
       id: string;
@@ -706,6 +745,10 @@ export default function ReportesExcelTab({
       tipoVenta: 'ALTA' | 'RENOVACION' | 'CAMBIO_PLAN' | 'MEJORA_PLAN';
       tipoSuscripcion: string;
       regimen: string;
+      primaryMonth: string;
+      coveredMonths: string[];
+      tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN';
+      detalleCobertura: string;
     }> = [];
 
     const clientMap = new Map<string, Client>();
@@ -734,6 +777,60 @@ export default function ReportesExcelTab({
       const tipoVenta: 'ALTA' | 'RENOVACION' | 'CAMBIO_PLAN' | 'MEJORA_PLAN' =
         (p?.tipoVenta || p?.venta?.tipoVenta || (p?.venta?.ventaAnterior ? 'RENOVACION' : 'ALTA')).toUpperCase() as any;
 
+      // Calcular mes de facturación y meses cubiertos
+      const isAnual = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || cli?.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+      const isSegundoProrrateo =
+        p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
+        cli?.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
+        (p?.conProrrateo && d.getDate() >= 10) ||
+        String(p?.observaciones || '').toLowerCase().includes('segundo') ||
+        Number(cli?.diasProrrateoAdicional || 0) > 0;
+      const isPrimerProrrateo =
+        p?.tipoProrrateo === 'PRIMER_PRORRATEO' ||
+        (p?.conProrrateo && d.getDate() < 10) ||
+        String(p?.observaciones || '').toLowerCase().includes('primer');
+
+      let baseD = d;
+      if (p?.periodoInicio) {
+        const parsedStart = parseLocalDateSafe(p.periodoInicio);
+        if (parsedStart) baseD = parsedStart;
+      }
+      const primaryMonth = toMonthKey(baseD);
+      const coveredMonths: string[] = [];
+      let detalleCobertura = formatMonthKeyLabel(primaryMonth);
+
+      let tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN' = 'MENSUALIDAD';
+
+      if (isAnual) {
+        tipoIngreso = 'ANUAL';
+        for (let k = 0; k < 12; k++) {
+          coveredMonths.push(addMonthsToKeyHelper(primaryMonth, k));
+        }
+        detalleCobertura = `Anual (12 meses)`;
+      } else if (isSegundoProrrateo) {
+        tipoIngreso = 'PRORRATEO_2';
+        coveredMonths.push(primaryMonth);
+        const m2 = addMonthsToKeyHelper(primaryMonth, 1);
+        coveredMonths.push(m2);
+        detalleCobertura = `2.° Prorr. (${formatMonthKeyLabel(primaryMonth).split(' ')[0]} - ${formatMonthKeyLabel(m2)})`;
+      } else if (isPrimerProrrateo) {
+        tipoIngreso = 'PRORRATEO_1';
+        coveredMonths.push(primaryMonth);
+        detalleCobertura = `1.° Prorr. (${formatMonthKeyLabel(primaryMonth)})`;
+      } else if (tipoVenta === 'ALTA') {
+        tipoIngreso = 'ALTA';
+        coveredMonths.push(primaryMonth);
+        detalleCobertura = `Alta (${formatMonthKeyLabel(primaryMonth)})`;
+      } else if (tipoVenta === 'CAMBIO_PLAN' || tipoVenta === 'MEJORA_PLAN') {
+        tipoIngreso = 'MEJORA_PLAN';
+        coveredMonths.push(primaryMonth);
+        detalleCobertura = `Mejora Plan (${formatMonthKeyLabel(primaryMonth)})`;
+      } else {
+        tipoIngreso = 'MENSUALIDAD';
+        coveredMonths.push(primaryMonth);
+        detalleCobertura = formatMonthKeyLabel(primaryMonth);
+      }
+
       const uniqueKey = `pay-${p?.id || idx}-${p?.monto}-${fechaRaw}`;
       if (seenKeys.has(uniqueKey)) return;
       seenKeys.add(uniqueKey);
@@ -753,16 +850,44 @@ export default function ReportesExcelTab({
         tipoVenta,
         tipoSuscripcion: (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || cli?.tipoSuscripcion || 'MENSUAL').toUpperCase(),
         regimen: (cli?.regimenTributario || p?.venta?.cliente?.regimenTributario || 'GENERAL').toUpperCase(),
+        primaryMonth,
+        coveredMonths,
+        tipoIngreso,
+        detalleCobertura,
       });
     });
 
-    // 2. Incorporar cobros pendientes de clientes que no tienen pago registrado aún
+    // 2. Incorporar cobros pendientes de clientes sin pago registrado aún
     safeClients.forEach((c, idx) => {
       const hasPayment = list.some((t) => t.ruc === c.ruc);
       if (!hasPayment && c.fechaRegistro) {
         const d = new Date(c.fechaRegistro);
         const rawPlan = c.planContratado || 'Plan Inicia';
         const planNorm = rawPlan.toUpperCase().replace(/^PLAN\s+/, '').trim();
+        const primaryMonth = toMonthKey(d);
+
+        const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+        const isSegundoProrrateo = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || d.getDate() >= 10;
+        const coveredMonths: string[] = [];
+        let detalleCobertura = formatMonthKeyLabel(primaryMonth);
+        let tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN' = 'ALTA';
+
+        if (isAnual) {
+          tipoIngreso = 'ANUAL';
+          for (let k = 0; k < 12; k++) coveredMonths.push(addMonthsToKeyHelper(primaryMonth, k));
+          detalleCobertura = 'Anual (12 meses)';
+        } else if (isSegundoProrrateo) {
+          tipoIngreso = 'PRORRATEO_2';
+          coveredMonths.push(primaryMonth);
+          const m2 = addMonthsToKeyHelper(primaryMonth, 1);
+          coveredMonths.push(m2);
+          detalleCobertura = `2.° Prorr. (${formatMonthKeyLabel(primaryMonth).split(' ')[0]} - ${formatMonthKeyLabel(m2)})`;
+        } else {
+          tipoIngreso = 'ALTA';
+          coveredMonths.push(primaryMonth);
+          detalleCobertura = `Alta (${formatMonthKeyLabel(primaryMonth)})`;
+        }
+
         list.push({
           id: `cli-${c.id || idx}`,
           fecha: d.toISOString(),
@@ -778,6 +903,10 @@ export default function ReportesExcelTab({
           tipoVenta: 'ALTA',
           tipoSuscripcion: (c.tipoSuscripcion || 'MENSUAL').toUpperCase(),
           regimen: (c.regimenTributario || 'GENERAL').toUpperCase(),
+          primaryMonth,
+          coveredMonths,
+          tipoIngreso,
+          detalleCobertura,
         });
       }
     });
@@ -785,67 +914,67 @@ export default function ReportesExcelTab({
     return list.sort((a, b) => b.fechaObj.getTime() - a.fechaObj.getTime());
   }, [safeClients, payments]);
 
-  // Lista de meses disponibles para el selector
-  const availableMonths = useMemo(() => {
+  // Lista de meses de facturación disponibles para el selector principal
+  const availableBillingMonths = useMemo(() => {
     const map = new Map<string, string>();
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'];
     rawTransactions.forEach((t) => {
-      const year = t.fechaObj.getFullYear();
-      const month = t.fechaObj.getMonth();
-      const key = `${year}-${String(month + 1).padStart(2, '0')}`;
-      if (!map.has(key)) {
-        map.set(key, `${monthNames[month]} ${year}`);
-      }
+      t.coveredMonths.forEach((mKey) => {
+        if (!map.has(mKey)) {
+          map.set(mKey, formatMonthKeyLabel(mKey));
+        }
+      });
     });
+    const nowKey = toMonthKey(new Date());
+    if (!map.has(nowKey)) map.set(nowKey, formatMonthKeyLabel(nowKey));
+
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [rawTransactions]);
 
-  // Filtrar transacciones según los controles del formulario
+  // Filtrado de transacciones según todos los criterios seleccionados
   const filteredTransactions = useMemo(() => {
     return rawTransactions.filter((t) => {
-      // Filtro fecha desde
+      // 1. Filtro principal por Mes de Facturación (cubierto)
+      if (selectedMesFacturacion !== 'ALL') {
+        if (!t.coveredMonths.includes(selectedMesFacturacion)) return false;
+      }
+      // 2. Filtro fecha de pago / registro (desde)
       if (fechaDesde) {
-        const fDesde = new Date(fechaDesde);
-        fDesde.setHours(0, 0, 0, 0);
-        if (t.fechaObj < fDesde) return false;
+        const dDesde = new Date(fechaDesde);
+        dDesde.setHours(0, 0, 0, 0);
+        if (t.fechaObj < dDesde) return false;
       }
-      // Filtro fecha hasta
+      // 3. Filtro fecha de pago / registro (hasta)
       if (fechaHasta) {
-        const fHasta = new Date(fechaHasta);
-        fHasta.setHours(23, 59, 59, 999);
-        if (t.fechaObj > fHasta) return false;
+        const dHasta = new Date(fechaHasta);
+        dHasta.setHours(23, 59, 59, 999);
+        if (t.fechaObj > dHasta) return false;
       }
-      // Filtro mes
-      if (selectedMes !== 'ALL') {
-        const [y, m] = selectedMes.split('-').map(Number);
-        if (t.fechaObj.getFullYear() !== y || t.fechaObj.getMonth() + 1 !== m) return false;
-      }
-      // Filtro estado de pago
+      // 4. Filtro estado de pago
       if (selectedEstadoPago !== 'ALL') {
         if (t.estado !== selectedEstadoPago) return false;
       }
-      // Filtro plan
+      // 5. Filtro tipo de ingreso
+      if (selectedTipoIngreso !== 'ALL') {
+        if (t.tipoIngreso !== selectedTipoIngreso) return false;
+      }
+      // 6. Filtro plan
       if (selectedPlan !== 'ALL') {
         if (!t.planNormalizado.includes(selectedPlan.toUpperCase())) return false;
       }
-      // Filtro vendedor
+      // 7. Filtro vendedor
       if (selectedVendedor !== 'ALL') {
         if (t.vendedor !== selectedVendedor) return false;
       }
-      // Filtro cliente (RUC o Razón Social)
+      // 8. Filtro cliente (RUC o Razón Social)
       if (selectedCliente.trim() !== '') {
         const q = selectedCliente.toLowerCase();
         if (!t.cliente.toLowerCase().includes(q) && !t.ruc.includes(q)) return false;
       }
-      // Filtro método de pago
+      // 9. Filtro método de pago
       if (selectedMetodoPago !== 'ALL') {
         if (!t.metodoPago.includes(selectedMetodoPago.toUpperCase())) return false;
       }
-      // Filtro tipo de suscripción
-      if (selectedTipoSub !== 'ALL') {
-        if (t.tipoSuscripcion !== selectedTipoSub.toUpperCase()) return false;
-      }
-      // Filtro régimen
+      // 10. Filtro régimen
       if (selectedRegimen !== 'ALL') {
         if (!t.regimen.includes(selectedRegimen.toUpperCase())) return false;
       }
@@ -853,36 +982,158 @@ export default function ReportesExcelTab({
     });
   }, [
     rawTransactions,
+    selectedMesFacturacion,
     fechaDesde,
     fechaHasta,
-    selectedMes,
     selectedEstadoPago,
+    selectedTipoIngreso,
     selectedPlan,
     selectedVendedor,
     selectedCliente,
     selectedMetodoPago,
-    selectedTipoSub,
     selectedRegimen,
   ]);
 
-  // Cálculos de KPI de Ventas (extraídos 100% de base de datos)
-  const totalVentas = useMemo(() => filteredTransactions.reduce((acc, t) => acc + t.monto, 0), [filteredTransactions]);
-  const totalVentasCount = filteredTransactions.length;
-  const totalIngresos = useMemo(
-    () => filteredTransactions.filter((t) => t.estado === 'PAGADO').reduce((acc, t) => acc + t.monto, 0),
-    [filteredTransactions]
-  );
-  const totalPendiente = useMemo(
-    () => filteredTransactions.filter((t) => t.estado === 'PENDIENTE').reduce((acc, t) => acc + t.monto, 0),
-    [filteredTransactions]
-  );
-  const totalPendienteCount = useMemo(
-    () => filteredTransactions.filter((t) => t.estado === 'PENDIENTE').length,
-    [filteredTransactions]
-  );
-  const ticketPromedio = totalVentasCount > 0 ? totalVentas / totalVentasCount : 0;
+  // --------------------------------------------------------------------------
+  // CÁLCULO DE KPIS E INDICADORES FINANCIEROS REALES DE LA BASE DE DATOS
+  // --------------------------------------------------------------------------
 
-  // Desglose de Ventas por Plan
+  // 1. CARTERA EN MORA Y PÉRDIDAS (Vencidos y Bloqueados)
+  const vencidosList = useMemo(() => {
+    return safeClients.filter((c) => {
+      const st = (c.estadoCuenta || '').toUpperCase();
+      if (st !== 'VENCIDO') return false;
+      if (selectedVendedor !== 'ALL' && c.vendedor !== selectedVendedor) return false;
+      if (selectedPlan !== 'ALL' && !c.planContratado?.toUpperCase().includes(selectedPlan.toUpperCase())) return false;
+      return true;
+    });
+  }, [safeClients, selectedVendedor, selectedPlan]);
+
+  const bloqueadosList = useMemo(() => {
+    return safeClients.filter((c) => {
+      const st = (c.estadoCuenta || '').toUpperCase();
+      if (st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return false;
+      if (selectedVendedor !== 'ALL' && c.vendedor !== selectedVendedor) return false;
+      if (selectedPlan !== 'ALL' && !c.planContratado?.toUpperCase().includes(selectedPlan.toUpperCase())) return false;
+      return true;
+    });
+  }, [safeClients, selectedVendedor, selectedPlan]);
+
+  const montoVencidos = useMemo(() => {
+    return vencidosList.reduce((acc, c) => acc + Number(c.montoSiguienteCobro || c.montoMensual || 19), 0);
+  }, [vencidosList]);
+
+  const montoBloqueados = useMemo(() => {
+    return bloqueadosList.reduce((acc, c) => acc + Number(c.montoMensual || c.montoSiguienteCobro || 19), 0);
+  }, [bloqueadosList]);
+
+  const totalPerdidaRiesgo = montoVencidos + montoBloqueados;
+  const totalMorososCount = vencidosList.length + bloqueadosList.length;
+  const tasaMorosidad = safeClients.length > 0 ? ((totalMorososCount / safeClients.length) * 100).toFixed(1) : '0';
+
+  // 2. GANANCIA POR ALTAS (Recién Afiliados)
+  const altasList = useMemo(() => {
+    return filteredTransactions.filter((t) => t.tipoIngreso === 'ALTA' && t.estado === 'PAGADO');
+  }, [filteredTransactions]);
+  const gananciaAltas = useMemo(() => altasList.reduce((acc, t) => acc + t.monto, 0), [altasList]);
+  const countAltas = altasList.length;
+
+  // 3. GANANCIA POR MENSUALIDADES (Renovaciones Recurrentes)
+  const mensualidadesList = useMemo(() => {
+    return filteredTransactions.filter((t) => t.tipoIngreso === 'MENSUALIDAD' && t.estado === 'PAGADO');
+  }, [filteredTransactions]);
+  const gananciaMensualidades = useMemo(() => mensualidadesList.reduce((acc, t) => acc + t.monto, 0), [mensualidadesList]);
+  const countMensualidades = mensualidadesList.length;
+
+  // 4. GANANCIA POR PRORRATEOS Y ANUALES
+  const prorrateo1List = useMemo(() => {
+    return filteredTransactions.filter((t) => t.tipoIngreso === 'PRORRATEO_1' && t.estado === 'PAGADO');
+  }, [filteredTransactions]);
+  const gananciaProrrateo1 = useMemo(() => prorrateo1List.reduce((acc, t) => acc + t.monto, 0), [prorrateo1List]);
+
+  const prorrateo2List = useMemo(() => {
+    return filteredTransactions.filter((t) => t.tipoIngreso === 'PRORRATEO_2' && t.estado === 'PAGADO');
+  }, [filteredTransactions]);
+  const gananciaProrrateo2 = useMemo(() => prorrateo2List.reduce((acc, t) => acc + t.monto, 0), [prorrateo2List]);
+
+  const anualList = useMemo(() => {
+    return filteredTransactions.filter((t) => t.tipoIngreso === 'ANUAL' && t.estado === 'PAGADO');
+  }, [filteredTransactions]);
+  const gananciaAnual = useMemo(() => anualList.reduce((acc, t) => acc + t.monto, 0), [anualList]);
+
+  const totalProrrateosAnuales = gananciaProrrateo1 + gananciaProrrateo2 + gananciaAnual;
+
+  // 5. RECAUDACIÓN Y FACTURACIÓN EFECTIVA
+  const totalCobrado = useMemo(() => {
+    return filteredTransactions.filter((t) => t.estado === 'PAGADO').reduce((acc, t) => acc + t.monto, 0);
+  }, [filteredTransactions]);
+
+  const totalPendiente = useMemo(() => {
+    return filteredTransactions.filter((t) => t.estado === 'PENDIENTE').reduce((acc, t) => acc + t.monto, 0);
+  }, [filteredTransactions]);
+
+  const totalFacturado = totalCobrado + totalPendiente;
+  const efectividadCobro = totalFacturado > 0 ? ((totalCobrado / totalFacturado) * 100).toFixed(1) : '100';
+  const ticketPromedio = filteredTransactions.length > 0 ? totalFacturado / filteredTransactions.length : 0;
+
+  // Datos para gráfico comparativo mensual de ingresos
+  const monthlyRevenueComparison = useMemo(() => {
+    const monthNamesShort = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
+    const topMonths = availableBillingMonths.slice(0, 6).reverse();
+    if (topMonths.length === 0) {
+      return [{ period: 'Actual', altas: gananciaAltas, renovaciones: gananciaMensualidades, prorrateos: totalProrrateosAnuales }];
+    }
+    return topMonths.map(([mKey]) => {
+      const [yr, mo] = mKey.split('-').map(Number);
+      const shortLabel = `${monthNamesShort[mo - 1]} ${yr.toString().slice(2)}`;
+      let altas = 0;
+      let renovaciones = 0;
+      let prorrateos = 0;
+
+      rawTransactions.forEach((t) => {
+        if (t.estado !== 'PAGADO') return;
+        if (t.coveredMonths.includes(mKey)) {
+          if (t.tipoIngreso === 'ALTA') altas += t.monto;
+          else if (t.tipoIngreso === 'MENSUALIDAD') renovaciones += t.monto;
+          else prorrateos += t.monto;
+        }
+      });
+
+      return {
+        period: shortLabel,
+        altas,
+        renovaciones,
+        prorrateos,
+      };
+    });
+  }, [availableBillingMonths, rawTransactions, gananciaAltas, gananciaMensualidades, totalProrrateosAnuales]);
+
+  // Datos para gráfico de evolución temporal diaria
+  const timelineData = useMemo(() => {
+    const dayMap = new Map<string, { label: string; ventas: number; ingresos: number }>();
+    const sorted = [...filteredTransactions].sort((a, b) => a.fechaObj.getTime() - b.fechaObj.getTime());
+
+    if (sorted.length === 0) {
+      return [{ label: 'Sin datos', ventas: 0, ingresos: 0 }];
+    }
+
+    sorted.forEach((t) => {
+      const d = t.fechaObj;
+      const key = `${d.getDate()} ${d.toLocaleDateString('es-PE', { month: 'short' })}`;
+      if (!dayMap.has(key)) {
+        dayMap.set(key, { label: key, ventas: 0, ingresos: 0 });
+      }
+      const item = dayMap.get(key)!;
+      item.ventas += t.monto;
+      if (t.estado === 'PAGADO') {
+        item.ingresos += t.monto;
+      }
+    });
+
+    return Array.from(dayMap.values());
+  }, [filteredTransactions]);
+
+  // Desglose por plan contratado
   const planDistribution = useMemo(() => {
     const plans = [
       { key: 'INICIA', label: 'Plan Inicia', color: '#0284C7' },
@@ -917,83 +1168,24 @@ export default function ReportesExcelTab({
     }));
   }, [filteredTransactions]);
 
-  // Línea temporal para gráfico de Ventas e Ingresos por Periodo
-  const timelineData = useMemo(() => {
-    const dayMap = new Map<string, { label: string; ventas: number; ingresos: number }>();
-    const sorted = [...filteredTransactions].sort((a, b) => a.fechaObj.getTime() - b.fechaObj.getTime());
-
-    if (sorted.length === 0) {
-      return [
-        { label: 'Sin datos', ventas: 0, ingresos: 0 },
-      ];
-    }
-
-    sorted.forEach((t) => {
-      const d = t.fechaObj;
-      const key = `${d.getDate()} ${d.toLocaleDateString('es-PE', { month: 'short' })}`;
-      if (!dayMap.has(key)) {
-        dayMap.set(key, { label: key, ventas: 0, ingresos: 0 });
-      }
-      const item = dayMap.get(key)!;
-      item.ventas += t.monto;
-      if (t.estado === 'PAGADO') {
-        item.ingresos += t.monto;
-      }
-    });
-
-    return Array.from(dayMap.values());
-  }, [filteredTransactions]);
-
-  // CÁLCULO DE COMISIONES (EXCLUSIVAMENTE POR ALTA = S/ 9.00 POR AFILIACIÓN SEGÚN REGLA DEL USUARIO)
-  const altasTransactions = useMemo(() => {
-    return filteredTransactions.filter((t) => t.tipoVenta === 'ALTA');
-  }, [filteredTransactions]);
-
-  const totalAltasCount = altasTransactions.length;
-  const TASA_COMISION_ALTA = 9.0;
-  const comisionAcumulada = totalAltasCount * TASA_COMISION_ALTA;
-  const altasPendientesCount = useMemo(
-    () => altasTransactions.filter((t) => t.estado === 'PENDIENTE').length,
-    [altasTransactions]
-  );
-  const comisionPendiente = altasPendientesCount * TASA_COMISION_ALTA;
-
-  // Comisiones por mes (Gráfico de barras)
-  const monthlyCommissions = useMemo(() => {
-    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
-    const counts = new Array(12).fill(0);
-
-    altasTransactions.forEach((t) => {
-      const m = t.fechaObj.getMonth();
-      counts[m] += TASA_COMISION_ALTA;
-    });
-
-    return monthNames.map((name, idx) => ({
-      month: name,
-      comision: counts[idx],
-    }));
-  }, [altasTransactions]);
-
   const resetFilters = () => {
+    setSelectedMesFacturacion('ALL');
     setFechaDesde('');
     setFechaHasta('');
-    setSelectedMes('ALL');
     setSelectedEstadoPago('ALL');
+    setSelectedTipoIngreso('ALL');
     setSelectedPlan('ALL');
     setSelectedVendedor('ALL');
     setSelectedCliente('');
     setSelectedMetodoPago('ALL');
-    setSelectedTipoSub('ALL');
     setSelectedRegimen('ALL');
     setVentasPage(1);
-    setComisionesPage(1);
   };
 
-  const displayedVentas = showAllVentas ? filteredTransactions : filteredTransactions.slice((ventasPage - 1) * ITEMS_PER_PAGE, ventasPage * ITEMS_PER_PAGE);
+  const displayedVentas = showAllVentas
+    ? filteredTransactions
+    : filteredTransactions.slice((ventasPage - 1) * ITEMS_PER_PAGE, ventasPage * ITEMS_PER_PAGE);
   const totalVentasPages = Math.ceil(filteredTransactions.length / ITEMS_PER_PAGE) || 1;
-
-  const displayedComisiones = showAllComisiones ? altasTransactions : altasTransactions.slice((comisionesPage - 1) * ITEMS_PER_PAGE, comisionesPage * ITEMS_PER_PAGE);
-  const totalComisionesPages = Math.ceil(altasTransactions.length / ITEMS_PER_PAGE) || 1;
 
   return (
     <div className="reporte-general-container admin-module admin-module--reports pb-5">
@@ -1004,8 +1196,10 @@ export default function ReportesExcelTab({
             <FileSpreadsheet size={24} strokeWidth={2.2} />
           </div>
           <div>
-            <h1 className="h5 fw-bold text-dark mb-0.5">Reporte General</h1>
-            <p className="text-muted small mb-0">Reporte consolidado de ventas, recaudación y comisiones</p>
+            <h1 className="h5 fw-bold text-dark mb-0.5">Reporte General y Resumen Financiero</h1>
+            <p className="text-muted small mb-0">
+              Indicadores clave de facturación, pérdidas en mora, ganancias por tipo y exportación consolidada
+            </p>
           </div>
         </div>
         <div className="d-flex align-items-center gap-2">
@@ -1034,295 +1228,383 @@ export default function ReportesExcelTab({
         </div>
       </div>
 
-      {/* SECCIÓN 1: REPORTE DE VENTAS */}
-      <div className="mb-5">
-        <div className="d-flex align-items-center gap-2.5 mb-3">
-          <div className="section-header-icon section-header-icon-primary" style={{ width: '36px', height: '36px' }}>
-            <ShoppingCart size={18} strokeWidth={2.2} />
-          </div>
-          <div>
-            <h2 className="h6 fw-bold text-dark mb-0">Reporte de Ventas</h2>
-            <small className="text-muted">Métricas de facturación, ingresos y transacciones</small>
+      {/* STRIP DE 5 INDICADORES CLAVE (ESTILO TAILADMIN) */}
+      <div className="row g-3 mb-4 admin-stat-strip">
+        {/* KPI 1: Cartera en Riesgo / Pérdida en Mora (Vencidos + Bloqueados) */}
+        <div className="col-12 col-sm-6 col-xl">
+          <div className="card admin-stat-card h-100 shadow-sm border-0">
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Pérdida en Mora</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--red">
+                <AlertTriangle size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="d-flex align-items-center gap-1.5 mb-2">
+              <span className="admin-stat-card-trend admin-stat-card-trend--danger">
+                <ShieldAlert size={12} /> {tasaMorosidad}% morosidad
+              </span>
+              <span className="admin-stat-card-trend-label">{totalMorososCount} en mora</span>
+            </div>
+            <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.45rem' }}>
+              S/ {totalPerdidaRiesgo.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              Vencidos: <strong className="text-danger">S/ {montoVencidos.toFixed(2)}</strong> ({vencidosList.length}) · Bloqueados: <strong className="text-dark">S/ {montoBloqueados.toFixed(2)}</strong> ({bloqueadosList.length})
+            </div>
           </div>
         </div>
 
-        {/* Filtros de ventas dentro de una tarjeta de contenido */}
-        <div className="custom-card admin-report-filter-panel p-3.5 mb-4">
-          <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
-            <div className="d-flex align-items-center gap-2">
-              <Search size={17} className="admin-report-filter-icon" />
-              <strong className="admin-report-filter-title">Filtros de Ventas</strong>
+        {/* KPI 2: Ganancia por Altas (Recién Afiliados) */}
+        <div className="col-12 col-sm-6 col-xl">
+          <div className="card admin-stat-card h-100 shadow-sm border-0">
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Nuevas Altas</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                <UserPlus size={18} strokeWidth={2.2} />
+              </span>
             </div>
+            <div className="d-flex align-items-center gap-1.5 mb-2">
+              <span className="admin-stat-card-trend">
+                <TrendingUp size={12} /> Nuevos clientes
+              </span>
+              <span className="admin-stat-card-trend-label">{countAltas} altas cobradas</span>
+            </div>
+            <div className="admin-stat-card-value text-success" style={{ fontSize: '1.45rem' }}>
+              S/ {gananciaAltas.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              Ingreso recaudado por primeras afiliaciones
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3: Ganancia por Mensualidades (Recurrentes) */}
+        <div className="col-12 col-sm-6 col-xl">
+          <div className="card admin-stat-card h-100 shadow-sm border-0">
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Mensualidades</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--blue">
+                <Repeat size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="d-flex align-items-center gap-1.5 mb-2">
+              <span className="admin-stat-card-trend" style={{ color: '#465FFF' }}>
+                <Clock size={12} /> Recurrente
+              </span>
+              <span className="admin-stat-card-trend-label">{countMensualidades} mensualidades</span>
+            </div>
+            <div className="admin-stat-card-value text-primary" style={{ fontSize: '1.45rem' }}>
+              S/ {gananciaMensualidades.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              Cobro recurrente por uso regular de plataforma
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Prorrateos y Planes Anuales */}
+        <div className="col-12 col-sm-6 col-xl">
+          <div className="card admin-stat-card h-100 shadow-sm border-0">
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Prorrateos y Anuales</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--purple">
+                <Layers size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="d-flex align-items-center gap-1.5 mb-2">
+              <span className="admin-stat-card-trend" style={{ color: '#8B5CF6' }}>
+                <Percent size={12} /> Ajustes
+              </span>
+              <span className="admin-stat-card-trend-label">Prorr. 1 & 2 + Anuales</span>
+            </div>
+            <div className="admin-stat-card-value" style={{ fontSize: '1.45rem', color: '#7C3AED' }}>
+              S/ {totalProrrateosAnuales.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              1.°: S/ {gananciaProrrateo1.toFixed(0)} · 2.° (2m): S/ {gananciaProrrateo2.toFixed(0)} · Anual: S/ {gananciaAnual.toFixed(0)}
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 5: Recaudación Total Efectiva */}
+        <div className="col-12 col-sm-6 col-xl">
+          <div className="card admin-stat-card h-100 shadow-sm border-0">
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Total Recaudado</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                <DollarSign size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="d-flex align-items-center gap-1.5 mb-2">
+              <span className="admin-stat-card-trend" style={{ color: '#059669' }}>
+                <CheckCircle2 size={12} /> {efectividadCobro}% cobrado
+              </span>
+              <span className="admin-stat-card-trend-label">efectividad</span>
+            </div>
+            <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.45rem' }}>
+              S/ {totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              Por cobrar en período: <strong className="text-warning">S/ {totalPendiente.toFixed(2)}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PANEL DE FILTROS AVANZADOS (CON MES DE FACTURACIÓN Y COBERTURA) */}
+      <div className="custom-card admin-report-filter-panel p-3.5 mb-4 shadow-sm">
+        <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <Search size={17} className="admin-report-filter-icon" />
+            <strong className="admin-report-filter-title">Filtros de Indicadores y Facturación</strong>
+          </div>
+          <div className="d-flex align-items-center gap-2">
             <span className="cell-subtext">
-              Filtrado dinámico en tiempo real
+              Filtrado por mes cubierto (considera 2.° prorrateo de 2 meses y planes anuales)
             </span>
+            <button
+              onClick={resetFilters}
+              className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 py-1 px-2.5 rounded-3"
+              title="Restablecer todos los filtros"
+            >
+              <RotateCcw size={13} />
+              <span>Limpiar filtros</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="row g-2.5">
+          {/* Filtro 1: Mes de Facturación Principal */}
+          <div className="col-12 col-md-4 col-lg-3">
+            <label className="form-label small fw-bold text-dark mb-1 d-flex align-items-center gap-1">
+              <Calendar size={14} className="text-primary" /> Mes de facturación cubierto
+            </label>
+            <select
+              className="form-select form-select-sm rounded-3 fw-semibold border-primary"
+              style={{ backgroundColor: '#F0F7FF' }}
+              value={selectedMesFacturacion}
+              onChange={(e) => setSelectedMesFacturacion(e.target.value)}
+            >
+              <option value="ALL">Todos los meses facturados</option>
+              {availableBillingMonths.map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="row g-2.5 mb-2.5">
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Fecha desde</label>
-              <input
-                type="date"
-                className="form-control form-control-sm rounded-3"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-              />
-            </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Fecha hasta</label>
-              <input
-                type="date"
-                className="form-control form-control-sm rounded-3"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
-              />
-            </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Mes</label>
-              <select
-                className="form-select form-select-sm rounded-3"
-                value={selectedMes}
-                onChange={(e) => setSelectedMes(e.target.value)}
-              >
-                <option value="ALL">Todos los meses</option>
-                {availableMonths.map(([k, label]) => (
-                  <option key={k} value={k}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Estado de pago</label>
-              <select
-                className="form-select form-select-sm rounded-3"
-                value={selectedEstadoPago}
-                onChange={(e) => setSelectedEstadoPago(e.target.value)}
-              >
-                <option value="ALL">Todos los estados</option>
-                <option value="PAGADO">Pagado</option>
-                <option value="PENDIENTE">Pendiente</option>
-              </select>
-            </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Plan</label>
-              <select
-                className="form-select form-select-sm rounded-3"
-                value={selectedPlan}
-                onChange={(e) => setSelectedPlan(e.target.value)}
-              >
-                <option value="ALL">Todos los planes</option>
-                <option value="INICIA">Plan Inicia</option>
-                <option value="EMPRENDE">Plan Emprende</option>
-                <option value="IMPULSA">Plan Impulsa</option>
-                <option value="EMPRESARIAL">Plan Empresarial</option>
-                <option value="LIDER">Plan Líder</option>
-              </select>
-            </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Vendedor</label>
-              <select
-                className="form-select form-select-sm rounded-3"
-                value={selectedVendedor}
-                onChange={(e) => setSelectedVendedor(e.target.value)}
-              >
-                <option value="ALL">Todos los asesores</option>
-                {uniqueSellers.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Filtro 2: Fecha de pago desde (por si las moscas) */}
+          <div className="col-6 col-md-4 col-lg-2">
+            <label className="form-label small fw-semibold text-muted mb-1">Fecha pago desde</label>
+            <input
+              type="date"
+              className="form-control form-control-sm rounded-3"
+              value={fechaDesde}
+              onChange={(e) => setFechaDesde(e.target.value)}
+            />
           </div>
 
-          <div className="row g-2.5 align-items-end">
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Cliente</label>
+          {/* Filtro 3: Fecha de pago hasta */}
+          <div className="col-6 col-md-4 col-lg-2">
+            <label className="form-label small fw-semibold text-muted mb-1">Fecha pago hasta</label>
+            <input
+              type="date"
+              className="form-control form-control-sm rounded-3"
+              value={fechaHasta}
+              onChange={(e) => setFechaHasta(e.target.value)}
+            />
+          </div>
+
+          {/* Filtro 4: Tipo de Ingreso */}
+          <div className="col-12 col-md-4 col-lg-2">
+            <label className="form-label small fw-semibold text-muted mb-1">Tipo de ingreso</label>
+            <select
+              className="form-select form-select-sm rounded-3"
+              value={selectedTipoIngreso}
+              onChange={(e) => setSelectedTipoIngreso(e.target.value)}
+            >
+              <option value="ALL">Todos los tipos</option>
+              <option value="ALTA">Nuevas Altas / Afiliaciones</option>
+              <option value="MENSUALIDAD">Mensualidades Regulares</option>
+              <option value="PRORRATEO_1">1.° Prorrateo (Días 1 al 9)</option>
+              <option value="PRORRATEO_2">2.° Prorrateo (Cubre 2 meses)</option>
+              <option value="ANUAL">Planes Anuales (12 meses)</option>
+              <option value="MEJORA_PLAN">Mejora / Cambio de Plan</option>
+            </select>
+          </div>
+
+          {/* Filtro 5: Estado de pago */}
+          <div className="col-6 col-md-4 col-lg-1.5">
+            <label className="form-label small fw-semibold text-muted mb-1">Estado pago</label>
+            <select
+              className="form-select form-select-sm rounded-3"
+              value={selectedEstadoPago}
+              onChange={(e) => setSelectedEstadoPago(e.target.value)}
+            >
+              <option value="ALL">Todos</option>
+              <option value="PAGADO">Pagado</option>
+              <option value="PENDIENTE">Pendiente</option>
+              <option value="CANCELADO">Cancelado</option>
+            </select>
+          </div>
+
+          {/* Filtro 6: Plan */}
+          <div className="col-6 col-md-4 col-lg-1.5">
+            <label className="form-label small fw-semibold text-muted mb-1">Plan</label>
+            <select
+              className="form-select form-select-sm rounded-3"
+              value={selectedPlan}
+              onChange={(e) => setSelectedPlan(e.target.value)}
+            >
+              <option value="ALL">Todos los planes</option>
+              <option value="INICIA">Plan Inicia</option>
+              <option value="EMPRENDE">Plan Emprende</option>
+              <option value="IMPULSA">Plan Impulsa</option>
+              <option value="EMPRESARIAL">Plan Empresarial</option>
+              <option value="LIDER">Plan Líder</option>
+            </select>
+          </div>
+
+          {/* Filtro 7: Vendedor */}
+          <div className="col-12 col-md-4 col-lg-2">
+            <label className="form-label small fw-semibold text-muted mb-1">Vendedor / Asesor</label>
+            <select
+              className="form-select form-select-sm rounded-3"
+              value={selectedVendedor}
+              onChange={(e) => setSelectedVendedor(e.target.value)}
+            >
+              <option value="ALL">Todos los vendedores</option>
+              {uniqueSellers.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filtro 8: Buscar cliente */}
+          <div className="col-12 col-md-8 col-lg-4">
+            <label className="form-label small fw-semibold text-muted mb-1">Buscar por RUC o Razón Social</label>
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-white border-end-0">
+                <Search size={14} className="text-muted" />
+              </span>
               <input
                 type="text"
-                placeholder="RUC o Razón Social"
-                className="form-control form-control-sm rounded-3"
+                className="form-control border-start-0 ps-0 rounded-end-3"
+                placeholder="Ej. 20614429501 o Mi Empresa S.A.C."
                 value={selectedCliente}
                 onChange={(e) => setSelectedCliente(e.target.value)}
               />
             </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Método de pago</label>
-              <select
-                className="form-select form-select-sm rounded-3"
-                value={selectedMetodoPago}
-                onChange={(e) => setSelectedMetodoPago(e.target.value)}
-              >
-                <option value="ALL">Todos</option>
-                <option value="YAPE">Yape</option>
-                <option value="PLIN">Plin</option>
-                <option value="TRANSFERENCIA">Transferencia</option>
-                <option value="TARJETA">Tarjeta de crédito</option>
-                <option value="EFECTIVO">Efectivo</option>
-              </select>
+          </div>
+        </div>
+      </div>
+
+      {/* FILA DE GRÁFICOS 1: SALUD DE CARTERA (PÉRDIDAS VS COBRADO) + COMPARATIVA DE INGRESOS */}
+      <div className="row g-3 mb-4">
+        {/* Gráfico 1: Salud de Cartera y Cartera en Riesgo (PortfolioHealthChart) */}
+        <div className="col-12 col-lg-5">
+          <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between shadow-sm">
+            <div>
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
+                  Salud de Cartera y Riesgo de Cobranza
+                </strong>
+                <span className="badge-tag" style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', borderColor: '#FECACA' }}>
+                  S/ {totalPerdidaRiesgo.toFixed(0)} en mora
+                </span>
+              </div>
+              <small className="text-muted d-block mb-3" style={{ fontSize: '0.74rem' }}>
+                Proporción de cobranza efectiva vs clientes en mora (Vencidos y Bloqueados)
+              </small>
+
+              {/* Componente Gráfico Radial de Salud de Cartera */}
+              <PortfolioHealthChart
+                cobrado={totalCobrado}
+                porCobrar={totalPendiente}
+                vencido={montoVencidos}
+                bloqueado={montoBloqueados}
+              />
             </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Tipo suscripción</label>
-              <select
-                className="form-select form-select-sm rounded-3"
-                value={selectedTipoSub}
-                onChange={(e) => setSelectedTipoSub(e.target.value)}
-              >
-                <option value="ALL">Todos</option>
-                <option value="MENSUAL">Mensual</option>
-                <option value="ANUAL">Anual</option>
-              </select>
-            </div>
-            <div className="col-12 col-md-4 col-lg-2">
-              <label className="form-label small fw-semibold text-muted mb-1">Régimen</label>
-              <select
-                className="form-select form-select-sm rounded-3"
-                value={selectedRegimen}
-                onChange={(e) => setSelectedRegimen(e.target.value)}
-              >
-                <option value="ALL">Todos los regímenes</option>
-                <option value="MYPE">MYPE Tributario</option>
-                <option value="GENERAL">General</option>
-                <option value="ESPECIAL">Especial / RER</option>
-                <option value="RUS">Nuevo RUS</option>
-              </select>
-            </div>
-            <div className="col-12 col-md-4 col-lg-4 d-flex gap-2">
-              <button
-                type="button"
-                className="btn-meta-action btn-meta-action-primary flex-grow-1"
-                onClick={() => setVentasPage(1)}
-              >
-                <Search size={14} />
-                <span>Buscar</span>
-              </button>
-              <button
-                type="button"
-                className="btn-meta-action btn-meta-action-secondary"
-                onClick={resetFilters}
-              >
-                <RotateCcw size={14} />
-                <span>Limpiar</span>
-              </button>
+
+            {/* Desglose explicativo de cartera */}
+            <div className="pt-3 border-top mt-3">
+              <div className="row g-2 text-center" style={{ fontSize: '0.74rem' }}>
+                <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#ECFDF5' }}>
+                  <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Cobrado</span>
+                  <strong className="text-success fw-bold">S/ {totalCobrado.toFixed(0)}</strong>
+                </div>
+                <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#FFFBEB' }}>
+                  <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Por Cobrar</span>
+                  <strong className="text-warning fw-bold">S/ {totalPendiente.toFixed(0)}</strong>
+                </div>
+                <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#FEF2F2' }}>
+                  <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Vencidos</span>
+                  <strong className="text-danger fw-bold">S/ {montoVencidos.toFixed(0)}</strong>
+                </div>
+                <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#F1F5F9' }}>
+                  <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Bloqueados</span>
+                  <strong className="text-secondary fw-bold">S/ {montoBloqueados.toFixed(0)}</strong>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 4 KPI Stat Cards Rediseñadas (Alineadas a Resumen) */}
-        <div className="row g-3 mb-4 admin-stat-strip">
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card admin-stat-card admin-stat-card--blue p-3.5 h-100 shadow-sm rounded-4 border bg-white">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="d-flex align-items-center gap-2.5">
-                  <div className="section-header-icon section-header-icon-primary" style={{ width: '38px', height: '38px' }}>
-                    <ShoppingCart size={18} strokeWidth={2.2} />
-                  </div>
-                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
-                    Ventas Totales
-                  </span>
-                </div>
-                <span className="badge-tag" style={{ backgroundColor: '#EEF2FF', color: '#465FFF' }}>
-                  Total
+        {/* Gráfico 2: Desglose de Ingresos por Tipo (RevenueTypeBarChart) */}
+        <div className="col-12 col-lg-7">
+          <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between shadow-sm">
+            <div>
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
+                  Ingresos por Concepto (Altas vs Mensualidades vs Prorrateos)
+                </strong>
+                <span className="badge-tag" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}>
+                  Datos en Soles (S/)
                 </span>
               </div>
-              <div className="fs-4 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
-                S/ {totalVentas.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
-                {totalVentasCount} ventas registradas
+              <small className="text-muted d-block mb-3" style={{ fontSize: '0.74rem' }}>
+                Comparativa histórica mensual del origen del dinero recaudado
               </small>
-            </div>
-          </div>
 
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card admin-stat-card admin-stat-card--green p-3.5 h-100 shadow-sm rounded-4 border bg-white">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="d-flex align-items-center gap-2.5">
-                  <div className="section-header-icon section-header-icon-success" style={{ width: '38px', height: '38px' }}>
-                    <DollarSign size={18} strokeWidth={2.2} />
-                  </div>
-                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
-                    Ingresos Cobrados
-                  </span>
-                </div>
-                <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#065F46' }}>
-                  Cobrado
-                </span>
-              </div>
-              <div className="fs-4 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
-                S/ {totalIngresos.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
-                Monto efectivamente recaudado
-              </small>
+              {/* Componente Gráfico de Barras por Concepto */}
+              <RevenueTypeBarChart data={monthlyRevenueComparison} />
             </div>
-          </div>
 
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card admin-stat-card admin-stat-card--red p-3.5 h-100 shadow-sm rounded-4 border bg-white">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="d-flex align-items-center gap-2.5">
-                  <div className="section-header-icon section-header-icon-danger" style={{ width: '38px', height: '38px' }}>
-                    <AlertCircle size={18} strokeWidth={2.2} />
-                  </div>
-                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
-                    Por Cobrar
-                  </span>
-                </div>
-                <span className="badge-tag" style={{ backgroundColor: '#FEF2F2', color: '#B91C1C' }}>
-                  Pendiente
-                </span>
-              </div>
-              <div className="fs-4 fw-bolder text-danger mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
-                S/ {totalPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
-                {totalPendienteCount} transacciones pendientes
-              </small>
-            </div>
-          </div>
-
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card admin-stat-card admin-stat-card--violet p-3.5 h-100 shadow-sm rounded-4 border bg-white">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="d-flex align-items-center gap-2.5">
-                  <div className="section-header-icon section-header-icon-indigo" style={{ width: '38px', height: '38px' }}>
-                    <Ticket size={18} strokeWidth={2.2} />
-                  </div>
-                  <span className="text-secondary small fw-bold text-uppercase" style={{ letterSpacing: '0.4px', fontSize: '0.72rem' }}>
-                    Ticket Promedio
-                  </span>
-                </div>
-                <span className="badge-tag" style={{ backgroundColor: '#EDE9FE', color: '#6D28D9' }}>
-                  Promedio
-                </span>
-              </div>
-              <div className="fs-4 fw-bolder text-dark mb-1 mt-2" style={{ letterSpacing: '-0.5px' }}>
-                S/ {ticketPromedio.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </div>
-              <small className="text-muted d-block fw-semibold" style={{ fontSize: '0.78rem' }}>
-                Monto medio por operación
-              </small>
+            {/* Resumen explicativo al pie del gráfico */}
+            <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 mt-2 border-top gap-2" style={{ fontSize: '0.75rem' }}>
+              <span className="text-muted fw-semibold">
+                Altas en período: <strong className="text-success fw-bold">S/ {gananciaAltas.toFixed(2)}</strong>
+              </span>
+              <span className="text-muted fw-semibold">
+                Mensualidades: <strong className="text-primary fw-bold">S/ {gananciaMensualidades.toFixed(2)}</strong>
+              </span>
+              <span className="text-muted fw-semibold">
+                Prorrateos y Anuales: <strong className="text-indigo fw-bold" style={{ color: '#8B5CF6' }}>S/ {totalProrrateosAnuales.toFixed(2)}</strong>
+              </span>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Gráficos con Chart.js: Evolución Temporal Interactiva + Donut por Plan */}
-        <div className="row g-3 mb-4">
-          {/* Gráfico 1: Área y Tendencia de Ventas e Ingresos con Chart.js */}
-          <div className="col-12 col-lg-7">
-            <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3 pb-2 border-bottom">
+      {/* FILA DE GRÁFICOS 2: EVOLUCIÓN TEMPORAL DIARIA + DONUT POR PLAN */}
+      <div className="row g-3 mb-4">
+        {/* Gráfico 3: Línea de Evolución Temporal de Facturación */}
+        <div className="col-12 col-lg-7">
+          <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between shadow-sm">
+            <div>
+              <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                 <div>
                   <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
-                    Evolución de Facturación y Cobranza
+                    Evolución Diaria de Facturación y Cobranza
                   </strong>
                   <small className="text-muted" style={{ fontSize: '0.74rem' }}>
-                    Comparativa de ventas generadas vs recaudación efectiva en Soles (S/)
+                    Flujo de operaciones registradas y dinero efectivamente cobrado
                   </small>
                 </div>
-                <div className="d-flex align-items-center gap-2 flex-wrap">
+                <div className="d-flex align-items-center gap-2">
                   <span className="badge-tag" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
                     <span className="badge-dot badge-dot-info" />
                     Ventas Facturadas
@@ -1334,53 +1616,48 @@ export default function ReportesExcelTab({
                 </div>
               </div>
 
-              {/* Componente Gráfico Chart.js interactivo con Tooltips */}
               <SalesTimelineChart data={timelineData} />
+            </div>
 
-              {/* Resumen Humano Explicativo al pie del gráfico */}
-              <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 mt-2 border-top gap-2" style={{ fontSize: '0.75rem' }}>
-                <span className="text-muted fw-semibold">
-                  Efectividad de Cobro:{' '}
-                  <strong className="text-success fw-bold">
-                    {totalVentas > 0 ? `${((totalIngresos / totalVentas) * 100).toFixed(1)}%` : '100%'}
-                  </strong>
-                </span>
-                <span className="text-muted fw-semibold">
-                  Ticket Promedio:{' '}
-                  <strong className="text-dark fw-bold">S/ {ticketPromedio.toFixed(2)}</strong>
-                </span>
-                <span className="text-muted fw-semibold">
-                  Transacciones:{' '}
-                  <strong className="text-primary fw-bold">{filteredTransactions.length} operaciones</strong>
-                </span>
-              </div>
+            <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 mt-2 border-top gap-2" style={{ fontSize: '0.75rem' }}>
+              <span className="text-muted fw-semibold">
+                Efectividad del período:{' '}
+                <strong className="text-success fw-bold">{efectividadCobro}%</strong>
+              </span>
+              <span className="text-muted fw-semibold">
+                Ticket Promedio:{' '}
+                <strong className="text-dark fw-bold">S/ {ticketPromedio.toFixed(2)}</strong>
+              </span>
+              <span className="text-muted fw-semibold">
+                Operaciones:{' '}
+                <strong className="text-primary fw-bold">{filteredTransactions.length} registros</strong>
+              </span>
             </div>
           </div>
+        </div>
 
-          {/* Gráfico 2: Donut Radial con Chart.js + Desglose por Plan */}
-          <div className="col-12 col-lg-5">
-            <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+        {/* Gráfico 4: Donut por Plan Contratado */}
+        <div className="col-12 col-lg-5">
+          <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between shadow-sm">
+            <div>
+              <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                 <div>
                   <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
-                    Distribución por Plan
+                    Distribución por Plan Contratado
                   </strong>
                   <small className="text-muted" style={{ fontSize: '0.74rem' }}>
-                    Proporción de ingresos generados por cada paquete
+                    Participación de cada paquete sobre los ingresos
                   </small>
                 </div>
                 <span className="badge-tag badge-plan-tag">
-                  {planDistribution.length} planes
+                  {planDistribution.length} paquetes activos
                 </span>
               </div>
 
-              <div className="row align-items-center g-3 flex-grow-1">
-                {/* Donut Chart.js con Centro Métrico */}
+              <div className="row align-items-center g-3 pt-2">
                 <div className="col-5 d-flex justify-content-center">
-                  <PlanDoughnutChart data={planDistribution} totalVentas={totalVentas} />
+                  <PlanDoughnutChart data={planDistribution} totalVentas={totalFacturado} />
                 </div>
-
-                {/* Desglose con barras y badges estructurados */}
                 <div className="col-7">
                   <div className="d-flex flex-column gap-2" style={{ fontSize: '0.75rem' }}>
                     {planDistribution.map((p, idx) => (
@@ -1409,44 +1686,58 @@ export default function ReportesExcelTab({
                       </div>
                     ))}
                     {planDistribution.length === 0 && (
-                      <div className="text-muted small py-2 text-center">Sin ventas de planes</div>
+                      <div className="text-muted small py-2 text-center">Sin transacciones registradas</div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
+
+            <div className="pt-2.5 mt-2 border-top text-center text-muted" style={{ fontSize: '0.74rem' }}>
+              Base de cálculo: Montos contratados y pagos recibidos en base de datos
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TABLA DE AUDITORÍA Y DETALLE DE TRANSACCIONES */}
+      <div className="custom-card admin-report-table-card p-3.5 shadow-sm">
+        <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+          <div>
+            <strong className="small text-dark fw-bold d-block">Detalle de Operaciones y Facturación</strong>
+            <small className="text-muted">
+              Mostrando {displayedVentas.length} de {filteredTransactions.length} registros filtrados
+            </small>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <span className="badge-tag" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
+              {selectedMesFacturacion === 'ALL' ? 'Todos los meses' : formatMonthKeyLabel(selectedMesFacturacion)}
+            </span>
           </div>
         </div>
 
-        {/* Tabla: Detalle de Ventas */}
-        <div className="custom-card admin-report-table-card p-3.5">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <strong className="small text-dark fw-bold">Detalle de ventas</strong>
-            <small className="text-muted fw-semibold">
-              Mostrando {displayedVentas.length} de {filteredTransactions.length} registros
-            </small>
-          </div>
-
-          <div className="table-card-meta mb-3">
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0 table-meta">
+        <div className="table-card-meta mb-3">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0 table-meta">
               <thead>
                 <tr>
-                  <th>Fecha</th>
+                  <th>Fecha Pago / Caja</th>
                   <th>Cliente</th>
                   <th>RUC</th>
                   <th>Plan</th>
-                  <th>Vendedor</th>
-                  <th>Monto</th>
-                  <th>Método de pago</th>
+                  <th>Mes / Período Cubierto</th>
+                  <th>Tipo Ingreso</th>
+                  <th>Asesor / Vendedor</th>
+                  <th>Monto (S/)</th>
+                  <th>Método</th>
                   <th className="text-end">Estado</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedVentas.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center text-muted py-5 fw-semibold">
-                      No se encontraron ventas con los filtros aplicados.
+                    <td colSpan={10} className="text-center text-muted py-5 fw-semibold">
+                      No se encontraron transacciones con los filtros aplicados.
                     </td>
                   </tr>
                 ) : (
@@ -1463,9 +1754,46 @@ export default function ReportesExcelTab({
                       <td>
                         <span className="badge-tag badge-plan-tag">{t.plan}</span>
                       </td>
+                      <td>
+                        <span
+                          className="badge-tag"
+                          style={{
+                            backgroundColor: t.tipoIngreso === 'PRORRATEO_2' ? '#FEF3C7' : t.tipoIngreso === 'ANUAL' ? '#EDE9FE' : '#EFF6FF',
+                            color: t.tipoIngreso === 'PRORRATEO_2' ? '#92400E' : t.tipoIngreso === 'ANUAL' ? '#6D28D9' : '#1E40AF',
+                            border: '1px solid transparent',
+                            fontSize: '0.74rem',
+                          }}
+                        >
+                          {t.detalleCobertura}
+                        </span>
+                      </td>
+                      <td>
+                        <span
+                          className={`badge-tag ${
+                            t.tipoIngreso === 'ALTA'
+                              ? 'badge-tag-success'
+                              : t.tipoIngreso === 'MENSUALIDAD'
+                              ? 'badge-tag-primary'
+                              : 'badge-tag-warning'
+                          }`}
+                          style={{ fontSize: '0.72rem' }}
+                        >
+                          {t.tipoIngreso === 'ALTA'
+                            ? 'Alta'
+                            : t.tipoIngreso === 'MENSUALIDAD'
+                            ? 'Mensualidad'
+                            : t.tipoIngreso === 'PRORRATEO_1'
+                            ? '1.° Prorrateo'
+                            : t.tipoIngreso === 'PRORRATEO_2'
+                            ? '2.° Prorrateo'
+                            : t.tipoIngreso === 'ANUAL'
+                            ? 'Anual'
+                            : 'Upgrade'}
+                        </span>
+                      </td>
                       <td className="text-dark fw-semibold">{t.vendedor}</td>
                       <td>
-                        <span className="cell-amount text-dark">S/ {t.monto.toFixed(2)}</span>
+                        <span className="cell-amount text-dark fw-bold">S/ {t.monto.toFixed(2)}</span>
                       </td>
                       <td className="text-muted text-capitalize fw-semibold">{t.metodoPago.toLowerCase()}</td>
                       <td className="text-end">
@@ -1488,275 +1816,41 @@ export default function ReportesExcelTab({
               </tbody>
             </table>
           </div>
-          </div>
-
-          {/* Paginación */}
-          {filteredTransactions.length > ITEMS_PER_PAGE && (
-            <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
-              <button
-                type="button"
-                className="btn btn-link btn-sm text-primary fw-semibold p-0 text-decoration-none"
-                onClick={() => setShowAllVentas(!showAllVentas)}
-              >
-                {showAllVentas ? 'Ver paginado' : 'Ver todas las ventas'}
-              </button>
-              {!showAllVentas && (
-                <div className="d-flex align-items-center gap-1.5">
-                  <button
-                    className="btn btn-outline-secondary btn-sm px-2 py-1"
-                    disabled={ventasPage <= 1}
-                    onClick={() => setVentasPage((p) => Math.max(p - 1, 1))}
-                  >
-                    Anterior
-                  </button>
-                  <span className="small text-muted px-1">
-                    {ventasPage} / {totalVentasPages}
-                  </span>
-                  <button
-                    className="btn btn-outline-secondary btn-sm px-2 py-1"
-                    disabled={ventasPage >= totalVentasPages}
-                    onClick={() => setVentasPage((p) => Math.min(p + 1, totalVentasPages))}
-                  >
-                    Siguiente
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* SECCIÓN 2: MIS COMISIONES POR VENTA DE SISTEMA */}
-      <div>
-        <div className="d-flex align-items-center gap-2 mb-3">
-          <div className="section-header-icon section-header-icon-indigo">
-            <Coins size={18} strokeWidth={2.2} />
-          </div>
-          <div>
-            <h2 className="fs-6 fw-bold text-dark mb-0">Mis comisiones por venta de sistema</h2>
-            <p className="text-muted small mb-0">Liquidación y balance de comisiones por altas y activaciones de clientes</p>
-          </div>
         </div>
 
-        {/* 4 KPI Stat Cards Comisiones */}
-        <div className="row g-3 mb-4 admin-commission-stat-strip">
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="section-header-icon section-header-icon-primary">
-                  <Coins size={18} strokeWidth={2.2} />
-                </div>
-                <span className="badge-tag">Total</span>
-              </div>
-              <div>
-                <span className="text-muted fw-semibold small d-block mb-1">Comisión acumulada</span>
-                <strong className="fs-4 text-primary fw-bolder d-block" style={{ lineHeight: '1.2' }}>
-                  S/ {comisionAcumulada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>{totalAltasCount} afiliaciones registradas</small>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="section-header-icon section-header-icon-success">
-                  <TrendingUp size={18} strokeWidth={2.2} />
-                </div>
-                <span className="badge-tag">Altas</span>
-              </div>
-              <div>
-                <span className="text-muted fw-semibold small d-block mb-1">Ventas realizadas</span>
-                <strong className="fs-4 text-dark fw-bolder d-block" style={{ lineHeight: '1.2' }}>
-                  {totalAltasCount}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Afiliaciones de sistema</small>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="section-header-icon section-header-icon-indigo">
-                  <Percent size={18} strokeWidth={2.2} />
-                </div>
-                <span className="badge-tag">Por alta</span>
-              </div>
-              <div>
-                <span className="text-muted fw-semibold small d-block mb-1">Tasa de comisión</span>
-                <strong className="fs-4 text-dark fw-bolder d-block" style={{ lineHeight: '1.2' }}>
-                  S/ {TASA_COMISION_ALTA.toFixed(2)}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Comisión fija por cliente</small>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
-              <div className="d-flex justify-content-between align-items-start mb-2">
-                <div className="section-header-icon section-header-icon-warning">
-                  <Clock size={18} strokeWidth={2.2} />
-                </div>
-                <span className="badge-tag" style={{ color: '#D97706', borderColor: '#FDE68A', backgroundColor: '#FFFBEB' }}>
-                  {altasPendientesCount} pendientes
+        {/* Paginación */}
+        {filteredTransactions.length > ITEMS_PER_PAGE && (
+          <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
+            <button
+              type="button"
+              className="btn btn-link btn-sm text-primary fw-semibold p-0 text-decoration-none"
+              onClick={() => setShowAllVentas(!showAllVentas)}
+            >
+              {showAllVentas ? 'Ver paginado' : 'Ver todas las transacciones'}
+            </button>
+            {!showAllVentas && (
+              <div className="d-flex align-items-center gap-1.5">
+                <button
+                  className="btn btn-outline-secondary btn-sm px-2 py-1"
+                  disabled={ventasPage <= 1}
+                  onClick={() => setVentasPage((p) => Math.max(p - 1, 1))}
+                >
+                  Anterior
+                </button>
+                <span className="small text-muted px-1">
+                  {ventasPage} / {totalVentasPages}
                 </span>
+                <button
+                  className="btn btn-outline-secondary btn-sm px-2 py-1"
+                  disabled={ventasPage >= totalVentasPages}
+                  onClick={() => setVentasPage((p) => Math.min(p + 1, totalVentasPages))}
+                >
+                  Siguiente
+                </button>
               </div>
-              <div>
-                <span className="text-muted fw-semibold small d-block mb-1">Pendiente de pago</span>
-                <strong className="fs-4 fw-bolder d-block" style={{ lineHeight: '1.2', color: '#D97706' }}>
-                  S/ {comisionPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </strong>
-                <small className="text-muted" style={{ fontSize: '0.75rem' }}>Por conciliar y liquidar</small>
-              </div>
-            </div>
+            )}
           </div>
-        </div>
-
-        {/* Gráfico Comisiones por Mes + Detalle de Comisiones */}
-        <div className="row g-3">
-          {/* Gráfico de Barras Comisiones Moderno */}
-          <div className="col-12 col-lg-5">
-            <div className="custom-card p-3.5 h-100 d-flex flex-column justify-content-between">
-              <div>
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <strong className="small text-dark fw-bold">Comisiones por mes</strong>
-                  <span className="badge-tag" style={{ color: '#465FFF', borderColor: '#BFDBFE', backgroundColor: '#EFF6FF' }}>
-                    S/ {comisionAcumulada.toFixed(2)} acumulado
-                  </span>
-                </div>
-                <p className="text-muted small mb-3" style={{ fontSize: '0.75rem' }}>Rendimiento mensual de comisiones ganadas</p>
-
-                {/* Gráfico interactivo con Chart.js */}
-                <div className="pt-2 pb-1">
-                  <CommissionsBarChart data={monthlyCommissions} />
-                </div>
-              </div>
-
-              {/* Pie con métricas clave */}
-              <div className="d-flex justify-content-between align-items-center pt-2.5 mt-2 border-top" style={{ fontSize: '0.74rem' }}>
-                <span className="text-muted fw-semibold">
-                  Promedio: <strong className="text-dark">S/ {(comisionAcumulada / Math.max(monthlyCommissions.filter(m => m.comision > 0).length, 1)).toFixed(1)}/mes</strong>
-                </span>
-                <span className="text-muted fw-semibold">
-                  Pico máx: <strong className="text-primary">S/ {Math.max(...monthlyCommissions.map(m => m.comision), 0).toFixed(0)}</strong>
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Tabla: Detalle de Comisiones */}
-          <div className="col-12 col-lg-7">
-            <div className="custom-card admin-report-table-card p-3.5 h-100 d-flex flex-column justify-content-between">
-              <div>
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <strong className="small text-dark fw-bold">Detalle de comisiones</strong>
-                  <small className="text-muted fw-semibold">
-                    Mostrando {displayedComisiones.length} de {altasTransactions.length} afiliaciones
-                  </small>
-                </div>
-
-                <div className="table-card-meta mb-3">
-                  <div className="table-responsive">
-                    <table className="table table-hover align-middle mb-0 table-meta">
-                      <thead>
-                        <tr>
-                          <th>Fecha</th>
-                          <th>Cliente</th>
-                          <th>Plan</th>
-                          <th>Monto venta</th>
-                          <th>% Comisión</th>
-                          <th>Comisión</th>
-                          <th className="text-end">Estado</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {displayedComisiones.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
-                              No se encontraron afiliaciones en el periodo filtrado.
-                            </td>
-                          </tr>
-                        ) : (
-                          displayedComisiones.map((t) => (
-                            <tr key={t.id}>
-                              <td className="text-muted fw-semibold">
-                                {t.fechaObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                              </td>
-                              <td>
-                                <span className="cell-title">{t.cliente}</span>
-                              </td>
-                              <td>
-                                <span className="badge-tag badge-plan-tag">{t.plan}</span>
-                              </td>
-                              <td>
-                                <span className="cell-amount text-dark">S/ {t.monto.toFixed(2)}</span>
-                              </td>
-                              <td className="text-muted fw-semibold">Fija / ALTA</td>
-                              <td>
-                                <span className="cell-amount text-primary">S/ {TASA_COMISION_ALTA.toFixed(2)}</span>
-                              </td>
-                              <td className="text-end">
-                                <span
-                                  className={`badge-fb ${
-                                    t.estado === 'PAGADO' ? 'badge-fb-success' : 'badge-fb-primary'
-                                  }`}
-                                >
-                                  <span
-                                    className={`badge-dot ${
-                                      t.estado === 'PAGADO' ? 'badge-dot-success' : 'badge-dot-info'
-                                    }`}
-                                  />
-                                  {t.estado === 'PAGADO' ? 'Pagado' : 'Generada'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-
-              {/* Paginación Comisiones */}
-              {altasTransactions.length > ITEMS_PER_PAGE && (
-                <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm text-primary fw-semibold p-0 text-decoration-none"
-                    onClick={() => setShowAllComisiones(!showAllComisiones)}
-                  >
-                    {showAllComisiones ? 'Ver paginado' : 'Ver todas mis comisiones'}
-                  </button>
-                  {!showAllComisiones && (
-                    <div className="d-flex align-items-center gap-1.5">
-                      <button
-                        className="btn btn-outline-secondary btn-sm px-2 py-1"
-                        disabled={comisionesPage <= 1}
-                        onClick={() => setComisionesPage((p) => Math.max(p - 1, 1))}
-                      >
-                        Anterior
-                      </button>
-                      <span className="small text-muted px-1">
-                        {comisionesPage} / {totalComisionesPages}
-                      </span>
-                      <button
-                        className="btn btn-outline-secondary btn-sm px-2 py-1"
-                        disabled={comisionesPage >= totalComisionesPages}
-                        onClick={() => setComisionesPage((p) => Math.min(p + 1, totalComisionesPages))}
-                      >
-                        Siguiente
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

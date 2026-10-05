@@ -451,3 +451,259 @@ export function CommissionsBarChart({ data }: CommissionsBarChartProps) {
     </div>
   );
 }
+
+// --------------------------------------------------------------------------
+// 4. Gráfico Donut de Salud de Cartera y Pérdidas (Cobrado vs Por Cobrar vs Vencido vs Bloqueado)
+// --------------------------------------------------------------------------
+export interface PortfolioHealthProps {
+  cobrado: number;
+  porCobrar: number;
+  vencido: number;
+  bloqueado: number;
+}
+
+export function PortfolioHealthChart({ cobrado, porCobrar, vencido, bloqueado }: PortfolioHealthProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const chartInstanceRef = useRef<any>(null);
+  const isChartReady = useChartJsReady();
+
+  const total = cobrado + porCobrar + vencido + bloqueado;
+
+  useEffect(() => {
+    if (!isChartReady || !canvasRef.current) return;
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.destroy();
+      chartInstanceRef.current = null;
+    }
+
+    if (total <= 0) return;
+
+    const Chart = (window as any).Chart;
+
+    chartInstanceRef.current = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Cobrado Efectivo', 'Por Cobrar', 'Mora Vencidos', 'Mora Bloqueados'],
+        datasets: [
+          {
+            data: [cobrado, porCobrar, vencido, bloqueado],
+            backgroundColor: ['#10B981', '#F59E0B', '#EF4444', '#64748B'],
+            hoverBackgroundColor: ['#059669', '#D97706', '#DC2626', '#475569'],
+            borderWidth: 2,
+            borderColor: '#FFFFFF',
+            hoverOffset: 6,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            backgroundColor: '#0F172A',
+            titleColor: '#F8FAFC',
+            bodyColor: '#E2E8F0',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 10,
+            callbacks: {
+              label: (context: any) => {
+                const val = Number(context.parsed || 0);
+                const pct = total > 0 ? ((val / total) * 100).toFixed(1) : '0';
+                return ` ${context.label}: S/ ${val.toFixed(2)} (${pct}%)`;
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return () => {
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
+      }
+    };
+  }, [cobrado, porCobrar, vencido, bloqueado, total, isChartReady]);
+
+  if (!isChartReady) {
+    return (
+      <div className="d-flex align-items-center justify-content-center w-100" style={{ height: '220px' }}>
+        <div className="spinner-border spinner-border-sm text-primary me-2" role="status" />
+        <span className="text-muted small">Cargando gráfico...</span>
+      </div>
+    );
+  }
+
+  if (total <= 0) {
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted small py-4">
+        <PieChart size={36} className="text-muted opacity-30 mb-2" />
+        <span className="fw-semibold">Sin datos financieros para graficar</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-100 position-relative d-flex align-items-center justify-content-center" style={{ height: '220px' }}>
+      <canvas ref={canvasRef} />
+      <div
+        className="position-absolute text-center d-flex flex-column justify-content-center pointer-events-none"
+        style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none' }}
+      >
+        <span className="text-muted" style={{ fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Total Cartera
+        </span>
+        <strong className="text-dark fw-bold" style={{ fontSize: '1.05rem', lineHeight: '1.2' }}>
+          S/ {total.toFixed(0)}
+        </strong>
+      </div>
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// 5. Gráfico de Barras: Comparativa de Ingresos (Altas vs Renovaciones vs Prorrateos)
+// --------------------------------------------------------------------------
+export interface RevenueTypeBarChartProps {
+  data: Array<{
+    period: string;
+    altas: number;
+    renovaciones: number;
+    prorrateos: number;
+  }>;
+}
+
+export function RevenueTypeBarChart({ data }: RevenueTypeBarChartProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const chartInstanceRef = useRef<any>(null);
+  const isChartReady = useChartJsReady();
+
+  useEffect(() => {
+    if (!isChartReady || !canvasRef.current) return;
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.destroy();
+      chartInstanceRef.current = null;
+    }
+
+    if (!data || data.length === 0) return;
+
+    const Chart = (window as any).Chart;
+
+    chartInstanceRef.current = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: data.map((d) => d.period),
+        datasets: [
+          {
+            label: 'Nuevas Altas (S/)',
+            data: data.map((d) => d.altas),
+            backgroundColor: '#10B981',
+            borderRadius: 4,
+            maxBarThickness: 18,
+          },
+          {
+            label: 'Renovaciones Mensuales (S/)',
+            data: data.map((d) => d.renovaciones),
+            backgroundColor: '#465FFF',
+            borderRadius: 4,
+            maxBarThickness: 18,
+          },
+          {
+            label: 'Prorrateos / Anuales (S/)',
+            data: data.map((d) => d.prorrateos),
+            backgroundColor: '#8B5CF6',
+            borderRadius: 4,
+            maxBarThickness: 18,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 10,
+              boxHeight: 10,
+              font: { size: 11, weight: '500' },
+              color: '#475569',
+            },
+          },
+          tooltip: {
+            backgroundColor: '#0F172A',
+            titleColor: '#F8FAFC',
+            bodyColor: '#E2E8F0',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 10,
+            callbacks: {
+              label: (context: any) => ` ${context.dataset.label}: S/ ${Number(context.parsed.y || 0).toFixed(2)}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: '#64748B', font: { size: 11, weight: '600' } },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: '#F1F5F9' },
+            ticks: {
+              color: '#64748B',
+              font: { size: 11 },
+              callback: (val: any) => `S/${val}`,
+            },
+          },
+        },
+      },
+    });
+
+    return () => {
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
+      }
+    };
+  }, [data, isChartReady]);
+
+  if (!isChartReady) {
+    return (
+      <div className="d-flex align-items-center justify-content-center w-100" style={{ height: '220px' }}>
+        <div className="spinner-border spinner-border-sm text-primary me-2" role="status" />
+        <span className="text-muted small">Cargando gráfico interactivo...</span>
+      </div>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted small py-4">
+        <BarChart3 size={32} className="text-muted opacity-30 mb-2" />
+        <span className="fw-semibold">Sin datos registrados para graficar</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-100 position-relative" style={{ height: '220px' }}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
