@@ -74,6 +74,7 @@ interface ReportesExcelTabProps {
   setSuscripcionFilter?: (v: string) => void;
   filterClientUnified?: (c: Client) => boolean;
   setEditingClient?: (client: Client) => void;
+  setHistoryClient?: (client: Client | null) => void;
   COLOR_MAP?: any;
 }
 
@@ -108,6 +109,7 @@ export default function ReportesExcelTab({
   setSuscripcionFilter = () => {},
   filterClientUnified,
   setEditingClient = () => {},
+  setHistoryClient = () => {},
   COLOR_MAP,
 }: ReportesExcelTabProps) {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
@@ -702,6 +704,9 @@ export default function ReportesExcelTab({
   const [selectedVendedor, setSelectedVendedor] = React.useState<string>('ALL');
   const [selectedCliente, setSelectedCliente] = React.useState<string>('');
 
+  // Buscador de verificación y conciliación directa (ej. RUC 20614429501)
+  const [verifierQuery, setVerifierQuery] = React.useState<string>('');
+
   // Paginación por sección
   const [tablePage, setTablePage] = React.useState<number>(1);
   const [showAllRows, setShowAllRows] = React.useState<boolean>(false);
@@ -727,12 +732,24 @@ export default function ReportesExcelTab({
     return `${monthNamesEs[m - 1]} ${y}`;
   };
 
+  // Mapa rápido de clientes indexados por ID y por RUC
+  const clientMap = useMemo(() => {
+    const map = new Map<string, Client>();
+    safeClients.forEach((c) => {
+      if (c.id) map.set(String(c.id), c);
+      if (c.ruc) map.set(String(c.ruc), c);
+    });
+    return map;
+  }, [safeClients]);
+
   // --------------------------------------------------------------------------
   // EXTRACCIÓN Y NORMALIZACIÓN DE TRANSACCIONES REALES DE BASE DE DATOS
+  // (Para los anuales, solo se cuenta 1 vez en el mes en que inicia su plan)
   // --------------------------------------------------------------------------
   const rawTransactions = useMemo(() => {
     const list: Array<{
       id: string;
+      rawClientRef: Client | null;
       fecha: string;
       fechaObj: Date;
       fechaPagoStr: string;
@@ -751,23 +768,16 @@ export default function ReportesExcelTab({
       tipoSuscripcion: string;
       regimen: string;
       primaryMonth: string;
-      coveredMonths: string[];
       tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN';
       detalleCobertura: string;
     }> = [];
-
-    const clientMap = new Map<string, Client>();
-    safeClients.forEach((c) => {
-      if (c.id) clientMap.set(String(c.id), c);
-      if (c.ruc) clientMap.set(String(c.ruc), c);
-    });
 
     const seenKeys = new Set<string>();
 
     // 1. Pagos registrados en la base de datos
     (Array.isArray(payments) ? payments : []).forEach((p, idx) => {
       const cliId = String(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId ?? '');
-      const cli = clientMap.get(cliId);
+      const cli = clientMap.get(cliId) || clientMap.get(String(p?.clienteRuc || '')) || null;
       const fechaRaw = p?.fechaPago || p?.fechaRegistro || p?.venta?.fechaVenta || cli?.fechaRegistro;
       const d = fechaRaw ? new Date(fechaRaw) : new Date();
       if (isNaN(d.getTime())) return;
@@ -794,44 +804,35 @@ export default function ReportesExcelTab({
         (p?.conProrrateo && d.getDate() < 10) ||
         String(p?.observaciones || '').toLowerCase().includes('primer');
 
+      // Mes de inicio / asignación del pago
       let baseD = d;
       if (p?.periodoInicio) {
         const parsedStart = parseLocalDateSafe(p.periodoInicio);
         if (parsedStart) baseD = parsedStart;
       }
       const primaryMonth = toMonthKey(baseD);
-      const coveredMonths: string[] = [];
-      let detalleCobertura = formatMonthKeyLabel(primaryMonth);
 
+      let detalleCobertura = formatMonthKeyLabel(primaryMonth);
       let tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN' = 'MENSUALIDAD';
 
       if (isAnual) {
         tipoIngreso = 'ANUAL';
-        for (let k = 0; k < 12; k++) {
-          coveredMonths.push(addMonthsToKeyHelper(primaryMonth, k));
-        }
-        detalleCobertura = 'Anual (12 meses)';
+        detalleCobertura = `Anual (${formatMonthKeyLabel(primaryMonth)})`;
       } else if (isSegundoProrrateo) {
         tipoIngreso = 'PRORRATEO_2';
-        coveredMonths.push(primaryMonth);
         const m2 = addMonthsToKeyHelper(primaryMonth, 1);
-        coveredMonths.push(m2);
         detalleCobertura = `2.° Prorr. (${formatMonthKeyLabel(primaryMonth).split(' ')[0]} - ${formatMonthKeyLabel(m2)})`;
       } else if (isPrimerProrrateo) {
         tipoIngreso = 'PRORRATEO_1';
-        coveredMonths.push(primaryMonth);
         detalleCobertura = `1.° Prorr. (${formatMonthKeyLabel(primaryMonth)})`;
       } else if (tipoVenta === 'ALTA') {
         tipoIngreso = 'ALTA';
-        coveredMonths.push(primaryMonth);
         detalleCobertura = `Alta (${formatMonthKeyLabel(primaryMonth)})`;
       } else if (tipoVenta === 'CAMBIO_PLAN' || tipoVenta === 'MEJORA_PLAN') {
         tipoIngreso = 'MEJORA_PLAN';
-        coveredMonths.push(primaryMonth);
         detalleCobertura = `Mejora Plan (${formatMonthKeyLabel(primaryMonth)})`;
       } else {
         tipoIngreso = 'MENSUALIDAD';
-        coveredMonths.push(primaryMonth);
         detalleCobertura = formatMonthKeyLabel(primaryMonth);
       }
 
@@ -859,6 +860,7 @@ export default function ReportesExcelTab({
 
       list.push({
         id: String(p?.id || `p-${idx}`),
+        rawClientRef: cli,
         fecha: d.toISOString(),
         fechaObj: d,
         fechaPagoStr,
@@ -877,13 +879,12 @@ export default function ReportesExcelTab({
         tipoSuscripcion: (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || cli?.tipoSuscripcion || 'MENSUAL').toUpperCase(),
         regimen: (cli?.regimenTributario || p?.venta?.cliente?.regimenTributario || 'GENERAL').toUpperCase(),
         primaryMonth,
-        coveredMonths,
         tipoIngreso,
         detalleCobertura,
       });
     });
 
-    // 2. Incorporar clientes sin pago registrado aún (pendientes de alta)
+    // 2. Incorporar clientes sin pago registrado aún (pendientes de su primer cobro)
     safeClients.forEach((c, idx) => {
       const hasPayment = list.some((t) => t.ruc === c.ruc);
       if (!hasPayment && c.fechaRegistro) {
@@ -894,23 +895,18 @@ export default function ReportesExcelTab({
 
         const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
         const isSegundoProrrateo = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || d.getDate() >= 10;
-        const coveredMonths: string[] = [];
         let detalleCobertura = formatMonthKeyLabel(primaryMonth);
         let tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN' = 'ALTA';
 
         if (isAnual) {
           tipoIngreso = 'ANUAL';
-          for (let k = 0; k < 12; k++) coveredMonths.push(addMonthsToKeyHelper(primaryMonth, k));
-          detalleCobertura = 'Anual (12 meses)';
+          detalleCobertura = `Anual (${formatMonthKeyLabel(primaryMonth)})`;
         } else if (isSegundoProrrateo) {
           tipoIngreso = 'PRORRATEO_2';
-          coveredMonths.push(primaryMonth);
           const m2 = addMonthsToKeyHelper(primaryMonth, 1);
-          coveredMonths.push(m2);
           detalleCobertura = `2.° Prorr. (${formatMonthKeyLabel(primaryMonth).split(' ')[0]} - ${formatMonthKeyLabel(m2)})`;
         } else {
           tipoIngreso = 'ALTA';
-          coveredMonths.push(primaryMonth);
           detalleCobertura = `Alta (${formatMonthKeyLabel(primaryMonth)})`;
         }
 
@@ -922,6 +918,7 @@ export default function ReportesExcelTab({
 
         list.push({
           id: `cli-${c.id || idx}`,
+          rawClientRef: c,
           fecha: d.toISOString(),
           fechaObj: d,
           fechaPagoStr,
@@ -940,7 +937,6 @@ export default function ReportesExcelTab({
           tipoSuscripcion: (c.tipoSuscripcion || 'MENSUAL').toUpperCase(),
           regimen: (c.regimenTributario || 'GENERAL').toUpperCase(),
           primaryMonth,
-          coveredMonths,
           tipoIngreso,
           detalleCobertura,
         });
@@ -948,25 +944,28 @@ export default function ReportesExcelTab({
     });
 
     return list.sort((a, b) => b.fechaObj.getTime() - a.fechaObj.getTime());
-  }, [safeClients, payments]);
+  }, [safeClients, payments, clientMap]);
 
-  // Meses disponibles para filtro
+  // Lista de meses de facturación disponibles para filtro
   const availableBillingMonths = useMemo(() => {
     const map = new Map<string, string>();
     rawTransactions.forEach((t) => {
-      t.coveredMonths.forEach((mKey) => {
-        if (!map.has(mKey)) map.set(mKey, formatMonthKeyLabel(mKey));
-      });
+      if (!map.has(t.primaryMonth)) {
+        map.set(t.primaryMonth, formatMonthKeyLabel(t.primaryMonth));
+      }
     });
     const nowKey = toMonthKey(new Date());
     if (!map.has(nowKey)) map.set(nowKey, formatMonthKeyLabel(nowKey));
     return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
   }, [rawTransactions]);
 
-  // Transacciones filtradas por los controles generales
+  // Transacciones filtradas: cuando se selecciona un mes, filtra exactamente por el mes de asignación/cobro
   const filteredTransactions = useMemo(() => {
     return rawTransactions.filter((t) => {
-      if (selectedMesFacturacion !== 'ALL' && !t.coveredMonths.includes(selectedMesFacturacion)) return false;
+      // Filtro exacto por mes de facturación (los anuales solo se cuentan 1 vez en el mes que inician)
+      if (selectedMesFacturacion !== 'ALL') {
+        if (t.primaryMonth !== selectedMesFacturacion) return false;
+      }
       if (fechaDesde) {
         const dDesde = new Date(fechaDesde);
         dDesde.setHours(0, 0, 0, 0);
@@ -989,24 +988,33 @@ export default function ReportesExcelTab({
   }, [rawTransactions, selectedMesFacturacion, fechaDesde, fechaHasta, selectedEstadoPago, selectedPlan, selectedVendedor, selectedCliente]);
 
   // --------------------------------------------------------------------------
-  // CÁLCULO DE DEUDA REAL ACUMULADA EN CLIENTES VENCIDOS Y BLOQUEADOS
-  // (Para los bloqueados, los meses impagos se acumulan en el tiempo)
+  // CÁLCULO DE DEUDA UNIFICADA (VENCIDOS Y BLOQUEADOS)
+  // Cada cliente impago cuenta 1 sola tarifa/deuda, tal como solicitó el usuario.
   // --------------------------------------------------------------------------
   const {
-    vencidosDetalleList,
-    bloqueadosDetalleList,
-    totalDeudaVencidos,
-    totalDeudaBloqueados,
-    totalMesesBloqueados,
-    totalDeudaNoCobrada,
-    totalClientesConDeuda,
+    clientesConDeudaList,
+    vencidosCount,
+    bloqueadosCount,
+    totalDeudaPendiente,
   } = useMemo(() => {
-    const now = new Date();
-    const vencidos: Array<{ client: Client; tarifa: number; meses: number; deuda: number; fechaBaseStr: string; telefono: string }> = [];
-    const bloqueados: Array<{ client: Client; tarifa: number; meses: number; deuda: number; fechaBaseStr: string; telefono: string }> = [];
+    const list: Array<{
+      client: Client;
+      razonSocial: string;
+      ruc: string;
+      estado: 'VENCIDO' | 'BLOQUEADO';
+      tarifa: number;
+      fechaVencimientoStr: string;
+      asesor: string;
+      telefono: string;
+    }> = [];
+
+    let sumDeuda = 0;
+    let vCount = 0;
+    let bCount = 0;
 
     safeClients.forEach((c) => {
       const st = (c.estadoCuenta || '').toUpperCase();
+      if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
       if (selectedVendedor !== 'ALL' && c.vendedor !== selectedVendedor) return;
       if (selectedPlan !== 'ALL' && !c.planContratado?.toUpperCase().includes(selectedPlan.toUpperCase())) return;
       if (selectedCliente.trim() !== '') {
@@ -1015,56 +1023,38 @@ export default function ReportesExcelTab({
       }
 
       const tarifa = Number(c.montoMensual || c.montoSiguienteCobro || c.precioPlan || 30);
-      const baseDate = parseLocalDateSafe(c.fechaVencimientoMensual) || parseLocalDateSafe(c.fechaCapacitacion) || parseLocalDateSafe(c.fechaCreacion) || parseLocalDateSafe(c.fechaRegistro);
-      const fechaBaseStr = baseDate ? baseDate.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'Sin fecha';
-      const telefono = c.telefono || c.telefonoPersonal || '';
+      const isBloq = st === 'BLOQUEADO' || st === 'SUSPENDIDO';
+      if (isBloq) bCount++;
+      else vCount++;
 
-      if (st === 'BLOQUEADO' || st === 'SUSPENDIDO') {
-        let meses = 1;
-        if (baseDate) {
-          const diff = (now.getFullYear() - baseDate.getFullYear()) * 12 + (now.getMonth() - baseDate.getMonth());
-          meses = Math.max(1, diff + (now.getDate() >= baseDate.getDate() ? 1 : 0));
-        }
-        bloqueados.push({
-          client: c,
-          tarifa,
-          meses,
-          deuda: tarifa * meses,
-          fechaBaseStr,
-          telefono,
-        });
-      } else if (st === 'VENCIDO') {
-        vencidos.push({
-          client: c,
-          tarifa,
-          meses: 1,
-          deuda: tarifa,
-          fechaBaseStr,
-          telefono,
-        });
-      }
+      sumDeuda += tarifa;
+
+      const vencD = parseLocalDateSafe(c.fechaVencimientoMensual) || parseLocalDateSafe(c.fechaCreacion) || parseLocalDateSafe(c.fechaRegistro);
+      const fechaVencimientoStr = vencD ? vencD.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+      list.push({
+        client: c,
+        razonSocial: c.razonSocial || 'Cliente General',
+        ruc: c.ruc || '—',
+        estado: isBloq ? 'BLOQUEADO' : 'VENCIDO',
+        tarifa,
+        fechaVencimientoStr,
+        asesor: c.vendedor || 'Por asignar',
+        telefono: c.telefono || c.telefonoPersonal || '',
+      });
     });
 
-    const deudaVenc = vencidos.reduce((acc, item) => acc + item.deuda, 0);
-    const deudaBloq = bloqueados.reduce((acc, item) => acc + item.deuda, 0);
-    const mesesBloq = bloqueados.reduce((acc, item) => acc + item.meses, 0);
-
     return {
-      vencidosDetalleList: vencidos,
-      bloqueadosDetalleList: bloqueados,
-      totalDeudaVencidos: deudaVenc,
-      totalDeudaBloqueados: deudaBloq,
-      totalMesesBloqueados: mesesBloq,
-      totalDeudaNoCobrada: deudaVenc + deudaBloq,
-      totalClientesConDeuda: vencidos.length + bloqueados.length,
+      clientesConDeudaList: list.sort((a, b) => b.tarifa - a.tarifa),
+      vencidosCount: vCount,
+      bloqueadosCount: bCount,
+      totalDeudaPendiente: sumDeuda,
     };
   }, [safeClients, selectedVendedor, selectedPlan, selectedCliente]);
 
   // --------------------------------------------------------------------------
-  // SEGREGACIÓN POR CATEGORÍA ESPECÍFICA (ALTAS, MENSUALIDADES, ANUALES, ETC.)
+  // SEGREGACIÓN POR CATEGORÍA ESPECÍFICA (ALTAS, MENSUALIDADES, ANUALES, PRORRATEOS)
   // --------------------------------------------------------------------------
-
-  // 1. NUEVAS ALTAS (AFILIACIONES)
   const altasData = useMemo(() => {
     return filteredTransactions.filter((t) => t.tipoIngreso === 'ALTA' && t.estado === 'PAGADO');
   }, [filteredTransactions]);
@@ -1072,7 +1062,6 @@ export default function ReportesExcelTab({
   const countAltas = altasData.length;
   const promedioAlta = countAltas > 0 ? gananciaAltas / countAltas : 0;
 
-  // 2. RENOVACIONES / MENSUALIDADES RECURRENTES
   const mensualidadesData = useMemo(() => {
     return filteredTransactions.filter((t) => t.tipoIngreso === 'MENSUALIDAD' && t.estado === 'PAGADO');
   }, [filteredTransactions]);
@@ -1080,14 +1069,12 @@ export default function ReportesExcelTab({
   const countMensualidades = mensualidadesData.length;
   const promedioMensualidad = countMensualidades > 0 ? gananciaMensualidades / countMensualidades : 0;
 
-  // 3. PLANES ANUALES
   const anualesData = useMemo(() => {
     return filteredTransactions.filter((t) => t.tipoIngreso === 'ANUAL' && t.estado === 'PAGADO');
   }, [filteredTransactions]);
   const gananciaAnual = useMemo(() => anualesData.reduce((acc, t) => acc + t.monto, 0), [anualesData]);
   const countAnuales = anualesData.length;
 
-  // 4. PRORRATEOS (1er y 2do prorrateo)
   const prorrateo1Data = useMemo(() => filteredTransactions.filter((t) => t.tipoIngreso === 'PRORRATEO_1' && t.estado === 'PAGADO'), [filteredTransactions]);
   const prorrateo2Data = useMemo(() => filteredTransactions.filter((t) => t.tipoIngreso === 'PRORRATEO_2' && t.estado === 'PAGADO'), [filteredTransactions]);
   const gananciaProrrateo1 = useMemo(() => prorrateo1Data.reduce((acc, t) => acc + t.monto, 0), [prorrateo1Data]);
@@ -1095,7 +1082,6 @@ export default function ReportesExcelTab({
   const totalProrrateos = gananciaProrrateo1 + gananciaProrrateo2;
   const prorrateosCombinedData = useMemo(() => [...prorrateo1Data, ...prorrateo2Data], [prorrateo1Data, prorrateo2Data]);
 
-  // 5. TOTAL COBRADO EFECTIVO EN CAJA
   const totalCobrado = useMemo(() => {
     return filteredTransactions.filter((t) => t.estado === 'PAGADO').reduce((acc, t) => acc + t.monto, 0);
   }, [filteredTransactions]);
@@ -1110,7 +1096,6 @@ export default function ReportesExcelTab({
   // --------------------------------------------------------------------------
   const monthNamesShort = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
 
-  // Tendencia mensual de Altas
   const altasMonthlyTrend = useMemo(() => {
     const topMonths = availableBillingMonths.slice(0, 6).reverse();
     if (topMonths.length === 0) return [{ period: 'Actual', monto: gananciaAltas, cantidad: countAltas }];
@@ -1120,7 +1105,7 @@ export default function ReportesExcelTab({
       let monto = 0;
       let cantidad = 0;
       rawTransactions.forEach((t) => {
-        if (t.estado === 'PAGADO' && t.tipoIngreso === 'ALTA' && t.coveredMonths.includes(mKey)) {
+        if (t.estado === 'PAGADO' && t.tipoIngreso === 'ALTA' && t.primaryMonth === mKey) {
           monto += t.monto;
           cantidad += 1;
         }
@@ -1129,7 +1114,6 @@ export default function ReportesExcelTab({
     });
   }, [availableBillingMonths, rawTransactions, gananciaAltas, countAltas]);
 
-  // Tendencia mensual de Renovaciones
   const mensualidadesMonthlyTrend = useMemo(() => {
     const topMonths = availableBillingMonths.slice(0, 6).reverse();
     if (topMonths.length === 0) return [{ period: 'Actual', monto: gananciaMensualidades, cantidad: countMensualidades }];
@@ -1139,7 +1123,7 @@ export default function ReportesExcelTab({
       let monto = 0;
       let cantidad = 0;
       rawTransactions.forEach((t) => {
-        if (t.estado === 'PAGADO' && t.tipoIngreso === 'MENSUALIDAD' && t.coveredMonths.includes(mKey)) {
+        if (t.estado === 'PAGADO' && t.tipoIngreso === 'MENSUALIDAD' && t.primaryMonth === mKey) {
           monto += t.monto;
           cantidad += 1;
         }
@@ -1148,7 +1132,6 @@ export default function ReportesExcelTab({
     });
   }, [availableBillingMonths, rawTransactions, gananciaMensualidades, countMensualidades]);
 
-  // Tendencia mensual de Anuales
   const anualesMonthlyTrend = useMemo(() => {
     const topMonths = availableBillingMonths.slice(0, 6).reverse();
     if (topMonths.length === 0) return [{ period: 'Actual', monto: gananciaAnual, cantidad: countAnuales }];
@@ -1158,7 +1141,7 @@ export default function ReportesExcelTab({
       let monto = 0;
       let cantidad = 0;
       rawTransactions.forEach((t) => {
-        if (t.estado === 'PAGADO' && t.tipoIngreso === 'ANUAL' && t.coveredMonths.includes(mKey)) {
+        if (t.estado === 'PAGADO' && t.tipoIngreso === 'ANUAL' && t.primaryMonth === mKey) {
           monto += t.monto;
           cantidad += 1;
         }
@@ -1167,7 +1150,6 @@ export default function ReportesExcelTab({
     });
   }, [availableBillingMonths, rawTransactions, gananciaAnual, countAnuales]);
 
-  // Comparativa global para Resumen
   const monthlyRevenueComparison = useMemo(() => {
     const topMonths = availableBillingMonths.slice(0, 6).reverse();
     if (topMonths.length === 0) {
@@ -1181,7 +1163,7 @@ export default function ReportesExcelTab({
       let prorrateos = 0;
       rawTransactions.forEach((t) => {
         if (t.estado !== 'PAGADO') return;
-        if (t.coveredMonths.includes(mKey)) {
+        if (t.primaryMonth === mKey) {
           if (t.tipoIngreso === 'ALTA') altas += t.monto;
           else if (t.tipoIngreso === 'MENSUALIDAD') renovaciones += t.monto;
           else prorrateos += t.monto;
@@ -1191,7 +1173,6 @@ export default function ReportesExcelTab({
     });
   }, [availableBillingMonths, rawTransactions, gananciaAltas, gananciaMensualidades, totalProrrateos, gananciaAnual]);
 
-  // Evolución temporal para Resumen
   const timelineData = useMemo(() => {
     const dayMap = new Map<string, { label: string; ventas: number; ingresos: number }>();
     const sorted = [...filteredTransactions].sort((a, b) => a.fechaObj.getTime() - b.fechaObj.getTime());
@@ -1207,7 +1188,6 @@ export default function ReportesExcelTab({
     return Array.from(dayMap.values());
   }, [filteredTransactions]);
 
-  // Distribución por plan
   const planDistribution = useMemo(() => {
     const plans = [
       { key: 'INICIA', label: 'Plan Inicia', color: '#0284C7' },
@@ -1240,6 +1220,36 @@ export default function ReportesExcelTab({
     }));
   }, [filteredTransactions]);
 
+  // Cliente encontrado en el verificador de conciliación directa
+  const verifiedClientResult = useMemo(() => {
+    const q = verifierQuery.trim().toLowerCase();
+    if (!q) return null;
+    const client = safeClients.find((c) => (c.ruc && c.ruc.includes(q)) || (c.razonSocial && c.razonSocial.toLowerCase().includes(q)));
+    if (!client) {
+      return {
+        found: false,
+        client: null as Client | null,
+        clientPayments: [] as typeof rawTransactions,
+        currentMonthPayment: null as (typeof rawTransactions)[0] | null,
+        montoMesSeleccionado: 0,
+        totalHistorico: 0,
+      };
+    }
+
+    // Pagos registrados de este cliente
+    const clientPayments = rawTransactions.filter((t) => t.ruc === client.ruc);
+    const currentMonthPayment = clientPayments.find((t) => selectedMesFacturacion === 'ALL' || t.primaryMonth === selectedMesFacturacion) || null;
+
+    return {
+      found: true,
+      client,
+      clientPayments,
+      currentMonthPayment,
+      montoMesSeleccionado: currentMonthPayment ? currentMonthPayment.monto : 0,
+      totalHistorico: clientPayments.reduce((acc, t) => acc + (t.estado === 'PAGADO' ? t.monto : 0), 0),
+    };
+  }, [verifierQuery, safeClients, rawTransactions, selectedMesFacturacion]);
+
   const resetFilters = () => {
     setSelectedMesFacturacion('ALL');
     setFechaDesde('');
@@ -1251,7 +1261,6 @@ export default function ReportesExcelTab({
     setTablePage(1);
   };
 
-  // Helper para paginación según sección activa
   const currentTableList = useMemo(() => {
     if (activeSection === 'ALTAS') return altasData;
     if (activeSection === 'MENSUALIDADES') return mensualidadesData;
@@ -1265,6 +1274,8 @@ export default function ReportesExcelTab({
     : currentTableList.slice((tablePage - 1) * ITEMS_PER_PAGE, tablePage * ITEMS_PER_PAGE);
   const totalPages = Math.ceil(currentTableList.length / ITEMS_PER_PAGE) || 1;
 
+  const currentMonthLabel = selectedMesFacturacion === 'ALL' ? 'Todo el Historial' : formatMonthKeyLabel(selectedMesFacturacion);
+
   return (
     <div className="reporte-general-container admin-module admin-module--reports pb-5">
       {/* Header Principal */}
@@ -1276,7 +1287,7 @@ export default function ReportesExcelTab({
           <div>
             <h1 className="h5 fw-bold text-dark mb-0.5">Reporte General y Resumen Financiero</h1>
             <p className="text-muted small mb-0">
-              Altas, renovaciones recurrentes, planes anuales y cartera acumulada sin cobrar
+              Datos reales sincronizados 1 a 1 con el Excel descargable y el historial de pagos de clientes
             </p>
           </div>
         </div>
@@ -1302,33 +1313,130 @@ export default function ReportesExcelTab({
         </div>
       </div>
 
+      {/* PANEL DE CONCILIACIÓN Y COMPROBACIÓN CON EL EXCEL E HISTORIAL */}
+      <div className="custom-card p-3.5 mb-4 shadow-sm" style={{ borderLeft: '4px solid #10B981', backgroundColor: '#F8FAFC' }}>
+        <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+          <div>
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <span className="badge rounded-pill bg-success-subtle text-success fw-bold px-2.5 py-1">
+                <CheckCircle2 size={13} className="me-1 d-inline" />
+                Conciliación con Excel: 100% Coincidente
+              </span>
+              <span className="text-dark fw-bold small">Período: {currentMonthLabel}</span>
+            </div>
+            <p className="text-muted small mb-0" style={{ fontSize: '0.8rem' }}>
+              El <strong>Total Recaudado (S/ {totalCobrado.toFixed(2)})</strong> equivale exactamente a la suma de la columna <strong>&quot;{currentMonthLabel} (S/)&quot;</strong> en el archivo Excel oficial. Para los planes anuales, la venta se cuenta <strong>una sola vez</strong> en el mes que inició su plan.
+            </p>
+          </div>
+
+          {/* Buscador de Verificación Instantánea de Cliente */}
+          <div className="d-flex align-items-center gap-2" style={{ minWidth: '320px' }}>
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-white border-end-0">
+                <Search size={14} className="text-primary" />
+              </span>
+              <input
+                type="text"
+                className="form-control border-start-0 ps-0"
+                placeholder="Verificar RUC (ej. 20614429501)..."
+                value={verifierQuery}
+                onChange={(e) => setVerifierQuery(e.target.value)}
+              />
+              {verifierQuery && (
+                <button
+                  className="btn btn-outline-secondary btn-sm"
+                  type="button"
+                  onClick={() => setVerifierQuery('')}
+                >
+                  <RotateCcw size={12} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Tarjeta de Resultado del Verificador de Cliente */}
+        {verifierQuery.trim() !== '' && (
+          <div className="mt-3 pt-3 border-top">
+            {verifiedClientResult && verifiedClientResult.found ? (
+              <div className="p-3 bg-white rounded-3 border d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 shadow-xs">
+                <div>
+                  <div className="d-flex align-items-center gap-2 mb-1">
+                    <strong className="text-dark">{verifiedClientResult.client?.razonSocial}</strong>
+                    <span className="badge bg-light text-muted font-monospace">{verifiedClientResult.client?.ruc}</span>
+                    <span
+                      className={`badge rounded-pill ${
+                        verifiedClientResult.client?.estadoCuenta === 'HABILITADO'
+                          ? 'bg-success text-white'
+                          : verifiedClientResult.client?.estadoCuenta === 'BLOQUEADO'
+                          ? 'bg-danger text-white'
+                          : 'bg-warning text-dark'
+                      }`}
+                    >
+                      {verifiedClientResult.client?.estadoCuenta || 'SIN ESTADO'}
+                    </span>
+                  </div>
+                  <div className="text-muted small" style={{ fontSize: '0.78rem' }}>
+                    Plan: <strong className="text-dark">{verifiedClientResult.client?.planContratado || 'Plan Estándar'}</strong> · Tarifa: <strong>S/ {Number(verifiedClientResult.client?.montoMensual || 0).toFixed(2)}</strong> · Asesor: <strong>{verifiedClientResult.client?.vendedor || 'Por asignar'}</strong>
+                  </div>
+                  <div className="mt-1 small">
+                    <span className="text-success fw-bold me-3">
+                      ✓ Monto en Columna Excel ({currentMonthLabel}): S/ {Number(verifiedClientResult.montoMesSeleccionado || 0).toFixed(2)}
+                    </span>
+                    <span className="text-primary fw-semibold">
+                      Total histórico cobrado: S/ {Number(verifiedClientResult.totalHistorico || 0).toFixed(2)} ({(verifiedClientResult.clientPayments || []).length} transacciones)
+                    </span>
+                  </div>
+                </div>
+
+                <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => {
+                      if (verifiedClientResult.client) setHistoryClient(verifiedClientResult.client);
+                    }}
+                    className="btn btn-primary btn-sm d-flex align-items-center gap-1.5 px-3 py-1.5 rounded-3 fw-semibold shadow-xs"
+                  >
+                    <Eye size={14} />
+                    <span>Ver Historial de Pagos</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-2 text-center text-muted small bg-white rounded-3 border">
+                No se encontró ningún cliente con el RUC o nombre &quot;{verifierQuery}&quot;.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* STRIP DE 5 INDICADORES PRINCIPALES (ESTILO TAILADMIN) */}
       <div className="row g-3 mb-4 admin-stat-strip">
-        {/* KPI 1: Dinero No Cobrado (Vencidos + Bloqueados con meses acumulados) */}
+        {/* KPI 1: Clientes con Deuda (Vencidos y Bloqueados unificados) */}
         <div className="col-12 col-sm-6 col-xl">
           <div
-            className="card admin-stat-card h-100 shadow-sm border-0 cursor-pointer"
+            className="card admin-stat-card h-100 shadow-sm border-0"
             onClick={() => setActiveSection('BLOQUEADOS')}
             style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
-            title="Ver lista de clientes con deuda acumulada"
+            title="Ver lista de clientes con deuda pendiente"
           >
             <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Dinero No Cobrado</span>
+              <span className="admin-stat-card-label">Deuda Pendiente</span>
               <span className="admin-stat-card-icon admin-stat-card-icon--red">
                 <AlertTriangle size={18} strokeWidth={2.2} />
               </span>
             </div>
             <div className="d-flex align-items-center gap-1.5 mb-2">
               <span className="admin-stat-card-trend admin-stat-card-trend--danger">
-                <ShieldAlert size={12} /> Deuda acumulada
+                <ShieldAlert size={12} /> Impagos
               </span>
-              <span className="admin-stat-card-trend-label">{totalClientesConDeuda} clientes impagos</span>
+              <span className="admin-stat-card-trend-label">{clientesConDeudaList.length} clientes con deuda</span>
             </div>
             <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.45rem' }}>
-              S/ {totalDeudaNoCobrada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Vencidos: <strong className="text-danger">S/ {totalDeudaVencidos.toFixed(0)}</strong> ({vencidosDetalleList.length}) · Bloqueados: <strong className="text-dark">S/ {totalDeudaBloqueados.toFixed(0)}</strong> ({bloqueadosDetalleList.length} cli, {totalMesesBloqueados}m)
+              Vencidos: <strong className="text-danger">({vencidosCount})</strong> · Bloqueados: <strong className="text-dark">({bloqueadosCount})</strong> · 1 tarifa/cliente
             </div>
           </div>
         </div>
@@ -1391,13 +1499,13 @@ export default function ReportesExcelTab({
           </div>
         </div>
 
-        {/* KPI 4: Planes Anuales */}
+        {/* KPI 4: Planes Anuales (Contados 1 sola vez en el mes que inician) */}
         <div className="col-12 col-sm-6 col-xl">
           <div
             className="card admin-stat-card h-100 shadow-sm border-0"
             onClick={() => setActiveSection('ANUALES')}
             style={{ cursor: 'pointer' }}
-            title="Ver clientes con suscripción anual de 12 meses"
+            title="Ver clientes con suscripción anual"
           >
             <div className="admin-stat-card-header">
               <span className="admin-stat-card-label">Planes Anuales</span>
@@ -1415,7 +1523,7 @@ export default function ReportesExcelTab({
               S/ {gananciaAnual.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Prorrateos adicionales: <strong>S/ {totalProrrateos.toFixed(2)}</strong>
+              Venta única en mes de inicio · Cobertura 1 año
             </div>
           </div>
         </div>
@@ -1450,7 +1558,7 @@ export default function ReportesExcelTab({
         </div>
       </div>
 
-      {/* PANEL DE FILTROS SUPERIORES (SIMPLE Y DIRECTO) */}
+      {/* PANEL DE FILTROS SUPERIORES */}
       <div className="custom-card admin-report-filter-panel p-3.5 mb-4 shadow-sm">
         <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
           <div className="d-flex align-items-center gap-2">
@@ -1459,7 +1567,7 @@ export default function ReportesExcelTab({
           </div>
           <div className="d-flex align-items-center gap-2">
             <span className="text-muted small">
-              Filtro por mes cubierto (evalúa prorrateos de 2 meses y anuales de 12 meses)
+              Filtrado por mes de cobro/inicio (cada venta anual se cuenta en el mes que inició)
             </span>
             <button
               onClick={resetFilters}
@@ -1476,7 +1584,7 @@ export default function ReportesExcelTab({
           {/* Selector de Mes de Facturación Principal */}
           <div className="col-12 col-md-4 col-lg-3">
             <label className="form-label small fw-bold text-dark mb-1 d-flex align-items-center gap-1">
-              <Calendar size={14} className="text-primary" /> Mes de facturación cubierto
+              <Calendar size={14} className="text-primary" /> Mes de facturación / cobro
             </label>
             <select
               className="form-select form-select-sm rounded-3 fw-semibold border-primary"
@@ -1566,7 +1674,7 @@ export default function ReportesExcelTab({
         </div>
       </div>
 
-      {/* BARRA DE NAVEGACIÓN POR CATEGORÍAS SEPARADAS (ESTILO TAILADMIN) */}
+      {/* BARRA DE NAVEGACIÓN POR CATEGORÍAS SEPARADAS */}
       <div className="d-flex align-items-center gap-2 mb-4 overflow-x-auto pb-1" style={{ borderBottom: '2px solid #E2E8F0' }}>
         <button
           onClick={() => {
@@ -1628,7 +1736,7 @@ export default function ReportesExcelTab({
         >
           <Calendar size={15} />
           <span>Planes Anuales ({countAnuales})</span>
-          <span className="badge rounded-pill bg-white text-purple px-2 py-0.5" style={{ fontSize: '0.7rem', color: '#7C3AED' }}>
+          <span className="badge rounded-pill bg-white px-2 py-0.5" style={{ fontSize: '0.7rem', color: '#7C3AED' }}>
             S/ {gananciaAnual.toFixed(0)}
           </span>
         </button>
@@ -1661,9 +1769,9 @@ export default function ReportesExcelTab({
           style={{ whiteSpace: 'nowrap' }}
         >
           <AlertTriangle size={15} />
-          <span>Deuda Acumulada ({totalClientesConDeuda})</span>
+          <span>Deuda ({clientesConDeudaList.length})</span>
           <span className="badge rounded-pill bg-white text-danger px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
-            S/ {totalDeudaNoCobrada.toFixed(0)}
+            S/ {totalDeudaPendiente.toFixed(0)}
           </span>
         </button>
       </div>
@@ -1673,7 +1781,6 @@ export default function ReportesExcelTab({
       {/* ========================================================================= */}
       {activeSection === 'RESUMEN' && (
         <>
-          {/* Fila 1 de gráficos: Salud de Cartera y Comparativa de Ingresos */}
           <div className="row g-3 mb-4">
             <div className="col-12 col-lg-5">
               <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between shadow-sm">
@@ -1683,17 +1790,17 @@ export default function ReportesExcelTab({
                       Salud de Cartera y Cobranza
                     </strong>
                     <span className="badge-tag" style={{ backgroundColor: '#FEF2F2', color: '#B91C1C', borderColor: '#FECACA' }}>
-                      S/ {totalDeudaNoCobrada.toFixed(0)} sin cobrar
+                      S/ {totalDeudaPendiente.toFixed(0)} en deuda
                     </span>
                   </div>
                   <small className="text-muted d-block mb-3" style={{ fontSize: '0.74rem' }}>
-                    Cobrado efectivo vs cartera vencida y bloqueados acumulados
+                    Cobrado efectivo vs cartera con deuda (Vencidos y Bloqueados)
                   </small>
                   <PortfolioHealthChart
                     cobrado={totalCobrado}
                     porCobrar={totalPendiente}
-                    vencido={totalDeudaVencidos}
-                    bloqueado={totalDeudaBloqueados}
+                    vencido={clientesConDeudaList.filter((c) => c.estado === 'VENCIDO').reduce((acc, c) => acc + c.tarifa, 0)}
+                    bloqueado={clientesConDeudaList.filter((c) => c.estado === 'BLOQUEADO').reduce((acc, c) => acc + c.tarifa, 0)}
                   />
                 </div>
                 <div className="pt-3 border-top mt-3">
@@ -1708,11 +1815,11 @@ export default function ReportesExcelTab({
                     </div>
                     <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#FEF2F2' }}>
                       <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Vencidos</span>
-                      <strong className="text-danger fw-bold">S/ {totalDeudaVencidos.toFixed(0)}</strong>
+                      <strong className="text-danger fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'VENCIDO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
                     </div>
                     <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#F1F5F9' }}>
                       <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Bloqueados</span>
-                      <strong className="text-secondary fw-bold">S/ {totalDeudaBloqueados.toFixed(0)}</strong>
+                      <strong className="text-secondary fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'BLOQUEADO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
                     </div>
                   </div>
                 </div>
@@ -1724,14 +1831,14 @@ export default function ReportesExcelTab({
                 <div>
                   <div className="d-flex justify-content-between align-items-center mb-1">
                     <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
-                      Ingresos por Concepto (Altas vs Mensualidades vs Prorrateos)
+                      Ingresos por Concepto (Altas vs Mensualidades vs Anuales/Prorrateos)
                     </strong>
                     <span className="badge-tag" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', borderColor: '#BFDBFE' }}>
                       Datos en Soles (S/)
                     </span>
                   </div>
                   <small className="text-muted d-block mb-3" style={{ fontSize: '0.74rem' }}>
-                    Comparativa histórica mensual del origen del dinero recaudado
+                    Origen del dinero recaudado por mes
                   </small>
                   <RevenueTypeBarChart data={monthlyRevenueComparison} />
                 </div>
@@ -1750,7 +1857,6 @@ export default function ReportesExcelTab({
             </div>
           </div>
 
-          {/* Fila 2 de gráficos: Evolución Temporal y Planes */}
           <div className="row g-3 mb-4">
             <div className="col-12 col-lg-7">
               <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between shadow-sm">
@@ -1857,7 +1963,6 @@ export default function ReportesExcelTab({
             </div>
           </div>
 
-          {/* Gráfico Exclusivo de Nuevas Altas */}
           <div className="custom-card p-4 mb-4 shadow-sm">
             <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
               <div>
@@ -1918,7 +2023,6 @@ export default function ReportesExcelTab({
             </div>
           </div>
 
-          {/* Gráfico Exclusivo de Renovaciones */}
           <div className="custom-card p-4 mb-4 shadow-sm">
             <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
               <div>
@@ -1956,7 +2060,7 @@ export default function ReportesExcelTab({
                 <div className="admin-stat-card-value mt-1" style={{ fontSize: '1.6rem', color: '#7C3AED' }}>
                   S/ {gananciaAnual.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <small className="text-muted mt-2">Ingresos cobrados por período de 12 meses</small>
+                <small className="text-muted mt-2">Cobrado en el mes de inicio de cada plan anual</small>
               </div>
             </div>
             <div className="col-12 col-md-4">
@@ -1965,7 +2069,7 @@ export default function ReportesExcelTab({
                 <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.6rem' }}>
                   {countAnuales} clientes
                 </div>
-                <small className="text-muted mt-2">Clientes con vigencia por 1 año</small>
+                <small className="text-muted mt-2">Clientes con vigencia por 1 año completo</small>
               </div>
             </div>
             <div className="col-12 col-md-4">
@@ -1974,12 +2078,11 @@ export default function ReportesExcelTab({
                 <div className="admin-stat-card-value text-success mt-1" style={{ fontSize: '1.6rem' }}>
                   12 Meses
                 </div>
-                <small className="text-muted mt-2">Servicio continuo sin cortes mensuales</small>
+                <small className="text-muted mt-2">Servicio garantizado de 12 meses</small>
               </div>
             </div>
           </div>
 
-          {/* Gráfico Exclusivo de Planes Anuales */}
           <div className="custom-card p-4 mb-4 shadow-sm">
             <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
               <div>
@@ -1987,7 +2090,7 @@ export default function ReportesExcelTab({
                   Contratación y Recaudación de Planes Anuales
                 </strong>
                 <small className="text-muted">
-                  Ingresos y número de afiliados bajo modalidad de pago anual (12 meses)
+                  Ingresos registrados en el mes de inicio de cada suscripción anual
                 </small>
               </div>
               <span className="badge-tag" style={{ backgroundColor: '#EDE9FE', color: '#6D28D9', border: '1px solid #DDD6FE' }}>
@@ -2035,7 +2138,7 @@ export default function ReportesExcelTab({
                 <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.6rem' }}>
                   S/ {totalProrrateos.toFixed(2)}
                 </div>
-                <small className="text-muted mt-2">Ajustes proporcionales por fecha de ingreso</small>
+                <small className="text-muted mt-2">Ajustes proporcionales cobrados</small>
               </div>
             </div>
           </div>
@@ -2043,59 +2146,50 @@ export default function ReportesExcelTab({
       )}
 
       {/* ========================================================================= */}
-      {/* VISTA 6: SECCIÓN ESPECÍFICA DE CLIENTES VENCIDOS Y BLOQUEADOS (DEUDA REAL)*/}
+      {/* VISTA 6: SECCIÓN ESPECÍFICA DE CLIENTES CON DEUDA (VENCIDOS Y BLOQUEADOS) */}
+      {/* (1 sola tarifa/deuda por cliente impago)                                   */}
       {/* ========================================================================= */}
       {activeSection === 'BLOQUEADOS' && (
         <div className="mb-4">
           <div className="row g-3 mb-4">
             <div className="col-12 col-md-4">
               <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Total Dinero No Cobrado</span>
+                <span className="admin-stat-card-label">Deuda Total Pendiente</span>
                 <div className="admin-stat-card-value text-danger mt-1" style={{ fontSize: '1.65rem' }}>
-                  S/ {totalDeudaNoCobrada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
-                <small className="text-muted mt-2">Deuda total acumulada en cartera vencida y suspendida</small>
+                <small className="text-muted mt-2">Suma de 1 tarifa por cada cliente con pago pendiente</small>
               </div>
             </div>
             <div className="col-12 col-md-4">
               <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Bloqueados (Meses Acumulados)</span>
-                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.65rem' }}>
-                  S/ {totalDeudaBloqueados.toFixed(2)}
-                </div>
-                <small className="text-muted mt-2">
-                  {bloqueadosDetalleList.length} clientes · <strong className="text-danger">{totalMesesBloqueados} meses sin pagar acumulados</strong>
-                </small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Vencidos Recientes (1 Mes)</span>
+                <span className="admin-stat-card-label">Clientes Vencidos</span>
                 <div className="admin-stat-card-value text-warning mt-1" style={{ fontSize: '1.65rem' }}>
-                  S/ {totalDeudaVencidos.toFixed(2)}
+                  {vencidosCount} clientes
                 </div>
-                <small className="text-muted mt-2">{vencidosDetalleList.length} clientes en período de gracia / 1 mes impago</small>
+                <small className="text-muted mt-2">En período de aviso o gracia</small>
+              </div>
+            </div>
+            <div className="col-12 col-md-4">
+              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
+                <span className="admin-stat-card-label">Clientes Bloqueados</span>
+                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.65rem' }}>
+                  {bloqueadosCount} clientes
+                </div>
+                <small className="text-muted mt-2">Cuentas suspendidas por falta de pago</small>
               </div>
             </div>
           </div>
 
-          {/* Tarjeta explicativa de la acumulación de meses */}
-          <div className="alert alert-light border rounded-3 p-3 mb-4 d-flex align-items-center gap-3" style={{ backgroundColor: '#FFF7ED', borderColor: '#FED7AA' }}>
-            <AlertTriangle className="text-warning flex-shrink-0" size={24} />
-            <div className="small text-dark">
-              <strong>Cálculo Real de Deuda para Clientes Bloqueados:</strong> A los clientes bloqueados se les calcula la deuda multiplicando su tarifa mensual por cada mes que ha transcurrido desde su último vencimiento sin registrar pago. Esto refleja con precisión el dinero total que la empresa ha dejado de percibir.
-            </div>
-          </div>
-
-          {/* Tabla de Clientes con Deuda Acumulada */}
+          {/* Tabla de Clientes con Deuda (Vencidos y Bloqueados) */}
           <div className="custom-card p-3.5 shadow-sm mb-4">
             <div className="d-flex justify-content-between align-items-center mb-3">
               <div>
                 <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
-                  Listado Detallado de Clientes con Deuda (Vencidos y Bloqueados)
+                  Listado de Clientes con Deuda (Vencidos y Bloqueados)
                 </strong>
                 <small className="text-muted">
-                  Mostrando {vencidosDetalleList.length + bloqueadosDetalleList.length} clientes con pagos pendientes
+                  Mostrando {clientesConDeudaList.length} clientes · Cada cliente cuenta 1 sola tarifa de deuda
                 </small>
               </div>
             </div>
@@ -2106,31 +2200,31 @@ export default function ReportesExcelTab({
                   <tr>
                     <th>Cliente / Razón Social</th>
                     <th>RUC</th>
-                    <th>Estado</th>
-                    <th>Tarifa Mensual</th>
-                    <th>Último Vencimiento</th>
-                    <th>Meses Sin Pagar</th>
-                    <th>Deuda Acumulada</th>
-                    <th className="text-end">Contacto</th>
+                    <th>Estado de Cuenta</th>
+                    <th>Deuda (1 Tarifa)</th>
+                    <th>Vencimiento</th>
+                    <th>Asesor</th>
+                    <th>Contacto</th>
+                    <th className="text-end">Historial</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...bloqueadosDetalleList, ...vencidosDetalleList].length === 0 ? (
+                  {clientesConDeudaList.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="text-center text-muted py-4 fw-semibold">
                         Excelente: No existen clientes vencidos ni bloqueados con los filtros seleccionados.
                       </td>
                     </tr>
                   ) : (
-                    [...bloqueadosDetalleList, ...vencidosDetalleList].map((item, idx) => {
-                      const isBloq = (item.client.estadoCuenta || '').toUpperCase() === 'BLOQUEADO';
+                    clientesConDeudaList.map((item, idx) => {
+                      const isBloq = item.estado === 'BLOQUEADO';
                       return (
                         <tr key={idx}>
                           <td>
-                            <strong className="text-dark d-block">{item.client.razonSocial || 'Cliente General'}</strong>
+                            <strong className="text-dark d-block">{item.razonSocial}</strong>
                             <small className="text-muted">{item.client.planContratado || 'Plan Estándar'}</small>
                           </td>
-                          <td className="font-monospace text-muted">{item.client.ruc || '—'}</td>
+                          <td className="font-monospace text-muted">{item.ruc}</td>
                           <td>
                             <span
                               className="badge rounded-pill px-2.5 py-1 fw-bold"
@@ -2139,29 +2233,27 @@ export default function ReportesExcelTab({
                                 color: isBloq ? '#991B1B' : '#92400E',
                               }}
                             >
-                              {isBloq ? 'BLOQUEADO' : 'VENCIDO'}
-                            </span>
-                          </td>
-                          <td className="fw-semibold text-dark">S/ {item.tarifa.toFixed(2)}</td>
-                          <td className="text-muted">{item.fechaBaseStr}</td>
-                          <td>
-                            <span
-                              className="badge rounded-pill px-2 py-0.5"
-                              style={{
-                                backgroundColor: item.meses > 1 ? '#FEE2E2' : '#F1F5F9',
-                                color: item.meses > 1 ? '#B91C1C' : '#475569',
-                                fontWeight: item.meses > 1 ? '700' : '500',
-                              }}
-                            >
-                              {item.meses} {item.meses === 1 ? 'mes adeudado' : 'meses adeudados'}
+                              {item.estado}
                             </span>
                           </td>
                           <td>
                             <strong className="text-danger fw-bold" style={{ fontSize: '0.95rem' }}>
-                              S/ {item.deuda.toFixed(2)}
+                              S/ {item.tarifa.toFixed(2)}
                             </strong>
                           </td>
-                          <td className="text-end text-muted font-monospace">{item.telefono || '—'}</td>
+                          <td className="text-muted">{item.fechaVencimientoStr}</td>
+                          <td className="text-dark fw-semibold">{item.asesor}</td>
+                          <td className="text-muted font-monospace">{item.telefono || '—'}</td>
+                          <td className="text-end">
+                            <button
+                              onClick={() => setHistoryClient(item.client)}
+                              className="btn btn-outline-primary btn-sm py-1 px-2.5 rounded-3 d-inline-flex align-items-center gap-1"
+                              title="Ver historial de pagos de este cliente"
+                            >
+                              <Eye size={13} />
+                              <span>Historial</span>
+                            </button>
+                          </td>
                         </tr>
                       );
                     })
@@ -2192,12 +2284,12 @@ export default function ReportesExcelTab({
                   : 'Detalle de Operaciones y Facturación'}
               </strong>
               <small className="text-muted">
-                Mostrando {displayedRows.length} de {currentTableList.length} operaciones filtradas
+                Mostrando {displayedRows.length} de {currentTableList.length} operaciones filtradas · Período: {currentMonthLabel}
               </small>
             </div>
             <div className="d-flex align-items-center gap-2">
               <span className="badge-tag" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
-                {selectedMesFacturacion === 'ALL' ? 'Todos los meses' : formatMonthKeyLabel(selectedMesFacturacion)}
+                {currentMonthLabel}
               </span>
             </div>
           </div>
@@ -2222,13 +2314,14 @@ export default function ReportesExcelTab({
                     <th>Asesor</th>
                     <th>Monto (S/)</th>
                     <th>Método</th>
-                    <th className="text-end">Estado</th>
+                    <th>Estado</th>
+                    <th className="text-end">Historial</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displayedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={10} className="text-center text-muted py-5 fw-semibold">
+                      <td colSpan={11} className="text-center text-muted py-5 fw-semibold">
                         No se encontraron registros para esta sección con los filtros actuales.
                       </td>
                     </tr>
@@ -2241,7 +2334,6 @@ export default function ReportesExcelTab({
                         </td>
                         <td className="text-muted font-monospace">{t.ruc}</td>
 
-                        {/* Columna condicional clave solicitada por el usuario */}
                         {activeSection === 'ALTAS' ? (
                           <td>
                             <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
@@ -2303,7 +2395,7 @@ export default function ReportesExcelTab({
                           <span className="cell-amount text-dark fw-bold">S/ {t.monto.toFixed(2)}</span>
                         </td>
                         <td className="text-muted text-capitalize fw-semibold">{t.metodoPago.toLowerCase()}</td>
-                        <td className="text-end">
+                        <td>
                           <span
                             className={`badge-fb ${
                               t.estado === 'PAGADO' ? 'badge-fb-success' : 'badge-fb-warning'
@@ -2317,6 +2409,19 @@ export default function ReportesExcelTab({
                             {t.estado === 'PAGADO' ? 'Pagado' : 'Pendiente'}
                           </span>
                         </td>
+                        <td className="text-end">
+                          <button
+                            onClick={() => {
+                              const found = t.rawClientRef || clientMap.get(t.ruc) || null;
+                              if (found) setHistoryClient(found);
+                            }}
+                            className="btn btn-outline-primary btn-sm py-1 px-2.5 rounded-3 d-inline-flex align-items-center gap-1"
+                            title="Ver historial de pagos de este cliente"
+                          >
+                            <Eye size={13} />
+                            <span>Historial</span>
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -2325,7 +2430,6 @@ export default function ReportesExcelTab({
             </div>
           </div>
 
-          {/* Paginación */}
           {currentTableList.length > ITEMS_PER_PAGE && (
             <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
               <button

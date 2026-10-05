@@ -57,8 +57,7 @@ export default function ResumenTab({
     return isNaN(d.getTime()) ? null : d;
   };
 
-  const { totalDeudaAcumulada, totalDeudaVencidos, totalDeudaBloqueados, clientesBloqueadosCount, totalMesesBloqueados, totalClientesImpagos } = React.useMemo(() => {
-    const now = new Date();
+  const { totalDeudaAcumulada, totalDeudaVencidos, totalDeudaBloqueados, clientesBloqueadosCount, totalClientesImpagos } = React.useMemo(() => {
     const vencidos = clientesVencidosList || [];
     const bloqueados = (clients || []).filter((c) => {
       const st = (c.estadoCuenta || '').toUpperCase();
@@ -66,27 +65,13 @@ export default function ResumenTab({
     });
 
     const deudaVenc = vencidos.reduce((acc, c) => acc + Number(c.montoSiguienteCobro || c.montoMensual || 30), 0);
-
-    let deudaBloq = 0;
-    let mesesBloq = 0;
-    bloqueados.forEach((c) => {
-      const baseDate = parseDateHelper(c.fechaVencimientoMensual) || parseDateHelper(c.fechaCreacion) || parseDateHelper(c.fechaRegistro);
-      let meses = 1;
-      if (baseDate) {
-        const diff = (now.getFullYear() - baseDate.getFullYear()) * 12 + (now.getMonth() - baseDate.getMonth());
-        meses = Math.max(1, diff + (now.getDate() >= baseDate.getDate() ? 1 : 0));
-      }
-      const tarifa = Number(c.montoMensual || c.montoSiguienteCobro || 30);
-      deudaBloq += tarifa * meses;
-      mesesBloq += meses;
-    });
+    const deudaBloq = bloqueados.reduce((acc, c) => acc + Number(c.montoMensual || c.montoSiguienteCobro || 30), 0);
 
     return {
       totalDeudaAcumulada: deudaVenc + deudaBloq,
       totalDeudaVencidos: deudaVenc,
       totalDeudaBloqueados: deudaBloq,
       clientesBloqueadosCount: bloqueados.length,
-      totalMesesBloqueados: mesesBloq,
       totalClientesImpagos: vencidos.length + bloqueados.length,
     };
   }, [clientesVencidosList, clients]);
@@ -215,7 +200,7 @@ export default function ResumenTab({
                   S/ {totalDeudaAcumulada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-muted" style={{ fontSize: '0.72rem' }}>
-                  Vencidos: S/ {totalDeudaVencidos.toFixed(0)} ({clientesVencidosList.length}) · Bloq: S/ {totalDeudaBloqueados.toFixed(0)} ({clientesBloqueadosCount} clientes, {totalMesesBloqueados}m)
+                  Vencidos: S/ {totalDeudaVencidos.toFixed(0)} ({clientesVencidosList.length}) · Bloqueados: S/ {totalDeudaBloqueados.toFixed(0)} ({clientesBloqueadosCount})
                 </span>
               </div>
               <div className="admin-stat-card-sparkline">

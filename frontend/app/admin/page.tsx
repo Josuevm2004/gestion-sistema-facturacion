@@ -287,6 +287,7 @@ export default function AdminPage() {
                 token={adminData.token}
                 loadData={adminData.loadData}
                 isSyncing={adminData.isSyncing}
+                setHistoryClient={adminData.setHistoryClient}
               />
             )}
 
