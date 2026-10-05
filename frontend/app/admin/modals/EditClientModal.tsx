@@ -381,7 +381,7 @@ export default function EditClientModal({
               <button
                 type="submit"
                 className="btn btn-primary rounded-pill px-4 py-2 fw-bold text-white shadow-sm"
-                style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
+                style={{ backgroundColor: '#465FFF', borderColor: '#465FFF' }}
               >
                 Guardar Cambios
               </button>

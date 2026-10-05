@@ -915,9 +915,9 @@ export default function ReportesExcelTab({
   const totalComisionesPages = Math.ceil(altasTransactions.length / ITEMS_PER_PAGE) || 1;
 
   return (
-    <div className="reporte-general-container pb-5">
+    <div className="reporte-general-container admin-module admin-module--reports pb-5">
       {/* Header Principal con Icono de Sección */}
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 custom-card p-3.5">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 custom-card admin-module-heading p-3.5">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-primary">
             <FileSpreadsheet size={24} strokeWidth={2.2} />
@@ -1126,9 +1126,9 @@ export default function ReportesExcelTab({
         </div>
 
         {/* 4 KPI Stat Cards Rediseñadas (Alineadas a Resumen) */}
-        <div className="row g-3 mb-4">
+        <div className="row g-3 mb-4 admin-stat-strip">
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+            <div className="custom-card admin-stat-card admin-stat-card--blue p-3.5 h-100 shadow-sm rounded-4 border bg-white">
               <div className="d-flex justify-content-between align-items-start mb-2">
                 <div className="d-flex align-items-center gap-2.5">
                   <div className="section-header-icon section-header-icon-primary" style={{ width: '38px', height: '38px' }}>
@@ -1138,7 +1138,7 @@ export default function ReportesExcelTab({
                     Ventas Totales
                   </span>
                 </div>
-                <span className="badge-tag" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+                <span className="badge-tag" style={{ backgroundColor: '#EEF2FF', color: '#465FFF' }}>
                   Total
                 </span>
               </div>
@@ -1152,7 +1152,7 @@ export default function ReportesExcelTab({
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+            <div className="custom-card admin-stat-card admin-stat-card--green p-3.5 h-100 shadow-sm rounded-4 border bg-white">
               <div className="d-flex justify-content-between align-items-start mb-2">
                 <div className="d-flex align-items-center gap-2.5">
                   <div className="section-header-icon section-header-icon-success" style={{ width: '38px', height: '38px' }}>
@@ -1176,7 +1176,7 @@ export default function ReportesExcelTab({
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+            <div className="custom-card admin-stat-card admin-stat-card--red p-3.5 h-100 shadow-sm rounded-4 border bg-white">
               <div className="d-flex justify-content-between align-items-start mb-2">
                 <div className="d-flex align-items-center gap-2.5">
                   <div className="section-header-icon section-header-icon-danger" style={{ width: '38px', height: '38px' }}>
@@ -1200,7 +1200,7 @@ export default function ReportesExcelTab({
           </div>
 
           <div className="col-12 col-sm-6 col-lg-3">
-            <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+            <div className="custom-card admin-stat-card admin-stat-card--violet p-3.5 h-100 shadow-sm rounded-4 border bg-white">
               <div className="d-flex justify-content-between align-items-start mb-2">
                 <div className="d-flex align-items-center gap-2.5">
                   <div className="section-header-icon section-header-icon-indigo" style={{ width: '38px', height: '38px' }}>
@@ -1228,7 +1228,7 @@ export default function ReportesExcelTab({
         <div className="row g-3 mb-4">
           {/* Gráfico 1: Área y Tendencia de Ventas e Ingresos con Chart.js */}
           <div className="col-12 col-lg-7">
-            <div className="custom-card p-4 h-100 d-flex flex-column justify-content-between">
+            <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between">
               <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3 pb-2 border-bottom">
                 <div>
                   <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
@@ -1275,7 +1275,7 @@ export default function ReportesExcelTab({
 
           {/* Gráfico 2: Donut Radial con Chart.js + Desglose por Plan */}
           <div className="col-12 col-lg-5">
-            <div className="custom-card p-4 h-100 d-flex flex-column justify-content-between">
+            <div className="custom-card admin-chart-card p-4 h-100 d-flex flex-column justify-content-between">
               <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
                 <div>
                   <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
@@ -1539,7 +1539,7 @@ export default function ReportesExcelTab({
               <div>
                 <div className="d-flex justify-content-between align-items-center mb-1">
                   <strong className="small text-dark fw-bold">Comisiones por mes</strong>
-                  <span className="badge-tag" style={{ color: '#0866FF', borderColor: '#BFDBFE', backgroundColor: '#EFF6FF' }}>
+                  <span className="badge-tag" style={{ color: '#465FFF', borderColor: '#BFDBFE', backgroundColor: '#EFF6FF' }}>
                     S/ {comisionAcumulada.toFixed(2)} acumulado
                   </span>
                 </div>

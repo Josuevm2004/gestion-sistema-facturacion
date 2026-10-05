@@ -32,7 +32,7 @@ export default function VendedoresTab({
 
   if (currentUser?.rol !== 'ADMIN') {
     return (
-      <div className="custom-card p-5 text-center my-4 border-danger shadow-sm">
+      <div className="custom-card admin-empty-state p-5 text-center my-4 border-danger shadow-sm">
         <ShieldCheck size={48} className="text-danger mb-3 mx-auto" />
         <h3 className="h5 fw-bold text-dark mb-2">Acceso Exclusivo para Administrador General</h3>
         <p className="text-muted small mb-0">
@@ -43,9 +43,9 @@ export default function VendedoresTab({
   }
 
   return (
-    <div className="w-100">
+    <div className="w-100 admin-module admin-module--users">
       {/* Encabezado con Icono Moderno y Botón de Registro */}
-      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3 p-3 custom-card">
+      <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mb-3 p-3 custom-card admin-module-heading">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-primary">
             <Users size={22} strokeWidth={2.2} />
@@ -102,10 +102,10 @@ export default function VendedoresTab({
                             style={{
                               width: '32px',
                               height: '32px',
-                              backgroundColor: u.rol === 'ADMIN' ? '#FEE2E2' : '#E7F3FF',
-                              color: u.rol === 'ADMIN' ? '#DC2626' : '#0866FF',
+                              backgroundColor: u.rol === 'ADMIN' ? '#FEF3F2' : '#EEF2FF',
+                              color: u.rol === 'ADMIN' ? '#D92D20' : '#465FFF',
                               fontSize: '0.78rem',
-                              border: `1px solid ${u.rol === 'ADMIN' ? '#FECACA' : '#D0E2FF'}`,
+                              border: `1px solid ${u.rol === 'ADMIN' ? '#FECACA' : '#DCE4FF'}`,
                             }}
                           >
                             {initial}

@@ -71,9 +71,9 @@ export default function BloqueadosTab({
   }, [totalPages]);
 
   return (
-    <div className="w-100">
+    <div className="w-100 admin-module admin-module--blocked">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-dark">
             <ShieldCheck size={22} strokeWidth={2.2} />
@@ -93,7 +93,7 @@ export default function BloqueadosTab({
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#F0F2F5', color: '#4B5563' }}>
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#F2F4F7', color: '#4B5563' }}>
             {hasActiveFilters ? `${filteredClients.length} de ${clientesBloqueadosList.length} Bloqueados` : `${clientesBloqueadosList.length} Bloqueados`}
           </span>
         </div>
@@ -171,7 +171,7 @@ export default function BloqueadosTab({
                             style={{
                               width: '32px',
                               height: '32px',
-                              backgroundColor: '#F0F2F5',
+                              backgroundColor: '#F2F4F7',
                               color: '#4B5563',
                               fontSize: '0.78rem',
                               border: '1px solid #E4E6EB',

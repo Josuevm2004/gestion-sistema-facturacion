@@ -436,8 +436,8 @@ export default function ClientesTodosTab({
   const visibleColumnCount = AVAILABLE_COLUMNS.filter((col) => visibleColumns[col.id]).length;
 
   return (
-    <div className="w-100">
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card flex-wrap gap-2">
+    <div className="w-100 admin-module admin-module--clients">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
         <div className="d-flex align-items-center gap-2.5">
           <div className="section-header-icon section-header-icon-primary">
             <Users size={22} strokeWidth={2.2} />
@@ -469,7 +469,7 @@ export default function ClientesTodosTab({
             <span>Columnas ({visibleColumnCount})</span>
           </button>
 
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', border: '1px solid #C7E1FF' }}>
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#EEF2FF', color: '#465FFF', border: '1px solid #DCE4FF' }}>
             {processedClients.length} Registros Total
           </span>
 
@@ -655,7 +655,7 @@ export default function ClientesTodosTab({
                     {visibleColumns.empresa && (
                       <td className="py-2.5">
                         <div className="d-flex align-items-center gap-2.5">
-                          <div className="d-flex align-items-center justify-content-center flex-shrink-0 fw-bold rounded-circle shadow-xs" style={{ width: '32px', height: '32px', minWidth: '32px', backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.78rem', border: '1px solid #D0E2FF' }}>
+                          <div className="d-flex align-items-center justify-content-center flex-shrink-0 fw-bold rounded-circle shadow-xs" style={{ width: '32px', height: '32px', minWidth: '32px', backgroundColor: '#EEF2FF', color: '#465FFF', fontSize: '0.78rem', border: '1px solid #DCE4FF' }}>
                             {clientInitial}
                           </div>
                           <div>
@@ -1041,7 +1041,7 @@ export default function ClientesTodosTab({
       {/* Modal de Personalización de Columnas */}
       {showColumnModal && (
         <div
-          className="modal fade show d-block"
+          className="modal fade show d-block admin-columns-modal"
           tabIndex={-1}
           style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1070 }}
         >
@@ -1096,7 +1096,7 @@ export default function ClientesTodosTab({
                   {AVAILABLE_COLUMNS.map((col) => (
                     <div key={col.id} className="col-12 col-sm-6 col-md-4">
                       <div
-                        className={`p-2.5 border rounded-2 d-flex align-items-center gap-2 transition-colors ${
+                        className={`admin-column-option p-2.5 border rounded-2 d-flex align-items-center gap-2 transition-colors ${
                           visibleColumns[col.id] ? 'bg-light border-primary' : 'bg-white opacity-75'
                         }`}
                         style={{ cursor: 'pointer' }}

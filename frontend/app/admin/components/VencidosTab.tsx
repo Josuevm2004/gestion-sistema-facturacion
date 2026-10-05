@@ -84,9 +84,9 @@ export default function VencidosTab({
   }, [totalPages]);
 
   return (
-    <div className="w-100">
+    <div className="w-100 admin-module admin-module--overdue">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-danger">
             <AlertCircle size={22} strokeWidth={2.2} />
@@ -106,7 +106,7 @@ export default function VencidosTab({
               <span>Limpiar Filtros</span>
             </button>
           )}
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#FEF3F2', color: '#D92D20' }}>
             {hasActiveFilters ? `${filteredClients.length} de ${clientesVencidosList.length} Vencidos` : `${clientesVencidosList.length} Vencidos`}
           </span>
         </div>
@@ -185,8 +185,8 @@ export default function VencidosTab({
                             style={{
                               width: '32px',
                               height: '32px',
-                              backgroundColor: '#FEE2E2',
-                              color: '#DC2626',
+                              backgroundColor: '#FEF3F2',
+                              color: '#D92D20',
                               fontSize: '0.78rem',
                               border: '1px solid #FECACA',
                             }}

@@ -148,7 +148,7 @@ export default function CreateClientModal({
         >
           <div className="modal-header border-bottom bg-white px-4 py-3 flex-shrink-0">
             <div className="d-flex align-items-center gap-3">
-              <div className="p-2 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+              <div className="p-2 rounded-circle d-flex align-items-center justify-content-center" style={{ width: '42px', height: '42px', backgroundColor: '#EEF2FF', color: '#465FFF' }}>
                 <UserPlus size={22} />
               </div>
               <div>
@@ -300,7 +300,7 @@ export default function CreateClientModal({
                 </div>
 
                 <div className="col-12 mt-2">
-                  <div className="p-2.5 rounded-3 d-flex justify-content-between align-items-center border" style={{ backgroundColor: '#F0F2F5' }}>
+                  <div className="p-2.5 rounded-3 d-flex justify-content-between align-items-center border" style={{ backgroundColor: '#F2F4F7' }}>
                     <div className="small">
                       <span className="text-muted">Tarifa confirmada:</span> <strong className="text-dark">Plan {selectedPlan} ({selectedTipo})</strong>
                     </div>

@@ -23,7 +23,7 @@ export default function DeleteClientModal({
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
             <h5 className="modal-title fw-bold text-dark mb-0 d-flex align-items-center gap-2">
-              <div className="d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#FEE2E2', color: '#DC2626' }}>
+              <div className="d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#FEF3F2', color: '#D92D20' }}>
                 <AlertTriangle size={16} />
               </div>
               <span>¿Eliminar Cliente Definitivamente?</span>

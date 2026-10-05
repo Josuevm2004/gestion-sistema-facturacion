@@ -74,7 +74,7 @@ export default function UserModal({
                   <button
                     type="submit"
                     className="btn text-white fw-bold rounded-pill px-4 py-2 shadow-sm"
-                    style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
+                    style={{ backgroundColor: '#465FFF', borderColor: '#465FFF' }}
                   >
                     Registrar Usuario
                   </button>
@@ -141,7 +141,7 @@ export default function UserModal({
                   <button
                     type="submit"
                     className="btn text-white fw-bold rounded-pill px-4 py-2 shadow-sm"
-                    style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}
+                    style={{ backgroundColor: '#465FFF', borderColor: '#465FFF' }}
                   >
                     Guardar Cambios
                   </button>

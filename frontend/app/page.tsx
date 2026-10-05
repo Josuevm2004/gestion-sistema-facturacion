@@ -9,10 +9,15 @@ import {
   Info,
   RefreshCw,
   Camera,
+  ShieldCheck,
+  FileText,
+  Headphones,
+  ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { api } from '@/lib/api';
+import './public-registration.css';
 
 type ClientRegistration = {
   id: number;
@@ -308,73 +313,68 @@ export default function FormularioPublicoPage() {
   }
 
   return (
-    <div className="public-registration-page min-h-screen pb-5" style={{ backgroundColor: '#F8FAFC' }}>
-      <nav className="navbar sticky-top py-2.5 bg-white border-bottom shadow-sm">
-        <div className="container">
-          <Link href="/" className="navbar-brand d-flex align-items-center gap-2.5 text-decoration-none">
-            <Image src="/logo.jpeg" alt="Miquipu Logo" width={36} height={36} className="rounded-circle shadow-sm" />
-            <div className="d-flex flex-column">
-              <span className="fw-bold text-dark fs-6" style={{ letterSpacing: '-0.3px', lineHeight: '1.2' }}>Miquipu</span>
-              <span className="text-muted fw-semibold" style={{ fontSize: '0.72rem' }}>Facturación Electrónica</span>
-            </div>
+    <div className="public-registration-page">
+      <header className="public-site-header">
+        <div className="public-site-header__inner">
+          <Link href="/" className="public-brand text-decoration-none">
+            <span className="public-brand__logo"><Image src="/logo.jpeg" alt="Miquipu Logo" width={38} height={38} /></span>
+            <span className="public-brand__name"><strong>Miquipu</strong><small>Facturación electrónica</small></span>
           </Link>
-          <span className="badge rounded-pill px-3 py-1.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
-            Registro Oficial
-          </span>
+          <div className="public-site-header__right">
+            <span className="public-site-header__secure"><ShieldCheck size={16} /> Registro seguro</span>
+            <span className="public-site-header__divider" />
+            <span className="public-site-header__badge">Portal de afiliación</span>
+          </div>
         </div>
-      </nav>
+      </header>
 
-      <main className="container my-4" style={{ maxWidth: '980px' }}>
+      <main className="public-main">
+        <div className="public-page-heading">
+          <div>
+            <div className="public-breadcrumb"><span>Inicio</span><ChevronRight size={14} /><strong>Registro de cliente</strong></div>
+            <p className="public-eyebrow">Comienza con Miquipu</p>
+            <h1>Activa tu cuenta de facturación</h1>
+            <p className="public-page-heading__description">Completa tus datos para preparar tu espacio de trabajo y elegir el plan que mejor se adapte a tu empresa.</p>
+          </div>
+          <div className="public-page-heading__status"><span className="public-status-dot" /> Proceso de afiliación</div>
+        </div>
+
+        <div className="public-stepper" aria-label="Progreso del registro">
+          <div className={`public-stepper__item ${step >= 1 ? 'is-active' : ''}`}>
+            <span className="public-stepper__number">{step > 1 ? <CheckCircle2 size={19} /> : '01'}</span>
+            <span><strong>Datos de registro</strong><small>Empresa, representante y plan</small></span>
+          </div>
+          <span className={`public-stepper__connector ${step > 1 ? 'is-complete' : ''}`} />
+          <div className={`public-stepper__item ${step >= 2 ? 'is-active' : ''}`}>
+            <span className="public-stepper__number">02</span>
+            <span><strong>Datos de pago</strong><small>Resumen y activación</small></span>
+          </div>
+        </div>
+
         {message && (
-          <div className={`alert alert-${message.type} d-flex align-items-center gap-2 shadow-sm rounded-4 mb-4 border-0`}>
+          <div className={`alert alert-${message.type} public-message d-flex align-items-center gap-2`} role="status">
             <Info size={18} />
             <div>{message.text}</div>
           </div>
         )}
 
-        <div className="row justify-content-center mb-4">
-          <div className="col-md-7">
-            <div className="d-flex justify-content-between align-items-center position-relative">
-              <div className="position-absolute top-50 start-0 end-0 translate-middle-y" style={{ height: '3px', backgroundColor: '#E4E6EB', zIndex: 0 }}></div>
-              <div className="position-absolute top-50 start-0 translate-middle-y" style={{ height: '3px', backgroundColor: '#0866FF', width: step === 1 ? '0%' : '100%', zIndex: 0, transition: 'width 0.3s' }}></div>
-
-              <div className="d-flex flex-column align-items-center position-relative" style={{ zIndex: 1 }}>
-                <div
-                  className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${step >= 1 ? 'text-white' : 'text-muted'}`}
-                  style={{ width: '36px', height: '36px', fontSize: '0.9rem', backgroundColor: step >= 1 ? '#0866FF' : '#E4E6EB' }}
-                >
-                  1
-                </div>
-                <span className="small fw-semibold mt-1 text-dark">1. Registro de Datos</span>
-              </div>
-              <div className="d-flex flex-column align-items-center position-relative" style={{ zIndex: 1 }}>
-                <div
-                  className={`rounded-circle d-flex align-items-center justify-content-center fw-bold ${step >= 2 ? 'text-white' : 'text-muted'}`}
-                  style={{ width: '36px', height: '36px', fontSize: '0.9rem', backgroundColor: step >= 2 ? '#0866FF' : '#E4E6EB' }}
-                >
-                  2
-                </div>
-                <span className="small fw-semibold mt-1 text-dark">2. Datos de Pago</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        <div className="public-content-grid">
+          <div className="public-content-main">
         {step === 1 && (
-          <div className="card rounded-4 border bg-white p-4 p-md-5 shadow-sm">
-            <div className="d-flex align-items-center gap-3 border-bottom pb-4 mb-4">
-              <div className="section-header-icon section-header-icon-primary flex-shrink-0" style={{ width: '52px', height: '52px', borderRadius: '15px' }}>
-                <Building2 size={26} strokeWidth={2.2} />
+          <div className="card public-form-card">
+            <div className="public-form-card__heading">
+              <div className="public-form-card__icon">
+                <Building2 size={22} strokeWidth={2} />
               </div>
               <div>
-                <h1 className="h4 fw-bold text-dark mb-0">Formulario de Registro de Cliente</h1>
-                <p className="text-muted small mb-0">Portal de activación de cuenta y facturación electrónica SUNAT</p>
+                <h2>Formulario de registro de cliente</h2>
+                <p>Información necesaria para configurar tu cuenta</p>
               </div>
             </div>
 
-            <form ref={formRef} onSubmit={handleSubmit} className="row g-3 needs-validation" noValidate>
+            <form ref={formRef} onSubmit={handleSubmit} className="row g-3 needs-validation public-registration-form" noValidate>
 
-              <div className="col-12">
+              <div className="col-12 public-section-heading">
                 <h2 className="h6 fw-bold text-primary text-uppercase mb-1">1. Encuesta Inicial</h2>
               </div>
 
@@ -403,7 +403,7 @@ export default function FormularioPublicoPage() {
               </div>
 
               {/* SECCIÓN 2: MODALIDAD DE ENTORNO */}
-              <div className="col-12 mt-4">
+              <div className="col-12 mt-4 public-section-heading">
                 <h2 className="h6 fw-bold text-primary text-uppercase mb-1">2. Modalidad de Entorno</h2>
                 <p className="text-muted small mb-3">Elija si su facturación se conectará directamente a SUNAT o funcionará para control interno.</p>
 
@@ -415,7 +415,7 @@ export default function FormularioPublicoPage() {
                       <div key={entorno.id} className="col-md-6">
                         <div
                           onClick={() => setSelectedEntornoId(entorno.id)}
-                          className={`p-3 rounded-3 border h-100 transition-all ${
+                          className={`public-choice-card p-3 rounded-3 border h-100 transition-all ${
                             isSelected
                               ? 'border-primary bg-primary bg-opacity-10 shadow-sm'
                               : 'border-light-subtle bg-white'
@@ -443,7 +443,7 @@ export default function FormularioPublicoPage() {
               </div>
 
               {/* SECCIÓN 3: DATOS TRIBUTARIOS */}
-              <div className="col-12 mt-4">
+              <div className="col-12 mt-4 public-section-heading">
                 <h2 className="h6 fw-bold text-primary text-uppercase mb-1">3. Datos de la Empresa</h2>
               </div>
 
@@ -527,7 +527,7 @@ export default function FormularioPublicoPage() {
               )}
 
               {/* SECCIÓN 4: DATOS PERSONALES */}
-              <div className="col-12 mt-4">
+              <div className="col-12 mt-4 public-section-heading">
                 <h2 className="h6 fw-bold text-primary text-uppercase mb-1">4. Datos Personales del Representante</h2>
               </div>
 
@@ -560,8 +560,8 @@ export default function FormularioPublicoPage() {
               {isProduccion ? (
                 <>
                   {/* DATOS DEL REPRESENTANTE ADICIONAL */}
-                  <div className="col-12 mt-4">
-                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">Datos del Representante (Diferente al dueño y socios)</h2>
+                   <div className="col-12 mt-4 public-section-heading">
+                     <h2 className="h6 fw-bold text-primary text-uppercase mb-1">Datos del Representante (Diferente al dueño y socios)</h2>
                     <p className="text-muted small mb-0">Datos de vinculación requeridos para la gestión de su facturación electrónica ante SUNAT.</p>
                   </div>
 
@@ -595,7 +595,7 @@ export default function FormularioPublicoPage() {
 
                   {/* SECCIÓN 5: CLAVE SOL */}
                   <div className="col-12 mt-4">
-                    <div className="p-3 rounded-3 border bg-light">
+                     <div className="public-sunat-panel p-3 rounded-3 border bg-light">
                       <div className="alert alert-info d-flex align-items-center gap-2 mb-3 border-0 shadow-sm rounded-3" style={{ backgroundColor: '#eef6ff', color: '#0056b3' }}>
                         <Info size={20} className="flex-shrink-0" />
                         <div>
@@ -658,8 +658,8 @@ export default function FormularioPublicoPage() {
               {/* SECCIÓN 6: PREGUNTAS ADICIONALES (SOLO PRODUCCIÓN) */}
               {isProduccion && (
                 <>
-                  <div className="col-12 mt-4">
-                    <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Preguntas Adicionales</h2>
+                   <div className="col-12 mt-4 public-section-heading">
+                     <h2 className="h6 fw-bold text-primary text-uppercase mb-1">6. Preguntas Adicionales</h2>
                   </div>
 
                   <div className="col-12">
@@ -713,7 +713,7 @@ export default function FormularioPublicoPage() {
               </div>
 
               {/* SECCIÓN 7: SELECCIÓN DE PLAN */}
-              <div className="col-12 mt-4">
+              <div className="col-12 mt-4 public-section-heading public-plan-section">
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
                   <div>
                     <h2 className="h6 fw-bold text-primary text-uppercase mb-1">7. Selección de Plan</h2>
@@ -722,19 +722,17 @@ export default function FormularioPublicoPage() {
                   </div>
                   
                   {/* Selector de Modalidad (Mensual vs Anual) */}
-                  <div className="d-inline-flex p-1 rounded-pill border shadow-sm" style={{ backgroundColor: '#F0F2F5' }}>
+                  <div className="public-period-switch d-inline-flex p-1 rounded-pill border shadow-sm">
                     <button
                       type="button"
-                      className={`btn btn-sm px-4 rounded-pill fw-bold transition-all border-0 ${tipoSuscripcion === 'MENSUAL' ? 'shadow-sm text-white' : 'text-muted'}`}
-                      style={{ backgroundColor: tipoSuscripcion === 'MENSUAL' ? '#0866FF' : 'transparent' }}
+                      className={`btn btn-sm px-4 rounded-pill fw-bold transition-all border-0 ${tipoSuscripcion === 'MENSUAL' ? 'is-active shadow-sm text-white' : 'text-muted'}`}
                       onClick={() => setTipoSuscripcion('MENSUAL')}
                     >
                       Suscripción Mensual
                     </button>
                     <button
                       type="button"
-                      className={`btn btn-sm px-4 rounded-pill fw-bold transition-all border-0 ${tipoSuscripcion === 'ANUAL' ? 'shadow-sm text-white' : 'text-muted'}`}
-                      style={{ backgroundColor: tipoSuscripcion === 'ANUAL' ? '#0866FF' : 'transparent' }}
+                      className={`btn btn-sm px-4 rounded-pill fw-bold transition-all border-0 ${tipoSuscripcion === 'ANUAL' ? 'is-active shadow-sm text-white' : 'text-muted'}`}
                       onClick={() => setTipoSuscripcion('ANUAL')}
                     >
                       Suscripción Anual
@@ -750,25 +748,18 @@ export default function FormularioPublicoPage() {
                       <div key={plan.id} className={plan.key === 'EMPRESARIAL' || plan.key === 'LIDER' ? 'col-md-6' : 'col-md-4'}>
                         <div
                           onClick={() => setSelectedPlan(plan.key)}
-                          className={`p-3.5 rounded-4 border position-relative ${
-                            selectedPlan === plan.key ? 'shadow-sm' : ''
+                          className={`public-plan-card p-3.5 rounded-4 border position-relative ${
+                            selectedPlan === plan.key ? 'is-selected shadow-sm' : ''
                           }`}
-                          style={{
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                            backgroundColor: selectedPlan === plan.key ? '#F0F7FF' : '#FFFFFF',
-                            borderColor: selectedPlan === plan.key ? '#0866FF' : '#E4E6EB',
-                            borderWidth: selectedPlan === plan.key ? '2px' : '1px',
-                          }}
                         >
                           {selectedPlan === plan.key && (
-                            <span className="position-absolute top-0 end-0 translate-middle badge rounded-pill fw-bold text-white shadow-sm" style={{ backgroundColor: '#0866FF', fontSize: '0.68rem' }}>
+                            <span className="public-selected-badge position-absolute top-0 end-0 translate-middle badge rounded-pill fw-bold text-white shadow-sm">
                               Seleccionado
                             </span>
                           )}
                           <div className="d-flex justify-content-between align-items-center mb-1.5">
                             <strong className="text-dark fs-6">{plan.name}</strong>
-                            <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: selectedPlan === plan.key ? '#0866FF' : '#E7F3FF', color: selectedPlan === plan.key ? '#FFFFFF' : '#0866FF' }}>
+                            <span className={`public-price-badge badge rounded-pill px-2.5 py-1 fw-bold ${selectedPlan === plan.key ? 'is-selected' : ''}`}>
                               {price != null ? `S/ ${price.toFixed(2)}${tipoSuscripcion === 'ANUAL' ? '/año' : '/mes'}` : 'No disponible'}
                             </span>
                           </div>
@@ -792,8 +783,7 @@ export default function FormularioPublicoPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting || plansLoading || !selectedSubscription}
-                  className="btn rounded-pill py-3 w-100 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2 text-white"
-                  style={{ backgroundColor: '#0866FF', borderColor: '#0866FF', fontSize: '1rem' }}
+                  className="public-submit-button btn py-3 w-100 fw-bold d-flex align-items-center justify-content-center gap-2 text-white"
                 >
                   {isSubmitting ? <RefreshCw size={18} className="spin" /> : <span>Enviar Datos e Ir a Pagar</span>}
                   <ArrowRight size={18} />
@@ -805,8 +795,8 @@ export default function FormularioPublicoPage() {
 
         {step === 2 && client && (
           <div className="row justify-content-center">
-            <div className="col-md-9 col-lg-8">
-              <div className="card rounded-4 border bg-white p-4 p-md-5 text-center shadow-sm">
+            <div className="col-12">
+              <div className="card public-success-card text-center">
                 <div className="mb-3">
                   <CheckCircle2 size={56} className="text-success" />
                 </div>
@@ -901,7 +891,30 @@ export default function FormularioPublicoPage() {
             </div>
           </div>
         )}
+          </div>
+          <aside className="public-side-panel" aria-label="Información del registro">
+            <div className="public-aside-card public-aside-card--progress">
+              <span className="public-aside-kicker">TU REGISTRO</span>
+              <h2>{step === 1 ? 'Todo listo para comenzar' : 'Registro completado'}</h2>
+              <p>{step === 1 ? 'Avanza por los datos de tu empresa y elige una suscripción.' : 'Ya tenemos tus datos. Un asesor te contactará para activar el servicio.'}</p>
+              <div className="public-aside-progress"><span style={{ width: step === 1 ? '50%' : '100%' }} /></div>
+              <small>Paso {step} de 2</small>
+            </div>
+            <div className="public-aside-card public-aside-card--help">
+              <span className="public-aside-icon"><FileText size={20} /></span>
+              <h3>Antes de empezar</h3>
+              <p>Ten a mano la información de tu empresa, los datos del representante y el plan que deseas contratar.</p>
+              <ul>
+                <li><CheckCircle2 size={16} /> Datos empresariales</li>
+                <li><CheckCircle2 size={16} /> Representante legal</li>
+                <li><CheckCircle2 size={16} /> Modalidad y plan</li>
+              </ul>
+            </div>
+            <div className="public-aside-support"><Headphones size={19} /><span><strong>¿Necesitas ayuda?</strong><small>Un asesor puede acompañarte en el registro.</small></span></div>
+          </aside>
+        </div>
       </main>
+      <footer className="public-footer"><span>© Miquipu · Facturación electrónica</span><span>Un registro claro y seguro para tu empresa</span></footer>
     </div>
   );
 }

@@ -111,9 +111,9 @@ export default function CentroControlTab({
   }, [totalPages]);
 
   return (
-    <div className="w-100">
+    <div className="w-100 admin-module admin-module--control">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-success">
             <Activity size={22} strokeWidth={2.2} />
@@ -231,10 +231,10 @@ export default function CentroControlTab({
                             style={{
                               width: '32px',
                               height: '32px',
-                              backgroundColor: '#E7F3FF',
-                              color: '#0866FF',
+                              backgroundColor: '#EEF2FF',
+                              color: '#465FFF',
                               fontSize: '0.78rem',
-                              border: '1px solid #D0E2FF',
+                              border: '1px solid #DCE4FF',
                             }}
                           >
                             {initial}

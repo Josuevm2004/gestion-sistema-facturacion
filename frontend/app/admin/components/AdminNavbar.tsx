@@ -102,26 +102,22 @@ export default function AdminNavbar({
   ];
 
   return (
-    <nav className={`admin-navbar stitch-navbar navbar navbar-expand-lg sticky-top py-0 ${isSidebarCollapsed ? 'admin-navbar--collapsed' : ''}`}>
+    <nav className={`admin-navbar stitch-navbar navbar navbar-expand-lg sticky-top py-0 ${isSidebarCollapsed ? 'admin-navbar--collapsed' : ''}`} aria-label="Navegación principal">
       <div className="container-fluid h-100 d-flex align-items-center justify-content-between px-2 px-md-3">
-        {/* Brand (Stitch Style: Logo & Title, Search Removed) */}
-        <div className="d-flex align-items-center gap-2 gap-sm-2.5 flex-shrink-0 cursor-pointer" onClick={() => setActiveTab('resumen')}>
-          <Image src="/logo.jpeg" alt="Miquipu Logo" width={36} height={36} className="rounded-circle shadow-xs" />
-          <span className="navbar-brand text-dark fw-bold mb-0 me-0 fs-6 d-none d-sm-inline" style={{ letterSpacing: '-0.3px', fontWeight: 800 }}>
-            Miquipu Admin
-          </span>
-        </div>
+        <button type="button" className="admin-sidebar-brand" onClick={() => setActiveTab('resumen')} aria-label="Ir al resumen">
+          <span className="admin-sidebar-brand-icon"><Image src="/logo.jpeg" alt="" width={36} height={36} /></span>
+          <span className="admin-sidebar-brand-copy"><strong>Miquipu</strong><small>Facturación</small></span>
+        </button>
 
         {/* Mobile Toggler */}
         <button
           className="navbar-toggler border-0 text-dark p-2 rounded-circle d-lg-none"
-          style={{ backgroundColor: '#F0F2F5' }}
+          style={{ backgroundColor: '#F2F4F7' }}
           type="button"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          data-bs-toggle="offcanvas"
-          data-bs-target="#adminNavbarOffcanvas"
           aria-controls="adminNavbarOffcanvas"
-          aria-label="Abrir menu de navegacion"
+          aria-expanded={isMobileMenuOpen}
+          aria-label={isMobileMenuOpen ? 'Cerrar menú de navegación' : 'Abrir menú de navegación'}
         >
           <Menu size={20} aria-hidden="true" />
         </button>
@@ -154,7 +150,6 @@ export default function AdminNavbar({
               type="button"
               className="btn-close"
               onClick={() => setIsMobileMenuOpen(false)}
-              data-bs-dismiss="offcanvas"
               aria-label="Cerrar"
             ></button>
           </div>
@@ -175,7 +170,6 @@ export default function AdminNavbar({
                             setActiveTab(item.key);
                             setIsMobileMenuOpen(false);
                           }}
-                          data-bs-dismiss="offcanvas"
                           aria-current={isActive ? 'page' : undefined}
                           title={isSidebarCollapsed ? item.label : undefined}
                         >
@@ -207,6 +201,11 @@ export default function AdminNavbar({
               ))}
             </ul>
 
+            <div className="admin-sidebar-footer" aria-hidden="true">
+              <span className="admin-sidebar-footer-dot" />
+              <span><strong>Panel operativo</strong><small>Facturación electrónica</small></span>
+            </div>
+
             {/* Right Side Utility Actions (Stitch Circular Buttons) */}
             <div className="d-flex align-items-center justify-content-between justify-content-lg-end gap-2 mt-auto mt-lg-0 ms-lg-2 position-relative w-100 w-lg-auto">
               {/* En móvil: Indicador de sesión activa a la izquierda */}
@@ -214,7 +213,7 @@ export default function AdminNavbar({
                 <span className="text-dark small fw-bold text-truncate" style={{ maxWidth: '140px' }}>
                   {currentUser?.nombre || currentUser?.username || 'Admin'}
                 </span>
-                <span className="badge rounded-pill" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.65rem' }}>
+                <span className="badge rounded-pill" style={{ backgroundColor: '#EEF2FF', color: '#465FFF', fontSize: '0.65rem' }}>
                   {currentUser?.rol || 'ADMIN'}
                 </span>
               </div>
@@ -260,7 +259,7 @@ export default function AdminNavbar({
                               <button
                                 type="button"
                                 className="btn btn-sm rounded-pill px-2.5 py-1 fw-bold text-primary border-0 d-inline-flex align-items-center gap-1"
-                                style={{ fontSize: '0.74rem', backgroundColor: '#E7F3FF' }}
+                                style={{ fontSize: '0.74rem', backgroundColor: '#EEF2FF' }}
                                 onClick={() => handleMarkAllNotificationsAsRead?.()}
                                 title="Marcar todas como leídas"
                               >
@@ -313,8 +312,8 @@ export default function AdminNavbar({
                             const isVencido = n.tipo?.toLowerCase().includes('venc') || n.mensaje?.toLowerCase().includes('venc');
                             const isCobro = n.tipo?.toLowerCase().includes('cobr') || n.tipo?.toLowerCase().includes('pago');
                             
-                            const iconBg = isVencido ? '#FEE2E2' : isCobro ? '#FEF3C7' : '#E7F3FF';
-                            const iconColor = isVencido ? '#DC2626' : isCobro ? '#D97706' : '#0866FF';
+                            const iconBg = isVencido ? '#FEF3F2' : isCobro ? '#FEF3C7' : '#EEF2FF';
+                            const iconColor = isVencido ? '#D92D20' : isCobro ? '#D97706' : '#465FFF';
 
                             return (
                               <div
@@ -376,7 +375,7 @@ export default function AdminNavbar({
                   <div className="position-relative">
                     <div
                       className="stitch-circle-btn shadow-xs fw-bold text-white"
-                      style={{ backgroundColor: '#0F172A', fontSize: '0.84rem' }}
+                      style={{ backgroundColor: '#101828', fontSize: '0.84rem' }}
                     >
                       {((currentUser?.nombre || currentUser?.username || 'AD') as string).slice(0, 2).toUpperCase()}
                     </div>
@@ -405,11 +404,11 @@ export default function AdminNavbar({
                       style={{ zIndex: 100060 }}
                     >
                       {/* User Top Card (Facebook Style) */}
-                      <div className="p-3 border rounded-3 mb-2 shadow-xs" style={{ backgroundColor: '#F0F2F5' }}>
+                      <div className="p-3 border rounded-3 mb-2 shadow-xs" style={{ backgroundColor: '#F2F4F7' }}>
                         <div className="d-flex align-items-center gap-3">
                           <div
                             className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white shadow-sm flex-shrink-0"
-                            style={{ width: '46px', height: '46px', backgroundColor: '#0866FF', fontSize: '1.1rem' }}
+                            style={{ width: '46px', height: '46px', backgroundColor: '#465FFF', fontSize: '1.1rem' }}
                           >
                             <User size={22} />
                           </div>
@@ -417,7 +416,7 @@ export default function AdminNavbar({
                             <strong className="d-block text-dark text-truncate fw-bold" style={{ fontSize: '0.94rem' }}>
                               {currentUser?.nombre || currentUser?.username || 'Usuario Admin'}
                             </strong>
-                            <span className="badge rounded-pill mt-0.5 fw-bold" style={{ backgroundColor: '#E7F3FF', color: '#0866FF', fontSize: '0.68rem' }}>
+                            <span className="badge rounded-pill mt-0.5 fw-bold" style={{ backgroundColor: '#EEF2FF', color: '#465FFF', fontSize: '0.68rem' }}>
                               {currentUser?.rol || 'ADMIN'}
                             </span>
                             {currentUser?.email && (
@@ -444,7 +443,7 @@ export default function AdminNavbar({
                               <div className="d-flex align-items-center gap-2.5">
                                 <span
                                   className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                                  style={{ width: '36px', height: '36px', backgroundColor: '#F0F2F5', color: '#0866FF' }}
+                                  style={{ width: '36px', height: '36px', backgroundColor: '#F2F4F7', color: '#465FFF' }}
                                 >
                                   <UserPlus size={17} />
                                 </span>
@@ -464,7 +463,7 @@ export default function AdminNavbar({
                               <div className="d-flex align-items-center gap-2.5">
                                 <span
                                   className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                                  style={{ width: '36px', height: '36px', backgroundColor: '#F0F2F5', color: '#0866FF' }}
+                                  style={{ width: '36px', height: '36px', backgroundColor: '#F2F4F7', color: '#465FFF' }}
                                 >
                                   <Users size={17} />
                                 </span>
@@ -486,7 +485,7 @@ export default function AdminNavbar({
                           <div className="d-flex align-items-center gap-2.5">
                             <span
                               className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                              style={{ width: '36px', height: '36px', backgroundColor: '#F0F2F5', color: '#0284C7' }}
+                              style={{ width: '36px', height: '36px', backgroundColor: '#F2F4F7', color: '#0284C7' }}
                             >
                               <Activity size={17} />
                             </span>
@@ -504,12 +503,12 @@ export default function AdminNavbar({
                             handleLogout();
                           }}
                           className="btn w-100 text-start d-flex align-items-center justify-content-between py-2 px-2.5 rounded-3 border-0"
-                          style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}
+                          style={{ backgroundColor: '#FEF3F2', color: '#D92D20' }}
                         >
                           <div className="d-flex align-items-center gap-2.5">
                             <span
                               className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
-                              style={{ width: '36px', height: '36px', backgroundColor: '#FFFFFF', color: '#DC2626' }}
+                              style={{ width: '36px', height: '36px', backgroundColor: '#FFFFFF', color: '#D92D20' }}
                             >
                               <LogOut size={17} />
                             </span>

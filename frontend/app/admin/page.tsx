@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Image from 'next/image';
-import { LogIn, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, LogIn, PanelLeftClose, PanelLeftOpen, Search } from 'lucide-react';
 import { useAdminData } from './hooks/useAdminData';
 
 import AdminNavbar from './components/AdminNavbar';
@@ -24,6 +24,8 @@ import PaymentHistoryModal from './modals/PaymentHistoryModal';
 import UserModal from './modals/UserModal';
 import CreateClientModal from './modals/CreateClientModal';
 import './admin-theme.css';
+import './admin-shell.css';
+import './modules-theme.css';
 
 const ADMIN_PAGE_TITLES: Record<string, string> = {
   resumen: 'Resumen',
@@ -36,13 +38,43 @@ const ADMIN_PAGE_TITLES: Record<string, string> = {
   usuarios: 'Vendedores y usuarios',
 };
 
+const ADMIN_PAGE_DESCRIPTIONS: Record<string, string> = {
+  resumen: 'Vista general de ingresos, clientes y tareas pendientes.',
+  todos: 'Consulta y administra los clientes registrados.',
+  cobrar: 'Revisa y gestiona los cobros pendientes.',
+  vencidos: 'Da seguimiento a los planes y pagos vencidos.',
+  bloqueados: 'Consulta las cuentas con acceso suspendido.',
+  capacitaciones: 'Organiza las capacitaciones de tus clientes.',
+  reporte: 'Explora los indicadores y exporta la información.',
+  usuarios: 'Administra el equipo y sus asignaciones.',
+};
+
 export default function AdminPage() {
   const adminData = useAdminData();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false);
+  const [headerSearch, setHeaderSearch] = React.useState('');
+  const headerSearchRef = React.useRef<HTMLInputElement>(null);
   const activePageTitle = ADMIN_PAGE_TITLES[adminData.activeTab] || 'Administración';
 
+  React.useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        headerSearchRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', focusSearch);
+    return () => window.removeEventListener('keydown', focusSearch);
+  }, []);
+
+  const handleHeaderSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    adminData.setCalendarSearch(headerSearch.trim());
+    adminData.setActiveTab('todos');
+  };
+
   return (
-    <div className={`admin-shell min-h-screen pb-5 ${adminData.token ? 'admin-shell--authenticated' : ''} ${adminData.token && isSidebarCollapsed ? 'admin-shell--sidebar-collapsed' : ''}`}>
+    <div className={`admin-shell min-h-screen ${adminData.token ? 'admin-shell--authenticated' : ''} ${adminData.token && isSidebarCollapsed ? 'admin-shell--sidebar-collapsed' : ''}`}>
       {adminData.token && (
         <AdminNavbar
           activeTab={adminData.activeTab}
@@ -78,10 +110,19 @@ export default function AdminPage() {
           >
             {isSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
           </button>
-          <div className="admin-topbar-heading">
-            <span className="admin-topbar-eyebrow">MIQUIPU / ADMINISTRACIÓN</span>
-            <h1>{activePageTitle}</h1>
-          </div>
+          <form className="admin-topbar-search" role="search" onSubmit={handleHeaderSearch}>
+            <Search size={19} aria-hidden="true" />
+            <input
+              ref={headerSearchRef}
+              type="search"
+              value={headerSearch}
+              onChange={(event) => setHeaderSearch(event.target.value)}
+              placeholder="Buscar clientes..."
+              aria-label="Buscar clientes"
+            />
+            <kbd>Ctrl K</kbd>
+          </form>
+          <span className="admin-topbar-context">Panel de administración</span>
         </header>
       )}
 
@@ -97,40 +138,55 @@ export default function AdminPage() {
           <div className="admin-login-shell">
             <section className="admin-login-form-side">
               <div className="admin-login-card-wrap">
+                <a href="/" className="admin-login-back"><ArrowLeft size={16} /> Volver al inicio</a>
                 <div className="card admin-login-card rounded-4 border bg-white shadow-sm p-4 p-md-5">
-                  <div className="text-center mb-4">
-                    <Image src="/logo.jpeg" alt="Miquipu Logo" width={56} height={56} className="rounded-circle shadow-sm mb-2" />
-                    <h1 className="h5 fw-bold text-dark mb-1">Acceso Administrativo</h1>
-                    <p className="text-muted small">Ingresa tus credenciales de colaborador.</p>
+                  <div className="admin-login-intro text-center mb-4">
+                    <span className="admin-login-kicker">PANEL DE MIQUIPU</span>
+                    <h1 className="h5 fw-bold text-dark mb-1">Iniciar sesión</h1>
+                    <p className="text-muted small">Ingresa tus credenciales para acceder al panel.</p>
                   </div>
 
                   <form onSubmit={adminData.handleLogin} className="needs-validation">
                     <div className="mb-3">
-                      <label className="form-label text-secondary fw-semibold small">Usuario</label>
-                      <input className="form-control rounded-pill px-3" name="username" placeholder="Ingresa tu usuario" required />
+                      <label className="form-label text-secondary fw-semibold small" htmlFor="admin-username">Usuario <span className="admin-required">*</span></label>
+                      <input id="admin-username" className="form-control px-3" name="username" placeholder="Ingresa tu usuario" autoComplete="username" required />
                     </div>
                     <div className="mb-4">
-                      <label className="form-label text-secondary fw-semibold small">Contraseña</label>
-                      <input className="form-control rounded-pill px-3" name="password" type="password" placeholder="Ingresa tu contraseña" required />
+                      <label className="form-label text-secondary fw-semibold small" htmlFor="admin-password">Contraseña <span className="admin-required">*</span></label>
+                      <input id="admin-password" className="form-control px-3" name="password" type="password" placeholder="Ingresa tu contraseña" autoComplete="current-password" required />
                     </div>
-                    <button type="submit" className="btn btn-primary rounded-pill w-100 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2" style={{ backgroundColor: '#0866FF', borderColor: '#0866FF' }}>
+                    <button type="submit" className="btn btn-primary w-100 py-2.5 fw-bold d-flex align-items-center justify-content-center gap-2">
                       <LogIn size={16} />
-                      <span>Entrar al Dashboard</span>
+                      <span>Ingresar al panel</span>
+                      <ArrowRight size={16} />
                     </button>
                   </form>
+                  <p className="admin-login-footnote">Acceso exclusivo para el equipo de Miquipu.</p>
                 </div>
               </div>
             </section>
             <aside className="admin-login-brand-side">
               <div className="admin-login-brand-content">
-                <Image src="/logo.jpeg" alt="" width={54} height={54} className="admin-login-brand-logo" />
+                <div className="admin-login-brand-mark"><Image src="/logo.jpeg" alt="" width={54} height={54} className="admin-login-brand-logo" /></div>
                 <div className="admin-login-brand-name">Miquipu</div>
-                <p>Administración de facturación electrónica</p>
+                <p>Tu espacio para gestionar clientes, cobros y facturación electrónica.</p>
               </div>
             </aside>
           </div>
         ) : (
-          <div>
+          <div className="admin-content">
+            <div className="admin-page-heading">
+              <div>
+                <span className="admin-page-eyebrow">Panel de control</span>
+                <h1>{activePageTitle}</h1>
+                <p>{ADMIN_PAGE_DESCRIPTIONS[adminData.activeTab]}</p>
+              </div>
+              <nav className="admin-breadcrumb" aria-label="Ubicación">
+                <span>Inicio</span>
+                <ChevronRight size={14} aria-hidden="true" />
+                <strong>{activePageTitle}</strong>
+              </nav>
+            </div>
             {adminData.activeTab === 'resumen' && (
               <ResumenTab
                 totalCobradoDia={adminData.totalCobradoDia}

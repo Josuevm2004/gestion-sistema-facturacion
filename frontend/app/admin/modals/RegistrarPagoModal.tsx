@@ -249,7 +249,7 @@ export default function RegistrarPagoModal({
         <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
           <div className="modal-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-2.5">
-              <div className="d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+              <div className="d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EEF2FF', color: '#465FFF' }}>
                 {isAdelanto ? <CalendarPlus size={18} /> : isReanudarPago ? <RefreshCw size={18} /> : <Clock size={18} />}
               </div>
               <div>

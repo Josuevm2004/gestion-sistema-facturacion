@@ -44,11 +44,11 @@ export default function ResumenTab({
   };
 
   return (
-    <div>
+    <div className="admin-module admin-module--overview">
       {/* Tarjetas de Métricas Ejecutivas (Meta UI Style) */}
-      <div className="row g-3 mb-4">
+      <div className="row g-3 mb-4 admin-stat-strip">
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+          <div className="custom-card admin-stat-card admin-stat-card--blue p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
                 <div className="section-header-icon section-header-icon-primary">
@@ -58,7 +58,7 @@ export default function ResumenTab({
                   Ingresos del Día
                 </span>
               </div>
-              <span className="badge-tag" style={{ backgroundColor: '#E7F3FF', color: '#0866FF' }}>
+              <span className="badge-tag" style={{ backgroundColor: '#EEF2FF', color: '#465FFF' }}>
                 Ventas
               </span>
             </div>
@@ -68,7 +68,7 @@ export default function ResumenTab({
         </div>
 
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+          <div className="custom-card admin-stat-card admin-stat-card--green p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
                 <div className="section-header-icon section-header-icon-success">
@@ -88,7 +88,7 @@ export default function ResumenTab({
         </div>
 
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+          <div className="custom-card admin-stat-card admin-stat-card--amber p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
                 <div className="section-header-icon section-header-icon-warning">
@@ -108,7 +108,7 @@ export default function ResumenTab({
         </div>
 
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="custom-card p-3.5 h-100 shadow-sm rounded-4 border bg-white">
+          <div className="custom-card admin-stat-card admin-stat-card--red p-3.5 h-100 shadow-sm rounded-4 border bg-white">
             <div className="d-flex justify-content-between align-items-start mb-2">
               <div className="d-flex align-items-center gap-2.5">
                 <div className="section-header-icon section-header-icon-danger">

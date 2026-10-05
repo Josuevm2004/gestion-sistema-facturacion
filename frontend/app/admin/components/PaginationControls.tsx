@@ -23,7 +23,7 @@ export default function PaginationControls({
   const lastItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 pt-3 border-top">
+    <div className="admin-pagination d-flex flex-column flex-sm-row justify-content-between align-items-center gap-3 mt-4 pt-3 border-top">
       <small className="text-muted fw-semibold">
         Mostrando <strong className="text-dark">{firstItem}-{lastItem}</strong> de <strong className="text-dark">{totalItems}</strong> registros
       </small>

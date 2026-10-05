@@ -35,9 +35,9 @@ export default function PorCobrarTab({
   }, [totalPages]);
 
   return (
-    <div className="w-100">
+    <div className="w-100 admin-module admin-module--receivables">
       {/* Encabezado con Icono Moderno y Badge */}
-      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-center mb-3 p-3 custom-card admin-module-heading flex-wrap gap-2">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-warning">
             <CreditCard size={22} strokeWidth={2.2} />
