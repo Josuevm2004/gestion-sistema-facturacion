@@ -46,9 +46,50 @@ export default function ResumenTab({
     return normalized;
   };
 
-  const montoPerdidoVencidos = React.useMemo(() => {
-    return (clientesVencidosList || []).reduce((acc, c) => acc + Number(c.montoSiguienteCobro || c.montoMensual || 19), 0);
-  }, [clientesVencidosList]);
+  const parseDateHelper = (raw: any): Date | null => {
+    if (!raw) return null;
+    const str = String(raw).split('T')[0].split(' ')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const [y, m, d] = str.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    const d = new Date(raw);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const { totalDeudaAcumulada, totalDeudaVencidos, totalDeudaBloqueados, clientesBloqueadosCount, totalMesesBloqueados, totalClientesImpagos } = React.useMemo(() => {
+    const now = new Date();
+    const vencidos = clientesVencidosList || [];
+    const bloqueados = (clients || []).filter((c) => {
+      const st = (c.estadoCuenta || '').toUpperCase();
+      return st === 'BLOQUEADO' || st === 'SUSPENDIDO';
+    });
+
+    const deudaVenc = vencidos.reduce((acc, c) => acc + Number(c.montoSiguienteCobro || c.montoMensual || 30), 0);
+
+    let deudaBloq = 0;
+    let mesesBloq = 0;
+    bloqueados.forEach((c) => {
+      const baseDate = parseDateHelper(c.fechaVencimientoMensual) || parseDateHelper(c.fechaCreacion) || parseDateHelper(c.fechaRegistro);
+      let meses = 1;
+      if (baseDate) {
+        const diff = (now.getFullYear() - baseDate.getFullYear()) * 12 + (now.getMonth() - baseDate.getMonth());
+        meses = Math.max(1, diff + (now.getDate() >= baseDate.getDate() ? 1 : 0));
+      }
+      const tarifa = Number(c.montoMensual || c.montoSiguienteCobro || 30);
+      deudaBloq += tarifa * meses;
+      mesesBloq += meses;
+    });
+
+    return {
+      totalDeudaAcumulada: deudaVenc + deudaBloq,
+      totalDeudaVencidos: deudaVenc,
+      totalDeudaBloqueados: deudaBloq,
+      clientesBloqueadosCount: bloqueados.length,
+      totalMesesBloqueados: mesesBloq,
+      totalClientesImpagos: vencidos.length + bloqueados.length,
+    };
+  }, [clientesVencidosList, clients]);
 
   return (
     <div className="admin-module admin-module--overview">
@@ -153,31 +194,32 @@ export default function ResumenTab({
           </div>
         </div>
 
-        {/* Card 4: Vencidos / Bloqueados (Pérdidas y Riesgo) */}
+        {/* Card 4: Dinero No Cobrado (Vencidos y Bloqueados Acumulados) */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card admin-stat-card h-100">
             <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Vencidos / Bloqueados</span>
+              <span className="admin-stat-card-label">Dinero No Cobrado</span>
               <span className="admin-stat-card-icon admin-stat-card-icon--red">
                 <AlertTriangle size={18} strokeWidth={2.2} />
               </span>
             </div>
             <div className="d-flex align-items-center gap-1 mb-2">
               <span className="admin-stat-card-trend admin-stat-card-trend--danger">
-                <AlertTriangle size={13} /> Pérdida en riesgo
+                <AlertTriangle size={13} /> Deuda acumulada
               </span>
-              <span className="admin-stat-card-trend-label">{clientesVencidosList.length} en mora</span>
+              <span className="admin-stat-card-trend-label">{totalClientesImpagos} clientes con deuda</span>
             </div>
             <div className="d-flex align-items-end justify-content-between mt-auto">
               <div>
                 <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.45rem' }}>
-                  S/ {montoPerdidoVencidos.toFixed(2)}
+                  S/ {totalDeudaAcumulada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-muted" style={{ fontSize: '0.72rem' }}>
-                  {clientesVencidosList.length} clientes suspendidos / vencidos
+                  Vencidos: S/ {totalDeudaVencidos.toFixed(0)} ({clientesVencidosList.length}) · Bloq: S/ {totalDeudaBloqueados.toFixed(0)} ({clientesBloqueadosCount} clientes, {totalMesesBloqueados}m)
                 </span>
               </div>
               <div className="admin-stat-card-sparkline">
+
                 <svg width="90" height="34" viewBox="0 0 90 34" fill="none" aria-hidden="true">
                   <path d="M0 18C15 14 30 26 45 12C60 22 75 16 82 20L90 14" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" />
                   <path d="M0 18C15 14 30 26 45 12C60 22 75 16 82 20L90 14V34H0V18Z" fill="url(#sparkline-red)" opacity="0.12" />

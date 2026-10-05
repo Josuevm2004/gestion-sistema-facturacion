@@ -487,7 +487,7 @@ export function PortfolioHealthChart({ cobrado, porCobrar, vencido, bloqueado }:
     chartInstanceRef.current = new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Cobrado Efectivo', 'Por Cobrar', 'Mora Vencidos', 'Mora Bloqueados'],
+        labels: ['Cobrado Efectivo', 'Por Cobrar', 'Clientes Vencidos', 'Clientes Bloqueados'],
         datasets: [
           {
             data: [cobrado, porCobrar, vencido, bloqueado],
@@ -703,6 +703,208 @@ export function RevenueTypeBarChart({ data }: RevenueTypeBarChartProps) {
 
   return (
     <div className="w-100 position-relative" style={{ height: '220px' }}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
+
+// --------------------------------------------------------------------------
+// 6. Gráfico Específico por Categoría: Cantidad (Clientes) vs Monto (S/)
+// --------------------------------------------------------------------------
+export interface CategoryDualAxisChartProps {
+  data: Array<{
+    period: string;
+    monto: number;
+    cantidad: number;
+  }>;
+  themeColor?: string;
+  lineColor?: string;
+  cantidadLabel?: string;
+  montoLabel?: string;
+}
+
+export function CategoryDualAxisChart({
+  data,
+  themeColor = '#10B981',
+  lineColor = '#465FFF',
+  cantidadLabel = 'Clientes',
+  montoLabel = 'Recaudado (S/)',
+}: CategoryDualAxisChartProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const chartInstanceRef = useRef<any>(null);
+  const isChartReady = useChartJsReady();
+
+  useEffect(() => {
+    if (!isChartReady || !canvasRef.current) return;
+    if (!data || data.length === 0) return;
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (!ctx) return;
+
+    if (chartInstanceRef.current) {
+      chartInstanceRef.current.destroy();
+      chartInstanceRef.current = null;
+    }
+
+    const Chart = (window as any).Chart;
+
+    const labels = data.map((d) => d.period);
+    const montos = data.map((d) => d.monto);
+    const cantidades = data.map((d) => d.cantidad);
+
+    chartInstanceRef.current = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: montoLabel,
+            data: montos,
+            backgroundColor: `${themeColor}CC`,
+            hoverBackgroundColor: themeColor,
+            borderRadius: 6,
+            yAxisID: 'yMonto',
+            order: 2,
+          },
+          {
+            type: 'line',
+            label: cantidadLabel,
+            data: cantidades,
+            borderColor: lineColor,
+            backgroundColor: `${lineColor}22`,
+            pointBackgroundColor: lineColor,
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            fill: false,
+            yAxisID: 'yCantidad',
+            order: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false,
+        },
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            align: 'end',
+            labels: {
+              boxWidth: 12,
+              usePointStyle: true,
+              font: {
+                size: 11,
+                family: "'Inter', sans-serif",
+                weight: '500',
+              },
+            },
+          },
+          tooltip: {
+            backgroundColor: '#0F172A',
+            titleColor: '#F8FAFC',
+            bodyColor: '#E2E8F0',
+            borderColor: '#334155',
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 10,
+            callbacks: {
+              label: (context: any) => {
+                const label = context.dataset.label || '';
+                const val = Number(context.parsed.y || 0);
+                if (context.dataset.yAxisID === 'yMonto') {
+                  return `${label}: S/ ${val.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                }
+                return `${label}: ${val} ${val === 1 ? 'cliente' : 'clientes'}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: {
+              display: false,
+            },
+            ticks: {
+              color: '#64748B',
+              font: {
+                size: 11,
+                family: "'Inter', sans-serif",
+              },
+            },
+          },
+          yMonto: {
+            type: 'linear',
+            display: true,
+            position: 'left',
+            grid: {
+              color: '#F1F5F9',
+            },
+            ticks: {
+              color: '#64748B',
+              font: {
+                size: 10,
+                family: "'Inter', sans-serif",
+              },
+              callback: (val: any) => `S/ ${val}`,
+            },
+          },
+          yCantidad: {
+            type: 'linear',
+            display: true,
+            position: 'right',
+            grid: {
+              drawOnChartArea: false,
+            },
+            ticks: {
+              color: '#64748B',
+              precision: 0,
+              font: {
+                size: 10,
+                family: "'Inter', sans-serif",
+              },
+              callback: (val: any) => `${val}`,
+            },
+          },
+        },
+      },
+    });
+
+    return () => {
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
+      }
+    };
+  }, [data, isChartReady, themeColor, lineColor, cantidadLabel, montoLabel]);
+
+  if (!isChartReady) {
+    return (
+      <div className="d-flex align-items-center justify-content-center w-100" style={{ height: '230px' }}>
+        <div className="spinner-border spinner-border-sm text-primary me-2" role="status" />
+        <span className="text-muted small">Cargando gráfico interactivo...</span>
+      </div>
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted small py-4">
+        <BarChart3 size={32} className="text-muted opacity-30 mb-2" />
+        <span className="fw-semibold">Sin datos para graficar en este periodo</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-100 position-relative" style={{ height: '230px' }}>
       <canvas ref={canvasRef} />
     </div>
   );
