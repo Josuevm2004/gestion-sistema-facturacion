@@ -2,12 +2,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './globals.css';
 import type { Metadata } from 'next';
 import Script from 'next/script';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Outfit } from 'next/font/google';
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const outfit = Outfit({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-jakarta',
+  variable: '--font-outfit',
   display: 'swap',
 });
 
@@ -18,11 +18,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className={plusJakartaSans.variable}>
+    <html lang="es" className={outfit.variable}>
       <head>
         <link rel="icon" href="/logo.jpeg" />
       </head>
-      <body className={plusJakartaSans.className}>
+      <body className={outfit.className}>
         {children}
         <Script
           src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
