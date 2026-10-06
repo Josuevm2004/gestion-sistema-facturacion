@@ -373,60 +373,110 @@ export default function ReportesExcelTab({
         ...(c.ruc ? (paymentsByClient.get(`ruc-${c.ruc}`) || []) : [])
       ];
 
-      if (clPays.length > 0) {
-        clPays.forEach((p) => {
-          const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
-          if (!payD) return;
-          const k = monthKeyFromDate(payD);
-          if (!k) return;
-          const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
-          if (pAmount <= 0) return;
-
-          const isAnnualPay = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-          if (isAnnualPay || isClientAnnual) {
-            // Plan anual solo figura en el mes que inicia su plan (no en meses posteriores)
-            if (!spans.some((s) => s.type === 'ANUAL')) {
-              spans.push({ startKey: k, amount: pAmount, monthsCovered: 1, type: 'ANUAL' });
-            }
-            return;
-          }
-
-          const isSegundoProrrPay = p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10);
-          if (isSegundoProrrPay) {
-            const baseMonto = clientMonthlyPlanPrice || pAmount;
-            const adicMonto = Number(c.montoProrrateoAdicional || 0) || Math.max(0, pAmount - baseMonto);
-            if (!spans.some((s) => s.startKey === k)) {
-              spans.push({ startKey: k, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
-            }
-            const prorrKey = addMonthsToKey(k, 2);
-            if (adicMonto > 0) {
-              monthlySums.set(prorrKey, (monthlySums.get(prorrKey) || 0) + adicMonto);
-            }
-          } else {
-            monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
-          }
+      if (isClientAnnual) {
+        // PLAN ANUAL: solo figura en el mes que inicia su plan (no en meses posteriores)
+        const annualPay = clPays.find((p) => {
+          const isAnn = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+          return isAnn || Number(p?.monto || 0) >= 150;
         });
-      }
+        const annualAmount = annualPay
+          ? Number(annualPay.monto || annualPay.venta?.montoTotal || 0)
+          : (Number(c.precioPlan || c.montoMensual || 0) || 590);
+        spans.push({ startKey: startMonthKey, amount: annualAmount, monthsCovered: 1, type: 'ANUAL' });
+      } else if (isSegundoProrrateo) {
+        // SEGUNDA LÓGICA DE PRORRATEO (inicios a partir del día 10, ej. día 23):
+        // 1. Su mes cubierto inicial ocupa su mes de inicio y el mes siguiente (ej. septiembre y octubre combinados con tarifa mensual).
+        // 2. El prorrateo adicional se cobra y cubre el mes de inicio + 2 (ej. noviembre).
+        const baseMonto = Number(c.montoMensual || c.precioPlan || 0) || 29;
+        let adicMonto = Number(c.montoProrrateoAdicional || 0);
+        if (adicMonto <= 0) {
+          if (c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > baseMonto) {
+            adicMonto = Number(c.montoSiguienteCobro) - baseMonto;
+          } else if (startD) {
+            const diasTotales = new Date(startD.getFullYear(), startD.getMonth() + 1, 0).getDate();
+            const diasUsados = Math.max(1, diasTotales - Math.max(0, startD.getDate() - 1));
+            adicMonto = Math.round((baseMonto / diasTotales) * diasUsados * 100) / 100;
+          }
+        }
 
-      // Si no tuvo pagos registrados, aplicar la lógica estándar de facturación del cliente
-      if (spans.length === 0 && Array.from(monthlySums.values()).every((v) => v === 0)) {
-        if (isClientAnnual) {
-          const annualAmount = Number(c.precioPlan || c.montoMensual || 0);
-          spans.push({ startKey: startMonthKey, amount: annualAmount, monthsCovered: 1, type: 'ANUAL' });
-        } else if (isSegundoProrrateo) {
-          const baseMonto = Number(c.montoMensual || c.precioPlan || 0);
-          const adicMonto = Number(c.montoProrrateoAdicional || 0) || Math.max(0, Number(c.montoSiguienteCobro || 0) - baseMonto);
-          spans.push({ startKey: startMonthKey, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
-          const prorrKey = addMonthsToKey(startMonthKey, 2);
-          if (adicMonto > 0) monthlySums.set(prorrKey, adicMonto);
-        } else if (isPrimerProrrateo && startD) {
+        // Combinar mes de inicio y mes siguiente (ej. septiembre y octubre)
+        spans.push({ startKey: startMonthKey, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
+
+        // En el mes de inicio + 2 (ej. noviembre): figura el monto del prorrateo adicional
+        const prorrKey = addMonthsToKey(startMonthKey, 2);
+        if (adicMonto > 0) {
+          monthlySums.set(prorrKey, adicMonto);
+        }
+
+        // Si existen pagos en BD para períodos posteriores o del mes de prorrateo
+        if (clPays.length > 0) {
+          clPays.forEach((p) => {
+            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+            if (!payD) return;
+            const k = monthKeyFromDate(payD);
+            if (!k) return;
+            const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
+            if (pAmount <= 0) return;
+            if (k === prorrKey && pAmount > 0) {
+              monthlySums.set(k, pAmount);
+            } else if (monthIndexFromKey(k) > monthIndexFromKey(prorrKey)) {
+              monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
+            }
+          });
+        }
+      } else if (isPrimerProrrateo) {
+        // PRIMERA LÓGICA DE PRORRATEO (inicios antes del día 10, ej. día 5):
+        // 1. En el mes de inicio: cobra el prorrateo de días usados.
+        // 2. En el mes siguiente: inicia con su plan mensual completo.
+        const nextKey = addMonthsToKey(startMonthKey, 1);
+        let montoProrr = Number(c.montoProrrateado || 0);
+        if (montoProrr <= 0 && startD) {
           const diasTotales = new Date(startD.getFullYear(), startD.getMonth() + 1, 0).getDate();
           const diasCobrados = Math.max(1, diasTotales - Math.max(0, startD.getDate() - 1));
-          const diario = clientMonthlyPlanPrice / diasTotales;
-          const montoProrr = Number(c.montoProrrateado || 0) || Math.round(diario * diasCobrados) || clientMonthlyPlanPrice;
+          montoProrr = Math.round((clientMonthlyPlanPrice / diasTotales) * diasCobrados * 100) / 100;
+        }
+        if (montoProrr <= 0) {
+          montoProrr = clientMonthlyPlanPrice;
+        }
+
+        if (clPays.length > 0) {
+          let hasStartPay = false;
+          let hasNextPay = false;
+          clPays.forEach((p) => {
+            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+            if (!payD) return;
+            const k = monthKeyFromDate(payD);
+            if (!k) return;
+            const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
+            if (pAmount <= 0) return;
+            if (k === startMonthKey) {
+              monthlySums.set(k, pAmount);
+              hasStartPay = true;
+            } else if (k === nextKey) {
+              monthlySums.set(k, pAmount);
+              hasNextPay = true;
+            } else {
+              monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
+            }
+          });
+          if (!hasStartPay) monthlySums.set(startMonthKey, montoProrr);
+          if (!hasNextPay) monthlySums.set(nextKey, clientMonthlyPlanPrice);
+        } else {
           monthlySums.set(startMonthKey, montoProrr);
-          const nextKey = addMonthsToKey(startMonthKey, 1);
           monthlySums.set(nextKey, clientMonthlyPlanPrice);
+        }
+      } else {
+        // Cliente mensual regular sin prorrateo especial
+        if (clPays.length > 0) {
+          clPays.forEach((p) => {
+            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+            if (!payD) return;
+            const k = monthKeyFromDate(payD);
+            if (!k) return;
+            const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
+            if (pAmount <= 0) return;
+            monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
+          });
         } else {
           monthlySums.set(startMonthKey, clientMonthlyPlanPrice);
         }
@@ -517,7 +567,8 @@ export default function ReportesExcelTab({
           const amt = !isClientAnnual ? (monthlySums.get(key) || 0) : 0;
           if (amt > 0) {
             const isFirstMonth = key === startMonthKey;
-            const isProrr = key === addMonthsToKey(startMonthKey, 2) && isSegundoProrrateo;
+            const isProrr = (isSegundoProrrateo && key === addMonthsToKey(startMonthKey, 2)) ||
+                            (isPrimerProrrateo && key === startMonthKey);
             const tipo = isProrr ? 'PRORRATEO' : isFirstMonth ? 'ALTA' : 'RENOVACION';
 
             cellDataByMonth.set(key, {
@@ -896,36 +947,40 @@ export default function ReportesExcelTab({
           const cell = row.cellDataByMonth.get(k);
           if (!cell || cell.isCoveredBySpan) continue;
 
+          const colIndex = 36 + i;
+
           if (cell.isSpanStart && cell.spanCols > 1) {
             const mergeCount = cell.spanCols - 1;
             const styleId = cell.tipo === 'ANUAL' ? 'AnnualStyle' : 'SegundoProrrateoStyle';
             monthCellsXml.push(
-              `<Cell ss:StyleID="${styleId}" ss:MergeAcross="${mergeCount}"><Data ss:Type="Number">${cell.amount.toFixed(2)}</Data></Cell>`
+              `<Cell ss:Index="${colIndex}" ss:StyleID="${styleId}" ss:MergeAcross="${mergeCount}"><Data ss:Type="Number">${cell.amount.toFixed(2)}</Data></Cell>`
             );
           } else if (cell.amount > 0) {
             const styleId = cell.tipo === 'ANUAL' ? 'AnnualStyle' : 'NumberStyle';
             monthCellsXml.push(
-              `<Cell ss:StyleID="${styleId}"><Data ss:Type="Number">${cell.amount.toFixed(2)}</Data></Cell>`
+              `<Cell ss:Index="${colIndex}" ss:StyleID="${styleId}"><Data ss:Type="Number">${cell.amount.toFixed(2)}</Data></Cell>`
             );
           } else {
-            monthCellsXml.push('<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>');
+            monthCellsXml.push(`<Cell ss:Index="${colIndex}" ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>`);
           }
         }
 
-        const totalCellXml = `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${row.clientTotal.toFixed(2)}</Data></Cell>`;
+        const totalColIndex = 36 + allMonthKeys.length;
+        const totalCellXml = `<Cell ss:Index="${totalColIndex}" ss:StyleID="NumberStyle"><Data ss:Type="Number">${row.clientTotal.toFixed(2)}</Data></Cell>`;
         return `<Row>${baseCellsXml}${monthCellsXml.join('')}${totalCellXml}</Row>`;
       });
 
       // Fila de totales por mes al final de las columnas
+      const totalColIndex = 36 + allMonthKeys.length;
       const monthTotalsCellsXml = allMonthKeys
-        .map((k) => {
+        .map((k, idx) => {
           const col = monthColumnTotals.get(k);
           const mTotal = col ? col.totalGenerado : 0;
-          return `<Cell ss:StyleID="TotalNumberStyle"><Data ss:Type="Number">${mTotal.toFixed(2)}</Data></Cell>`;
+          return `<Cell ss:Index="${36 + idx}" ss:StyleID="TotalNumberStyle"><Data ss:Type="Number">${mTotal.toFixed(2)}</Data></Cell>`;
         })
         .join('');
 
-      const totalRowXml = `<Row ss:Height="26"><Cell ss:StyleID="TotalLabelStyle" ss:MergeAcross="34"><Data ss:Type="String">TOTAL GENERADO POR MES (S/)</Data></Cell>${monthTotalsCellsXml}<Cell ss:StyleID="GrandTotalStyle"><Data ss:Type="Number">${granTotalCobros.toFixed(2)}</Data></Cell></Row>`;
+      const totalRowXml = `<Row ss:Height="26"><Cell ss:Index="1" ss:StyleID="TotalLabelStyle" ss:MergeAcross="34"><Data ss:Type="String">TOTAL GENERADO POR MES (S/)</Data></Cell>${monthTotalsCellsXml}<Cell ss:Index="${totalColIndex}" ss:StyleID="GrandTotalStyle"><Data ss:Type="Number">${granTotalCobros.toFixed(2)}</Data></Cell></Row>`;
 
       // Hoja 2: Resumen por Mes
       const summaryMonthRowsXml = allMonthKeys
