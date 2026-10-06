@@ -273,7 +273,8 @@ export default function ReportesExcelTab({
             const isSegundoProrrateo = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || startD.getDate() >= 10;
 
             if (isAnual) {
-              for (let k = 0; k < 12; k += 1) monthKeysSet.add(addMonthsToKey(startKey, k));
+              // El plan anual solo figura en el mes que inicia su plan (no en los 11 meses subsiguientes)
+              monthKeysSet.add(startKey);
             } else if (isSegundoProrrateo) {
               // El segundo prorrateo combina los 2 meses de inicio (ej. Sep + Oct) y el prorrateo cubre en Noviembre (Sep + 2)
               monthKeysSet.add(addMonthsToKey(startKey, 1));
@@ -287,8 +288,11 @@ export default function ReportesExcelTab({
 
         const vencKey = monthKeyFromDate(c.fechaVencimientoMensual);
         if (vencKey) {
-          monthKeysSet.add(vencKey);
-          if (regKey) addMonthRangeToSet(regKey, vencKey);
+          const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+          if (!isAnual) {
+            monthKeysSet.add(vencKey);
+            if (regKey) addMonthRangeToSet(regKey, vencKey);
+          }
         }
 
         // Operaciones pagadas
@@ -299,9 +303,7 @@ export default function ReportesExcelTab({
           const opKey = monthKeyFromDate(opD);
           if (!opKey) return;
           monthKeysSet.add(opKey);
-          if ((op?.tipoSuscripcion || '').toUpperCase() === 'ANUAL') {
-            for (let k = 0; k < 12; k += 1) monthKeysSet.add(addMonthsToKey(opKey, k));
-          } else if (op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || opD.getDate() >= 10) {
+          if (op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || opD.getDate() >= 10) {
             monthKeysSet.add(addMonthsToKey(opKey, 1));
             monthKeysSet.add(addMonthsToKey(opKey, 2));
           }
@@ -318,9 +320,7 @@ export default function ReportesExcelTab({
           const pKey = monthKeyFromDate(payD);
           if (!pKey) return;
           monthKeysSet.add(pKey);
-          if ((p?.tipoSuscripcion || '').toUpperCase() === 'ANUAL') {
-            for (let k = 0; k < 12; k += 1) monthKeysSet.add(addMonthsToKey(pKey, k));
-          } else if (p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10)) {
+          if (p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10)) {
             monthKeysSet.add(addMonthsToKey(pKey, 1));
             monthKeysSet.add(addMonthsToKey(pKey, 2));
           }
@@ -377,6 +377,10 @@ export default function ReportesExcelTab({
         'TOTAL COBROS (S/)',
       ];
 
+      const columnMonthTotals = new Map<string, number>();
+      monthKeys.forEach((key) => columnMonthTotals.set(key, 0));
+      let granTotalCobros = 0;
+
       const xmlRows = reportFilteredList.map((c) => {
         const repNombre = `${c.nombres || ''} ${c.apellidos || ''}`.trim() || '—';
         const monthlySums = new Map<string, number>();
@@ -421,8 +425,9 @@ export default function ReportesExcelTab({
           const isSegundoProrrateoPay = p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || p?.venta?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10) || String(p?.observaciones || '').toLowerCase().includes('segundo');
 
           if (isAnnualPay) {
+            // Plan anual solo figura en el mes que inicia su plan (no se repite en meses posteriores)
             if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: pAmount, monthsCovered: 12, type: 'ANUAL' });
+              spans.push({ startKey: key, amount: pAmount, monthsCovered: 1, type: 'ANUAL' });
             }
           } else if (isSegundoProrrateoPay) {
             const baseMonto = clientMonthlyPlanPrice || pAmount;
@@ -459,8 +464,9 @@ export default function ReportesExcelTab({
           const isSegundoProrrateoOp = op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || (opD.getDate() >= 10 && op?.tipoProrrateo !== 'PRIMER_PRORRATEO');
 
           if (isAnnualOp) {
+            // Plan anual solo figura en el mes que inicia su plan
             if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: montoOperacion || (clientMonthlyPlanPrice * 10), monthsCovered: 12, type: 'ANUAL' });
+              spans.push({ startKey: key, amount: montoOperacion || (clientMonthlyPlanPrice * 10), monthsCovered: 1, type: 'ANUAL' });
             }
           } else if (isSegundoProrrateoOp) {
             const baseMonto = clientMonthlyPlanPrice || montoOperacion;
@@ -485,9 +491,10 @@ export default function ReportesExcelTab({
             const startKey = monthKeyFromDate(startD)!;
 
             if (isClientAnnual) {
+              // Plan anual solo figura en su mes de inicio (no se repite en meses posteriores)
               if (!spans.some((s) => s.startKey === startKey)) {
                 const annualAmount = Number(c.precioPlan || c.montoMensual || 0);
-                spans.push({ startKey, amount: annualAmount, monthsCovered: 12, type: 'ANUAL' });
+                spans.push({ startKey: startKey, amount: annualAmount, monthsCovered: 1, type: 'ANUAL' });
               }
             } else {
               const isSegundoProrrateoCli = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || (startD.getDate() >= 10 && c.tipoProrrateo !== 'PRIMER_PRORRATEO');
@@ -589,7 +596,7 @@ export default function ReportesExcelTab({
           })
           .join('');
 
-        // Generar celdas mensuales con soporte para spans (2.° prorrateo chapa 2 meses, anual chapa 12 meses)
+        // Generar celdas mensuales con soporte para spans (2.° prorrateo combina 2 meses, anual solo mes de inicio)
         const monthCellsXml: string[] = [];
         for (let i = 0; i < monthKeys.length; i += 1) {
           const key = monthKeys[i];
@@ -599,9 +606,12 @@ export default function ReportesExcelTab({
             const remainingColumns = monthKeys.length - i;
             const mergeCount = Math.min(Math.max(span.monthsCovered - 1, 0), remainingColumns - 1);
             const styleId = span.type === 'ANUAL' ? 'AnnualStyle' : 'SegundoProrrateoStyle';
+            const mergeAcrossAttr = mergeCount > 0 ? ` ss:MergeAcross="${mergeCount}"` : '';
             monthCellsXml.push(
-              `<Cell ss:StyleID="${styleId}" ss:MergeAcross="${mergeCount}"><Data ss:Type="Number">${span.amount.toFixed(2)}</Data></Cell>`
+              `<Cell ss:StyleID="${styleId}"${mergeAcrossAttr}><Data ss:Type="Number">${span.amount.toFixed(2)}</Data></Cell>`
             );
+            // Acumular al total del mes de inicio
+            columnMonthTotals.set(key, (columnMonthTotals.get(key) || 0) + span.amount);
             i += mergeCount; // Avanza el índice de meses cubiertos
           } else {
             // Verificar si el mes actual está dentro de un span anterior
@@ -620,6 +630,7 @@ export default function ReportesExcelTab({
               monthCellsXml.push(
                 `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
               );
+              columnMonthTotals.set(key, (columnMonthTotals.get(key) || 0) + amount);
             } else {
               monthCellsXml.push(
                 '<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>'
@@ -628,10 +639,22 @@ export default function ReportesExcelTab({
           }
         }
 
+        granTotalCobros += totalCobros;
+
         const totalCellXml = `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${totalCobros.toFixed(2)}</Data></Cell>`;
 
         return `<Row>${baseCellsXml}${monthCellsXml.join('')}${totalCellXml}</Row>`;
       });
+
+      // Fila de totales por cada mes al final de la tabla para ver cuánto se está generando por mes
+      const monthTotalsCellsXml = monthKeys
+        .map((k) => {
+          const mTotal = columnMonthTotals.get(k) || 0;
+          return `<Cell ss:StyleID="TotalNumberStyle"><Data ss:Type="Number">${mTotal.toFixed(2)}</Data></Cell>`;
+        })
+        .join('');
+
+      const totalRowXml = `<Row ss:Height="26"><Cell ss:StyleID="TotalLabelStyle" ss:MergeAcross="34"><Data ss:Type="String">TOTAL GENERADO POR MES (S/)</Data></Cell>${monthTotalsCellsXml}<Cell ss:StyleID="GrandTotalStyle"><Data ss:Type="Number">${granTotalCobros.toFixed(2)}</Data></Cell></Row>`;
 
       const excelTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
@@ -699,6 +722,41 @@ export default function ReportesExcelTab({
     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
    </Borders>
   </Style>
+  <Style ss:ID="TotalLabelStyle">
+   <Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11" ss:FontName="Calibri"/>
+   <Interior ss:Color="#0F172A" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#0047FF"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0047FF"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0047FF"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0047FF"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="TotalNumberStyle">
+   <Font ss:Bold="1" ss:Color="#0F172A" ss:Size="11" ss:FontName="Calibri"/>
+   <Interior ss:Color="#E2E8F0" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="#,##0.00"/>
+   <Borders>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#94A3B8"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0047FF"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="GrandTotalStyle">
+   <Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11" ss:FontName="Calibri"/>
+   <Interior ss:Color="#047857" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="#,##0.00"/>
+   <Borders>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#065F46"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#065F46"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#065F46"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#065F46"/>
+   </Borders>
+  </Style>
  </Styles>
  <Worksheet ss:Name="Consolidado Clientes">
   <Table>
@@ -708,6 +766,7 @@ export default function ReportesExcelTab({
       .join('')}
    </Row>
    ${xmlRows.join('\n')}
+   ${totalRowXml}
   </Table>
  </Worksheet>
 </Workbook>`;
