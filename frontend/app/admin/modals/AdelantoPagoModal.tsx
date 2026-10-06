@@ -56,12 +56,27 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
   };
 
   return (
-    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)' }}>
-      <div className="modal-dialog modal-dialog-centered my-4">
-        <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
-          <div className="modal-header bg-light border-bottom px-4 py-3">
+    <div
+      className="modal admin-dialog d-block bg-dark bg-opacity-50"
+      tabIndex={-1}
+      style={{ backdropFilter: 'blur(6px)', zIndex: 1060, overflowY: 'auto' }}
+    >
+      <div
+        className="modal-dialog modal-dialog-centered my-3"
+        style={{ maxWidth: '580px', width: '95%', margin: '1.5rem auto' }}
+      >
+        <div
+          className="modal-content rounded-4 shadow-lg border-0"
+          style={{
+            maxHeight: 'calc(100vh - 3rem)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          <div className="modal-header bg-light border-bottom px-4 py-3 flex-shrink-0 d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-2">
-              <div className="p-2 bg-success text-white rounded-3 shadow-sm">
+              <div className="p-2 bg-success text-white rounded-3 shadow-sm flex-shrink-0">
                 <Calendar size={18} />
               </div>
               <div>
@@ -74,8 +89,20 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
             <button type="button" className="btn-close" onClick={onClose} disabled={loading}></button>
           </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="modal-body p-4 bg-white">
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              className="modal-body p-4 bg-white"
+              style={{ overflowY: 'auto', flex: 1 }}
+            >
               {/* Resumen del Cliente */}
               <div className="p-3 bg-light rounded-3 border mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-1.5">
@@ -126,7 +153,7 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
               </div>
             </div>
 
-            <div className="modal-footer px-4 py-3 bg-light border-top d-flex justify-content-end gap-2">
+            <div className="modal-footer px-4 py-3 bg-light border-top flex-shrink-0 d-flex justify-content-end gap-2">
               <button
                 type="button"
                 className="btn-meta-action btn-meta-action-secondary"

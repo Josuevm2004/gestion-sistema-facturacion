@@ -4,10 +4,8 @@ import React, { useMemo, useState } from 'react';
 import {
   FileSpreadsheet,
   RefreshCw,
-  User,
-  ShoppingCart,
+  Users,
   DollarSign,
-  AlertCircle,
   AlertTriangle,
   TrendingUp,
   Percent,
@@ -20,11 +18,9 @@ import {
   Calendar,
   Layers,
   CheckCircle2,
-  XCircle,
-  PieChart as PieIcon,
   BarChart3,
-  HelpCircle,
   Eye,
+  Check,
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import {
@@ -32,7 +28,6 @@ import {
   PlanDoughnutChart,
   PortfolioHealthChart,
   RevenueTypeBarChart,
-  CategoryDualAxisChart,
 } from './ReportCharts';
 
 export type SellerMetric = {
@@ -86,36 +81,56 @@ export default function ReportesExcelTab({
   loadData = () => {},
   isSyncing = false,
   token,
-  periodoIngresoTipo = 'TODOS',
-  setPeriodoIngresoTipo = () => {},
-  fechaCustomFilter = '',
-  setFechaCustomFilter = () => {},
-  search = '',
-  setSearch = () => {},
-  sellerFilter = '',
-  setSellerFilter = () => {},
+  periodoIngresoTipo,
+  setPeriodoIngresoTipo,
+  fechaCustomFilter,
+  setFechaCustomFilter,
+  search,
+  setSearch,
+  sellerFilter,
+  setSellerFilter,
   uniqueSellers = [],
-  colorFilter = '',
-  setColorFilter = () => {},
-  regimenFilter = '',
-  setRegimenFilter = () => {},
-  planFilter = '',
-  setPlanFilter = () => {},
-  estadoCuentaFilter = '',
-  setEstadoCuentaFilter = () => {},
-  capacitacionFilter = '',
-  setCapacitacionFilter = () => {},
-  suscripcionFilter = '',
-  setSuscripcionFilter = () => {},
+  colorFilter,
+  setColorFilter,
+  regimenFilter,
+  setRegimenFilter,
+  planFilter,
+  setPlanFilter,
+  estadoCuentaFilter,
+  setEstadoCuentaFilter,
+  capacitacionFilter,
+  setCapacitacionFilter,
+  suscripcionFilter,
+  setSuscripcionFilter,
   filterClientUnified,
   setEditingClient = () => {},
   setHistoryClient = () => {},
   COLOR_MAP,
 }: ReportesExcelTabProps) {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // --------------------------------------------------------------------------
+  // FILTROS PRINCIPALES (UBICADOS AL INICIO DE LA PÁGINA)
+  // --------------------------------------------------------------------------
+  const [selectedMesFacturacion, setSelectedMesFacturacion] = useState<string>('ALL');
+  const [selectedVendedor, setSelectedVendedor] = useState<string>('ALL');
+  const [selectedPlan, setSelectedPlan] = useState<string>('ALL');
+  const [selectedEstadoCuenta, setSelectedEstadoCuenta] = useState<string>('ALL');
+  const [selectedCliente, setSelectedCliente] = useState<string>('');
+
+  // Navegación de secciones
+  const [activeSection, setActiveSection] = useState<
+    'RESUMEN' | 'TOTAL_MES' | 'ALTAS' | 'MENSUALIDADES' | 'ANUALES' | 'PRORRATEOS' | 'BLOQUEADOS'
+  >('RESUMEN');
+
+  // Paginación y verificador instantáneo
+  const [tablePage, setTablePage] = useState<number>(1);
+  const [showAllRows, setShowAllRows] = useState<boolean>(false);
+  const [verifierQuery, setVerifierQuery] = useState<string>('');
+  const ITEMS_PER_PAGE = 25;
+
   const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
-  const filterFn = filterClientUnified || (() => true);
-  const reportFilteredList = safeClients.filter((c) => filterFn(c));
+  const safePayments = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
 
   // Helper robusto para parsear cualquier fecha a Date local sin desfases UTC
   const parseLocalDateSafe = (dateInput?: any): Date | null => {
@@ -178,7 +193,627 @@ export default function ReportesExcelTab({
     return `${day}/${month}/${year}`;
   };
 
-  // Generador avanzado de Excel en formato Excel XML (Diseño con estilos, 2 prorrateos y soporte anual)
+  const formatMonthKeyLabel = (key: string): string => {
+    if (!key || !key.includes('-')) return key || '—';
+    const [y, m] = key.split('-').map(Number);
+    const names = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+    ];
+    return `${names[m - 1] || 'Mes'} ${y}`;
+  };
+
+  // --------------------------------------------------------------------------
+  // CLIENTES FILTRADOS: LOS FILTROS AFECTAN A TODO EL MÓDULO
+  // --------------------------------------------------------------------------
+  const filteredClients = useMemo(() => {
+    return safeClients.filter((c) => {
+      if (filterClientUnified && !filterClientUnified(c)) return false;
+      if (selectedVendedor !== 'ALL' && c.vendedor !== selectedVendedor) return false;
+      if (selectedPlan !== 'ALL' && !(c.planContratado || '').toUpperCase().includes(selectedPlan.toUpperCase())) return false;
+      if (selectedEstadoCuenta !== 'ALL' && (c.estadoCuenta || '').toUpperCase() !== selectedEstadoCuenta.toUpperCase()) return false;
+      if (selectedCliente.trim() !== '') {
+        const q = selectedCliente.toLowerCase();
+        const razon = (c.razonSocial || '').toLowerCase();
+        const ruc = (c.ruc || '').toLowerCase();
+        const comercial = (c.nombreComercial || '').toLowerCase();
+        if (!razon.includes(q) && !ruc.includes(q) && !comercial.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [safeClients, filterClientUnified, selectedVendedor, selectedPlan, selectedEstadoCuenta, selectedCliente]);
+
+  // Lista de planes únicos para el selector de filtros
+  const availablePlans = useMemo(() => {
+    const set = new Set<string>();
+    safeClients.forEach((c) => {
+      if (c.planContratado) set.add(c.planContratado);
+    });
+    return Array.from(set).sort();
+  }, [safeClients]);
+
+  // Mapa rápido de pagos de clientes
+  const paymentsByClient = useMemo(() => {
+    const map = new Map<string, any[]>();
+    const seen = new Set<string>();
+    safePayments.forEach((p, idx) => {
+      const uKey = String(p?.id ?? p?.pagoId ?? `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}-${idx}`);
+      if (seen.has(uKey)) return;
+      seen.add(uKey);
+
+      const cId = p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId;
+      const ruc = p?.clienteRuc || p?.venta?.cliente?.ruc;
+      if (cId) {
+        const list = map.get(String(cId)) || [];
+        list.push(p);
+        map.set(String(cId), list);
+      }
+      if (ruc) {
+        const listRuc = map.get(`ruc-${ruc}`) || [];
+        listRuc.push(p);
+        map.set(`ruc-${ruc}`, listRuc);
+      }
+    });
+    return map;
+  }, [safePayments]);
+
+  // --------------------------------------------------------------------------
+  // MATRIZ FINANCIERA UNIFICADA (1 A 1 CON EL EXCEL OFICIAL)
+  // Esta matriz es la ÚNICA fuente de verdad para la pantalla y la exportación.
+  // --------------------------------------------------------------------------
+  const {
+    allMonthKeys,
+    clientMatrixRows,
+    monthColumnTotals,
+    granTotalCobros,
+    overallAltasTotal,
+    overallAltasCount,
+    overallRenovacionesTotal,
+    overallRenovacionesCount,
+    overallAnualesTotal,
+    overallAnualesCount,
+    overallProrrateosTotal,
+  } = useMemo(() => {
+    const monthKeysSet = new Set<string>();
+    const today = new Date();
+    const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
+    // 1. Detectar rango de meses
+    safeClients.forEach((c) => {
+      const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
+      if (startD) {
+        const k = monthKeyFromDate(startD);
+        if (k) {
+          monthKeysSet.add(k);
+          const isSegundoProrr = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || startD.getDate() >= 10;
+          if (isSegundoProrr) {
+            monthKeysSet.add(addMonthsToKey(k, 1));
+            monthKeysSet.add(addMonthsToKey(k, 2));
+          }
+        }
+      }
+      const regKey = monthKeyFromDate(c.fechaRegistro);
+      if (regKey) {
+        const startIdx = monthIndexFromKey(regKey);
+        const currIdx = monthIndexFromKey(currentMonthKey);
+        for (let idx = Math.min(startIdx, currIdx); idx <= Math.max(startIdx, currIdx); idx++) {
+          const y = Math.floor(idx / 12);
+          const m = (idx % 12) + 1;
+          monthKeysSet.add(`${y}-${String(m).padStart(2, '0')}`);
+        }
+      }
+    });
+
+    safePayments.forEach((p) => {
+      const pD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+      if (pD) {
+        const k = monthKeyFromDate(pD);
+        if (k) monthKeysSet.add(k);
+      }
+    });
+
+    if (monthKeysSet.size === 0) monthKeysSet.add(currentMonthKey);
+    const sortedMonthKeys = Array.from(monthKeysSet).sort();
+
+    // 2. Inicializar acumuladores de columnas mensuales
+    const colTotals = new Map<string, {
+      totalGenerado: number;
+      altas: number;
+      altasCount: number;
+      renovaciones: number;
+      renovacionesCount: number;
+      anuales: number;
+      anualesCount: number;
+      prorrateos: number;
+      totalOperaciones: number;
+    }>();
+
+    sortedMonthKeys.forEach((k) => {
+      colTotals.set(k, {
+        totalGenerado: 0,
+        altas: 0,
+        altasCount: 0,
+        renovaciones: 0,
+        renovacionesCount: 0,
+        anuales: 0,
+        anualesCount: 0,
+        prorrateos: 0,
+        totalOperaciones: 0,
+      });
+    });
+
+    let granTotal = 0;
+    let sumAltas = 0;
+    let countAltas = 0;
+    let sumRenovaciones = 0;
+    let countRenovaciones = 0;
+    let sumAnuales = 0;
+    let countAnuales = 0;
+    let sumProrrateos = 0;
+
+    // 3. Procesar cada cliente de filteredClients
+    const rows = filteredClients.map((c) => {
+      const isClientAnnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+      const clientMonthlyPlanPrice = Number(c.montoMensual || c.precioPlan || 0);
+
+      const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
+      const startMonthKey = startD ? monthKeyFromDate(startD) || sortedMonthKeys[0] : sortedMonthKeys[0];
+
+      const isSegundoProrrateo = !isClientAnnual && (c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || (startD && startD.getDate() >= 10));
+      const isPrimerProrrateo = !isClientAnnual && !isSegundoProrrateo && (c.tipoProrrateo === 'PRIMER_PRORRATEO' || (startD && startD.getDate() < 10));
+
+      // Spans para celdas combinadas (anuales y 2.° prorrateo)
+      const spans: Array<{ startKey: string; amount: number; monthsCovered: number; type: 'ANUAL' | 'SEGUNDO_PRORRATEO' }> = [];
+      const monthlySums = new Map<string, number>();
+      sortedMonthKeys.forEach((k) => monthlySums.set(k, 0));
+
+      // Revisar pagos confirmados en base de datos para este cliente
+      const clPays = [
+        ...(paymentsByClient.get(String(c.id)) || []),
+        ...(c.ruc ? (paymentsByClient.get(`ruc-${c.ruc}`) || []) : [])
+      ];
+
+      if (clPays.length > 0) {
+        clPays.forEach((p) => {
+          const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+          if (!payD) return;
+          const k = monthKeyFromDate(payD);
+          if (!k) return;
+          const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
+          if (pAmount <= 0) return;
+
+          const isAnnualPay = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+          if (isAnnualPay || isClientAnnual) {
+            // Plan anual solo figura en el mes que inicia su plan (no en meses posteriores)
+            if (!spans.some((s) => s.type === 'ANUAL')) {
+              spans.push({ startKey: k, amount: pAmount, monthsCovered: 1, type: 'ANUAL' });
+            }
+            return;
+          }
+
+          const isSegundoProrrPay = p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10);
+          if (isSegundoProrrPay) {
+            const baseMonto = clientMonthlyPlanPrice || pAmount;
+            const adicMonto = Number(c.montoProrrateoAdicional || 0) || Math.max(0, pAmount - baseMonto);
+            if (!spans.some((s) => s.startKey === k)) {
+              spans.push({ startKey: k, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
+            }
+            const prorrKey = addMonthsToKey(k, 2);
+            if (adicMonto > 0) {
+              monthlySums.set(prorrKey, (monthlySums.get(prorrKey) || 0) + adicMonto);
+            }
+          } else {
+            monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
+          }
+        });
+      }
+
+      // Si no tuvo pagos registrados, aplicar la lógica estándar de facturación del cliente
+      if (spans.length === 0 && Array.from(monthlySums.values()).every((v) => v === 0)) {
+        if (isClientAnnual) {
+          const annualAmount = Number(c.precioPlan || c.montoMensual || 0);
+          spans.push({ startKey: startMonthKey, amount: annualAmount, monthsCovered: 1, type: 'ANUAL' });
+        } else if (isSegundoProrrateo) {
+          const baseMonto = Number(c.montoMensual || c.precioPlan || 0);
+          const adicMonto = Number(c.montoProrrateoAdicional || 0) || Math.max(0, Number(c.montoSiguienteCobro || 0) - baseMonto);
+          spans.push({ startKey: startMonthKey, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
+          const prorrKey = addMonthsToKey(startMonthKey, 2);
+          if (adicMonto > 0) monthlySums.set(prorrKey, adicMonto);
+        } else if (isPrimerProrrateo && startD) {
+          const diasTotales = new Date(startD.getFullYear(), startD.getMonth() + 1, 0).getDate();
+          const diasCobrados = Math.max(1, diasTotales - Math.max(0, startD.getDate() - 1));
+          const diario = clientMonthlyPlanPrice / diasTotales;
+          const montoProrr = Number(c.montoProrrateado || 0) || Math.round(diario * diasCobrados) || clientMonthlyPlanPrice;
+          monthlySums.set(startMonthKey, montoProrr);
+          const nextKey = addMonthsToKey(startMonthKey, 1);
+          monthlySums.set(nextKey, clientMonthlyPlanPrice);
+        } else {
+          monthlySums.set(startMonthKey, clientMonthlyPlanPrice);
+        }
+      }
+
+      // Construir mapa de celdas por mes para este cliente
+      const cellDataByMonth = new Map<string, {
+        amount: number;
+        tipo: 'ALTA' | 'RENOVACION' | 'ANUAL' | 'PRORRATEO' | 'NINGUNO';
+        isSpanStart: boolean;
+        isCoveredBySpan: boolean;
+        spanCols: number;
+        displayVal: string;
+      }>();
+
+      let clientTotal = 0;
+
+      for (let i = 0; i < sortedMonthKeys.length; i++) {
+        const key = sortedMonthKeys[i];
+        const span = spans.find((s) => s.startKey === key);
+
+        if (span) {
+          const mergeCount = Math.max(span.monthsCovered - 1, 0);
+          const tipo = span.type === 'ANUAL' ? 'ANUAL' : 'ALTA';
+          cellDataByMonth.set(key, {
+            amount: span.amount,
+            tipo,
+            isSpanStart: true,
+            isCoveredBySpan: false,
+            spanCols: span.monthsCovered,
+            displayVal: span.amount.toFixed(2),
+          });
+          clientTotal += span.amount;
+
+          // Acumular a la columna del mes
+          const col = colTotals.get(key);
+          if (col) {
+            col.totalGenerado += span.amount;
+            col.totalOperaciones += 1;
+            if (tipo === 'ANUAL') {
+              col.anuales += span.amount;
+              col.anualesCount += 1;
+              sumAnuales += span.amount;
+              countAnuales += 1;
+            } else {
+              col.altas += span.amount;
+              col.altasCount += 1;
+              sumAltas += span.amount;
+              countAltas += 1;
+            }
+          }
+
+          // Marcar los meses cubiertos por el span
+          for (let m = 1; m <= mergeCount; m++) {
+            const nextK = sortedMonthKeys[i + m];
+            if (nextK) {
+              cellDataByMonth.set(nextK, {
+                amount: 0,
+                tipo: 'NINGUNO',
+                isSpanStart: false,
+                isCoveredBySpan: true,
+                spanCols: 0,
+                displayVal: '',
+              });
+            }
+          }
+          i += mergeCount;
+        } else {
+          // Verificar si ya está cubierto por un span anterior
+          const isCovered = spans.some((s) => {
+            const sIdx = monthIndexFromKey(s.startKey);
+            const cIdx = monthIndexFromKey(key);
+            return cIdx > sIdx && cIdx < sIdx + s.monthsCovered;
+          });
+
+          if (isCovered) {
+            cellDataByMonth.set(key, {
+              amount: 0,
+              tipo: 'NINGUNO',
+              isSpanStart: false,
+              isCoveredBySpan: true,
+              spanCols: 0,
+              displayVal: '',
+            });
+            continue;
+          }
+
+          const amt = !isClientAnnual ? (monthlySums.get(key) || 0) : 0;
+          if (amt > 0) {
+            const isFirstMonth = key === startMonthKey;
+            const isProrr = key === addMonthsToKey(startMonthKey, 2) && isSegundoProrrateo;
+            const tipo = isProrr ? 'PRORRATEO' : isFirstMonth ? 'ALTA' : 'RENOVACION';
+
+            cellDataByMonth.set(key, {
+              amount: amt,
+              tipo,
+              isSpanStart: false,
+              isCoveredBySpan: false,
+              spanCols: 1,
+              displayVal: amt.toFixed(2),
+            });
+            clientTotal += amt;
+
+            const col = colTotals.get(key);
+            if (col) {
+              col.totalGenerado += amt;
+              col.totalOperaciones += 1;
+              if (tipo === 'PRORRATEO') {
+                col.prorrateos += amt;
+                sumProrrateos += amt;
+              } else if (tipo === 'ALTA') {
+                col.altas += amt;
+                col.altasCount += 1;
+                sumAltas += amt;
+                countAltas += 1;
+              } else {
+                col.renovaciones += amt;
+                col.renovacionesCount += 1;
+                sumRenovaciones += amt;
+                countRenovaciones += 1;
+              }
+            }
+          } else {
+            cellDataByMonth.set(key, {
+              amount: 0,
+              tipo: 'NINGUNO',
+              isSpanStart: false,
+              isCoveredBySpan: false,
+              spanCols: 1,
+              displayVal: '-',
+            });
+          }
+        }
+      }
+
+      granTotal += clientTotal;
+
+      return {
+        client: c,
+        startMonthKey,
+        isClientAnnual,
+        spans,
+        clientTotal,
+        cellDataByMonth,
+      };
+    });
+
+    return {
+      allMonthKeys: sortedMonthKeys,
+      clientMatrixRows: rows,
+      monthColumnTotals: colTotals,
+      granTotalCobros: granTotal,
+      overallAltasTotal: sumAltas,
+      overallAltasCount: countAltas,
+      overallRenovacionesTotal: sumRenovaciones,
+      overallRenovacionesCount: countRenovaciones,
+      overallAnualesTotal: sumAnuales,
+      overallAnualesCount: countAnuales,
+      overallProrrateosTotal: sumProrrateos,
+    };
+  }, [safeClients, filteredClients, safePayments, paymentsByClient]);
+
+  // Lista de meses disponibles para el selector mensual (ordenados de más reciente a más antiguo)
+  const availableBillingMonths = useMemo(() => {
+    return allMonthKeys
+      .map((k) => [k, formatMonthKeyLabel(k)] as [string, string])
+      .reverse();
+  }, [allMonthKeys]);
+
+  // --------------------------------------------------------------------------
+  // CÁLCULO DE KPIS SEGÚN EL PERÍODO SELECCIONADO (COINCIDENCIA 100% CON EXCEL)
+  // --------------------------------------------------------------------------
+  const selectedMonthTotalData = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return null;
+    return monthColumnTotals.get(selectedMesFacturacion) || null;
+  }, [selectedMesFacturacion, monthColumnTotals]);
+
+  // Total recaudado: coincide exactamente con la columna del mes en el Excel o con el Gran Total
+  const kpiTotalRecaudado = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return granTotalCobros;
+    return selectedMonthTotalData ? selectedMonthTotalData.totalGenerado : 0;
+  }, [selectedMesFacturacion, granTotalCobros, selectedMonthTotalData]);
+
+  const kpiAltasMonto = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return overallAltasTotal;
+    return selectedMonthTotalData ? selectedMonthTotalData.altas : 0;
+  }, [selectedMesFacturacion, overallAltasTotal, selectedMonthTotalData]);
+
+  const kpiAltasCount = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return overallAltasCount;
+    return selectedMonthTotalData ? selectedMonthTotalData.altasCount : 0;
+  }, [selectedMesFacturacion, overallAltasCount, selectedMonthTotalData]);
+
+  const kpiRenovacionesMonto = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return overallRenovacionesTotal;
+    return selectedMonthTotalData ? selectedMonthTotalData.renovaciones : 0;
+  }, [selectedMesFacturacion, overallRenovacionesTotal, selectedMonthTotalData]);
+
+  const kpiRenovacionesCount = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return overallRenovacionesCount;
+    return selectedMonthTotalData ? selectedMonthTotalData.renovacionesCount : 0;
+  }, [selectedMesFacturacion, overallRenovacionesCount, selectedMonthTotalData]);
+
+  const kpiAnualesMonto = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return overallAnualesTotal;
+    return selectedMonthTotalData ? selectedMonthTotalData.anuales : 0;
+  }, [selectedMesFacturacion, overallAnualesTotal, selectedMonthTotalData]);
+
+  const kpiAnualesCount = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return overallAnualesCount;
+    return selectedMonthTotalData ? selectedMonthTotalData.anualesCount : 0;
+  }, [selectedMesFacturacion, overallAnualesCount, selectedMonthTotalData]);
+
+  // Deuda unificada (Vencidos y Bloqueados): 1 tarifa por cada cliente impago
+  const { clientesConDeudaList, vencidosCount, bloqueadosCount, totalDeudaPendiente } = useMemo(() => {
+    const list: Array<{
+      client: Client;
+      razonSocial: string;
+      ruc: string;
+      estado: 'VENCIDO' | 'BLOQUEADO';
+      tarifa: number;
+      fechaVencimientoStr: string;
+      asesor: string;
+      telefono: string;
+    }> = [];
+
+    let sumDeuda = 0;
+    let vCount = 0;
+    let bCount = 0;
+
+    filteredClients.forEach((c) => {
+      const st = (c.estadoCuenta || '').toUpperCase();
+      if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
+
+      const tarifa = Number(c.montoMensual || c.montoSiguienteCobro || c.precioPlan || 30);
+      const isBloq = st === 'BLOQUEADO' || st === 'SUSPENDIDO';
+      if (isBloq) bCount++;
+      else vCount++;
+      sumDeuda += tarifa;
+
+      const vencD = parseLocalDateSafe(c.fechaVencimientoMensual) || parseLocalDateSafe(c.fechaCreacion) || parseLocalDateSafe(c.fechaRegistro);
+      const fechaVencimientoStr = vencD ? vencD.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+
+      list.push({
+        client: c,
+        razonSocial: c.razonSocial || 'Cliente General',
+        ruc: c.ruc || '—',
+        estado: isBloq ? 'BLOQUEADO' : 'VENCIDO',
+        tarifa,
+        fechaVencimientoStr,
+        asesor: c.vendedor || 'Por asignar',
+        telefono: c.telefono || c.telefonoPersonal || '',
+      });
+    });
+
+    return {
+      clientesConDeudaList: list.sort((a, b) => b.tarifa - a.tarifa),
+      vencidosCount: vCount,
+      bloqueadosCount: bCount,
+      totalDeudaPendiente: sumDeuda,
+    };
+  }, [filteredClients]);
+
+  // Datos para la tabla mensual (lista de filas por mes)
+  const monthlySummaryTableData = useMemo(() => {
+    return allMonthKeys
+      .map((k) => {
+        const col = monthColumnTotals.get(k) || {
+          totalGenerado: 0,
+          altas: 0,
+          altasCount: 0,
+          renovaciones: 0,
+          renovacionesCount: 0,
+          anuales: 0,
+          anualesCount: 0,
+          prorrateos: 0,
+          totalOperaciones: 0,
+        };
+        return {
+          monthKey: k,
+          label: formatMonthKeyLabel(k),
+          altas: col.altas,
+          altasCount: col.altasCount,
+          renovaciones: col.renovaciones,
+          renovacionesCount: col.renovacionesCount,
+          anuales: col.anuales,
+          anualesCount: col.anualesCount,
+          prorrateos: col.prorrateos,
+          totalGenerado: col.totalGenerado,
+          cantidadOperaciones: col.totalOperaciones,
+        };
+      })
+      .reverse();
+  }, [allMonthKeys, monthColumnTotals]);
+
+  // --------------------------------------------------------------------------
+  // LISTA DE OPERACIONES / AUDITORÍA SEGÚN LA SECCIÓN ACTIVA
+  // --------------------------------------------------------------------------
+  const detailedTableList = useMemo(() => {
+    const list: Array<{
+      id: string;
+      client: Client;
+      razonSocial: string;
+      ruc: string;
+      mesKey: string;
+      mesLabel: string;
+      tipo: string;
+      monto: number;
+      asesor: string;
+      plan: string;
+      estado: string;
+    }> = [];
+
+    clientMatrixRows.forEach((row) => {
+      const c = row.client;
+      row.cellDataByMonth.forEach((cell, mKey) => {
+        if (cell.amount <= 0 || cell.isCoveredBySpan) return;
+
+        // Filtrar por mes si no es 'ALL'
+        if (selectedMesFacturacion !== 'ALL' && mKey !== selectedMesFacturacion) return;
+
+        // Filtrar por sección
+        if (activeSection === 'ALTAS' && cell.tipo !== 'ALTA') return;
+        if (activeSection === 'MENSUALIDADES' && cell.tipo !== 'RENOVACION') return;
+        if (activeSection === 'ANUALES' && cell.tipo !== 'ANUAL') return;
+        if (activeSection === 'PRORRATEOS' && cell.tipo !== 'PRORRATEO') return;
+
+        list.push({
+          id: `${c.id}-${mKey}-${cell.tipo}`,
+          client: c,
+          razonSocial: c.razonSocial || 'Cliente General',
+          ruc: c.ruc || '—',
+          mesKey: mKey,
+          mesLabel: formatMonthKeyLabel(mKey),
+          tipo: cell.tipo,
+          monto: cell.amount,
+          asesor: c.vendedor || 'Por asignar',
+          plan: c.planContratado || 'Plan Estándar',
+          estado: (c.estadoCuenta || 'HABILITADO').toUpperCase(),
+        });
+      });
+    });
+
+    return list.sort((a, b) => b.mesKey.localeCompare(a.mesKey) || b.monto - a.monto);
+  }, [clientMatrixRows, selectedMesFacturacion, activeSection]);
+
+  const displayedRows = showAllRows
+    ? detailedTableList
+    : detailedTableList.slice((tablePage - 1) * ITEMS_PER_PAGE, tablePage * ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(detailedTableList.length / ITEMS_PER_PAGE) || 1;
+
+  // Verificador instantáneo de cliente
+  const verifiedClientResult = useMemo(() => {
+    if (!verifierQuery.trim()) return null;
+    const q = verifierQuery.trim().toLowerCase();
+    const foundRow = clientMatrixRows.find(
+      (r) =>
+        (r.client.ruc && r.client.ruc.toLowerCase().includes(q)) ||
+        (r.client.razonSocial && r.client.razonSocial.toLowerCase().includes(q))
+    );
+    if (!foundRow) return { found: false };
+
+    const c = foundRow.client;
+    const monthCell = selectedMesFacturacion !== 'ALL' ? foundRow.cellDataByMonth.get(selectedMesFacturacion) : null;
+    return {
+      found: true,
+      client: c,
+      totalCobrosCliente: foundRow.clientTotal,
+      montoMesSeleccionado: monthCell ? monthCell.amount : 0,
+      clientPayments: paymentsByClient.get(String(c.id)) || (c.ruc ? paymentsByClient.get(`ruc-${c.ruc}`) : []) || [],
+    };
+  }, [verifierQuery, clientMatrixRows, selectedMesFacturacion, paymentsByClient]);
+
+  const resetFilters = () => {
+    setSelectedMesFacturacion('ALL');
+    setSelectedVendedor('ALL');
+    setSelectedPlan('ALL');
+    setSelectedEstadoCuenta('ALL');
+    setSelectedCliente('');
+    setTablePage(1);
+  };
+
+  const currentMonthLabel = selectedMesFacturacion === 'ALL' ? 'Histórico Consolidado' : formatMonthKeyLabel(selectedMesFacturacion);
+
+  // --------------------------------------------------------------------------
+  // EXPORTACIÓN A EXCEL: USA LA EXACTA MISMA MATRIZ (SpreadsheetML)
+  // --------------------------------------------------------------------------
   const exportToExcelLocal = async () => {
     if (handleExportExcel) {
       handleExportExcel();
@@ -187,367 +822,26 @@ export default function ReportesExcelTab({
 
     setIsExportingExcel(true);
     try {
-      const idKey = (value: any) => (value === undefined || value === null || value === '' ? '' : String(value));
-      const operacionesByClient = new Map<string, any[]>();
-      const paymentsByClient = new Map<string, any[]>();
-      const seenPaymentKeys = new Set<string>();
-
-      const registerPaymentForClient = (p: any, cId?: string, ruc?: string) => {
-        const uniquePaymentKey = String(p?.id ?? p?.pagoId ?? `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}-${cId || ruc}`);
-        if (seenPaymentKeys.has(uniquePaymentKey)) return;
-        seenPaymentKeys.add(uniquePaymentKey);
-
-        if (cId) {
-          const list = paymentsByClient.get(cId) || [];
-          list.push(p);
-          paymentsByClient.set(cId, list);
-        }
-        if (ruc) {
-          const listRuc = paymentsByClient.get(`ruc-${ruc}`) || [];
-          listRuc.push(p);
-          paymentsByClient.set(`ruc-${ruc}`, listRuc);
-        }
-      };
-
-      // 1. Cargar pagos existentes en memoria (rápido y garantizado)
-      (Array.isArray(payments) ? payments : []).forEach((p) => {
-        const cId = idKey(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId);
-        const ruc = p?.clienteRuc || p?.venta?.cliente?.ruc;
-        registerPaymentForClient(p, cId, ruc);
-      });
-
-      // 2. Intentar enriquecer con el detalle del servidor (con timeout de protección)
-      if (token) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4000);
-          await Promise.allSettled(
-            reportFilteredList.map(async (c) => {
-              try {
-                const res = await fetch(`/api/admin/clientes/${c.id}`, {
-                  headers: { Authorization: `Bearer ${token}` },
-                  signal: controller.signal,
-                });
-                const data = await res.json();
-                const operaciones = data?.data?.operacionesHistorial || [];
-                const pagos = data?.data?.pagosHistorial || [];
-                operacionesByClient.set(idKey(c.id), operaciones);
-                pagos.forEach((p: any) => registerPaymentForClient(p, idKey(c.id), c.ruc));
-              } catch (_) {}
-            })
-          );
-          clearTimeout(timeoutId);
-        } catch (_) {}
-      }
-
-      const monthNames = [
-        'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-        'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre',
-      ];
-
-      const monthKeysSet = new Set<string>();
-      const today = new Date();
-      const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-
-      const addMonthRangeToSet = (startKey: string, endKey: string) => {
-        const startIndex = monthIndexFromKey(startKey);
-        const endIndex = monthIndexFromKey(endKey);
-        if (!Number.isFinite(startIndex) || !Number.isFinite(endIndex)) return;
-        const first = Math.min(startIndex, endIndex);
-        const last = Math.max(startIndex, endIndex);
-        for (let index = first; index <= last; index += 1) {
-          const year = Math.floor(index / 12);
-          const month = (index % 12) + 1;
-          monthKeysSet.add(`${year}-${String(month).padStart(2, '0')}`);
-        }
-      };
-
-      // Determinar los meses a mostrar asegurando que cubra las fechas de los clientes y sus 2 prorrateos
-      reportFilteredList.forEach((c) => {
-        const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
-        if (startD) {
-          const startKey = monthKeyFromDate(startD);
-          if (startKey) {
-            monthKeysSet.add(startKey);
-            const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-            const isSegundoProrrateo = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || startD.getDate() >= 10;
-
-            if (isAnual) {
-              // El plan anual solo figura en el mes que inicia su plan (no en los 11 meses subsiguientes)
-              monthKeysSet.add(startKey);
-            } else if (isSegundoProrrateo) {
-              // El segundo prorrateo combina los 2 meses de inicio (ej. Sep + Oct) y el prorrateo cubre en Noviembre (Sep + 2)
-              monthKeysSet.add(addMonthsToKey(startKey, 1));
-              monthKeysSet.add(addMonthsToKey(startKey, 2));
-            }
-          }
-        }
-
-        const regKey = monthKeyFromDate(c.fechaRegistro);
-        if (regKey) addMonthRangeToSet(regKey, currentMonthKey);
-
-        const vencKey = monthKeyFromDate(c.fechaVencimientoMensual);
-        if (vencKey) {
-          const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-          if (!isAnual) {
-            monthKeysSet.add(vencKey);
-            if (regKey) addMonthRangeToSet(regKey, vencKey);
-          }
-        }
-
-        // Operaciones pagadas
-        const ops = operacionesByClient.get(idKey(c.id)) || [];
-        ops.forEach((op) => {
-          const opD = parseLocalDateSafe(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
-          if (!opD) return;
-          const opKey = monthKeyFromDate(opD);
-          if (!opKey) return;
-          monthKeysSet.add(opKey);
-          if (op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || opD.getDate() >= 10) {
-            monthKeysSet.add(addMonthsToKey(opKey, 1));
-            monthKeysSet.add(addMonthsToKey(opKey, 2));
-          }
-        });
-
-        // Pagos
-        const pList = [
-          ...(paymentsByClient.get(idKey(c.id)) || []),
-          ...(c.ruc ? (paymentsByClient.get(`ruc-${c.ruc}`) || []) : [])
-        ];
-        pList.forEach((p) => {
-          const payD = parseLocalDateSafe(p?.fechaPago || p?.fechaRegistro);
-          if (!payD) return;
-          const pKey = monthKeyFromDate(payD);
-          if (!pKey) return;
-          monthKeysSet.add(pKey);
-          if (p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10)) {
-            monthKeysSet.add(addMonthsToKey(pKey, 1));
-            monthKeysSet.add(addMonthsToKey(pKey, 2));
-          }
-        });
-      });
-
-      if (monthKeysSet.size === 0) {
-        monthKeysSet.add(currentMonthKey);
-      }
-
-      const monthKeys = Array.from(monthKeysSet).sort();
-      const monthHeaders = monthKeys.map((key) => {
-        const [year, month] = key.split('-').map(Number);
-        return `${monthNames[month - 1]} ${year} (S/)`;
-      });
-
+      const monthHeaders = allMonthKeys.map((k) => `${formatMonthKeyLabel(k)} (S/)`);
       const headers = [
-        'RUC',
-        'Razón Social',
-        'Nombre Comercial',
-        'Dirección',
-        'Departamento',
-        'Provincia',
-        'Distrito',
-        'Teléfono WhatsApp',
-        'Email Empresa',
-        'Representante Legal',
-        'DNI',
-        'Teléfono Personal',
-        'Email Personal',
-        'Régimen Tributario',
-        'Plan Contratado',
-        'Tipo Suscripción',
-        'Tarifa Mensual (S/)',
-        'Vendedor Asignado',
-        'Color Atención',
-        'Estado Comercial',
-        'Estado Capacitación',
-        'Fecha Capacitación',
-        'Fecha Vencimiento',
-        'Monto Prorrateado Vigente (S/)',
-        'Dias Prorrateados',
-        'Tipo Prorrateo',
-        'Prorrateo Adicional (S/)',
-        'Dias Prorrateo Adicional',
-        'Inicio Prorrateo Adicional',
-        'Fin Prorrateo Adicional',
-        'Fecha Alta / Registro',
-        'Usuario SOL',
-        'Usuario Sistema',
-        'Clave Sistema',
-        'URL Sistema',
+        'RUC', 'Razón Social', 'Nombre Comercial', 'Dirección Fiscal',
+        'Departamento', 'Provincia', 'Distrito', 'Teléfono Comercial',
+        'Email Comercial', 'Representante Legal', 'DNI', 'Teléfono Personal',
+        'Email Personal', 'Régimen Tributario', 'Plan Contratado',
+        'Tipo Suscripción', 'Tarifa Mensual (S/)', 'Vendedor Asignado',
+        'Color Atención', 'Estado Comercial', 'Estado Capacitación',
+        'Fecha Capacitación', 'Fecha Vencimiento', 'Monto Prorrateado Vigente (S/)',
+        'Dias Prorrateados', 'Tipo Prorrateo', 'Prorrateo Adicional (S/)',
+        'Dias Prorrateo Adicional', 'Inicio Prorrateo Adicional',
+        'Fin Prorrateo Adicional', 'Fecha Alta / Registro', 'Usuario SOL',
+        'Usuario Sistema', 'Clave Sistema', 'URL Sistema',
         ...monthHeaders,
         'TOTAL COBROS (S/)',
       ];
 
-      const columnMonthTotals = new Map<string, number>();
-      monthKeys.forEach((key) => columnMonthTotals.set(key, 0));
-      let granTotalCobros = 0;
-
-      const xmlRows = reportFilteredList.map((c) => {
+      const xmlRows = clientMatrixRows.map((row) => {
+        const c = row.client;
         const repNombre = `${c.nombres || ''} ${c.apellidos || ''}`.trim() || '—';
-        const monthlySums = new Map<string, number>();
-        monthKeys.forEach((key) => monthlySums.set(key, 0));
-        const spans: Array<{ startKey: string; amount: number; monthsCovered: number; type: 'ANUAL' | 'SEGUNDO_PRORRATEO' }> = [];
-
-        const isClientAnnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-        const clientMonthlyPlanPrice = Number(c.montoMensual || c.precioPlan || 0);
-
-        // Deduplicar pagos del cliente
-        const rawClPayments = [
-          ...(paymentsByClient.get(idKey(c.id)) || []),
-          ...(c.ruc ? (paymentsByClient.get(`ruc-${c.ruc}`) || []) : [])
-        ];
-        const uniqueClPayments = new Map<string, any>();
-        rawClPayments.forEach((p, idx) => {
-          const key = String(p?.id ?? p?.pagoId ?? `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}-${idx}`);
-          if (!uniqueClPayments.has(key)) uniqueClPayments.set(key, p);
-        });
-        const clPayments = Array.from(uniqueClPayments.values());
-
-        const rawOps = operacionesByClient.get(idKey(c.id)) || [];
-
-        // 1. Procesar primero los pagos de caja confirmados (Fuente de verdad de ingresos)
-        const coveredVentaIds = new Set<string>();
-        const coveredMonthKeys = new Set<string>();
-
-        clPayments.forEach((p) => {
-          const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
-          if (!payD) return;
-          const key = monthKeyFromDate(payD);
-          if (!key) return;
-
-          const vId = String(p?.ventaId || p?.venta?.id || '');
-          if (vId) coveredVentaIds.add(vId);
-          coveredMonthKeys.add(key);
-
-          const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
-          if (pAmount <= 0) return;
-
-          const isAnnualPay = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-          const isSegundoProrrateoPay = p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || p?.venta?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || (p?.conProrrateo && payD.getDate() >= 10) || String(p?.observaciones || '').toLowerCase().includes('segundo');
-
-          if (isAnnualPay) {
-            // Plan anual solo figura en el mes que inicia su plan (no se repite en meses posteriores)
-            if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: pAmount, monthsCovered: 1, type: 'ANUAL' });
-            }
-          } else if (isSegundoProrrateoPay) {
-            const baseMonto = clientMonthlyPlanPrice || pAmount;
-            const adicMonto = Number(c.montoProrrateoAdicional || 0) || Math.max(0, pAmount - baseMonto);
-            // Combina celda de mes de inicio y mes siguiente (ej. Septiembre y Octubre) con la tarifa base
-            if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
-            }
-            // El prorrateo se cobra y cubre en el mes de Noviembre (mes de inicio + 2)
-            const prorrateoKey = addMonthsToKey(key, 2);
-            if (adicMonto > 0) {
-              monthlySums.set(prorrateoKey, (monthlySums.get(prorrateoKey) || 0) + adicMonto);
-            }
-          } else {
-            // Asignar el monto al mes correspondiente sin duplicar
-            monthlySums.set(key, (monthlySums.get(key) || 0) + pAmount);
-          }
-        });
-
-        // 2. Procesar operaciones de ventas que no tengan pago registrado en caja (evitando duplicar)
-        rawOps.forEach((op) => {
-          const vId = String(op?.ventaId || '');
-          if (vId && coveredVentaIds.has(vId)) return; // Ya contabilizado por clPayments
-
-          const opD = parseLocalDateSafe(op?.fechaInicioServicio || op?.fechaPago || op?.fechaOperacion);
-          if (!opD) return;
-          const key = monthKeyFromDate(opD);
-          if (!key || coveredMonthKeys.has(key)) return; // Mes ya cubierto por un pago confirmado
-
-          const montoOperacion = Number(op?.montoPagado || op?.montoVenta || op?.montoTotal || op?.precioLista || 0);
-          if (montoOperacion <= 0) return;
-
-          const isAnnualOp = (op?.tipoSuscripcion || c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-          const isSegundoProrrateoOp = op?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(op?.diasProrrateoAdicional || 0) > 0 || (opD.getDate() >= 10 && op?.tipoProrrateo !== 'PRIMER_PRORRATEO');
-
-          if (isAnnualOp) {
-            // Plan anual solo figura en el mes que inicia su plan
-            if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: montoOperacion || (clientMonthlyPlanPrice * 10), monthsCovered: 1, type: 'ANUAL' });
-            }
-          } else if (isSegundoProrrateoOp) {
-            const baseMonto = clientMonthlyPlanPrice || montoOperacion;
-            const adicMonto = Number(op?.montoProrrateoAdicional || c.montoProrrateoAdicional || 0) || Math.max(0, montoOperacion - baseMonto);
-            if (!spans.some((s) => s.startKey === key)) {
-              spans.push({ startKey: key, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
-            }
-            const prorrateoKey = addMonthsToKey(key, 2);
-            if (adicMonto > 0 && (monthlySums.get(prorrateoKey) || 0) === 0) {
-              monthlySums.set(prorrateoKey, adicMonto);
-            }
-          } else {
-            monthlySums.set(key, (monthlySums.get(key) || 0) + montoOperacion);
-          }
-        });
-
-        // 3. Fallback ÚNICAMENTE para clientes que no tienen ningún pago ni operación en base de datos
-        const hasExistingRecords = clPayments.length > 0 || rawOps.length > 0;
-        if (!hasExistingRecords) {
-          const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
-          if (startD) {
-            const startKey = monthKeyFromDate(startD)!;
-
-            if (isClientAnnual) {
-              // Plan anual solo figura en su mes de inicio (no se repite en meses posteriores)
-              if (!spans.some((s) => s.startKey === startKey)) {
-                const annualAmount = Number(c.precioPlan || c.montoMensual || 0);
-                spans.push({ startKey: startKey, amount: annualAmount, monthsCovered: 1, type: 'ANUAL' });
-              }
-            } else {
-              const isSegundoProrrateoCli = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || (startD.getDate() >= 10 && c.tipoProrrateo !== 'PRIMER_PRORRATEO');
-              const isPrimerProrrateoCli = c.tipoProrrateo === 'PRIMER_PRORRATEO' || startD.getDate() < 10;
-
-              if (isSegundoProrrateoCli) {
-                const baseMonto = Number(c.montoMensual || c.precioPlan || 0);
-                const adicMonto = Number(c.montoProrrateoAdicional || 0) || Math.max(0, Number(c.montoSiguienteCobro || 0) - baseMonto);
-
-                // Combina celda de mes de inicio y mes siguiente (ej. Septiembre y Octubre)
-                if (!spans.some((s) => s.startKey === startKey)) {
-                  spans.push({ startKey, amount: baseMonto, monthsCovered: 2, type: 'SEGUNDO_PRORRATEO' });
-                }
-
-                // El prorrateo se cobra y cubre en el mes de Noviembre (mes de inicio + 2)
-                const prorrateoKey = addMonthsToKey(startKey, 2);
-                if (adicMonto > 0 && (monthlySums.get(prorrateoKey) || 0) === 0) {
-                  monthlySums.set(prorrateoKey, adicMonto);
-                }
-              } else if (isPrimerProrrateoCli) {
-                const diasTotalesMes = new Date(startD.getFullYear(), startD.getMonth() + 1, 0).getDate();
-                const diaCap = startD.getDate();
-                const diasNoConsumidos = Math.max(0, diaCap - 1);
-                const diasCobrados = Math.max(1, diasTotalesMes - diasNoConsumidos);
-                const precioDiario = clientMonthlyPlanPrice / diasTotalesMes;
-                const montoPrimerCalculado = Math.round(precioDiario * diasCobrados);
-                const totalPrimer = Number(c.montoProrrateado || 0) || montoPrimerCalculado || clientMonthlyPlanPrice;
-
-                if ((monthlySums.get(startKey) || 0) === 0 && !spans.some((s) => s.startKey === startKey)) {
-                  monthlySums.set(startKey, totalPrimer);
-                }
-
-                // En el siguiente mes inicia su plan mensual completo
-                const nextKey = addMonthsToKey(startKey, 1);
-                if ((monthlySums.get(nextKey) || 0) === 0 && !spans.some((s) => s.startKey === nextKey)) {
-                  monthlySums.set(nextKey, clientMonthlyPlanPrice);
-                }
-              }
-            }
-          }
-        }
-
-        // Ordenar spans cronológicamente
-        spans.sort((a, b) => monthIndexFromKey(a.startKey) - monthIndexFromKey(b.startKey));
-
-        let totalCobros = 0;
-        spans.forEach((span) => {
-          totalCobros += span.amount;
-        });
-        monthlySums.forEach((val) => {
-          totalCobros += val;
-        });
-
         const cells = [
           c.ruc,
           c.razonSocial || '',
@@ -596,65 +890,56 @@ export default function ReportesExcelTab({
           })
           .join('');
 
-        // Generar celdas mensuales con soporte para spans (2.° prorrateo combina 2 meses, anual solo mes de inicio)
         const monthCellsXml: string[] = [];
-        for (let i = 0; i < monthKeys.length; i += 1) {
-          const key = monthKeys[i];
-          const span = spans.find((s) => s.startKey === key);
+        for (let i = 0; i < allMonthKeys.length; i++) {
+          const k = allMonthKeys[i];
+          const cell = row.cellDataByMonth.get(k);
+          if (!cell || cell.isCoveredBySpan) continue;
 
-          if (span) {
-            const remainingColumns = monthKeys.length - i;
-            const mergeCount = Math.min(Math.max(span.monthsCovered - 1, 0), remainingColumns - 1);
-            const styleId = span.type === 'ANUAL' ? 'AnnualStyle' : 'SegundoProrrateoStyle';
-            const mergeAcrossAttr = mergeCount > 0 ? ` ss:MergeAcross="${mergeCount}"` : '';
+          if (cell.isSpanStart && cell.spanCols > 1) {
+            const mergeCount = cell.spanCols - 1;
+            const styleId = cell.tipo === 'ANUAL' ? 'AnnualStyle' : 'SegundoProrrateoStyle';
             monthCellsXml.push(
-              `<Cell ss:StyleID="${styleId}"${mergeAcrossAttr}><Data ss:Type="Number">${span.amount.toFixed(2)}</Data></Cell>`
+              `<Cell ss:StyleID="${styleId}" ss:MergeAcross="${mergeCount}"><Data ss:Type="Number">${cell.amount.toFixed(2)}</Data></Cell>`
             );
-            // Acumular al total del mes de inicio
-            columnMonthTotals.set(key, (columnMonthTotals.get(key) || 0) + span.amount);
-            i += mergeCount; // Avanza el índice de meses cubiertos
+          } else if (cell.amount > 0) {
+            const styleId = cell.tipo === 'ANUAL' ? 'AnnualStyle' : 'NumberStyle';
+            monthCellsXml.push(
+              `<Cell ss:StyleID="${styleId}"><Data ss:Type="Number">${cell.amount.toFixed(2)}</Data></Cell>`
+            );
           } else {
-            // Verificar si el mes actual está dentro de un span anterior
-            const isCoveredByOtherSpan = spans.some((s) => {
-              const startIndex = monthIndexFromKey(s.startKey);
-              const currentIndex = monthIndexFromKey(key);
-              return currentIndex > startIndex && currentIndex < startIndex + s.monthsCovered;
-            });
-
-            if (isCoveredByOtherSpan) {
-              continue;
-            }
-
-            const amount = monthlySums.get(key) || 0;
-            if (amount > 0) {
-              monthCellsXml.push(
-                `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${amount.toFixed(2)}</Data></Cell>`
-              );
-              columnMonthTotals.set(key, (columnMonthTotals.get(key) || 0) + amount);
-            } else {
-              monthCellsXml.push(
-                '<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>'
-              );
-            }
+            monthCellsXml.push('<Cell ss:StyleID="DataStyle"><Data ss:Type="String">-</Data></Cell>');
           }
         }
 
-        granTotalCobros += totalCobros;
-
-        const totalCellXml = `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${totalCobros.toFixed(2)}</Data></Cell>`;
-
+        const totalCellXml = `<Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${row.clientTotal.toFixed(2)}</Data></Cell>`;
         return `<Row>${baseCellsXml}${monthCellsXml.join('')}${totalCellXml}</Row>`;
       });
 
-      // Fila de totales por cada mes al final de la tabla para ver cuánto se está generando por mes
-      const monthTotalsCellsXml = monthKeys
+      // Fila de totales por mes al final de las columnas
+      const monthTotalsCellsXml = allMonthKeys
         .map((k) => {
-          const mTotal = columnMonthTotals.get(k) || 0;
+          const col = monthColumnTotals.get(k);
+          const mTotal = col ? col.totalGenerado : 0;
           return `<Cell ss:StyleID="TotalNumberStyle"><Data ss:Type="Number">${mTotal.toFixed(2)}</Data></Cell>`;
         })
         .join('');
 
       const totalRowXml = `<Row ss:Height="26"><Cell ss:StyleID="TotalLabelStyle" ss:MergeAcross="34"><Data ss:Type="String">TOTAL GENERADO POR MES (S/)</Data></Cell>${monthTotalsCellsXml}<Cell ss:StyleID="GrandTotalStyle"><Data ss:Type="Number">${granTotalCobros.toFixed(2)}</Data></Cell></Row>`;
+
+      // Hoja 2: Resumen por Mes
+      const summaryMonthRowsXml = allMonthKeys
+        .map((k) => {
+          const label = formatMonthKeyLabel(k);
+          const col = monthColumnTotals.get(k);
+          const mTotal = col ? col.totalGenerado : 0;
+          return `    <Row ss:Height="22">
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${label}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${k}</Data></Cell>
+     <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${mTotal.toFixed(2)}</Data></Cell>
+    </Row>`;
+        })
+        .join('\n');
 
       const excelTemplate = `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
@@ -686,18 +971,6 @@ export default function ReportesExcelTab({
     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
    </Borders>
   </Style>
-  <Style ss:ID="PendingRedStyle">
-   <Font ss:Size="10" ss:FontName="Calibri" ss:Bold="1" ss:Color="#991B1B"/>
-   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <NumberFormat ss:Format="#,##0.00"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FCA5A5"/>
-   </Borders>
-  </Style>
   <Style ss:ID="AnnualStyle">
    <Font ss:Size="10" ss:FontName="Calibri" ss:Bold="1" ss:Color="#065F46"/>
    <Interior ss:Color="#D1FAE5" ss:Pattern="Solid"/>
@@ -705,9 +978,6 @@ export default function ReportesExcelTab({
    <NumberFormat ss:Format="#,##0.00"/>
    <Borders>
     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A7F3D0"/>
    </Borders>
   </Style>
   <Style ss:ID="SegundoProrrateoStyle">
@@ -717,9 +987,6 @@ export default function ReportesExcelTab({
    <NumberFormat ss:Format="#,##0.00"/>
    <Borders>
     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#93C5FD"/>
    </Borders>
   </Style>
   <Style ss:ID="TotalLabelStyle">
@@ -729,8 +996,6 @@ export default function ReportesExcelTab({
    <Borders>
     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#0047FF"/>
     <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0047FF"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0047FF"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#0047FF"/>
    </Borders>
   </Style>
   <Style ss:ID="TotalNumberStyle">
@@ -741,8 +1006,6 @@ export default function ReportesExcelTab({
    <Borders>
     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#94A3B8"/>
     <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0047FF"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/>
    </Borders>
   </Style>
   <Style ss:ID="GrandTotalStyle">
@@ -753,8 +1016,6 @@ export default function ReportesExcelTab({
    <Borders>
     <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#065F46"/>
     <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#065F46"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#065F46"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#065F46"/>
    </Borders>
   </Style>
  </Styles>
@@ -767,6 +1028,20 @@ export default function ReportesExcelTab({
    </Row>
    ${xmlRows.join('\n')}
    ${totalRowXml}
+  </Table>
+ </Worksheet>
+ <Worksheet ss:Name="Resumen por Mes">
+  <Table>
+   <Row ss:Height="26">
+    <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Mes de Facturación</Data></Cell>
+    <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Código Mes</Data></Cell>
+    <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Total Generado (S/)</Data></Cell>
+   </Row>
+${summaryMonthRowsXml}
+   <Row ss:Height="26">
+    <Cell ss:StyleID="TotalLabelStyle" ss:MergeAcross="1"><Data ss:Type="String">TOTAL GENERAL ACUMULADO (S/)</Data></Cell>
+    <Cell ss:StyleID="GrandTotalStyle"><Data ss:Type="Number">${granTotalCobros.toFixed(2)}</Data></Cell>
+   </Row>
   </Table>
  </Worksheet>
 </Workbook>`;
@@ -785,707 +1060,62 @@ export default function ReportesExcelTab({
   };
 
   // --------------------------------------------------------------------------
-  // NAVEGACIÓN POR CATEGORÍAS SEPARADAS (Altas, Renovaciones, Anuales, Deuda)
+  // DATOS PARA GRÁFICOS INTERACTIVOS (COINCIDEN 100% CON LA MATRIZ EXCEL)
   // --------------------------------------------------------------------------
-  const [activeSection, setActiveSection] = React.useState<
-    'RESUMEN' | 'ALTAS' | 'MENSUALIDADES' | 'ANUALES' | 'PRORRATEOS' | 'BLOQUEADOS'
-  >('RESUMEN');
-
-  // Filtros Avanzados
-  const [selectedMesFacturacion, setSelectedMesFacturacion] = React.useState<string>('ALL');
-  const [fechaDesde, setFechaDesde] = React.useState<string>('');
-  const [fechaHasta, setFechaHasta] = React.useState<string>('');
-  const [selectedEstadoPago, setSelectedEstadoPago] = React.useState<string>('ALL');
-  const [selectedPlan, setSelectedPlan] = React.useState<string>('ALL');
-  const [selectedVendedor, setSelectedVendedor] = React.useState<string>('ALL');
-  const [selectedCliente, setSelectedCliente] = React.useState<string>('');
-
-  // Buscador de verificación y conciliación directa (ej. RUC 20614429501)
-  const [verifierQuery, setVerifierQuery] = React.useState<string>('');
-
-  // Paginación por sección
-  const [tablePage, setTablePage] = React.useState<number>(1);
-  const [showAllRows, setShowAllRows] = React.useState<boolean>(false);
-  const ITEMS_PER_PAGE = 8;
-
-  const monthNamesEs = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Setiembre', 'Octubre', 'Noviembre', 'Diciembre'
-  ];
-
-  const toMonthKey = (d: Date): string => {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-  };
-
-  const addMonthsToKeyHelper = (key: string, count: number): string => {
-    const [y, m] = key.split('-').map(Number);
-    const date = new Date(y, m - 1 + count, 1);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-  };
-
-  const formatMonthKeyLabel = (key: string): string => {
-    const [y, m] = key.split('-').map(Number);
-    return `${monthNamesEs[m - 1]} ${y}`;
-  };
-
-  // Mapa rápido de clientes indexados por ID y por RUC
-  const clientMap = useMemo(() => {
-    const map = new Map<string, Client>();
-    safeClients.forEach((c) => {
-      if (c.id) map.set(String(c.id), c);
-      if (c.ruc) map.set(String(c.ruc), c);
-    });
-    return map;
-  }, [safeClients]);
-
-  // --------------------------------------------------------------------------
-  // EXTRACCIÓN Y NORMALIZACIÓN DE TRANSACCIONES REALES DE BASE DE DATOS
-  // (Para los anuales, solo se cuenta 1 vez en el mes en que inicia su plan)
-  // --------------------------------------------------------------------------
-  const rawTransactions = useMemo(() => {
-    const list: Array<{
-      id: string;
-      rawClientRef: Client | null;
-      fecha: string;
-      fechaObj: Date;
-      fechaPagoStr: string;
-      fechaInicioPlanStr: string;
-      fechaFinPlanStr: string;
-      cliente: string;
-      ruc: string;
-      telefono: string;
-      plan: string;
-      planNormalizado: string;
-      vendedor: string;
-      monto: number;
-      metodoPago: string;
-      estado: 'PAGADO' | 'PENDIENTE' | 'CANCELADO';
-      tipoVenta: 'ALTA' | 'RENOVACION' | 'CAMBIO_PLAN' | 'MEJORA_PLAN';
-      tipoSuscripcion: string;
-      regimen: string;
-      primaryMonth: string;
-      tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN';
-      detalleCobertura: string;
-    }> = [];
-
-    const seenKeys = new Set<string>();
-
-    // 1. Pagos registrados en la base de datos
-    (Array.isArray(payments) ? payments : []).forEach((p, idx) => {
-      const cliId = String(p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId ?? '');
-      const cli = clientMap.get(cliId) || clientMap.get(String(p?.clienteRuc || '')) || null;
-      const fechaRaw = p?.fechaPago || p?.fechaRegistro || p?.venta?.fechaVenta || cli?.fechaRegistro;
-      const d = fechaRaw ? new Date(fechaRaw) : new Date();
-      if (isNaN(d.getTime())) return;
-
-      const rawPlan = p?.planNombre || p?.venta?.suscripcion?.plan?.nombrePlan || p?.venta?.plan || cli?.planContratado || 'Plan Inicia';
-      const planNorm = rawPlan.toUpperCase().replace(/^PLAN\s+/, '').trim();
-      const estadoVenta = (p?.venta?.estadoVenta || p?.estadoVenta || '').toUpperCase();
-      const estadoPago = (p?.estadoPago || '').toUpperCase();
-      const estado: 'PAGADO' | 'PENDIENTE' | 'CANCELADO' =
-        estadoVenta === 'CANCELADA' ? 'CANCELADO' : (estadoPago === 'PAGADO' || estadoVenta === 'PAGADA' ? 'PAGADO' : 'PENDIENTE');
-
-      const tipoVenta: 'ALTA' | 'RENOVACION' | 'CAMBIO_PLAN' | 'MEJORA_PLAN' =
-        (p?.tipoVenta || p?.venta?.tipoVenta || (p?.venta?.ventaAnterior ? 'RENOVACION' : 'ALTA')).toUpperCase() as any;
-
-      const isAnual = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || cli?.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-      const isSegundoProrrateo =
-        p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
-        cli?.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
-        (p?.conProrrateo && d.getDate() >= 10) ||
-        String(p?.observaciones || '').toLowerCase().includes('segundo') ||
-        Number(cli?.diasProrrateoAdicional || 0) > 0;
-      const isPrimerProrrateo =
-        p?.tipoProrrateo === 'PRIMER_PRORRATEO' ||
-        (p?.conProrrateo && d.getDate() < 10) ||
-        String(p?.observaciones || '').toLowerCase().includes('primer');
-
-      // Mes de inicio / asignación del pago
-      let baseD = d;
-      if (p?.periodoInicio) {
-        const parsedStart = parseLocalDateSafe(p.periodoInicio);
-        if (parsedStart) baseD = parsedStart;
-      }
-      const primaryMonth = toMonthKey(baseD);
-
-      let detalleCobertura = formatMonthKeyLabel(primaryMonth);
-      let tipoIngreso: 'ALTA' | 'MENSUALIDAD' | 'PRORRATEO_1' | 'PRORRATEO_2' | 'ANUAL' | 'MEJORA_PLAN' = 'MENSUALIDAD';
-
-      if (isAnual) {
-        tipoIngreso = 'ANUAL';
-        detalleCobertura = `Anual (${formatMonthKeyLabel(primaryMonth)})`;
-      } else if (isSegundoProrrateo) {
-        if (tipoVenta === 'ALTA') {
-          tipoIngreso = 'ALTA';
-          const m2 = addMonthsToKeyHelper(primaryMonth, 1);
-          detalleCobertura = `Alta (${formatMonthKeyLabel(primaryMonth).split(' ')[0]} - ${formatMonthKeyLabel(m2)})`;
-        } else {
-          tipoIngreso = 'PRORRATEO_2';
-          detalleCobertura = `Prorrateo (${formatMonthKeyLabel(primaryMonth)})`;
-        }
-      } else if (isPrimerProrrateo) {
-        tipoIngreso = 'PRORRATEO_1';
-        detalleCobertura = `1.° Prorr. (${formatMonthKeyLabel(primaryMonth)})`;
-      } else if (tipoVenta === 'ALTA') {
-        tipoIngreso = 'ALTA';
-        detalleCobertura = `Alta (${formatMonthKeyLabel(primaryMonth)})`;
-      } else if (tipoVenta === 'CAMBIO_PLAN' || tipoVenta === 'MEJORA_PLAN') {
-        tipoIngreso = 'MEJORA_PLAN';
-        detalleCobertura = `Mejora Plan (${formatMonthKeyLabel(primaryMonth)})`;
-      } else {
-        tipoIngreso = 'MENSUALIDAD';
-        detalleCobertura = formatMonthKeyLabel(primaryMonth);
-      }
-
-      // Fecha de inicio de su plan
-      const rawPlanStart = p?.periodoInicio || cli?.fechaRegistro || cli?.fechaCreacion || cli?.fechaInicioProrrateoAdicional || fechaRaw;
-      const planStartObj = parseLocalDateSafe(rawPlanStart) || d;
-      const fechaInicioPlanStr = planStartObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-      // Fecha fin (vigencia de 12 meses para planes anuales)
-      const rawEnd = p?.periodoFin;
-      const planEndObj = rawEnd
-        ? parseLocalDateSafe(rawEnd)
-        : isAnual
-        ? new Date(planStartObj.getFullYear() + 1, planStartObj.getMonth(), planStartObj.getDate())
-        : null;
-      const fechaFinPlanStr = planEndObj
-        ? planEndObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-        : '—';
-
-      const fechaPagoStr = d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-      const uniqueKey = `pay-${p?.id || idx}-${p?.monto}-${fechaRaw}`;
-      if (seenKeys.has(uniqueKey)) return;
-      seenKeys.add(uniqueKey);
-
-      list.push({
-        id: String(p?.id || `p-${idx}`),
-        rawClientRef: cli,
-        fecha: d.toISOString(),
-        fechaObj: d,
-        fechaPagoStr,
-        fechaInicioPlanStr,
-        fechaFinPlanStr,
-        cliente: p?.clienteRazonSocial || p?.venta?.cliente?.razonSocial || cli?.razonSocial || 'Cliente General',
-        ruc: p?.clienteRuc || p?.venta?.cliente?.ruc || cli?.ruc || '—',
-        telefono: cli?.telefono || cli?.telefonoPersonal || '',
-        plan: rawPlan,
-        planNormalizado: planNorm || 'INICIA',
-        vendedor: p?.vendedorNombre || p?.venta?.vendedor?.nombre || p?.venta?.vendedor?.username || cli?.vendedor || 'Por asignar',
-        monto: Number(p?.monto || p?.venta?.montoTotal || cli?.montoMensual || 19),
-        metodoPago: p?.medioPago ? String(p.medioPago).toUpperCase() : 'TRANSFERENCIA',
-        estado,
-        tipoVenta,
-        tipoSuscripcion: (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || cli?.tipoSuscripcion || 'MENSUAL').toUpperCase(),
-        regimen: (cli?.regimenTributario || p?.venta?.cliente?.regimenTributario || 'GENERAL').toUpperCase(),
-        primaryMonth,
-        tipoIngreso,
-        detalleCobertura,
-      });
-    });
-
-    // 2. Incorporar clientes sin pago registrado aún (pendientes de su primer cobro)
-    safeClients.forEach((c, idx) => {
-      const hasPayment = list.some((t) => t.ruc === c.ruc);
-      if (!hasPayment && c.fechaRegistro) {
-        const d = new Date(c.fechaRegistro);
-        const rawPlan = c.planContratado || 'Plan Inicia';
-        const planNorm = rawPlan.toUpperCase().replace(/^PLAN\s+/, '').trim();
-        const primaryMonth = toMonthKey(d);
-
-        const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
-        const isSegundoProrrateo = !isAnual && (c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || d.getDate() >= 10);
-        const isPrimerProrrateo = !isAnual && !isSegundoProrrateo && (c.tipoProrrateo === 'PRIMER_PRORRATEO' || d.getDate() < 10);
-
-        const planStartObj = parseLocalDateSafe(c.fechaRegistro) || d;
-        const fechaInicioPlanStr = planStartObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const planEndObj = isAnual ? new Date(planStartObj.getFullYear() + 1, planStartObj.getMonth(), planStartObj.getDate()) : null;
-        const fechaFinPlanStr = planEndObj ? planEndObj.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-        const fechaPagoStr = d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-        const basePlanPrice = Number(c.montoMensual || c.precioPlan || 19);
-
-        if (isAnual) {
-          list.push({
-            id: `cli-${c.id || idx}-anual`,
-            rawClientRef: c,
-            fecha: d.toISOString(),
-            fechaObj: d,
-            fechaPagoStr,
-            fechaInicioPlanStr,
-            fechaFinPlanStr,
-            cliente: c.razonSocial || 'Cliente General',
-            ruc: c.ruc || '—',
-            telefono: c.telefono || c.telefonoPersonal || '',
-            plan: rawPlan,
-            planNormalizado: planNorm || 'INICIA',
-            vendedor: c.vendedor || 'Por asignar',
-            monto: Number(c.montoSiguienteCobro || c.precioPlan || c.montoMensual || 19),
-            metodoPago: 'TRANSFERENCIA',
-            estado: (c.estadoCuenta || '').toUpperCase() === 'HABILITADO' ? 'PAGADO' : 'PENDIENTE',
-            tipoVenta: 'ALTA',
-            tipoSuscripcion: 'ANUAL',
-            regimen: (c.regimenTributario || 'GENERAL').toUpperCase(),
-            primaryMonth,
-            tipoIngreso: 'ANUAL',
-            detalleCobertura: `Anual (${formatMonthKeyLabel(primaryMonth)})`,
-          });
-        } else if (isSegundoProrrateo) {
-          const m2 = addMonthsToKeyHelper(primaryMonth, 1);
-          const m3 = addMonthsToKeyHelper(primaryMonth, 2);
-          const adicMonto = Number(c.montoProrrateoAdicional || 0) || Math.max(0, Number(c.montoSiguienteCobro || 0) - basePlanPrice);
-
-          // 1. Alta / Mes Cubierto: ocupa mes de inicio y mes siguiente (ej. Septiembre - Octubre)
-          list.push({
-            id: `cli-${c.id || idx}-alta`,
-            rawClientRef: c,
-            fecha: d.toISOString(),
-            fechaObj: d,
-            fechaPagoStr,
-            fechaInicioPlanStr,
-            fechaFinPlanStr: '—',
-            cliente: c.razonSocial || 'Cliente General',
-            ruc: c.ruc || '—',
-            telefono: c.telefono || c.telefonoPersonal || '',
-            plan: rawPlan,
-            planNormalizado: planNorm || 'INICIA',
-            vendedor: c.vendedor || 'Por asignar',
-            monto: basePlanPrice,
-            metodoPago: 'TRANSFERENCIA',
-            estado: (c.estadoCuenta || '').toUpperCase() === 'HABILITADO' ? 'PAGADO' : 'PENDIENTE',
-            tipoVenta: 'ALTA',
-            tipoSuscripcion: 'MENSUAL',
-            regimen: (c.regimenTributario || 'GENERAL').toUpperCase(),
-            primaryMonth,
-            tipoIngreso: 'ALTA',
-            detalleCobertura: `Alta (${formatMonthKeyLabel(primaryMonth).split(' ')[0]} - ${formatMonthKeyLabel(m2)})`,
-          });
-
-          // 2. Prorrateo adicional: se cobra y cubre en el mes subsiguiente (ej. Noviembre)
-          if (adicMonto > 0) {
-            list.push({
-              id: `cli-${c.id || idx}-prorr`,
-              rawClientRef: c,
-              fecha: c.fechaVencimientoMensual || d.toISOString(),
-              fechaObj: parseLocalDateSafe(c.fechaVencimientoMensual) || d,
-              fechaPagoStr,
-              fechaInicioPlanStr: c.fechaInicioProrrateoAdicional ? new Date(c.fechaInicioProrrateoAdicional).toLocaleDateString('es-PE') : fechaInicioPlanStr,
-              fechaFinPlanStr: '—',
-              cliente: c.razonSocial || 'Cliente General',
-              ruc: c.ruc || '—',
-              telefono: c.telefono || c.telefonoPersonal || '',
-              plan: rawPlan,
-              planNormalizado: planNorm || 'INICIA',
-              vendedor: c.vendedor || 'Por asignar',
-              monto: adicMonto,
-              metodoPago: 'TRANSFERENCIA',
-              estado: (c.estadoCuenta || '').toUpperCase() === 'HABILITADO' ? 'PAGADO' : 'PENDIENTE',
-              tipoVenta: 'RENOVACION',
-              tipoSuscripcion: 'MENSUAL',
-              regimen: (c.regimenTributario || 'GENERAL').toUpperCase(),
-              primaryMonth: m3,
-              tipoIngreso: 'PRORRATEO_2',
-              detalleCobertura: `Prorrateo (${formatMonthKeyLabel(m3)})`,
-            });
-          }
-        } else if (isPrimerProrrateo) {
-          const diasTotalesMes = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-          const diaCap = d.getDate();
-          const diasNoConsumidos = Math.max(0, diaCap - 1);
-          const diasCobrados = Math.max(1, diasTotalesMes - diasNoConsumidos);
-          const precioDiario = basePlanPrice / diasTotalesMes;
-          const montoPrimerCalculado = Math.round(precioDiario * diasCobrados);
-          const montoPrimer = Number(c.montoProrrateado || 0) || montoPrimerCalculado || basePlanPrice;
-
-          list.push({
-            id: `cli-${c.id || idx}-prorr1`,
-            rawClientRef: c,
-            fecha: d.toISOString(),
-            fechaObj: d,
-            fechaPagoStr,
-            fechaInicioPlanStr,
-            fechaFinPlanStr: '—',
-            cliente: c.razonSocial || 'Cliente General',
-            ruc: c.ruc || '—',
-            telefono: c.telefono || c.telefonoPersonal || '',
-            plan: rawPlan,
-            planNormalizado: planNorm || 'INICIA',
-            vendedor: c.vendedor || 'Por asignar',
-            monto: montoPrimer,
-            metodoPago: 'TRANSFERENCIA',
-            estado: (c.estadoCuenta || '').toUpperCase() === 'HABILITADO' ? 'PAGADO' : 'PENDIENTE',
-            tipoVenta: 'ALTA',
-            tipoSuscripcion: 'MENSUAL',
-            regimen: (c.regimenTributario || 'GENERAL').toUpperCase(),
-            primaryMonth,
-            tipoIngreso: 'PRORRATEO_1',
-            detalleCobertura: `1.° Prorr. (${formatMonthKeyLabel(primaryMonth)})`,
-          });
-        } else {
-          list.push({
-            id: `cli-${c.id || idx}`,
-            rawClientRef: c,
-            fecha: d.toISOString(),
-            fechaObj: d,
-            fechaPagoStr,
-            fechaInicioPlanStr,
-            fechaFinPlanStr: '—',
-            cliente: c.razonSocial || 'Cliente General',
-            ruc: c.ruc || '—',
-            telefono: c.telefono || c.telefonoPersonal || '',
-            plan: rawPlan,
-            planNormalizado: planNorm || 'INICIA',
-            vendedor: c.vendedor || 'Por asignar',
-            monto: basePlanPrice,
-            metodoPago: 'TRANSFERENCIA',
-            estado: (c.estadoCuenta || '').toUpperCase() === 'HABILITADO' ? 'PAGADO' : 'PENDIENTE',
-            tipoVenta: 'ALTA',
-            tipoSuscripcion: 'MENSUAL',
-            regimen: (c.regimenTributario || 'GENERAL').toUpperCase(),
-            primaryMonth,
-            tipoIngreso: 'ALTA',
-            detalleCobertura: `Alta (${formatMonthKeyLabel(primaryMonth)})`,
-          });
-        }
-      }
-    });
-
-    return list.sort((a, b) => b.fechaObj.getTime() - a.fechaObj.getTime());
-  }, [safeClients, payments, clientMap]);
-
-  // Lista de meses de facturación disponibles para filtro
-  const availableBillingMonths = useMemo(() => {
-    const map = new Map<string, string>();
-    rawTransactions.forEach((t) => {
-      if (!map.has(t.primaryMonth)) {
-        map.set(t.primaryMonth, formatMonthKeyLabel(t.primaryMonth));
-      }
-    });
-    const nowKey = toMonthKey(new Date());
-    if (!map.has(nowKey)) map.set(nowKey, formatMonthKeyLabel(nowKey));
-    return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0]));
-  }, [rawTransactions]);
-
-  // Transacciones filtradas: cuando se selecciona un mes, filtra exactamente por el mes de asignación/cobro
-  const filteredTransactions = useMemo(() => {
-    return rawTransactions.filter((t) => {
-      // Filtro exacto por mes de facturación (los anuales solo se cuentan 1 vez en el mes que inician)
-      if (selectedMesFacturacion !== 'ALL') {
-        if (t.primaryMonth !== selectedMesFacturacion) return false;
-      }
-      if (fechaDesde) {
-        const dDesde = new Date(fechaDesde);
-        dDesde.setHours(0, 0, 0, 0);
-        if (t.fechaObj < dDesde) return false;
-      }
-      if (fechaHasta) {
-        const dHasta = new Date(fechaHasta);
-        dHasta.setHours(23, 59, 59, 999);
-        if (t.fechaObj > dHasta) return false;
-      }
-      if (selectedEstadoPago !== 'ALL' && t.estado !== selectedEstadoPago) return false;
-      if (selectedPlan !== 'ALL' && !t.planNormalizado.includes(selectedPlan.toUpperCase())) return false;
-      if (selectedVendedor !== 'ALL' && t.vendedor !== selectedVendedor) return false;
-      if (selectedCliente.trim() !== '') {
-        const q = selectedCliente.toLowerCase();
-        if (!t.cliente.toLowerCase().includes(q) && !t.ruc.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [rawTransactions, selectedMesFacturacion, fechaDesde, fechaHasta, selectedEstadoPago, selectedPlan, selectedVendedor, selectedCliente]);
-
-  // --------------------------------------------------------------------------
-  // CÁLCULO DE DEUDA UNIFICADA (VENCIDOS Y BLOQUEADOS)
-  // Cada cliente impago cuenta 1 sola tarifa/deuda, tal como solicitó el usuario.
-  // --------------------------------------------------------------------------
-  const {
-    clientesConDeudaList,
-    vencidosCount,
-    bloqueadosCount,
-    totalDeudaPendiente,
-  } = useMemo(() => {
-    const list: Array<{
-      client: Client;
-      razonSocial: string;
-      ruc: string;
-      estado: 'VENCIDO' | 'BLOQUEADO';
-      tarifa: number;
-      fechaVencimientoStr: string;
-      asesor: string;
-      telefono: string;
-    }> = [];
-
-    let sumDeuda = 0;
-    let vCount = 0;
-    let bCount = 0;
-
-    safeClients.forEach((c) => {
-      const st = (c.estadoCuenta || '').toUpperCase();
-      if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
-      if (selectedVendedor !== 'ALL' && c.vendedor !== selectedVendedor) return;
-      if (selectedPlan !== 'ALL' && !c.planContratado?.toUpperCase().includes(selectedPlan.toUpperCase())) return;
-      if (selectedCliente.trim() !== '') {
-        const q = selectedCliente.toLowerCase();
-        if (!c.razonSocial?.toLowerCase().includes(q) && !c.ruc?.includes(q)) return;
-      }
-
-      const tarifa = Number(c.montoMensual || c.montoSiguienteCobro || c.precioPlan || 30);
-      const isBloq = st === 'BLOQUEADO' || st === 'SUSPENDIDO';
-      if (isBloq) bCount++;
-      else vCount++;
-
-      sumDeuda += tarifa;
-
-      const vencD = parseLocalDateSafe(c.fechaVencimientoMensual) || parseLocalDateSafe(c.fechaCreacion) || parseLocalDateSafe(c.fechaRegistro);
-      const fechaVencimientoStr = vencD ? vencD.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-
-      list.push({
-        client: c,
-        razonSocial: c.razonSocial || 'Cliente General',
-        ruc: c.ruc || '—',
-        estado: isBloq ? 'BLOQUEADO' : 'VENCIDO',
-        tarifa,
-        fechaVencimientoStr,
-        asesor: c.vendedor || 'Por asignar',
-        telefono: c.telefono || c.telefonoPersonal || '',
-      });
-    });
-
-    return {
-      clientesConDeudaList: list.sort((a, b) => b.tarifa - a.tarifa),
-      vencidosCount: vCount,
-      bloqueadosCount: bCount,
-      totalDeudaPendiente: sumDeuda,
-    };
-  }, [safeClients, selectedVendedor, selectedPlan, selectedCliente]);
-
-  // --------------------------------------------------------------------------
-  // SEGREGACIÓN POR CATEGORÍA ESPECÍFICA (ALTAS, MENSUALIDADES, ANUALES, PRORRATEOS)
-  // --------------------------------------------------------------------------
-  const altasData = useMemo(() => {
-    return filteredTransactions.filter((t) => t.tipoIngreso === 'ALTA' && t.estado === 'PAGADO');
-  }, [filteredTransactions]);
-  const gananciaAltas = useMemo(() => altasData.reduce((acc, t) => acc + t.monto, 0), [altasData]);
-  const countAltas = altasData.length;
-  const promedioAlta = countAltas > 0 ? gananciaAltas / countAltas : 0;
-
-  const mensualidadesData = useMemo(() => {
-    return filteredTransactions.filter((t) => t.tipoIngreso === 'MENSUALIDAD' && t.estado === 'PAGADO');
-  }, [filteredTransactions]);
-  const gananciaMensualidades = useMemo(() => mensualidadesData.reduce((acc, t) => acc + t.monto, 0), [mensualidadesData]);
-  const countMensualidades = mensualidadesData.length;
-  const promedioMensualidad = countMensualidades > 0 ? gananciaMensualidades / countMensualidades : 0;
-
-  const anualesData = useMemo(() => {
-    return filteredTransactions.filter((t) => t.tipoIngreso === 'ANUAL' && t.estado === 'PAGADO');
-  }, [filteredTransactions]);
-  const gananciaAnual = useMemo(() => anualesData.reduce((acc, t) => acc + t.monto, 0), [anualesData]);
-  const countAnuales = anualesData.length;
-
-  const prorrateo1Data = useMemo(() => filteredTransactions.filter((t) => t.tipoIngreso === 'PRORRATEO_1' && t.estado === 'PAGADO'), [filteredTransactions]);
-  const prorrateo2Data = useMemo(() => filteredTransactions.filter((t) => t.tipoIngreso === 'PRORRATEO_2' && t.estado === 'PAGADO'), [filteredTransactions]);
-  const gananciaProrrateo1 = useMemo(() => prorrateo1Data.reduce((acc, t) => acc + t.monto, 0), [prorrateo1Data]);
-  const gananciaProrrateo2 = useMemo(() => prorrateo2Data.reduce((acc, t) => acc + t.monto, 0), [prorrateo2Data]);
-  const totalProrrateos = gananciaProrrateo1 + gananciaProrrateo2;
-  const prorrateosCombinedData = useMemo(() => [...prorrateo1Data, ...prorrateo2Data], [prorrateo1Data, prorrateo2Data]);
-
-  const totalCobrado = useMemo(() => {
-    return filteredTransactions.filter((t) => t.estado === 'PAGADO').reduce((acc, t) => acc + t.monto, 0);
-  }, [filteredTransactions]);
-  const totalPendiente = useMemo(() => {
-    return filteredTransactions.filter((t) => t.estado === 'PENDIENTE').reduce((acc, t) => acc + t.monto, 0);
-  }, [filteredTransactions]);
-  const totalFacturado = totalCobrado + totalPendiente;
-  const efectividadCobro = totalFacturado > 0 ? ((totalCobrado / totalFacturado) * 100).toFixed(1) : '100';
-
-  // --------------------------------------------------------------------------
-  // DATOS PARA GRÁFICOS INTERACTIVOS (POR CATEGORÍA Y MENSUALES)
-  // --------------------------------------------------------------------------
-  const monthNamesShort = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Set', 'Oct', 'Nov', 'Dic'];
-
-  const altasMonthlyTrend = useMemo(() => {
-    const topMonths = availableBillingMonths.slice(0, 6).reverse();
-    if (topMonths.length === 0) return [{ period: 'Actual', monto: gananciaAltas, cantidad: countAltas }];
-    return topMonths.map(([mKey]) => {
-      const [yr, mo] = mKey.split('-').map(Number);
-      const shortLabel = `${monthNamesShort[mo - 1]} ${yr.toString().slice(2)}`;
-      let monto = 0;
-      let cantidad = 0;
-      rawTransactions.forEach((t) => {
-        if (t.estado === 'PAGADO' && t.tipoIngreso === 'ALTA' && t.primaryMonth === mKey) {
-          monto += t.monto;
-          cantidad += 1;
-        }
-      });
-      return { period: shortLabel, monto, cantidad };
-    });
-  }, [availableBillingMonths, rawTransactions, gananciaAltas, countAltas]);
-
-  const mensualidadesMonthlyTrend = useMemo(() => {
-    const topMonths = availableBillingMonths.slice(0, 6).reverse();
-    if (topMonths.length === 0) return [{ period: 'Actual', monto: gananciaMensualidades, cantidad: countMensualidades }];
-    return topMonths.map(([mKey]) => {
-      const [yr, mo] = mKey.split('-').map(Number);
-      const shortLabel = `${monthNamesShort[mo - 1]} ${yr.toString().slice(2)}`;
-      let monto = 0;
-      let cantidad = 0;
-      rawTransactions.forEach((t) => {
-        if (t.estado === 'PAGADO' && t.tipoIngreso === 'MENSUALIDAD' && t.primaryMonth === mKey) {
-          monto += t.monto;
-          cantidad += 1;
-        }
-      });
-      return { period: shortLabel, monto, cantidad };
-    });
-  }, [availableBillingMonths, rawTransactions, gananciaMensualidades, countMensualidades]);
-
-  const anualesMonthlyTrend = useMemo(() => {
-    const topMonths = availableBillingMonths.slice(0, 6).reverse();
-    if (topMonths.length === 0) return [{ period: 'Actual', monto: gananciaAnual, cantidad: countAnuales }];
-    return topMonths.map(([mKey]) => {
-      const [yr, mo] = mKey.split('-').map(Number);
-      const shortLabel = `${monthNamesShort[mo - 1]} ${yr.toString().slice(2)}`;
-      let monto = 0;
-      let cantidad = 0;
-      rawTransactions.forEach((t) => {
-        if (t.estado === 'PAGADO' && t.tipoIngreso === 'ANUAL' && t.primaryMonth === mKey) {
-          monto += t.monto;
-          cantidad += 1;
-        }
-      });
-      return { period: shortLabel, monto, cantidad };
-    });
-  }, [availableBillingMonths, rawTransactions, gananciaAnual, countAnuales]);
-
-  const monthlyRevenueComparison = useMemo(() => {
-    const topMonths = availableBillingMonths.slice(0, 6).reverse();
-    if (topMonths.length === 0) {
-      return [{ period: 'Actual', altas: gananciaAltas, renovaciones: gananciaMensualidades, prorrateos: totalProrrateos + gananciaAnual }];
-    }
-    return topMonths.map(([mKey]) => {
-      const [yr, mo] = mKey.split('-').map(Number);
-      const shortLabel = `${monthNamesShort[mo - 1]} ${yr.toString().slice(2)}`;
-      let altas = 0;
-      let renovaciones = 0;
-      let prorrateos = 0;
-      rawTransactions.forEach((t) => {
-        if (t.estado !== 'PAGADO') return;
-        if (t.primaryMonth === mKey) {
-          if (t.tipoIngreso === 'ALTA') altas += t.monto;
-          else if (t.tipoIngreso === 'MENSUALIDAD') renovaciones += t.monto;
-          else prorrateos += t.monto;
-        }
-      });
-      return { period: shortLabel, altas, renovaciones, prorrateos };
-    });
-  }, [availableBillingMonths, rawTransactions, gananciaAltas, gananciaMensualidades, totalProrrateos, gananciaAnual]);
-
   const timelineData = useMemo(() => {
-    const dayMap = new Map<string, { label: string; ventas: number; ingresos: number }>();
-    const sorted = [...filteredTransactions].sort((a, b) => a.fechaObj.getTime() - b.fechaObj.getTime());
-    if (sorted.length === 0) return [{ label: 'Sin datos', ventas: 0, ingresos: 0 }];
-    sorted.forEach((t) => {
-      const d = t.fechaObj;
-      const key = `${d.getDate()} ${d.toLocaleDateString('es-PE', { month: 'short' })}`;
-      if (!dayMap.has(key)) dayMap.set(key, { label: key, ventas: 0, ingresos: 0 });
-      const item = dayMap.get(key)!;
-      item.ventas += t.monto;
-      if (t.estado === 'PAGADO') item.ingresos += t.monto;
+    const topMonths = allMonthKeys.slice(-6);
+    return topMonths.map((mk) => {
+      const col = monthColumnTotals.get(mk) || { totalGenerado: 0, totalOperaciones: 0 };
+      return {
+        label: formatMonthKeyLabel(mk),
+        ventas: col.totalOperaciones,
+        ingresos: col.totalGenerado,
+      };
     });
-    return Array.from(dayMap.values());
-  }, [filteredTransactions]);
+  }, [allMonthKeys, monthColumnTotals]);
 
   const planDistribution = useMemo(() => {
-    const plans = [
-      { key: 'INICIA', label: 'Plan Inicia', color: '#0284C7' },
-      { key: 'EMPRENDE', label: 'Plan Emprende', color: '#465FFF' },
-      { key: 'IMPULSA', label: 'Plan Impulsa', color: '#8B5CF6' },
-      { key: 'EMPRESARIAL', label: 'Plan Empresarial', color: '#059669' },
-      { key: 'LIDER', label: 'Plan Líder', color: '#EA580C' },
-    ];
-    const counts = new Map<string, { label: string; color: string; amount: number; count: number }>();
-    plans.forEach((p) => counts.set(p.key, { label: p.label, color: p.color, amount: 0, count: 0 }));
-
-    filteredTransactions.forEach((t) => {
-      let matchedKey = 'INICIA';
-      for (const p of plans) {
-        if (t.planNormalizado.includes(p.key)) {
-          matchedKey = p.key;
-          break;
-        }
-      }
-      const cur = counts.get(matchedKey)!;
-      cur.amount += t.monto;
+    const planCounts = new Map<string, { count: number; amount: number }>();
+    clientMatrixRows.forEach((r) => {
+      const p = r.client.planContratado || 'Plan Estándar';
+      const cur = planCounts.get(p) || { count: 0, amount: 0 };
       cur.count += 1;
+      cur.amount += r.clientTotal;
+      planCounts.set(p, cur);
     });
 
-    const activeList = Array.from(counts.values()).filter((p) => p.amount > 0 || p.count > 0);
-    const sumAmount = activeList.reduce((acc, p) => acc + p.amount, 0) || 1;
-    return activeList.map((p) => ({
-      ...p,
-      percentage: ((p.amount / sumAmount) * 100).toFixed(1),
-    }));
-  }, [filteredTransactions]);
-
-  // Cliente encontrado en el verificador de conciliación directa
-  const verifiedClientResult = useMemo(() => {
-    const q = verifierQuery.trim().toLowerCase();
-    if (!q) return null;
-    const client = safeClients.find((c) => (c.ruc && c.ruc.includes(q)) || (c.razonSocial && c.razonSocial.toLowerCase().includes(q)));
-    if (!client) {
+    const colors = ['#0047FF', '#059669', '#7C3AED', '#D97706', '#DC2626', '#0284C7'];
+    let idx = 0;
+    const totalAmount = granTotalCobros || 1;
+    return Array.from(planCounts.entries()).map(([label, val]) => {
+      const color = colors[idx % colors.length];
+      idx++;
       return {
-        found: false,
-        client: null as Client | null,
-        clientPayments: [] as typeof rawTransactions,
-        currentMonthPayment: null as (typeof rawTransactions)[0] | null,
-        montoMesSeleccionado: 0,
-        totalHistorico: 0,
+        label,
+        count: val.count,
+        amount: val.amount,
+        percentage: ((val.amount / totalAmount) * 100).toFixed(1),
+        color,
       };
-    }
+    });
+  }, [clientMatrixRows, granTotalCobros]);
 
-    // Pagos registrados de este cliente
-    const clientPayments = rawTransactions.filter((t) => t.ruc === client.ruc);
-    const currentMonthPayment = clientPayments.find((t) => selectedMesFacturacion === 'ALL' || t.primaryMonth === selectedMesFacturacion) || null;
-
-    return {
-      found: true,
-      client,
-      clientPayments,
-      currentMonthPayment,
-      montoMesSeleccionado: currentMonthPayment ? currentMonthPayment.monto : 0,
-      totalHistorico: clientPayments.reduce((acc, t) => acc + (t.estado === 'PAGADO' ? t.monto : 0), 0),
-    };
-  }, [verifierQuery, safeClients, rawTransactions, selectedMesFacturacion]);
-
-  const resetFilters = () => {
-    setSelectedMesFacturacion('ALL');
-    setFechaDesde('');
-    setFechaHasta('');
-    setSelectedEstadoPago('ALL');
-    setSelectedPlan('ALL');
-    setSelectedVendedor('ALL');
-    setSelectedCliente('');
-    setTablePage(1);
-  };
-
-  const currentTableList = useMemo(() => {
-    if (activeSection === 'ALTAS') return altasData;
-    if (activeSection === 'MENSUALIDADES') return mensualidadesData;
-    if (activeSection === 'ANUALES') return anualesData;
-    if (activeSection === 'PRORRATEOS') return prorrateosCombinedData;
-    return filteredTransactions;
-  }, [activeSection, altasData, mensualidadesData, anualesData, prorrateosCombinedData, filteredTransactions]);
-
-  const displayedRows = showAllRows
-    ? currentTableList
-    : currentTableList.slice((tablePage - 1) * ITEMS_PER_PAGE, tablePage * ITEMS_PER_PAGE);
-  const totalPages = Math.ceil(currentTableList.length / ITEMS_PER_PAGE) || 1;
-
-  const currentMonthLabel = selectedMesFacturacion === 'ALL' ? 'Todo el Historial' : formatMonthKeyLabel(selectedMesFacturacion);
+  const monthlyRevenueComparison = useMemo(() => {
+    const topMonths = allMonthKeys.slice(-6);
+    return topMonths.map((mk) => {
+      const col = monthColumnTotals.get(mk) || { altas: 0, renovaciones: 0, prorrateos: 0, anuales: 0 };
+      return {
+        period: formatMonthKeyLabel(mk).split(' ')[0],
+        altas: col.altas,
+        renovaciones: col.renovaciones,
+        prorrateos: col.prorrateos + col.anuales,
+      };
+    });
+  }, [allMonthKeys, monthColumnTotals]);
 
   return (
     <div className="reporte-general-container admin-module admin-module--reports pb-5">
-      {/* Header Principal */}
+      {/* 1. HEADER PRINCIPAL */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4 custom-card admin-module-heading p-3.5">
         <div className="d-flex align-items-center gap-3">
           <div className="section-header-icon section-header-icon-primary">
@@ -1494,7 +1124,7 @@ export default function ReportesExcelTab({
           <div>
             <h1 className="h5 fw-bold text-dark mb-0.5">Reporte General y Resumen Financiero</h1>
             <p className="text-muted small mb-0">
-              Datos reales sincronizados 1 a 1 con el Excel descargable y el historial de pagos de clientes
+              Datos matemáticamente idénticos 1 a 1 con el archivo Excel oficial descargable
             </p>
           </div>
         </div>
@@ -1503,7 +1133,7 @@ export default function ReportesExcelTab({
             onClick={exportToExcelLocal}
             disabled={isExportingExcel}
             className="btn-meta-action btn-meta-action-success"
-            title="Exportar reporte consolidado a formato Excel oficial"
+            title="Exportar reporte consolidado oficial a formato Excel"
           >
             {isExportingExcel ? <RefreshCw size={16} className="spin-anim" /> : <FileSpreadsheet size={16} />}
             <span>{isExportingExcel ? 'Generando Excel...' : 'Exportar Excel'}</span>
@@ -1512,7 +1142,7 @@ export default function ReportesExcelTab({
             onClick={() => loadData(token, true)}
             disabled={isSyncing}
             className="btn-meta-action btn-meta-action-secondary"
-            title="Sincronizar datos"
+            title="Sincronizar datos con el servidor"
           >
             <RefreshCw size={15} className={isSyncing ? 'spin-anim' : ''} />
             <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
@@ -1520,7 +1150,279 @@ export default function ReportesExcelTab({
         </div>
       </div>
 
-      {/* PANEL DE CONCILIACIÓN Y COMPROBACIÓN CON EL EXCEL E HISTORIAL */}
+      {/* 2. FILTROS GENERALES AL INICIO (AFECTAN A TODO EL MÓDULO, SOLO MENSUAL) */}
+      <div className="custom-card admin-report-filter-panel p-3.5 mb-4 shadow-sm" style={{ borderTop: '3px solid #0047FF' }}>
+        <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <Search size={17} className="text-primary" />
+            <strong className="text-dark fw-bold" style={{ fontSize: '0.92rem' }}>
+              Filtros Principales de Control Mensual
+            </strong>
+            <span className="badge rounded-pill bg-primary-subtle text-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
+              Afectan KPIs, Tablas y Excel
+            </span>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <span className="text-muted small" style={{ fontSize: '0.78rem' }}>
+              Modo Mensual Oficial · Coincidencia 100% con columnas del Excel
+            </span>
+            <button
+              onClick={resetFilters}
+              className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 py-1 px-2.5 rounded-3"
+              title="Restablecer todos los filtros"
+            >
+              <RotateCcw size={13} />
+              <span>Limpiar Filtros</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="row g-2.5 align-items-end">
+          {/* Mes de Facturación */}
+          <div className="col-12 col-sm-6 col-lg-3">
+            <label className="form-label small fw-semibold text-dark mb-1 d-flex align-items-center gap-1">
+              <Calendar size={14} className="text-primary" />
+              <span>Mes de Facturación</span>
+            </label>
+            <select
+              className="form-select form-select-sm rounded-3 fw-semibold border-primary shadow-xs"
+              value={selectedMesFacturacion}
+              onChange={(e) => {
+                setSelectedMesFacturacion(e.target.value);
+                setTablePage(1);
+              }}
+            >
+              <option value="ALL">Histórico Consolidado (Todos los meses)</option>
+              {availableBillingMonths.map(([k, label]) => (
+                <option key={k} value={k}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Asesor / Vendedor */}
+          <div className="col-6 col-sm-6 col-lg-2">
+            <label className="form-label small fw-semibold text-muted mb-1">Asesor / Vendedor</label>
+            <select
+              className="form-select form-select-sm rounded-3"
+              value={selectedVendedor}
+              onChange={(e) => {
+                setSelectedVendedor(e.target.value);
+                setTablePage(1);
+              }}
+            >
+              <option value="ALL">Todos los asesores</option>
+              {uniqueSellers.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Plan Contratado */}
+          <div className="col-6 col-sm-6 col-lg-2">
+            <label className="form-label small fw-semibold text-muted mb-1">Plan Contratado</label>
+            <select
+              className="form-select form-select-sm rounded-3"
+              value={selectedPlan}
+              onChange={(e) => {
+                setSelectedPlan(e.target.value);
+                setTablePage(1);
+              }}
+            >
+              <option value="ALL">Todos los planes</option>
+              {availablePlans.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Estado de Cuenta */}
+          <div className="col-6 col-sm-6 col-lg-2">
+            <label className="form-label small fw-semibold text-muted mb-1">Estado de Cuenta</label>
+            <select
+              className="form-select form-select-sm rounded-3"
+              value={selectedEstadoCuenta}
+              onChange={(e) => {
+                setSelectedEstadoCuenta(e.target.value);
+                setTablePage(1);
+              }}
+            >
+              <option value="ALL">Todos los estados</option>
+              <option value="HABILITADO">Habilitados (Al día)</option>
+              <option value="VENCIDO">Vencidos (Pendientes)</option>
+              <option value="BLOQUEADO">Bloqueados (Suspendidos)</option>
+            </select>
+          </div>
+
+          {/* Buscador de Cliente por RUC o Razón Social */}
+          <div className="col-12 col-sm-6 col-lg-3">
+            <label className="form-label small fw-semibold text-muted mb-1">Buscar por RUC o Razón Social</label>
+            <div className="input-group input-group-sm">
+              <span className="input-group-text bg-white border-end-0">
+                <Search size={14} className="text-muted" />
+              </span>
+              <input
+                type="text"
+                className="form-control border-start-0 ps-0 rounded-end-3"
+                placeholder="Ej. 20614429501 o Mi Empresa..."
+                value={selectedCliente}
+                onChange={(e) => {
+                  setSelectedCliente(e.target.value);
+                  setTablePage(1);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. STRIP DE 6 INDICADORES PRINCIPALES (KPIS DIRECTOS Y COINCIDENTES) */}
+      <div className="row g-3 mb-4 admin-stat-strip">
+        {/* KPI 1: Total Clientes en Cartera (Resuelve la duda de los 80 clientes) */}
+        <div className="col-12 col-sm-6 col-xl-2">
+          <div
+            className="card admin-stat-card h-100 shadow-sm border-0"
+            onClick={() => setActiveSection('RESUMEN')}
+            style={{ cursor: 'pointer' }}
+            title="Total de clientes registrados en cartera"
+          >
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Clientes en Cartera</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--blue">
+                <Users size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.45rem' }}>
+              {filteredClients.length} clientes
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              Al día: <strong className="text-success">{filteredClients.filter(c => (c.estadoCuenta || '').toUpperCase() === 'HABILITADO').length}</strong> · Con deuda: <strong className="text-danger">{clientesConDeudaList.length}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 2: Total Recaudado (Exacto a la columna Excel o Gran Total) */}
+        <div className="col-12 col-sm-6 col-xl-2">
+          <div
+            className="card admin-stat-card h-100 shadow-sm border-0"
+            onClick={() => setActiveSection('TOTAL_MES')}
+            style={{ cursor: 'pointer' }}
+            title="Total recaudado que coincide 1 a 1 con la columna del Excel"
+          >
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Total Recaudado</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                <DollarSign size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="admin-stat-card-value text-success" style={{ fontSize: '1.45rem' }}>
+              S/ {kpiTotalRecaudado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              Período: <strong className="text-dark">{currentMonthLabel}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 3: Nuevas Altas (Primer pago / mes de inicio) */}
+        <div className="col-12 col-sm-6 col-xl-2">
+          <div
+            className="card admin-stat-card h-100 shadow-sm border-0"
+            onClick={() => setActiveSection('ALTAS')}
+            style={{ cursor: 'pointer' }}
+            title="Clientes que iniciaron su plan en este período"
+          >
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Nuevas Altas</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                <UserPlus size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.45rem' }}>
+              S/ {kpiAltasMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              <strong className="text-success">{kpiAltasCount} clientes</strong> iniciaron aquí
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 4: Renovaciones Mensuales */}
+        <div className="col-12 col-sm-6 col-xl-2">
+          <div
+            className="card admin-stat-card h-100 shadow-sm border-0"
+            onClick={() => setActiveSection('MENSUALIDADES')}
+            style={{ cursor: 'pointer' }}
+            title="Mensualidades recurrentes cobradas"
+          >
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Renovaciones</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--blue">
+                <Repeat size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="admin-stat-card-value text-primary" style={{ fontSize: '1.45rem' }}>
+              S/ {kpiRenovacionesMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              <strong className="text-primary">{kpiRenovacionesCount} cobros</strong> recurrentes
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 5: Planes Anuales (Venta única en mes de inicio) */}
+        <div className="col-12 col-sm-6 col-xl-2">
+          <div
+            className="card admin-stat-card h-100 shadow-sm border-0"
+            onClick={() => setActiveSection('ANUALES')}
+            style={{ cursor: 'pointer' }}
+            title="Venta anual contada únicamente en su mes de inicio"
+          >
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Planes Anuales</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--purple">
+                <Calendar size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="admin-stat-card-value" style={{ fontSize: '1.45rem', color: '#7C3AED' }}>
+              S/ {kpiAnualesMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              <strong style={{ color: '#7C3AED' }}>{kpiAnualesCount} suscripciones</strong> · 1 año
+            </div>
+          </div>
+        </div>
+
+        {/* KPI 6: Cartera con Deuda (Vencidos y Bloqueados) */}
+        <div className="col-12 col-sm-6 col-xl-2">
+          <div
+            className="card admin-stat-card h-100 shadow-sm border-0"
+            onClick={() => setActiveSection('BLOQUEADOS')}
+            style={{ cursor: 'pointer' }}
+            title="Clientes impagos con tarifa pendiente"
+          >
+            <div className="admin-stat-card-header">
+              <span className="admin-stat-card-label">Deuda Pendiente</span>
+              <span className="admin-stat-card-icon admin-stat-card-icon--red">
+                <AlertTriangle size={18} strokeWidth={2.2} />
+              </span>
+            </div>
+            <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.45rem' }}>
+              S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+              <strong className="text-danger">{clientesConDeudaList.length} clientes</strong> impagos
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. PANEL DE CONCILIACIÓN CON EL EXCEL E INSPECTOR POR RUC */}
       <div className="custom-card p-3.5 mb-4 shadow-sm" style={{ borderLeft: '4px solid #10B981', backgroundColor: '#F8FAFC' }}>
         <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
           <div>
@@ -1532,11 +1434,10 @@ export default function ReportesExcelTab({
               <span className="text-dark fw-bold small">Período: {currentMonthLabel}</span>
             </div>
             <p className="text-muted small mb-0" style={{ fontSize: '0.8rem' }}>
-              El <strong>Total Recaudado (S/ {totalCobrado.toFixed(2)})</strong> equivale exactamente a la suma de la columna <strong>&quot;{currentMonthLabel} (S/)&quot;</strong> en el archivo Excel oficial. Para los planes anuales, la venta se cuenta <strong>una sola vez</strong> en el mes que inició su plan.
+              El <strong>Total Recaudado (S/ {kpiTotalRecaudado.toFixed(2)})</strong> equivale exactamente a la suma de la columna <strong>&quot;{currentMonthLabel}&quot;</strong> en el archivo Excel oficial. Para los clientes anuales, la venta figura únicamente en su mes de inicio y no se duplica en meses posteriores.
             </p>
           </div>
 
-          {/* Buscador de Verificación Instantánea de Cliente */}
           <div className="d-flex align-items-center gap-2" style={{ minWidth: '320px' }}>
             <div className="input-group input-group-sm">
               <span className="input-group-text bg-white border-end-0">
@@ -1545,7 +1446,7 @@ export default function ReportesExcelTab({
               <input
                 type="text"
                 className="form-control border-start-0 ps-0"
-                placeholder="Verificar RUC (ej. 20614429501)..."
+                placeholder="Verificar RUC en Excel (ej. 20614429501)..."
                 value={verifierQuery}
                 onChange={(e) => setVerifierQuery(e.target.value)}
               />
@@ -1562,7 +1463,7 @@ export default function ReportesExcelTab({
           </div>
         </div>
 
-        {/* Tarjeta de Resultado del Verificador de Cliente */}
+        {/* Tarjeta de resultado del verificador */}
         {verifierQuery.trim() !== '' && (
           <div className="mt-3 pt-3 border-top">
             {verifiedClientResult && verifiedClientResult.found ? (
@@ -1591,7 +1492,7 @@ export default function ReportesExcelTab({
                       ✓ Monto en Columna Excel ({currentMonthLabel}): S/ {Number(verifiedClientResult.montoMesSeleccionado || 0).toFixed(2)}
                     </span>
                     <span className="text-primary fw-semibold">
-                      Total histórico cobrado: S/ {Number(verifiedClientResult.totalHistorico || 0).toFixed(2)} ({(verifiedClientResult.clientPayments || []).length} transacciones)
+                      Total histórico cobrado en Excel: S/ {Number(verifiedClientResult.totalCobrosCliente || 0).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -1617,271 +1518,7 @@ export default function ReportesExcelTab({
         )}
       </div>
 
-      {/* STRIP DE 5 INDICADORES PRINCIPALES (ESTILO TAILADMIN) */}
-      <div className="row g-3 mb-4 admin-stat-strip">
-        {/* KPI 1: Clientes con Deuda (Vencidos y Bloqueados unificados) */}
-        <div className="col-12 col-sm-6 col-xl">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('BLOQUEADOS')}
-            style={{ cursor: 'pointer', transition: 'transform 0.15s ease' }}
-            title="Ver lista de clientes con deuda pendiente"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Deuda Pendiente</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--red">
-                <AlertTriangle size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="d-flex align-items-center gap-1.5 mb-2">
-              <span className="admin-stat-card-trend admin-stat-card-trend--danger">
-                <ShieldAlert size={12} /> Impagos
-              </span>
-              <span className="admin-stat-card-trend-label">{clientesConDeudaList.length} clientes con deuda</span>
-            </div>
-            <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.45rem' }}>
-              S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Vencidos: <strong className="text-danger">({vencidosCount})</strong> · Bloqueados: <strong className="text-dark">({bloqueadosCount})</strong> · 1 tarifa/cliente
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 2: Nuevas Altas (Recién Afiliados) */}
-        <div className="col-12 col-sm-6 col-xl">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('ALTAS')}
-            style={{ cursor: 'pointer' }}
-            title="Ver detalle de nuevas altas"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Nuevas Altas</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--green">
-                <UserPlus size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="d-flex align-items-center gap-1.5 mb-2">
-              <span className="admin-stat-card-trend">
-                <TrendingUp size={12} /> Afiliaciones
-              </span>
-              <span className="admin-stat-card-trend-label">{countAltas} clientes afiliados</span>
-            </div>
-            <div className="admin-stat-card-value text-success" style={{ fontSize: '1.45rem' }}>
-              S/ {gananciaAltas.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Promedio por alta: <strong>S/ {promedioAlta.toFixed(2)}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Mensualidades Recurrentes */}
-        <div className="col-12 col-sm-6 col-xl">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('MENSUALIDADES')}
-            style={{ cursor: 'pointer' }}
-            title="Ver detalle de renovaciones mensuales"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Renovaciones</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--blue">
-                <Repeat size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="d-flex align-items-center gap-1.5 mb-2">
-              <span className="admin-stat-card-trend" style={{ color: '#465FFF' }}>
-                <Clock size={12} /> Mensualidades
-              </span>
-              <span className="admin-stat-card-trend-label">{countMensualidades} cobradas</span>
-            </div>
-            <div className="admin-stat-card-value text-primary" style={{ fontSize: '1.45rem' }}>
-              S/ {gananciaMensualidades.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Promedio mensual: <strong>S/ {promedioMensualidad.toFixed(2)}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 4: Planes Anuales (Contados 1 sola vez en el mes que inician) */}
-        <div className="col-12 col-sm-6 col-xl">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('ANUALES')}
-            style={{ cursor: 'pointer' }}
-            title="Ver clientes con suscripción anual"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Planes Anuales</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--purple">
-                <Calendar size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="d-flex align-items-center gap-1.5 mb-2">
-              <span className="admin-stat-card-trend" style={{ color: '#8B5CF6' }}>
-                <Percent size={12} /> 12 Meses
-              </span>
-              <span className="admin-stat-card-trend-label">{countAnuales} suscripciones</span>
-            </div>
-            <div className="admin-stat-card-value" style={{ fontSize: '1.45rem', color: '#7C3AED' }}>
-              S/ {gananciaAnual.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Venta única en mes de inicio · Cobertura 1 año
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 5: Total Recaudado en Caja */}
-        <div className="col-12 col-sm-6 col-xl">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('RESUMEN')}
-            style={{ cursor: 'pointer' }}
-            title="Ver vista general consolidada"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Total Recaudado</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--green">
-                <DollarSign size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="d-flex align-items-center gap-1.5 mb-2">
-              <span className="admin-stat-card-trend" style={{ color: '#059669' }}>
-                <CheckCircle2 size={12} /> {efectividadCobro}% cobrado
-              </span>
-              <span className="admin-stat-card-trend-label">efectividad</span>
-            </div>
-            <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.45rem' }}>
-              S/ {totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Pendiente por cobrar: <strong className="text-warning">S/ {totalPendiente.toFixed(2)}</strong>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* PANEL DE FILTROS SUPERIORES */}
-      <div className="custom-card admin-report-filter-panel p-3.5 mb-4 shadow-sm">
-        <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
-          <div className="d-flex align-items-center gap-2">
-            <Search size={17} className="admin-report-filter-icon text-primary" />
-            <strong className="admin-report-filter-title text-dark">Filtros de Período y Búsqueda</strong>
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            <span className="text-muted small">
-              Filtrado por mes de cobro/inicio (cada venta anual se cuenta en el mes que inició)
-            </span>
-            <button
-              onClick={resetFilters}
-              className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1 py-1 px-2.5 rounded-3"
-              title="Restablecer todos los filtros"
-            >
-              <RotateCcw size={13} />
-              <span>Limpiar filtros</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="row g-2.5">
-          {/* Selector de Mes de Facturación Principal */}
-          <div className="col-12 col-md-4 col-lg-3">
-            <label className="form-label small fw-bold text-dark mb-1 d-flex align-items-center gap-1">
-              <Calendar size={14} className="text-primary" /> Mes de facturación / cobro
-            </label>
-            <select
-              className="form-select form-select-sm rounded-3 fw-semibold border-primary"
-              style={{ backgroundColor: '#F0F7FF' }}
-              value={selectedMesFacturacion}
-              onChange={(e) => {
-                setSelectedMesFacturacion(e.target.value);
-                setTablePage(1);
-              }}
-            >
-              <option value="ALL">Todos los meses facturados</option>
-              {availableBillingMonths.map(([k, label]) => (
-                <option key={k} value={k}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Fecha Pago Desde */}
-          <div className="col-6 col-md-4 col-lg-2">
-            <label className="form-label small fw-semibold text-muted mb-1">Fecha pago desde</label>
-            <input
-              type="date"
-              className="form-control form-control-sm rounded-3"
-              value={fechaDesde}
-              onChange={(e) => {
-                setFechaDesde(e.target.value);
-                setTablePage(1);
-              }}
-            />
-          </div>
-
-          {/* Fecha Pago Hasta */}
-          <div className="col-6 col-md-4 col-lg-2">
-            <label className="form-label small fw-semibold text-muted mb-1">Fecha pago hasta</label>
-            <input
-              type="date"
-              className="form-control form-control-sm rounded-3"
-              value={fechaHasta}
-              onChange={(e) => {
-                setFechaHasta(e.target.value);
-                setTablePage(1);
-              }}
-            />
-          </div>
-
-          {/* Vendedor / Asesor */}
-          <div className="col-12 col-md-4 col-lg-2">
-            <label className="form-label small fw-semibold text-muted mb-1">Asesor / Vendedor</label>
-            <select
-              className="form-select form-select-sm rounded-3"
-              value={selectedVendedor}
-              onChange={(e) => {
-                setSelectedVendedor(e.target.value);
-                setTablePage(1);
-              }}
-            >
-              <option value="ALL">Todos los asesores</option>
-              {uniqueSellers.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Buscador de Cliente */}
-          <div className="col-12 col-md-8 col-lg-3">
-            <label className="form-label small fw-semibold text-muted mb-1">Buscar por RUC o Razón Social</label>
-            <div className="input-group input-group-sm">
-              <span className="input-group-text bg-white border-end-0">
-                <Search size={14} className="text-muted" />
-              </span>
-              <input
-                type="text"
-                className="form-control border-start-0 ps-0 rounded-end-3"
-                placeholder="Ej. 20614429501 o Mi Empresa..."
-                value={selectedCliente}
-                onChange={(e) => {
-                  setSelectedCliente(e.target.value);
-                  setTablePage(1);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* BARRA DE NAVEGACIÓN POR CATEGORÍAS SEPARADAS */}
+      {/* 5. BARRA DE NAVEGACIÓN POR CATEGORÍAS */}
       <div className="d-flex align-items-center gap-2 mb-4 overflow-x-auto pb-1" style={{ borderBottom: '2px solid #E2E8F0' }}>
         <button
           onClick={() => {
@@ -1899,6 +1536,23 @@ export default function ReportesExcelTab({
 
         <button
           onClick={() => {
+            setActiveSection('TOTAL_MES');
+            setTablePage(1);
+          }}
+          className={`btn btn-sm px-3.5 py-2 fw-semibold rounded-pill d-flex align-items-center gap-2 ${
+            activeSection === 'TOTAL_MES' ? 'btn-success text-white shadow-sm' : 'btn-light text-secondary'
+          }`}
+          style={{ whiteSpace: 'nowrap', backgroundColor: activeSection === 'TOTAL_MES' ? '#059669' : undefined }}
+        >
+          <Calendar size={15} />
+          <span>Total por Meses ({monthlySummaryTableData.length})</span>
+          <span className="badge rounded-pill bg-white text-success px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
+            S/ {granTotalCobros.toFixed(0)}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
             setActiveSection('ALTAS');
             setTablePage(1);
           }}
@@ -1908,9 +1562,9 @@ export default function ReportesExcelTab({
           style={{ whiteSpace: 'nowrap' }}
         >
           <UserPlus size={15} />
-          <span>Nuevas Altas ({countAltas})</span>
+          <span>Nuevas Altas ({kpiAltasCount})</span>
           <span className="badge rounded-pill bg-white text-success px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
-            S/ {gananciaAltas.toFixed(0)}
+            S/ {kpiAltasMonto.toFixed(0)}
           </span>
         </button>
 
@@ -1925,9 +1579,9 @@ export default function ReportesExcelTab({
           style={{ whiteSpace: 'nowrap', backgroundColor: activeSection === 'MENSUALIDADES' ? '#3B82F6' : undefined }}
         >
           <Repeat size={15} />
-          <span>Renovaciones ({countMensualidades})</span>
+          <span>Renovaciones ({kpiRenovacionesCount})</span>
           <span className="badge rounded-pill bg-white text-primary px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
-            S/ {gananciaMensualidades.toFixed(0)}
+            S/ {kpiRenovacionesMonto.toFixed(0)}
           </span>
         </button>
 
@@ -1942,9 +1596,9 @@ export default function ReportesExcelTab({
           style={{ whiteSpace: 'nowrap', backgroundColor: activeSection === 'ANUALES' ? '#7C3AED' : undefined }}
         >
           <Calendar size={15} />
-          <span>Planes Anuales ({countAnuales})</span>
+          <span>Planes Anuales ({kpiAnualesCount})</span>
           <span className="badge rounded-pill bg-white px-2 py-0.5" style={{ fontSize: '0.7rem', color: '#7C3AED' }}>
-            S/ {gananciaAnual.toFixed(0)}
+            S/ {kpiAnualesMonto.toFixed(0)}
           </span>
         </button>
 
@@ -1959,9 +1613,9 @@ export default function ReportesExcelTab({
           style={{ whiteSpace: 'nowrap' }}
         >
           <Layers size={15} />
-          <span>Prorrateos ({prorrateosCombinedData.length})</span>
+          <span>Prorrateos</span>
           <span className="badge rounded-pill bg-white text-dark px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
-            S/ {totalProrrateos.toFixed(0)}
+            S/ {overallProrrateosTotal.toFixed(0)}
           </span>
         </button>
 
@@ -1983,9 +1637,123 @@ export default function ReportesExcelTab({
         </button>
       </div>
 
-      {/* ========================================================================= */}
-      {/* VISTA 1: RESUMEN CONSOLIDADO                                              */}
-      {/* ========================================================================= */}
+      {/* 6. TABLA CONSOLIDADA: TOTAL GENERADO POR MES (COINCIDENCIA EXACTA EXCEL) */}
+      {(activeSection === 'RESUMEN' || activeSection === 'TOTAL_MES') && (
+        <div className="custom-card p-4 mb-4 shadow-sm" style={{ borderLeft: '4px solid #059669', backgroundColor: '#FFFFFF' }}>
+          <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <Calendar size={18} className="text-success" />
+                <strong className="text-dark fw-bold" style={{ fontSize: '0.98rem' }}>
+                  Total Generado por Mes (Recaudación Consolidada Mensual)
+                </strong>
+                <span className="badge rounded-pill bg-success-subtle text-success fw-bold px-2.5 py-0.5" style={{ fontSize: '0.72rem' }}>
+                  Cálculo Oficial Excel
+                </span>
+              </div>
+              <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.78rem' }}>
+                Para los clientes con plan <strong>ANUAL</strong>, la venta solo se cuenta una vez en el mes que inició su plan (ej. si inicia en diciembre, figura en diciembre y en enero ya no se repite).
+              </small>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', fontWeight: 'bold', fontSize: '0.85rem', padding: '0.35rem 0.75rem' }}>
+                Gran Total Acumulado: S/ {granTotalCobros.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0 table-meta">
+              <thead>
+                <tr style={{ backgroundColor: '#F8FAFC' }}>
+                  <th>Mes de Facturación</th>
+                  <th className="text-center">Clientes con Cobro</th>
+                  <th className="text-end">Nuevas Altas (S/)</th>
+                  <th className="text-end">Mensualidades (S/)</th>
+                  <th className="text-end" style={{ color: '#7C3AED' }}>Planes Anuales (S/)</th>
+                  <th className="text-end text-warning">Prorrateos (S/)</th>
+                  <th className="text-end" style={{ color: '#0047FF' }}>TOTAL GENERADO (S/)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlySummaryTableData.map((row) => {
+                  const isSelected = selectedMesFacturacion === row.monthKey;
+                  return (
+                    <tr
+                      key={row.monthKey}
+                      style={{
+                        backgroundColor: isSelected ? '#EFF6FF' : undefined,
+                        cursor: 'pointer',
+                      }}
+                      onClick={() => {
+                        setSelectedMesFacturacion(isSelected ? 'ALL' : row.monthKey);
+                        setTablePage(1);
+                      }}
+                      title="Haz clic para filtrar los KPIs y la tabla por este mes"
+                    >
+                      <td>
+                        <strong className="text-dark d-block">
+                          {row.label} {isSelected && <span className="badge bg-primary ms-1">Filtrado</span>}
+                        </strong>
+                        <small className="text-muted font-monospace">{row.monthKey}</small>
+                      </td>
+                      <td className="text-center">
+                        <span className="badge rounded-pill bg-light text-dark border px-2 py-1">
+                          {row.cantidadOperaciones} cobros
+                        </span>
+                      </td>
+                      <td className="text-end text-success fw-semibold">
+                        S/ {row.altas.toFixed(2)}
+                      </td>
+                      <td className="text-end text-primary fw-semibold">
+                        S/ {row.renovaciones.toFixed(2)}
+                      </td>
+                      <td className="text-end fw-semibold" style={{ color: '#7C3AED' }}>
+                        S/ {row.anuales.toFixed(2)}
+                      </td>
+                      <td className="text-end text-warning fw-semibold">
+                        S/ {row.prorrateos.toFixed(2)}
+                      </td>
+                      <td className="text-end">
+                        <strong className="text-dark fw-bold" style={{ fontSize: '1rem' }}>
+                          S/ {row.totalGenerado.toFixed(2)}
+                        </strong>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot>
+                <tr style={{ backgroundColor: '#F1F5F9', borderTop: '2px solid #CBD5E1' }}>
+                  <td className="fw-bold text-dark">TOTAL GENERAL ACUMULADO</td>
+                  <td className="text-center fw-bold text-dark">
+                    {monthlySummaryTableData.reduce((acc, r) => acc + r.cantidadOperaciones, 0)} cobros
+                  </td>
+                  <td className="text-end fw-bold text-success">
+                    S/ {overallAltasTotal.toFixed(2)}
+                  </td>
+                  <td className="text-end fw-bold text-primary">
+                    S/ {overallRenovacionesTotal.toFixed(2)}
+                  </td>
+                  <td className="text-end fw-bold" style={{ color: '#7C3AED' }}>
+                    S/ {overallAnualesTotal.toFixed(2)}
+                  </td>
+                  <td className="text-end fw-bold text-warning">
+                    S/ {overallProrrateosTotal.toFixed(2)}
+                  </td>
+                  <td className="text-end">
+                    <strong className="text-success fw-bold" style={{ fontSize: '1.08rem' }}>
+                      S/ {granTotalCobros.toFixed(2)}
+                    </strong>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 7. GRÁFICOS INTERACTIVOS (EN VISTA CONSOLIDADA) */}
       {activeSection === 'RESUMEN' && (
         <>
           <div className="row g-3 mb-4">
@@ -2004,29 +1772,25 @@ export default function ReportesExcelTab({
                     Cobrado efectivo vs cartera con deuda (Vencidos y Bloqueados)
                   </small>
                   <PortfolioHealthChart
-                    cobrado={totalCobrado}
-                    porCobrar={totalPendiente}
+                    cobrado={kpiTotalRecaudado}
+                    porCobrar={totalDeudaPendiente}
                     vencido={clientesConDeudaList.filter((c) => c.estado === 'VENCIDO').reduce((acc, c) => acc + c.tarifa, 0)}
                     bloqueado={clientesConDeudaList.filter((c) => c.estado === 'BLOQUEADO').reduce((acc, c) => acc + c.tarifa, 0)}
                   />
                 </div>
                 <div className="pt-3 border-top mt-3">
                   <div className="row g-2 text-center" style={{ fontSize: '0.74rem' }}>
-                    <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#ECFDF5' }}>
+                    <div className="col-4 p-1 rounded-2" style={{ backgroundColor: '#ECFDF5' }}>
                       <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Cobrado</span>
-                      <strong className="text-success fw-bold">S/ {totalCobrado.toFixed(0)}</strong>
+                      <strong className="text-success fw-bold">S/ {kpiTotalRecaudado.toFixed(0)}</strong>
                     </div>
-                    <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#FFFBEB' }}>
-                      <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Por Cobrar</span>
-                      <strong className="text-warning fw-bold">S/ {totalPendiente.toFixed(0)}</strong>
-                    </div>
-                    <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#FEF2F2' }}>
+                    <div className="col-4 p-1 rounded-2" style={{ backgroundColor: '#FFFBEB' }}>
                       <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Vencidos</span>
-                      <strong className="text-danger fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'VENCIDO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
+                      <strong className="text-warning fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'VENCIDO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
                     </div>
-                    <div className="col-3 p-1 rounded-2" style={{ backgroundColor: '#F1F5F9' }}>
+                    <div className="col-4 p-1 rounded-2" style={{ backgroundColor: '#FEF2F2' }}>
                       <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Bloqueados</span>
-                      <strong className="text-secondary fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'BLOQUEADO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
+                      <strong className="text-danger fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'BLOQUEADO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
                     </div>
                   </div>
                 </div>
@@ -2045,19 +1809,19 @@ export default function ReportesExcelTab({
                     </span>
                   </div>
                   <small className="text-muted d-block mb-3" style={{ fontSize: '0.74rem' }}>
-                    Origen del dinero recaudado por mes
+                    Origen del dinero recaudado por período
                   </small>
                   <RevenueTypeBarChart data={monthlyRevenueComparison} />
                 </div>
                 <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 mt-2 border-top gap-2" style={{ fontSize: '0.75rem' }}>
                   <span className="text-muted fw-semibold">
-                    Altas: <strong className="text-success fw-bold">S/ {gananciaAltas.toFixed(2)}</strong>
+                    Altas: <strong className="text-success fw-bold">S/ {kpiAltasMonto.toFixed(2)}</strong>
                   </span>
                   <span className="text-muted fw-semibold">
-                    Mensualidades: <strong className="text-primary fw-bold">S/ {gananciaMensualidades.toFixed(2)}</strong>
+                    Mensualidades: <strong className="text-primary fw-bold">S/ {kpiRenovacionesMonto.toFixed(2)}</strong>
                   </span>
                   <span className="text-muted fw-semibold">
-                    Anuales y Prorrateos: <strong className="text-indigo fw-bold" style={{ color: '#8B5CF6' }}>S/ {(gananciaAnual + totalProrrateos).toFixed(2)}</strong>
+                    Anuales y Prorrateos: <strong style={{ color: '#8B5CF6' }}>S/ {(kpiAnualesMonto + overallProrrateosTotal).toFixed(2)}</strong>
                   </span>
                 </div>
               </div>
@@ -2071,22 +1835,14 @@ export default function ReportesExcelTab({
                   <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                     <div>
                       <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
-                        Evolución Diaria de Facturación y Cobranza
+                        Evolución Mensual de Facturación y Cobranza
                       </strong>
                       <small className="text-muted" style={{ fontSize: '0.74rem' }}>
-                        Flujo de operaciones registradas y dinero cobrado
+                        Cobros recaudados en los últimos períodos
                       </small>
                     </div>
                   </div>
                   <SalesTimelineChart data={timelineData} />
-                </div>
-                <div className="d-flex flex-wrap justify-content-between align-items-center pt-2.5 mt-2 border-top gap-2" style={{ fontSize: '0.75rem' }}>
-                  <span className="text-muted fw-semibold">
-                    Efectividad: <strong className="text-success fw-bold">{efectividadCobro}%</strong>
-                  </span>
-                  <span className="text-muted fw-semibold">
-                    Operaciones: <strong className="text-primary fw-bold">{filteredTransactions.length} registros</strong>
-                  </span>
                 </div>
               </div>
             </div>
@@ -2098,11 +1854,11 @@ export default function ReportesExcelTab({
                     <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
                       Distribución por Plan Contratado
                     </strong>
-                    <span className="badge-tag badge-plan-tag">{planDistribution.length} paquetes</span>
+                    <span className="badge-tag badge-plan-tag">{planDistribution.length} planes</span>
                   </div>
                   <div className="row align-items-center g-3 pt-2">
                     <div className="col-5 d-flex justify-content-center">
-                      <PlanDoughnutChart data={planDistribution} totalVentas={totalFacturado} />
+                      <PlanDoughnutChart data={planDistribution} totalVentas={granTotalCobros} />
                     </div>
                     <div className="col-7">
                       <div className="d-flex flex-column gap-2" style={{ fontSize: '0.75rem' }}>
@@ -2135,353 +1891,98 @@ export default function ReportesExcelTab({
         </>
       )}
 
-      {/* ========================================================================= */}
-      {/* VISTA 2: SECCIÓN ESPECÍFICA DE NUEVAS ALTAS (AFILIACIONES)                 */}
-      {/* ========================================================================= */}
-      {activeSection === 'ALTAS' && (
-        <div className="mb-4">
-          <div className="row g-3 mb-4">
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Total Recaudado en Altas</span>
-                <div className="admin-stat-card-value text-success mt-1" style={{ fontSize: '1.6rem' }}>
-                  S/ {gananciaAltas.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <small className="text-muted mt-2">Primer pago ingresado por afiliación</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Cantidad de Clientes Afiliados</span>
-                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.6rem' }}>
-                  {countAltas} clientes
-                </div>
-                <small className="text-muted mt-2">Nuevos contratos en el período</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Ticket Promedio por Alta</span>
-                <div className="admin-stat-card-value text-primary mt-1" style={{ fontSize: '1.6rem' }}>
-                  S/ {promedioAlta.toFixed(2)}
-                </div>
-                <small className="text-muted mt-2">Valor medio por nuevo afiliado</small>
-              </div>
-            </div>
-          </div>
-
-          <div className="custom-card p-4 mb-4 shadow-sm">
-            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-              <div>
-                <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.95rem' }}>
-                  Evolución Mensual de Nuevas Altas (Cantidad vs Monto Recaudado)
-                </strong>
-                <small className="text-muted">
-                  Visualiza mes a mes cuántos clientes nuevos se sumaron y cuánto dinero generaron
-                </small>
-              </div>
-              <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#065F46', border: '1px solid #A7F3D0' }}>
-                {countAltas} afiliaciones en período
-              </span>
-            </div>
-            <CategoryDualAxisChart
-              data={altasMonthlyTrend}
-              themeColor="#10B981"
-              lineColor="#0284C7"
-              cantidadLabel="Afiliaciones"
-              montoLabel="Recaudado en Altas (S/)"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 3: SECCIÓN ESPECÍFICA DE RENOVACIONES / MENSUALIDADES                */}
-      {/* ========================================================================= */}
-      {activeSection === 'MENSUALIDADES' && (
-        <div className="mb-4">
-          <div className="row g-3 mb-4">
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Recaudación por Mensualidades</span>
-                <div className="admin-stat-card-value text-primary mt-1" style={{ fontSize: '1.6rem' }}>
-                  S/ {gananciaMensualidades.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <small className="text-muted mt-2">Suscripciones recurrentes pagadas</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Mensualidades Cobradas</span>
-                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.6rem' }}>
-                  {countMensualidades} cobros
-                </div>
-                <small className="text-muted mt-2">Clientes que pagaron su renovación</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Tarifa Promedio Mensual</span>
-                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.6rem' }}>
-                  S/ {promedioMensualidad.toFixed(2)}
-                </div>
-                <small className="text-muted mt-2">Ingreso recurrente promedio</small>
-              </div>
-            </div>
-          </div>
-
-          <div className="custom-card p-4 mb-4 shadow-sm">
-            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-              <div>
-                <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.95rem' }}>
-                  Evolución Mensual de Renovaciones Recurrentes
-                </strong>
-                <small className="text-muted">
-                  Comportamiento mensual de cobranzas de clientes recurrentes al día
-                </small>
-              </div>
-              <span className="badge-tag" style={{ backgroundColor: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>
-                {countMensualidades} renovaciones
-              </span>
-            </div>
-            <CategoryDualAxisChart
-              data={mensualidadesMonthlyTrend}
-              themeColor="#3B82F6"
-              lineColor="#8B5CF6"
-              cantidadLabel="Renovaciones"
-              montoLabel="Recaudado en Mensualidades (S/)"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 4: SECCIÓN ESPECÍFICA DE PLANES ANUALES                              */}
-      {/* ========================================================================= */}
-      {activeSection === 'ANUALES' && (
-        <div className="mb-4">
-          <div className="row g-3 mb-4">
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Recaudación en Planes Anuales</span>
-                <div className="admin-stat-card-value mt-1" style={{ fontSize: '1.6rem', color: '#7C3AED' }}>
-                  S/ {gananciaAnual.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <small className="text-muted mt-2">Cobrado en el mes de inicio de cada plan anual</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Suscripciones Anuales</span>
-                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.6rem' }}>
-                  {countAnuales} clientes
-                </div>
-                <small className="text-muted mt-2">Clientes con vigencia por 1 año completo</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Vigencia y Cobertura</span>
-                <div className="admin-stat-card-value text-success mt-1" style={{ fontSize: '1.6rem' }}>
-                  12 Meses
-                </div>
-                <small className="text-muted mt-2">Servicio garantizado de 12 meses</small>
-              </div>
-            </div>
-          </div>
-
-          <div className="custom-card p-4 mb-4 shadow-sm">
-            <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-              <div>
-                <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.95rem' }}>
-                  Contratación y Recaudación de Planes Anuales
-                </strong>
-                <small className="text-muted">
-                  Ingresos registrados en el mes de inicio de cada suscripción anual
-                </small>
-              </div>
-              <span className="badge-tag" style={{ backgroundColor: '#EDE9FE', color: '#6D28D9', border: '1px solid #DDD6FE' }}>
-                {countAnuales} suscripciones anuales
-              </span>
-            </div>
-            <CategoryDualAxisChart
-              data={anualesMonthlyTrend}
-              themeColor="#7C3AED"
-              lineColor="#10B981"
-              cantidadLabel="Planes Anuales"
-              montoLabel="Recaudado Anual (S/)"
-            />
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 5: SECCIÓN ESPECÍFICA DE PRORRATEOS (1er y 2do)                     */}
-      {/* ========================================================================= */}
-      {activeSection === 'PRORRATEOS' && (
-        <div className="mb-4">
-          <div className="row g-3 mb-4">
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">1.° Prorrateo (Días 1 al 9)</span>
-                <div className="admin-stat-card-value text-primary mt-1" style={{ fontSize: '1.6rem' }}>
-                  S/ {gananciaProrrateo1.toFixed(2)}
-                </div>
-                <small className="text-muted mt-2">{prorrateo1Data.length} cobros proporcionales</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">2.° Prorrateo (Cubre 2 Meses)</span>
-                <div className="admin-stat-card-value text-warning mt-1" style={{ fontSize: '1.6rem' }}>
-                  S/ {gananciaProrrateo2.toFixed(2)}
-                </div>
-                <small className="text-muted mt-2">{prorrateo2Data.length} cobros (días restantes + mes siguiente)</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Total Recaudado en Prorrateos</span>
-                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.6rem' }}>
-                  S/ {totalProrrateos.toFixed(2)}
-                </div>
-                <small className="text-muted mt-2">Ajustes proporcionales cobrados</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* VISTA 6: SECCIÓN ESPECÍFICA DE CLIENTES CON DEUDA (VENCIDOS Y BLOQUEADOS) */}
-      {/* (1 sola tarifa/deuda por cliente impago)                                   */}
-      {/* ========================================================================= */}
+      {/* 8. TABLA DE CLIENTES CON DEUDA (SI LA SECCIÓN ES 'BLOQUEADOS') */}
       {activeSection === 'BLOQUEADOS' && (
-        <div className="mb-4">
-          <div className="row g-3 mb-4">
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Deuda Total Pendiente</span>
-                <div className="admin-stat-card-value text-danger mt-1" style={{ fontSize: '1.65rem' }}>
-                  S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </div>
-                <small className="text-muted mt-2">Suma de 1 tarifa por cada cliente con pago pendiente</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Clientes Vencidos</span>
-                <div className="admin-stat-card-value text-warning mt-1" style={{ fontSize: '1.65rem' }}>
-                  {vencidosCount} clientes
-                </div>
-                <small className="text-muted mt-2">En período de aviso o gracia</small>
-              </div>
-            </div>
-            <div className="col-12 col-md-4">
-              <div className="card admin-stat-card p-3 shadow-sm border-0 h-100">
-                <span className="admin-stat-card-label">Clientes Bloqueados</span>
-                <div className="admin-stat-card-value text-dark mt-1" style={{ fontSize: '1.65rem' }}>
-                  {bloqueadosCount} clientes
-                </div>
-                <small className="text-muted mt-2">Cuentas suspendidas por falta de pago</small>
-              </div>
+        <div className="custom-card p-3.5 shadow-sm mb-4">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
+                Listado de Clientes con Deuda (Vencidos y Bloqueados)
+              </strong>
+              <small className="text-muted">
+                Mostrando {clientesConDeudaList.length} clientes · Cada cliente cuenta 1 sola tarifa de deuda
+              </small>
             </div>
           </div>
 
-          {/* Tabla de Clientes con Deuda (Vencidos y Bloqueados) */}
-          <div className="custom-card p-3.5 shadow-sm mb-4">
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <strong className="text-dark fw-bold d-block" style={{ fontSize: '0.92rem' }}>
-                  Listado de Clientes con Deuda (Vencidos y Bloqueados)
-                </strong>
-                <small className="text-muted">
-                  Mostrando {clientesConDeudaList.length} clientes · Cada cliente cuenta 1 sola tarifa de deuda
-                </small>
-              </div>
-            </div>
-
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0 table-meta">
-                <thead>
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0 table-meta">
+              <thead>
+                <tr>
+                  <th>Cliente / Razón Social</th>
+                  <th>RUC</th>
+                  <th>Estado de Cuenta</th>
+                  <th>Deuda (1 Tarifa)</th>
+                  <th>Vencimiento</th>
+                  <th>Asesor</th>
+                  <th>Contacto</th>
+                  <th className="text-end">Historial</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientesConDeudaList.length === 0 ? (
                   <tr>
-                    <th>Cliente / Razón Social</th>
-                    <th>RUC</th>
-                    <th>Estado de Cuenta</th>
-                    <th>Deuda (1 Tarifa)</th>
-                    <th>Vencimiento</th>
-                    <th>Asesor</th>
-                    <th>Contacto</th>
-                    <th className="text-end">Historial</th>
+                    <td colSpan={8} className="text-center text-muted py-4 fw-semibold">
+                      Excelente: No existen clientes vencidos ni bloqueados con los filtros seleccionados.
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {clientesConDeudaList.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="text-center text-muted py-4 fw-semibold">
-                        Excelente: No existen clientes vencidos ni bloqueados con los filtros seleccionados.
-                      </td>
-                    </tr>
-                  ) : (
-                    clientesConDeudaList.map((item, idx) => {
-                      const isBloq = item.estado === 'BLOQUEADO';
-                      return (
-                        <tr key={idx}>
-                          <td>
-                            <strong className="text-dark d-block">{item.razonSocial}</strong>
-                            <small className="text-muted">{item.client.planContratado || 'Plan Estándar'}</small>
-                          </td>
-                          <td className="font-monospace text-muted">{item.ruc}</td>
-                          <td>
-                            <span
-                              className="badge rounded-pill px-2.5 py-1 fw-bold"
-                              style={{
-                                backgroundColor: isBloq ? '#FEE2E2' : '#FEF3C7',
-                                color: isBloq ? '#991B1B' : '#92400E',
-                              }}
-                            >
-                              {item.estado}
-                            </span>
-                          </td>
-                          <td>
-                            <strong className="text-danger fw-bold" style={{ fontSize: '0.95rem' }}>
-                              S/ {item.tarifa.toFixed(2)}
-                            </strong>
-                          </td>
-                          <td className="text-muted">{item.fechaVencimientoStr}</td>
-                          <td className="text-dark fw-semibold">{item.asesor}</td>
-                          <td className="text-muted font-monospace">{item.telefono || '—'}</td>
-                          <td className="text-end">
-                            <button
-                              onClick={() => setHistoryClient(item.client)}
-                              className="btn btn-outline-primary btn-sm py-1 px-2.5 rounded-3 d-inline-flex align-items-center gap-1"
-                              title="Ver historial de pagos de este cliente"
-                            >
-                              <Eye size={13} />
-                              <span>Historial</span>
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                ) : (
+                  clientesConDeudaList.map((item, idx) => {
+                    const isBloq = item.estado === 'BLOQUEADO';
+                    return (
+                      <tr key={idx}>
+                        <td>
+                          <strong className="text-dark d-block">{item.razonSocial}</strong>
+                          <small className="text-muted">{item.client.planContratado || 'Plan Estándar'}</small>
+                        </td>
+                        <td className="font-monospace text-muted">{item.ruc}</td>
+                        <td>
+                          <span
+                            className="badge rounded-pill px-2.5 py-1 fw-bold"
+                            style={{
+                              backgroundColor: isBloq ? '#FEE2E2' : '#FEF3C7',
+                              color: isBloq ? '#991B1B' : '#92400E',
+                            }}
+                          >
+                            {item.estado}
+                          </span>
+                        </td>
+                        <td>
+                          <strong className="text-danger fw-bold" style={{ fontSize: '0.95rem' }}>
+                            S/ {item.tarifa.toFixed(2)}
+                          </strong>
+                        </td>
+                        <td className="text-muted">{item.fechaVencimientoStr}</td>
+                        <td className="text-dark fw-semibold">{item.asesor}</td>
+                        <td className="text-muted font-monospace">{item.telefono || '—'}</td>
+                        <td className="text-end">
+                          <button
+                            onClick={() => setHistoryClient(item.client)}
+                            className="btn btn-outline-primary btn-sm py-1 px-2.5 rounded-3 d-inline-flex align-items-center gap-1"
+                            title="Ver historial de pagos de este cliente"
+                          >
+                            <Eye size={13} />
+                            <span>Historial</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* TABLA PRINCIPAL DE AUDITORÍA Y DETALLE DE OPERACIONES                     */}
-      {/* ========================================================================= */}
+      {/* 9. TABLA PRINCIPAL DE AUDITORÍA Y DETALLE DE OPERACIONES */}
       {activeSection !== 'BLOQUEADOS' && (
         <div className="custom-card admin-report-table-card p-3.5 shadow-sm">
           <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
               <strong className="small text-dark fw-bold d-block">
                 {activeSection === 'ALTAS'
-                  ? 'Detalle de Nuevas Altas (Con Fecha de Inicio de su Plan)'
+                  ? 'Detalle de Nuevas Altas (Mes de Inicio de Plan)'
                   : activeSection === 'MENSUALIDADES'
                   ? 'Detalle de Renovaciones Recurrentes'
                   : activeSection === 'ANUALES'
@@ -2491,7 +1992,7 @@ export default function ReportesExcelTab({
                   : 'Detalle de Operaciones y Facturación'}
               </strong>
               <small className="text-muted">
-                Mostrando {displayedRows.length} de {currentTableList.length} operaciones filtradas · Período: {currentMonthLabel}
+                Mostrando {displayedRows.length} de {detailedTableList.length} operaciones filtradas · Período: {currentMonthLabel}
               </small>
             </div>
             <div className="d-flex align-items-center gap-2">
@@ -2508,27 +2009,19 @@ export default function ReportesExcelTab({
                   <tr>
                     <th>Cliente / Empresa</th>
                     <th>RUC</th>
-                    {activeSection === 'ALTAS' ? (
-                      <th style={{ color: '#059669', backgroundColor: '#ECFDF5' }}>Fecha Inicio de Plan</th>
-                    ) : activeSection === 'ANUALES' ? (
-                      <th style={{ color: '#7C3AED', backgroundColor: '#EDE9FE' }}>Periodo Vigencia (12 Meses)</th>
-                    ) : (
-                      <th>Mes Cubierto</th>
-                    )}
-                    <th>Fecha Pago Caja</th>
-                    <th>Plan</th>
+                    <th>Mes de Facturación</th>
+                    <th>Plan Contratado</th>
                     <th>Tipo Ingreso</th>
                     <th>Asesor</th>
-                    <th>Monto (S/)</th>
-                    <th>Método</th>
-                    <th>Estado</th>
-                    <th className="text-end">Historial</th>
+                    <th>Monto en Excel (S/)</th>
+                    <th>Estado de Cuenta</th>
+                    <th className="text-end">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {displayedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="text-center text-muted py-5 fw-semibold">
+                      <td colSpan={9} className="text-center text-muted py-5 fw-semibold">
                         No se encontraron registros para esta sección con los filtros actuales.
                       </td>
                     </tr>
@@ -2536,92 +2029,66 @@ export default function ReportesExcelTab({
                     displayedRows.map((t) => (
                       <tr key={t.id}>
                         <td>
-                          <span className="cell-title fw-bold text-dark d-block">{t.cliente}</span>
-                          {t.telefono && <small className="text-muted">{t.telefono}</small>}
+                          <strong className="text-dark d-block">{t.razonSocial}</strong>
+                          <small className="text-muted">{t.client.nombreComercial || '—'}</small>
                         </td>
-                        <td className="text-muted font-monospace">{t.ruc}</td>
-
-                        {activeSection === 'ALTAS' ? (
-                          <td>
-                            <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
-                              Inicio: {t.fechaInicioPlanStr}
-                            </span>
-                          </td>
-                        ) : activeSection === 'ANUALES' ? (
-                          <td>
-                            <span className="badge rounded-pill px-2.5 py-1 fw-bold" style={{ backgroundColor: '#EDE9FE', color: '#6D28D9' }}>
-                              {t.fechaInicioPlanStr} al {t.fechaFinPlanStr}
-                            </span>
-                          </td>
-                        ) : (
-                          <td>
-                            <span
-                              className="badge-tag"
-                              style={{
-                                backgroundColor: t.tipoIngreso === 'PRORRATEO_2' ? '#FEF3C7' : t.tipoIngreso === 'ANUAL' ? '#EDE9FE' : '#EFF6FF',
-                                color: t.tipoIngreso === 'PRORRATEO_2' ? '#92400E' : t.tipoIngreso === 'ANUAL' ? '#6D28D9' : '#1E40AF',
-                                border: '1px solid transparent',
-                                fontSize: '0.74rem',
-                              }}
-                            >
-                              {t.detalleCobertura}
-                            </span>
-                          </td>
-                        )}
-
-                        <td className="text-muted fw-semibold">{t.fechaPagoStr}</td>
+                        <td className="font-monospace text-muted">{t.ruc}</td>
+                        <td>
+                          <span className="badge rounded-pill bg-light text-dark border px-2 py-0.5 font-monospace">
+                            {t.mesLabel}
+                          </span>
+                        </td>
                         <td>
                           <span className="badge-tag badge-plan-tag">{t.plan}</span>
                         </td>
                         <td>
                           <span
                             className={`badge-tag ${
-                              t.tipoIngreso === 'ALTA'
+                              t.tipo === 'ALTA'
                                 ? 'badge-tag-success'
-                                : t.tipoIngreso === 'MENSUALIDAD'
+                                : t.tipo === 'RENOVACION'
                                 ? 'badge-tag-primary'
+                                : t.tipo === 'ANUAL'
+                                ? 'badge-tag-dark'
                                 : 'badge-tag-warning'
                             }`}
-                            style={{ fontSize: '0.72rem' }}
+                            style={{
+                              fontSize: '0.72rem',
+                              backgroundColor: t.tipo === 'ANUAL' ? '#EDE9FE' : undefined,
+                              color: t.tipo === 'ANUAL' ? '#7C3AED' : undefined,
+                              border: t.tipo === 'ANUAL' ? '1px solid #C4B5FD' : undefined,
+                            }}
                           >
-                            {t.tipoIngreso === 'ALTA'
+                            {t.tipo === 'ALTA'
                               ? 'Alta'
-                              : t.tipoIngreso === 'MENSUALIDAD'
+                              : t.tipo === 'RENOVACION'
                               ? 'Mensualidad'
-                              : t.tipoIngreso === 'PRORRATEO_1'
-                              ? '1.° Prorrateo'
-                              : t.tipoIngreso === 'PRORRATEO_2'
-                              ? '2.° Prorrateo'
-                              : t.tipoIngreso === 'ANUAL'
-                              ? 'Anual'
-                              : 'Upgrade'}
+                              : t.tipo === 'ANUAL'
+                              ? 'Anual (Único Mes)'
+                              : 'Prorrateo'}
                           </span>
                         </td>
-                        <td className="text-dark fw-semibold">{t.vendedor}</td>
+                        <td className="text-dark fw-semibold">{t.asesor}</td>
                         <td>
                           <span className="cell-amount text-dark fw-bold">S/ {t.monto.toFixed(2)}</span>
                         </td>
-                        <td className="text-muted text-capitalize fw-semibold">{t.metodoPago.toLowerCase()}</td>
                         <td>
                           <span
                             className={`badge-fb ${
-                              t.estado === 'PAGADO' ? 'badge-fb-success' : 'badge-fb-warning'
+                              t.estado === 'HABILITADO' ? 'badge-fb-success' : 'badge-fb-warning'
                             }`}
                           >
                             <span
                               className={`badge-dot ${
-                                t.estado === 'PAGADO' ? 'badge-dot-success' : 'badge-dot-warning'
+                                t.estado === 'HABILITADO' ? 'badge-dot-success' : 'badge-dot-warning'
                               }`}
                             />
-                            {t.estado === 'PAGADO' ? 'Pagado' : 'Pendiente'}
+                            {t.estado === 'HABILITADO' ? 'Habilitado' : t.estado}
                           </span>
                         </td>
                         <td className="text-end">
                           <button
-                            onClick={() => {
-                              const found = t.rawClientRef || clientMap.get(t.ruc) || null;
-                              if (found) setHistoryClient(found);
-                            }}
+                            onClick={() => setHistoryClient(t.client)}
                             className="btn btn-outline-primary btn-sm py-1 px-2.5 rounded-3 d-inline-flex align-items-center gap-1"
                             title="Ver historial de pagos de este cliente"
                           >
@@ -2633,11 +2100,24 @@ export default function ReportesExcelTab({
                     ))
                   )}
                 </tbody>
+                <tfoot>
+                  <tr style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #CBD5E1' }}>
+                    <td colSpan={6} className="fw-bold text-dark py-2.5">
+                      TOTAL OPERACIONES FILTRADAS ({detailedTableList.length} registros)
+                    </td>
+                    <td className="fw-bold py-2.5" style={{ color: '#0047FF', fontSize: '0.98rem' }}>
+                      S/ {detailedTableList.reduce((acc, t) => acc + t.monto, 0).toFixed(2)}
+                    </td>
+                    <td colSpan={2} className="text-muted small py-2.5 text-end">
+                      Total coincidente 100% con columna Excel
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>
 
-          {currentTableList.length > ITEMS_PER_PAGE && (
+          {detailedTableList.length > ITEMS_PER_PAGE && (
             <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-2">
               <button
                 type="button"

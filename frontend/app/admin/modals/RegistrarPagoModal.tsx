@@ -244,12 +244,30 @@ export default function RegistrarPagoModal({
     : 'Confirmar Renovación con Prorrateo';
 
   return (
-    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', zIndex: 1060 }}>
-      <div className="modal-dialog modal-dialog-centered my-4">
-        <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
-          <div className="modal-header bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+    <div
+      className="modal admin-dialog d-block bg-dark bg-opacity-50"
+      tabIndex={-1}
+      style={{ backdropFilter: 'blur(6px)', zIndex: 1060, overflowY: 'auto' }}
+    >
+      <div
+        className="modal-dialog modal-lg modal-dialog-centered my-3"
+        style={{ maxWidth: '680px', width: '95%', margin: '1.5rem auto' }}
+      >
+        <div
+          className="modal-content rounded-4 shadow-lg border-0"
+          style={{
+            maxHeight: 'calc(100vh - 3rem)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
+          <div className="modal-header bg-white border-bottom px-4 py-3 flex-shrink-0 d-flex justify-content-between align-items-center">
             <div className="d-flex align-items-center gap-2.5">
-              <div className="d-flex align-items-center justify-content-center" style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EEF2FF', color: '#465FFF' }}>
+              <div
+                className="d-flex align-items-center justify-content-center flex-shrink-0"
+                style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EEF2FF', color: '#465FFF' }}
+              >
                 {isAdelanto ? <CalendarPlus size={18} /> : isReanudarPago ? <RefreshCw size={18} /> : <Clock size={18} />}
               </div>
               <div>
@@ -272,8 +290,20 @@ export default function RegistrarPagoModal({
             </button>
           </div>
 
-          <form onSubmit={handleSubmit}>
-            <div className="modal-body p-4 bg-white">
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              flex: 1,
+              minHeight: 0,
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              className="modal-body p-4 bg-white"
+              style={{ overflowY: 'auto', flex: 1 }}
+            >
               {/* Resumen del Cliente */}
               <div className="p-3 bg-light rounded-3 border mb-3">
                 <div className="d-flex justify-content-between align-items-center mb-1">
@@ -293,37 +323,43 @@ export default function RegistrarPagoModal({
                   <span>Modalidad de Cobro:</span>
                   <span className="badge bg-light text-muted border">Selección interactiva</span>
                 </label>
-                <div className="btn-group w-100 shadow-sm" role="group">
-                  <button
-                    type="button"
-                    className={`btn btn-sm py-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
-                      isRenovarProrrateo ? 'btn-primary' : 'btn-outline-secondary'
-                    }`}
-                    onClick={() => setModalidad('RENOVAR_PRORRATEO')}
-                  >
-                    <Clock size={14} />
-                    <span>Renovar (con Prorrateo)</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm py-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
-                      isReanudarPago ? 'btn-primary' : 'btn-outline-secondary'
-                    }`}
-                    onClick={() => setModalidad('REANUDAR_PAGO')}
-                  >
-                    <RefreshCw size={14} />
-                    <span>Reanudar Ciclo Completo</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm py-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
-                      isAdelanto ? 'btn-primary' : 'btn-outline-secondary'
-                    }`}
-                    onClick={() => setModalidad('ADELANTO')}
-                  >
-                    <CalendarPlus size={14} />
-                    <span>Adelantar Pago</span>
-                  </button>
+                <div className="row g-2">
+                  <div className="col-12 col-md-4">
+                    <button
+                      type="button"
+                      className={`btn btn-sm w-100 py-2 px-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
+                        isRenovarProrrateo ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
+                      }`}
+                      onClick={() => setModalidad('RENOVAR_PRORRATEO')}
+                    >
+                      <Clock size={14} className="flex-shrink-0" />
+                      <span className="text-truncate">Renovar (Prorrateo)</span>
+                    </button>
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <button
+                      type="button"
+                      className={`btn btn-sm w-100 py-2 px-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
+                        isReanudarPago ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
+                      }`}
+                      onClick={() => setModalidad('REANUDAR_PAGO')}
+                    >
+                      <RefreshCw size={14} className="flex-shrink-0" />
+                      <span className="text-truncate">Reanudar Ciclo</span>
+                    </button>
+                  </div>
+                  <div className="col-12 col-md-4">
+                    <button
+                      type="button"
+                      className={`btn btn-sm w-100 py-2 px-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
+                        isAdelanto ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
+                      }`}
+                      onClick={() => setModalidad('ADELANTO')}
+                    >
+                      <CalendarPlus size={14} className="flex-shrink-0" />
+                      <span className="text-truncate">Adelantar Pago</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -460,7 +496,7 @@ export default function RegistrarPagoModal({
               </div>
             </div>
 
-            <div className="modal-footer px-4 py-3 bg-light border-top d-flex justify-content-end gap-2">
+            <div className="modal-footer px-4 py-3 bg-light border-top flex-shrink-0 d-flex justify-content-end gap-2">
               <button
                 type="button"
                 className="btn-meta-action btn-meta-action-secondary"
