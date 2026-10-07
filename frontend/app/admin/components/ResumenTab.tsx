@@ -57,24 +57,35 @@ export default function ResumenTab({
     return isNaN(d.getTime()) ? null : d;
   };
 
-  const { totalDeudaAcumulada, totalDeudaVencidos, totalDeudaBloqueados, clientesBloqueadosCount, totalClientesImpagos } = React.useMemo(() => {
-    const vencidos = clientesVencidosList || [];
-    const bloqueados = (clients || []).filter((c) => {
-      const st = (c.estadoCuenta || '').toUpperCase();
-      return st === 'BLOQUEADO' || st === 'SUSPENDIDO';
-    });
+  const { totalDeudaAcumulada, totalDeudaVencidos, totalDeudaBloqueados, clientesBloqueadosCount, clientesVencidosCount, totalClientesImpagos } = React.useMemo(() => {
+    let deudaVenc = 0;
+    let deudaBloq = 0;
+    let vCount = 0;
+    let bCount = 0;
 
-    const deudaVenc = vencidos.reduce((acc, c) => acc + Number(c.montoSiguienteCobro || c.montoMensual || 30), 0);
-    const deudaBloq = bloqueados.reduce((acc, c) => acc + Number(c.montoMensual || c.montoSiguienteCobro || 30), 0);
+    (clients || []).forEach((c) => {
+      const st = (c.estadoCuenta || '').toUpperCase();
+      if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
+
+      const tarifa = Number(c.montoMensual || c.precioPlan || c.montoSiguienteCobro || 30);
+      if (st === 'BLOQUEADO' || st === 'SUSPENDIDO') {
+        bCount++;
+        deudaBloq += tarifa;
+      } else {
+        vCount++;
+        deudaVenc += tarifa;
+      }
+    });
 
     return {
       totalDeudaAcumulada: deudaVenc + deudaBloq,
       totalDeudaVencidos: deudaVenc,
       totalDeudaBloqueados: deudaBloq,
-      clientesBloqueadosCount: bloqueados.length,
-      totalClientesImpagos: vencidos.length + bloqueados.length,
+      clientesBloqueadosCount: bCount,
+      clientesVencidosCount: vCount,
+      totalClientesImpagos: vCount + bCount,
     };
-  }, [clientesVencidosList, clients]);
+  }, [clients]);
 
   return (
     <div className="admin-module admin-module--overview">
@@ -200,7 +211,7 @@ export default function ResumenTab({
                   S/ {totalDeudaAcumulada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-muted" style={{ fontSize: '0.72rem' }}>
-                  Vencidos: S/ {totalDeudaVencidos.toFixed(0)} ({clientesVencidosList.length}) · Bloqueados: S/ {totalDeudaBloqueados.toFixed(0)} ({clientesBloqueadosCount})
+                  Vencidos: S/ {totalDeudaVencidos.toFixed(0)} ({clientesVencidosCount}) · Bloqueados: S/ {totalDeudaBloqueados.toFixed(0)} ({clientesBloqueadosCount})
                 </span>
               </div>
               <div className="admin-stat-card-sparkline">

@@ -367,11 +367,20 @@ export default function ReportesExcelTab({
       const monthlySums = new Map<string, number>();
       sortedMonthKeys.forEach((k) => monthlySums.set(k, 0));
 
-      // Revisar pagos confirmados en base de datos para este cliente
-      const clPays = [
-        ...(paymentsByClient.get(String(c.id)) || []),
+      // Revisar pagos confirmados en base de datos para este cliente (desduplicando por ID de pago)
+      const rawPays = [
+        ...(c.id ? (paymentsByClient.get(String(c.id)) || []) : []),
         ...(c.ruc ? (paymentsByClient.get(`ruc-${c.ruc}`) || []) : [])
       ];
+      const seenPayKeys = new Set<string>();
+      const clPays: any[] = [];
+      rawPays.forEach((p) => {
+        const uId = String(p?.id ?? p?.pagoId ?? `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}`);
+        if (!seenPayKeys.has(uId)) {
+          seenPayKeys.add(uId);
+          clPays.push(p);
+        }
+      });
 
       if (isClientAnnual) {
         // PLAN ANUAL: solo figura en el mes que inicia su plan (no en meses posteriores)
@@ -450,10 +459,10 @@ export default function ReportesExcelTab({
             const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
             if (pAmount <= 0) return;
             if (k === startMonthKey) {
-              monthlySums.set(k, pAmount);
+              monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
               hasStartPay = true;
             } else if (k === nextKey) {
-              monthlySums.set(k, pAmount);
+              monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
               hasNextPay = true;
             } else {
               monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
