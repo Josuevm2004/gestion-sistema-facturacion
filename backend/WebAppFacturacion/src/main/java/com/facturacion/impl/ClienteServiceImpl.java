@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -904,11 +905,22 @@ public class ClienteServiceImpl implements ClienteService {
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
                 .findFirst()
                 .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
+        BigDecimal totalDeudaPendiente = ventasCliente.stream()
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
+                .map(Venta::getMontoTotal)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
         Venta ventaParaCobro = ventaPendienteVencida != null ? ventaPendienteVencida : ventaPendiente;
 
         if (ventaParaCobro != null) {
             res.setVentaId(ventaParaCobro.getId());
-            res.setMontoSiguienteCobro(ventaParaCobro.getMontoTotal());
+            if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
+                res.setMontoSiguienteCobro(totalDeudaPendiente);
+            } else {
+                res.setMontoSiguienteCobro(ventaParaCobro.getMontoTotal());
+            }
             mapProrrateoVenta(ventaParaCobro, res);
             if (ventaPendienteVencida != null
                     && !"BLOQUEADO".equals(estadoNombre)
@@ -955,12 +967,22 @@ public class ClienteServiceImpl implements ClienteService {
             res.setEstadoServicio(servicio.getEstado() != null ? servicio.getEstado().name() : null);
             if (res.getMontoSiguienteCobro() == null
                     || res.getMontoSiguienteCobro().compareTo(BigDecimal.ZERO) <= 0) {
-                BigDecimal montoServicio = calcularMontoSiguienteCobro(servicio, ventasCliente);
-                res.setMontoSiguienteCobro(montoServicio != null ? montoServicio : servicio.getMontoProrrateo());
+                if (!"BLOQUEADO".equalsIgnoreCase(estadoNombre) && !"VENCIDO".equalsIgnoreCase(estadoNombre) && !"SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
+                    BigDecimal montoServicio = calcularMontoSiguienteCobro(servicio, ventasCliente);
+                    res.setMontoSiguienteCobro(montoServicio != null ? montoServicio : servicio.getMontoProrrateo());
+                } else {
+                    res.setMontoSiguienteCobro(BigDecimal.ZERO);
+                }
             }
             res.setDiasProrrateados(servicio.getDiasProrrateados());
             if (res.getTipoProrrateo() == null && servicio.getVenta() != null) {
                 mapProrrateoVenta(servicio.getVenta(), res);
+            }
+        }
+
+        if (res.getMontoSiguienteCobro() == null) {
+            if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
+                res.setMontoSiguienteCobro(BigDecimal.ZERO);
             }
         }
 

@@ -67,13 +67,17 @@ export default function ResumenTab({
       const st = (c.estadoCuenta || '').toUpperCase();
       if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
 
-      const tarifa = Number(c.montoMensual || c.precioPlan || c.montoSiguienteCobro || 30);
+      // Para bloqueados y vencidos, fijarse en cuánto debe (montoSiguienteCobro), no en cuánto es su plan
+      const deuda = c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null
+        ? Number(c.montoSiguienteCobro)
+        : Number(c.montoMensual || c.precioPlan || 0);
+
       if (st === 'BLOQUEADO' || st === 'SUSPENDIDO') {
         bCount++;
-        deudaBloq += tarifa;
+        deudaBloq += deuda;
       } else {
         vCount++;
-        deudaVenc += tarifa;
+        deudaVenc += deuda;
       }
     });
 
@@ -211,7 +215,7 @@ export default function ResumenTab({
                   S/ {totalDeudaAcumulada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <span className="text-muted" style={{ fontSize: '0.72rem' }}>
-                  Vencidos: S/ {totalDeudaVencidos.toFixed(0)} ({clientesVencidosCount}) · Bloqueados: S/ {totalDeudaBloqueados.toFixed(0)} ({clientesBloqueadosCount})
+                  Vencidos: S/ {totalDeudaVencidos.toFixed(2)} ({clientesVencidosCount}) · Bloqueados: S/ {totalDeudaBloqueados.toFixed(2)} ({clientesBloqueadosCount})
                 </span>
               </div>
               <div className="admin-stat-card-sparkline">

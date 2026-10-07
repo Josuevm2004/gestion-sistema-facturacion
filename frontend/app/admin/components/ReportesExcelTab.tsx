@@ -741,11 +741,14 @@ export default function ReportesExcelTab({
       const st = (c.estadoCuenta || '').toUpperCase();
       if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
 
-      const tarifa = Number(c.montoMensual || c.montoSiguienteCobro || c.precioPlan || 30);
+      // Para bloqueados y vencidos, fijarse en el monto de cuánto debe (montoSiguienteCobro), no de cuánto es su plan
+      const deuda = c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null
+        ? Number(c.montoSiguienteCobro)
+        : Number(c.montoMensual || c.precioPlan || 0);
       const isBloq = st === 'BLOQUEADO' || st === 'SUSPENDIDO';
       if (isBloq) bCount++;
       else vCount++;
-      sumDeuda += tarifa;
+      sumDeuda += deuda;
 
       const vencD = parseLocalDateSafe(c.fechaVencimientoMensual) || parseLocalDateSafe(c.fechaCreacion) || parseLocalDateSafe(c.fechaRegistro);
       const fechaVencimientoStr = vencD ? vencD.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
@@ -755,7 +758,7 @@ export default function ReportesExcelTab({
         razonSocial: c.razonSocial || 'Cliente General',
         ruc: c.ruc || '—',
         estado: isBloq ? 'BLOQUEADO' : 'VENCIDO',
-        tarifa,
+        tarifa: deuda,
         fechaVencimientoStr,
         asesor: c.vendedor || 'Por asignar',
         telefono: c.telefono || c.telefonoPersonal || '',
@@ -1870,11 +1873,11 @@ ${summaryMonthRowsXml}
                     </div>
                     <div className="col-4 p-1 rounded-2" style={{ backgroundColor: '#FFFBEB' }}>
                       <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Vencidos</span>
-                      <strong className="text-warning fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'VENCIDO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
+                      <strong className="text-warning fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'VENCIDO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(2)}</strong>
                     </div>
                     <div className="col-4 p-1 rounded-2" style={{ backgroundColor: '#FEF2F2' }}>
                       <span className="text-muted d-block" style={{ fontSize: '0.68rem' }}>Bloqueados</span>
-                      <strong className="text-danger fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'BLOQUEADO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(0)}</strong>
+                      <strong className="text-danger fw-bold">S/ {clientesConDeudaList.filter((c) => c.estado === 'BLOQUEADO').reduce((acc, c) => acc + c.tarifa, 0).toFixed(2)}</strong>
                     </div>
                   </div>
                 </div>
@@ -1984,7 +1987,7 @@ ${summaryMonthRowsXml}
                 Listado de Clientes con Deuda (Vencidos y Bloqueados)
               </strong>
               <small className="text-muted">
-                Mostrando {clientesConDeudaList.length} clientes · Cada cliente cuenta 1 sola tarifa de deuda
+                Mostrando {clientesConDeudaList.length} clientes · Monto pendiente de cobro real (deuda)
               </small>
             </div>
           </div>
@@ -1996,7 +1999,7 @@ ${summaryMonthRowsXml}
                   <th>Cliente / Razón Social</th>
                   <th>RUC</th>
                   <th>Estado de Cuenta</th>
-                  <th>Deuda (1 Tarifa)</th>
+                  <th>Monto Pendiente (Deuda)</th>
                   <th>Vencimiento</th>
                   <th>Asesor</th>
                   <th>Contacto</th>
