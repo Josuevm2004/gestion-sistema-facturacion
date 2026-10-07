@@ -66,6 +66,8 @@ export type Client = {
   estadoCapacitacion?: string;
   fechaRegistro?: string;
   fechaCreacion?: string;
+  fechaInicioServicio?: string;
+  fechaFinServicio?: string;
   fechaVencimientoMensual?: string;
   fechaCapacitacion?: string;
   vendedor?: string;

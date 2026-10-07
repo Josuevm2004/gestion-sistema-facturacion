@@ -278,21 +278,32 @@ export default function ReportesExcelTab({
     const today = new Date();
     const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
 
-    // 1. Detectar rango de meses
+    // 1. Detectar rango de meses en base a fechas de servicio / capacitación / pagos
     safeClients.forEach((c) => {
-      const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
+      const startD = parseLocalDateSafe(c.fechaInicioServicio || c.fechaCapacitacion || c.fechaRegistro || c.fechaCreacion);
       if (startD) {
         const k = monthKeyFromDate(startD);
         if (k) {
           monthKeysSet.add(k);
-          const isSegundoProrr = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || startD.getDate() >= 10;
+          const endD = parseLocalDateSafe(c.fechaFinServicio || c.fechaVencimientoMensual);
+          let serviceCoversTwoMonths = false;
+          if (startD && endD) {
+            const mDiff = (endD.getFullYear() - startD.getFullYear()) * 12 + (endD.getMonth() - startD.getMonth());
+            if (mDiff > 1 || (mDiff === 1 && endD.getDate() > 1)) {
+              serviceCoversTwoMonths = true;
+            }
+          }
+          const isSegundoProrr = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
+            Number(c.diasProrrateoAdicional || 0) > 0 ||
+            Number(c.montoProrrateoAdicional || 0) > 0 ||
+            (c.tipoProrrateo !== 'PRIMER_PRORRATEO' && startD.getDate() >= 10 && (serviceCoversTwoMonths || Number(c.diasProrrateados || 0) > 31));
           if (isSegundoProrr) {
             monthKeysSet.add(addMonthsToKey(k, 1));
             monthKeysSet.add(addMonthsToKey(k, 2));
           }
         }
       }
-      const regKey = monthKeyFromDate(c.fechaRegistro);
+      const regKey = monthKeyFromDate(c.fechaInicioServicio || c.fechaCapacitacion || c.fechaRegistro);
       if (regKey) {
         const startIdx = monthIndexFromKey(regKey);
         const currIdx = monthIndexFromKey(currentMonthKey);
@@ -356,11 +367,28 @@ export default function ReportesExcelTab({
       const isClientAnnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
       const clientMonthlyPlanPrice = Number(c.montoMensual || c.precioPlan || 0);
 
-      const startD = parseLocalDateSafe(c.fechaRegistro || c.fechaCreacion || c.fechaCapacitacion);
+      const startD = parseLocalDateSafe(c.fechaInicioServicio || c.fechaCapacitacion || c.fechaRegistro || c.fechaCreacion);
       const startMonthKey = startD ? monthKeyFromDate(startD) || sortedMonthKeys[0] : sortedMonthKeys[0];
 
-      const isSegundoProrrateo = !isClientAnnual && (c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional || 0) > 0 || (startD && startD.getDate() >= 10));
-      const isPrimerProrrateo = !isClientAnnual && !isSegundoProrrateo && (c.tipoProrrateo === 'PRIMER_PRORRATEO' || (startD && startD.getDate() < 10));
+      const endD = parseLocalDateSafe(c.fechaFinServicio || c.fechaVencimientoMensual);
+      let serviceCoversTwoMonths = false;
+      if (startD && endD) {
+        const mDiff = (endD.getFullYear() - startD.getFullYear()) * 12 + (endD.getMonth() - startD.getMonth());
+        if (mDiff > 1 || (mDiff === 1 && endD.getDate() > 1)) {
+          serviceCoversTwoMonths = true;
+        }
+      }
+
+      const isSegundoProrrateo = !isClientAnnual && (
+        c.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
+        Number(c.diasProrrateoAdicional || 0) > 0 ||
+        Number(c.montoProrrateoAdicional || 0) > 0 ||
+        (c.tipoProrrateo !== 'PRIMER_PRORRATEO' && startD && startD.getDate() >= 10 && (serviceCoversTwoMonths || Number(c.diasProrrateados || 0) > 31))
+      );
+      const isPrimerProrrateo = !isClientAnnual && !isSegundoProrrateo && (
+        c.tipoProrrateo === 'PRIMER_PRORRATEO' ||
+        (startD && startD.getDate() < 10)
+      );
 
       // Spans para celdas combinadas (anuales y 2.° prorrateo)
       const spans: Array<{ startKey: string; amount: number; monthsCovered: number; type: 'ANUAL' | 'SEGUNDO_PRORRATEO' }> = [];
@@ -420,7 +448,7 @@ export default function ReportesExcelTab({
         // Si existen pagos en BD para períodos posteriores o del mes de prorrateo
         if (clPays.length > 0) {
           clPays.forEach((p) => {
-            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaVenta || p?.venta?.fechaVenta || p?.fechaPago || p?.fechaRegistro);
             if (!payD) return;
             const k = monthKeyFromDate(payD);
             if (!k) return;
@@ -435,8 +463,8 @@ export default function ReportesExcelTab({
         }
       } else if (isPrimerProrrateo) {
         // PRIMERA LÓGICA DE PRORRATEO (inicios antes del día 10, ej. día 5):
-        // 1. En el mes de inicio: cobra el prorrateo de días usados.
-        // 2. En el mes siguiente: inicia con su plan mensual completo.
+        // 1. En el mes de inicio: cobra el prorrateo de días usados (o plan mensual si inicia día 1).
+        // 2. En los siguientes meses: según su historial real de pagos.
         const nextKey = addMonthsToKey(startMonthKey, 1);
         let montoProrr = Number(c.montoProrrateado || 0);
         if (montoProrr <= 0 && startD) {
@@ -450,35 +478,27 @@ export default function ReportesExcelTab({
 
         if (clPays.length > 0) {
           let hasStartPay = false;
-          let hasNextPay = false;
           clPays.forEach((p) => {
-            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaVenta || p?.venta?.fechaVenta || p?.fechaPago || p?.fechaRegistro);
             if (!payD) return;
             const k = monthKeyFromDate(payD);
             if (!k) return;
             const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
             if (pAmount <= 0) return;
-            if (k === startMonthKey) {
-              monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
-              hasStartPay = true;
-            } else if (k === nextKey) {
-              monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
-              hasNextPay = true;
-            } else {
-              monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
-            }
+            monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
+            if (k === startMonthKey) hasStartPay = true;
           });
-          if (!hasStartPay) monthlySums.set(startMonthKey, montoProrr);
-          if (!hasNextPay) monthlySums.set(nextKey, clientMonthlyPlanPrice);
+          if (!hasStartPay && clPays.length === 0) {
+            monthlySums.set(startMonthKey, montoProrr);
+          }
         } else {
           monthlySums.set(startMonthKey, montoProrr);
-          monthlySums.set(nextKey, clientMonthlyPlanPrice);
         }
       } else {
         // Cliente mensual regular sin prorrateo especial
         if (clPays.length > 0) {
           clPays.forEach((p) => {
-            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaPago || p?.fechaRegistro);
+            const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaVenta || p?.venta?.fechaVenta || p?.fechaPago || p?.fechaRegistro);
             if (!payD) return;
             const k = monthKeyFromDate(payD);
             if (!k) return;
@@ -577,7 +597,7 @@ export default function ReportesExcelTab({
           if (amt > 0) {
             const isFirstMonth = key === startMonthKey;
             const isProrr = (isSegundoProrrateo && key === addMonthsToKey(startMonthKey, 2)) ||
-                            (isPrimerProrrateo && key === startMonthKey);
+                            (isPrimerProrrateo && key === startMonthKey && startD && startD.getDate() > 1);
             const tipo = isProrr ? 'PRORRATEO' : isFirstMonth ? 'ALTA' : 'RENOVACION';
 
             cellDataByMonth.set(key, {

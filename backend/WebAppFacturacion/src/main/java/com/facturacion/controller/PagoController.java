@@ -58,6 +58,8 @@ public class PagoController {
             venta.put("id", pago.getVenta().getId());
             venta.put("clienteId", pago.getVenta().getCliente() != null ? pago.getVenta().getCliente().getId() : null);
             venta.put("montoTotal", pago.getVenta().getMontoTotal());
+            venta.put("fechaVenta", pago.getVenta().getFechaVenta());
+            data.put("fechaVenta", pago.getVenta().getFechaVenta());
             venta.put("tipoProrrateo", pago.getVenta().getTipoProrrateo() != null
                     ? pago.getVenta().getTipoProrrateo().name()
                     : null);
