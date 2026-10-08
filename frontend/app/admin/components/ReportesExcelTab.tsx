@@ -488,7 +488,7 @@ export default function ReportesExcelTab({
             monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
             if (k === startMonthKey) hasStartPay = true;
           });
-          if (!hasStartPay && clPays.length === 0) {
+          if (!hasStartPay) {
             monthlySums.set(startMonthKey, montoProrr);
           }
         } else {
@@ -497,6 +497,7 @@ export default function ReportesExcelTab({
       } else {
         // Cliente mensual regular sin prorrateo especial
         if (clPays.length > 0) {
+          let hasStartPay = false;
           clPays.forEach((p) => {
             const payD = parseLocalDateSafe(p?.periodoInicio || p?.fechaVenta || p?.venta?.fechaVenta || p?.fechaPago || p?.fechaRegistro);
             if (!payD) return;
@@ -505,7 +506,11 @@ export default function ReportesExcelTab({
             const pAmount = Number(p?.monto || p?.venta?.montoTotal || 0);
             if (pAmount <= 0) return;
             monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
+            if (k === startMonthKey) hasStartPay = true;
           });
+          if (!hasStartPay) {
+            monthlySums.set(startMonthKey, clientMonthlyPlanPrice);
+          }
         } else {
           monthlySums.set(startMonthKey, clientMonthlyPlanPrice);
         }
@@ -550,6 +555,11 @@ export default function ReportesExcelTab({
               col.anualesCount += 1;
               sumAnuales += span.amount;
               countAnuales += 1;
+              // Como es su mes de inicio, ¡también es una Nueva Alta de cartera!
+              if (key === startMonthKey) {
+                col.altasCount += 1;
+                countAltas += 1;
+              }
             } else {
               col.altas += span.amount;
               col.altasCount += 1;
@@ -596,9 +606,9 @@ export default function ReportesExcelTab({
           const amt = !isClientAnnual ? (monthlySums.get(key) || 0) : 0;
           if (amt > 0) {
             const isFirstMonth = key === startMonthKey;
-            const isProrr = (isSegundoProrrateo && key === addMonthsToKey(startMonthKey, 2)) ||
-                            (isPrimerProrrateo && key === startMonthKey && startD && startD.getDate() > 1);
-            const tipo = isProrr ? 'PRORRATEO' : isFirstMonth ? 'ALTA' : 'RENOVACION';
+            const isProrr = isSegundoProrrateo && key === addMonthsToKey(startMonthKey, 2);
+            // Si es su primer mes en el plan, SIEMPRE figura como su NUEVA ALTA
+            const tipo = isFirstMonth ? 'ALTA' : isProrr ? 'PRORRATEO' : 'RENOVACION';
 
             cellDataByMonth.set(key, {
               amount: amt,
@@ -720,6 +730,11 @@ export default function ReportesExcelTab({
     return selectedMonthTotalData ? selectedMonthTotalData.anualesCount : 0;
   }, [selectedMesFacturacion, overallAnualesCount, selectedMonthTotalData]);
 
+  const kpiProrrateosMonto = useMemo(() => {
+    if (selectedMesFacturacion === 'ALL') return overallProrrateosTotal;
+    return selectedMonthTotalData ? selectedMonthTotalData.prorrateos : 0;
+  }, [selectedMesFacturacion, overallProrrateosTotal, selectedMonthTotalData]);
+
   // Deuda unificada (Vencidos y Bloqueados): 1 tarifa por cada cliente impago
   const { clientesConDeudaList, vencidosCount, bloqueadosCount, totalDeudaPendiente } = useMemo(() => {
     const list: Array<{
@@ -832,9 +847,9 @@ export default function ReportesExcelTab({
         if (selectedMesFacturacion !== 'ALL' && mKey !== selectedMesFacturacion) return;
 
         // Filtrar por sección
-        if (activeSection === 'ALTAS' && cell.tipo !== 'ALTA') return;
+        if (activeSection === 'ALTAS' && cell.tipo !== 'ALTA' && cell.tipo !== 'ANUAL') return;
         if (activeSection === 'MENSUALIDADES' && cell.tipo !== 'RENOVACION') return;
-        if (activeSection === 'ANUALES' && cell.tipo !== 'ANUAL') return;
+        if (activeSection === 'ANUALES' && cell.tipo !== 'ANUAL' && (c.tipoSuscripcion || '').toUpperCase() !== 'ANUAL') return;
         if (activeSection === 'PRORRATEOS' && cell.tipo !== 'PRORRATEO') return;
 
         list.push({
@@ -1237,21 +1252,113 @@ ${summaryMonthRowsXml}
         </div>
       </div>
 
-      {/* 2. FILTROS GENERALES AL INICIO (AFECTAN A TODO EL MÓDULO, SOLO MENSUAL) */}
+      {/* 2. BLOQUE 1: RESUMEN GENERAL DE LA CARTERA (MÉTRICAS GLOBALES MACRO DE LA EMPRESA) */}
+      <div className="mb-4">
+        <div className="d-flex align-items-center justify-content-between mb-2.5 flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <BarChart3 size={17} className="text-primary" />
+            <strong className="text-dark fw-bold" style={{ fontSize: '0.96rem' }}>
+              Resumen General de la Cartera (Métricas Globales de Empresa)
+            </strong>
+            <span className="badge rounded-pill bg-secondary-subtle text-secondary fw-semibold px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
+              Acumulado Global Histórico
+            </span>
+          </div>
+          <small className="text-muted" style={{ fontSize: '0.78rem' }}>
+            Estado macro de la cartera total (no sujeto a filtros de períodos mensuales)
+          </small>
+        </div>
+
+        <div className="row g-3">
+          {/* Card 1: Total Recaudado General Histórico */}
+          <div className="col-12 col-md-4">
+            <div
+              className="card admin-stat-card h-100 shadow-sm border-0"
+              onClick={() => setActiveSection('TOTAL_MES')}
+              style={{ cursor: 'pointer', borderLeft: '4px solid #10B981' }}
+              title="Total acumulado recaudado en toda la historia de la empresa"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label fw-bold">Total Recaudado General</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                  <DollarSign size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-success" style={{ fontSize: '1.65rem' }}>
+                S/ {granTotalCobros.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.74rem' }}>
+                <span>Acumulado de todos los períodos</span>
+                <span className="badge bg-success-subtle text-success fw-bold">Histórico Oficial</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Cartera Total de Clientes */}
+          <div className="col-12 col-md-4">
+            <div
+              className="card admin-stat-card h-100 shadow-sm border-0"
+              onClick={() => setActiveSection('RESUMEN')}
+              style={{ cursor: 'pointer', borderLeft: '4px solid #3B82F6' }}
+              title="Clientes activos registrados en la base de datos"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label fw-bold">Clientes en Cartera Total</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--blue">
+                  <Users size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.65rem' }}>
+                {safeClients.length} clientes
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.74rem' }}>
+                <span>Al día: <strong className="text-success">{safeClients.filter(c => (c.estadoCuenta || '').toUpperCase() === 'HABILITADO').length}</strong></span>
+                <span>Con deuda: <strong className="text-danger">{clientesConDeudaList.length}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Deuda Total Pendiente de Cobro */}
+          <div className="col-12 col-md-4">
+            <div
+              className="card admin-stat-card h-100 shadow-sm border-0"
+              onClick={() => setActiveSection('BLOQUEADOS')}
+              style={{ cursor: 'pointer', borderLeft: '4px solid #EF4444' }}
+              title="Deuda total acumulada de clientes vencidos y bloqueados"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label fw-bold">Cartera con Deuda Pendiente</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--red">
+                  <AlertTriangle size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.65rem' }}>
+                S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.74rem' }}>
+                <span><strong className="text-danger">{clientesConDeudaList.length} clientes</strong> impagos</span>
+                <span className="badge bg-danger-subtle text-danger fw-bold">Vencidos + Bloqueados</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. BLOQUE 2: BARRA DE FILTROS DE ANÁLISIS DEL PERÍODO */}
       <div className="custom-card admin-report-filter-panel p-3.5 mb-4 shadow-sm" style={{ borderTop: '3px solid #0047FF' }}>
         <div className="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom flex-wrap gap-2">
           <div className="d-flex align-items-center gap-2">
             <Search size={17} className="text-primary" />
             <strong className="text-dark fw-bold" style={{ fontSize: '0.92rem' }}>
-              Filtros Principales de Control Mensual
+              Filtros de Análisis del Período y Segmentación
             </strong>
             <span className="badge rounded-pill bg-primary-subtle text-primary fw-bold px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
-              Afectan KPIs, Tablas y Excel
+              Control Dinámico
             </span>
           </div>
           <div className="d-flex align-items-center gap-2">
             <span className="text-muted small" style={{ fontSize: '0.78rem' }}>
-              Modo Mensual Oficial · Coincidencia 100% con columnas del Excel
+              Seleccione un mes o asesor para auditar el rendimiento del período
             </span>
             <button
               onClick={resetFilters}
@@ -1368,142 +1475,136 @@ ${summaryMonthRowsXml}
         </div>
       </div>
 
-      {/* 3. STRIP DE 6 INDICADORES PRINCIPALES (KPIS DIRECTOS Y COINCIDENTES) */}
-      <div className="row g-3 mb-4 admin-stat-strip">
-        {/* KPI 1: Total Clientes en Cartera (Resuelve la duda de los 80 clientes) */}
-        <div className="col-12 col-sm-6 col-xl-2">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('RESUMEN')}
-            style={{ cursor: 'pointer' }}
-            title="Total de clientes registrados en cartera"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Clientes en Cartera</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--blue">
-                <Users size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.45rem' }}>
-              {filteredClients.length} clientes
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Al día: <strong className="text-success">{filteredClients.filter(c => (c.estadoCuenta || '').toUpperCase() === 'HABILITADO').length}</strong> · Con deuda: <strong className="text-danger">{clientesConDeudaList.length}</strong>
-            </div>
+      {/* 4. BLOQUE 3: RENDIMIENTO DEL PERÍODO SELECCIONADO */}
+      <div className="mb-4">
+        <div className="d-flex align-items-center justify-content-between mb-2.5 flex-wrap gap-2">
+          <div className="d-flex align-items-center gap-2">
+            <TrendingUp size={17} className="text-success" />
+            <strong className="text-dark fw-bold" style={{ fontSize: '0.96rem' }}>
+              Rendimiento del Período: {currentMonthLabel}
+            </strong>
+            <span className="badge rounded-pill bg-success-subtle text-success fw-bold px-2 py-0.5" style={{ fontSize: '0.7rem' }}>
+              Resultados del Filtro
+            </span>
           </div>
+          <small className="text-muted" style={{ fontSize: '0.78rem' }}>
+            Haz clic en cualquier tarjeta para auditar sus registros abajo
+          </small>
         </div>
 
-        {/* KPI 2: Total Recaudado (Exacto a la columna Excel o Gran Total) */}
-        <div className="col-12 col-sm-6 col-xl-2">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('TOTAL_MES')}
-            style={{ cursor: 'pointer' }}
-            title="Total recaudado que coincide 1 a 1 con la columna del Excel"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Total Recaudado</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--green">
-                <DollarSign size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="admin-stat-card-value text-success" style={{ fontSize: '1.45rem' }}>
-              S/ {kpiTotalRecaudado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              Período: <strong className="text-dark">{currentMonthLabel}</strong>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI 3: Nuevas Altas (Primer pago / mes de inicio) */}
-        <div className="col-12 col-sm-6 col-xl-2">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('ALTAS')}
-            style={{ cursor: 'pointer' }}
-            title="Clientes que iniciaron su plan en este período"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Nuevas Altas</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--green">
-                <UserPlus size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.45rem' }}>
-              S/ {kpiAltasMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              <strong className="text-success">{kpiAltasCount} clientes</strong> iniciaron aquí
+        <div className="row g-3 admin-stat-strip">
+          {/* KPI 1: Cobrado en el Período */}
+          <div className="col-12 col-sm-6 col-xl">
+            <div
+              className={`card admin-stat-card h-100 shadow-sm border-0 ${activeSection === 'TOTAL_MES' ? 'border border-2 border-success' : ''}`}
+              onClick={() => setActiveSection('TOTAL_MES')}
+              style={{ cursor: 'pointer' }}
+              title="Total recaudado en el período seleccionado que coincide 1 a 1 con la columna del Excel"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label">Cobrado en el Período</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                  <DollarSign size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-success" style={{ fontSize: '1.45rem' }}>
+                S/ {kpiTotalRecaudado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+                Período: <strong className="text-dark">{currentMonthLabel}</strong>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* KPI 4: Renovaciones Mensuales */}
-        <div className="col-12 col-sm-6 col-xl-2">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('MENSUALIDADES')}
-            style={{ cursor: 'pointer' }}
-            title="Mensualidades recurrentes cobradas"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Renovaciones</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--blue">
-                <Repeat size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="admin-stat-card-value text-primary" style={{ fontSize: '1.45rem' }}>
-              S/ {kpiRenovacionesMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              <strong className="text-primary">{kpiRenovacionesCount} cobros</strong> recurrentes
+          {/* KPI 2: Nuevas Altas del Período */}
+          <div className="col-12 col-sm-6 col-xl">
+            <div
+              className={`card admin-stat-card h-100 shadow-sm border-0 ${activeSection === 'ALTAS' ? 'border border-2 border-success' : ''}`}
+              onClick={() => setActiveSection('ALTAS')}
+              style={{ cursor: 'pointer' }}
+              title="Clientes que iniciaron su plan en este período"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label">Nuevas Altas</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--green">
+                  <UserPlus size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.45rem' }}>
+                S/ {kpiAltasMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+                <strong className="text-success">{kpiAltasCount} clientes</strong> iniciaron aquí
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* KPI 5: Planes Anuales (Venta única en mes de inicio) */}
-        <div className="col-12 col-sm-6 col-xl-2">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('ANUALES')}
-            style={{ cursor: 'pointer' }}
-            title="Venta anual contada únicamente en su mes de inicio"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Planes Anuales</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--purple">
-                <Calendar size={18} strokeWidth={2.2} />
-              </span>
-            </div>
-            <div className="admin-stat-card-value" style={{ fontSize: '1.45rem', color: '#7C3AED' }}>
-              S/ {kpiAnualesMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              <strong style={{ color: '#7C3AED' }}>{kpiAnualesCount} suscripciones</strong> · 1 año
+          {/* KPI 3: Renovaciones Mensuales */}
+          <div className="col-12 col-sm-6 col-xl">
+            <div
+              className={`card admin-stat-card h-100 shadow-sm border-0 ${activeSection === 'MENSUALIDADES' ? 'border border-2 border-primary' : ''}`}
+              onClick={() => setActiveSection('MENSUALIDADES')}
+              style={{ cursor: 'pointer' }}
+              title="Mensualidades recurrentes cobradas"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label">Renovaciones</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--blue">
+                  <Repeat size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-primary" style={{ fontSize: '1.45rem' }}>
+                S/ {kpiRenovacionesMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+                <strong className="text-primary">{kpiRenovacionesCount} cobros</strong> recurrentes
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* KPI 6: Cartera con Deuda (Vencidos y Bloqueados) */}
-        <div className="col-12 col-sm-6 col-xl-2">
-          <div
-            className="card admin-stat-card h-100 shadow-sm border-0"
-            onClick={() => setActiveSection('BLOQUEADOS')}
-            style={{ cursor: 'pointer' }}
-            title="Clientes impagos con tarifa pendiente"
-          >
-            <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Deuda Pendiente</span>
-              <span className="admin-stat-card-icon admin-stat-card-icon--red">
-                <AlertTriangle size={18} strokeWidth={2.2} />
-              </span>
+          {/* KPI 4: Planes Anuales */}
+          <div className="col-12 col-sm-6 col-xl">
+            <div
+              className={`card admin-stat-card h-100 shadow-sm border-0 ${activeSection === 'ANUALES' ? 'border border-2 border-purple' : ''}`}
+              onClick={() => setActiveSection('ANUALES')}
+              style={{ cursor: 'pointer' }}
+              title="Venta anual contada únicamente en su mes de inicio"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label">Planes Anuales</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--purple">
+                  <Calendar size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value" style={{ fontSize: '1.45rem', color: '#7C3AED' }}>
+                S/ {kpiAnualesMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+                <strong style={{ color: '#7C3AED' }}>{kpiAnualesCount} suscripciones</strong> · 1 año
+              </div>
             </div>
-            <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.45rem' }}>
-              S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
-              <strong className="text-danger">{clientesConDeudaList.length} clientes</strong> impagos
+          </div>
+
+          {/* KPI 5: Prorrateos Cobrados */}
+          <div className="col-12 col-sm-6 col-xl">
+            <div
+              className={`card admin-stat-card h-100 shadow-sm border-0 ${activeSection === 'PRORRATEOS' ? 'border border-2 border-warning' : ''}`}
+              onClick={() => setActiveSection('PRORRATEOS')}
+              style={{ cursor: 'pointer' }}
+              title="Cobros de ajustes de prorrateo"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label">Prorrateos</span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--orange">
+                  <Layers size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-warning" style={{ fontSize: '1.45rem' }}>
+                S/ {kpiProrrateosMonto.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top" style={{ fontSize: '0.72rem' }}>
+                Ajustes iniciales y 2.° prorrateo
+              </div>
             </div>
           </div>
         </div>
@@ -2147,11 +2248,11 @@ ${summaryMonthRowsXml}
                             }}
                           >
                             {t.tipo === 'ALTA'
-                              ? 'Alta'
+                              ? 'Nueva Alta'
                               : t.tipo === 'RENOVACION'
-                              ? 'Mensualidad'
+                              ? 'Renovación Mensual'
                               : t.tipo === 'ANUAL'
-                              ? 'Anual (Único Mes)'
+                              ? 'Alta (Plan Anual)'
                               : 'Prorrateo'}
                           </span>
                         </td>

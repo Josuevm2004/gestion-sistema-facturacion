@@ -19,10 +19,12 @@ import {
   BellRing,
   CheckCircle2,
   CalendarPlus,
+  Download,
 } from 'lucide-react';
 import PaginationControls from './PaginationControls';
 import BillingMessageModal from '../modals/BillingMessageModal';
 import RegistrarPagoModal from '../modals/RegistrarPagoModal';
+import { exportTableToExcel } from '../utils/exportTableReport';
 import { TableActionDropdown } from './TableActionDropdown';
 import { parseLocalDate, getDiffDays } from '@/lib/billing';
 
@@ -420,6 +422,51 @@ export default function ClientesTodosTab({
     setCurrentPage((page) => Math.min(page, totalPages));
   }, [totalPages]);
 
+  const handleExportReport = () => {
+    exportTableToExcel({
+      filename: `Reporte_Clientes_General_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Clientes',
+      reportTitle: 'Reporte General de Clientes',
+      reportSubtitle: 'Listado consolidado de cartera de clientes según filtros aplicados',
+      columns: [
+        { header: '#', key: 'idx', width: 40, align: 'center', getValue: (_, idx) => idx + 1 },
+        { header: 'RUC', key: 'ruc', width: 110, align: 'center' },
+        { header: 'Razón Social', key: 'razonSocial', width: 230 },
+        { header: 'Nombre Comercial', key: 'nombreComercial', width: 180, getValue: (c) => c.nombreComercial || '—' },
+        { header: 'Contacto / Teléfono', key: 'telefono', width: 130, getValue: (c) => c.telefono || c.telefonoPersonal || '—' },
+        { header: 'Email', key: 'email', width: 180, getValue: (c) => c.email || c.emailPersonal || '—' },
+        { header: 'Régimen', key: 'regimenTributario', width: 120, getValue: (c) => c.regimenTributario || '—' },
+        { header: 'Plan Contratado', key: 'planContratado', width: 130, getValue: (c) => c.planContratado || 'Plan Estándar' },
+        { header: 'Suscripción', key: 'tipoSuscripcion', width: 100, align: 'center', getValue: (c) => c.tipoSuscripcion || 'MENSUAL' },
+        {
+          header: 'Próximo Cobro (S/)',
+          key: 'cobro',
+          type: 'number',
+          width: 120,
+          getValue: (c) => Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0),
+        },
+        {
+          header: 'Fecha Vencimiento',
+          key: 'vencimiento',
+          width: 120,
+          align: 'center',
+          getValue: (c) => c._vencDate ? c._vencDate.toLocaleDateString('es-PE') : (c.fechaVencimientoMensual ? new Date(c.fechaVencimientoMensual).toLocaleDateString('es-PE') : '—'),
+        },
+        { header: 'Estado Cuenta', key: 'estadoCuenta', width: 110, align: 'center', getValue: (c) => c.estadoCuenta || 'SIN_ESTADO' },
+        { header: 'Capacitación', key: 'estadoCapacitacion', width: 110, align: 'center', getValue: (c) => c.estadoCapacitacion || '—' },
+        { header: 'Asesor Comercial', key: 'vendedor', width: 140, getValue: (c) => c.vendedor || 'Por asignar' },
+        {
+          header: 'Fecha Registro',
+          key: 'fechaRegistro',
+          width: 110,
+          align: 'center',
+          getValue: (c) => c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString('es-PE') : '—',
+        },
+      ],
+      data: processedClients,
+    });
+  };
+
   const visibleColumnCount = AVAILABLE_COLUMNS.filter((col) => visibleColumns[col.id]).length;
 
   return (
@@ -446,6 +493,16 @@ export default function ClientesTodosTab({
               <span>Limpiar Filtros</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handleExportReport}
+            className="btn-meta-action btn-meta-action-secondary"
+            title="Exportar listado actual de clientes a Excel"
+          >
+            <Download size={14} />
+            <span>Exportar Reporte ({processedClients.length})</span>
+          </button>
 
           <button
             type="button"

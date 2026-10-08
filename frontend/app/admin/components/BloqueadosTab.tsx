@@ -1,10 +1,11 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw } from 'lucide-react';
+import { ShieldCheck, CheckCircle, Trash2, Search, RotateCcw, Download } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import { TableActionDropdown } from './TableActionDropdown';
+import { exportTableToExcel } from '../utils/exportTableReport';
 
 interface BloqueadosTabProps {
   clientesBloqueadosList: Client[];
@@ -21,15 +22,39 @@ export default function BloqueadosTab({
 }: BloqueadosTabProps) {
   const [search, setSearch] = React.useState('');
   const [suscripcionFilter, setSuscripcionFilter] = React.useState('');
+  const [vendedorFilter, setVendedorFilter] = React.useState('');
+  const [planFilter, setPlanFilter] = React.useState('');
   const [openActionId, setOpenActionId] = React.useState<string | number | null>(null);
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
+
+  const availableVendedores = React.useMemo(() => {
+    const s = new Set<string>();
+    clientesBloqueadosList.forEach((c) => {
+      if (c.vendedor) s.add(c.vendedor.trim());
+    });
+    return Array.from(s).sort();
+  }, [clientesBloqueadosList]);
+
+  const availablePlanes = React.useMemo(() => {
+    const s = new Set<string>();
+    clientesBloqueadosList.forEach((c) => {
+      if (c.planContratado) s.add(c.planContratado.trim());
+    });
+    return Array.from(s).sort();
+  }, [clientesBloqueadosList]);
 
   const filteredClients = React.useMemo(() => {
     return clientesBloqueadosList.filter((c) => {
       if (suscripcionFilter) {
         const tipo = (c.tipoSuscripcion || 'MENSUAL').toUpperCase();
         if (tipo !== suscripcionFilter.toUpperCase()) return false;
+      }
+      if (vendedorFilter && (c.vendedor || '').toLowerCase() !== vendedorFilter.toLowerCase()) {
+        return false;
+      }
+      if (planFilter && (c.planContratado || '').toLowerCase() !== planFilter.toLowerCase()) {
+        return false;
       }
       if (search.trim()) {
         const q = search.trim().toLowerCase();
@@ -48,13 +73,50 @@ export default function BloqueadosTab({
       }
       return true;
     });
-  }, [clientesBloqueadosList, search, suscripcionFilter]);
+  }, [clientesBloqueadosList, search, suscripcionFilter, vendedorFilter, planFilter]);
 
-  const hasActiveFilters = Boolean(search.trim() || suscripcionFilter);
+  const hasActiveFilters = Boolean(search.trim() || suscripcionFilter || vendedorFilter || planFilter);
 
   const resetFilters = () => {
     setSearch('');
     setSuscripcionFilter('');
+    setVendedorFilter('');
+    setPlanFilter('');
+  };
+
+  const handleExportReport = () => {
+    exportTableToExcel({
+      filename: `Reporte_Clientes_Bloqueados_${new Date().toISOString().slice(0, 10)}`,
+      sheetName: 'Bloqueados',
+      reportTitle: 'Reporte de Clientes Bloqueados / Suspendidos',
+      reportSubtitle: 'Cartera de clientes con acceso restringido y deuda pendiente',
+      columns: [
+        { header: '#', key: 'idx', width: 40, align: 'center', getValue: (_, idx) => idx + 1 },
+        { header: 'RUC', key: 'ruc', width: 110, align: 'center' },
+        { header: 'Razón Social / Empresa', key: 'razonSocial', width: 230 },
+        { header: 'Teléfono Contacto', key: 'telefono', width: 130, getValue: (c) => c.telefono || c.telefonoPersonal || '—' },
+        { header: 'Email', key: 'email', width: 180, getValue: (c) => c.email || c.emailPersonal || '—' },
+        { header: 'Plan Contratado', key: 'planContratado', width: 140, getValue: (c) => c.planContratado || 'Plan Estándar' },
+        { header: 'Suscripción', key: 'tipoSuscripcion', width: 100, align: 'center', getValue: (c) => c.tipoSuscripcion || 'MENSUAL' },
+        { header: 'Asesor Comercial', key: 'vendedor', width: 140, getValue: (c) => c.vendedor || 'Por asignar' },
+        { header: 'Estado', key: 'estadoCuenta', width: 100, align: 'center', getValue: () => 'BLOQUEADO' },
+        {
+          header: 'Monto Deuda (S/)',
+          key: 'deuda',
+          type: 'number',
+          width: 120,
+          getValue: (c) => Number(c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0)),
+        },
+        {
+          header: 'Fecha Registro',
+          key: 'fechaRegistro',
+          width: 110,
+          align: 'center',
+          getValue: (c) => c.fechaRegistro ? new Date(c.fechaRegistro).toLocaleDateString('es-PE') : '—',
+        },
+      ],
+      data: filteredClients,
+    });
   };
 
   const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
@@ -65,7 +127,7 @@ export default function BloqueadosTab({
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [search, suscripcionFilter, filteredClients.length]);
+  }, [search, suscripcionFilter, vendedorFilter, planFilter, filteredClients.length]);
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -85,7 +147,7 @@ export default function BloqueadosTab({
             <small className="text-muted fw-semibold">Clientes desafiliados o con acceso restringido que pueden rehabilitarse</small>
           </div>
         </div>
-        <div className="d-flex align-items-center gap-2">
+        <div className="d-flex align-items-center gap-2 flex-wrap">
           {hasActiveFilters && (
             <button
               onClick={resetFilters}
@@ -95,36 +157,69 @@ export default function BloqueadosTab({
               <span>Limpiar Filtros</span>
             </button>
           )}
+          <button
+            type="button"
+            onClick={handleExportReport}
+            className="btn-meta-action btn-meta-action-secondary"
+            title="Exportar listado de bloqueados a Excel"
+          >
+            <Download size={14} />
+            <span>Exportar Reporte ({filteredClients.length})</span>
+          </button>
           <span className="admin-badge-count-pill admin-badge-count-pill--neutral">
             {hasActiveFilters ? `${filteredClients.length} de ${clientesBloqueadosList.length} Bloqueados` : `${clientesBloqueadosList.length} Bloqueados`}
           </span>
         </div>
       </div>
 
-      {/* Barra de Filtros: Buscador y Filtro Anual / Mensual */}
+      {/* Barra de Filtros: Buscador, Suscripción, Asesor y Plan */}
       <div className="stitch-filter-toolbar">
         <div className="row g-2 align-items-center">
-          <div className="col-12 col-md-8 col-lg-6">
+          <div className="col-12 col-md-6 col-lg-4">
             <div className="stitch-filter-search">
               <Search size={15} />
               <input
                 type="text"
                 className="form-control stitch-filter-input"
-                placeholder="Buscar por RUC, Empresa, DNI, Teléfono, Plan..."
+                placeholder="Buscar por RUC, Empresa, DNI, Teléfono..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
           </div>
-          <div className="col-12 col-md-4 col-lg-3">
+          <div className="col-6 col-md-3 col-lg-2">
             <select
               className="form-select stitch-filter-select w-100"
               value={suscripcionFilter}
               onChange={(e) => setSuscripcionFilter(e.target.value)}
             >
-              <option value="">Suscripción: Todas</option>
+              <option value="">Modalidad: Todas</option>
               <option value="MENSUAL">Mensual</option>
               <option value="ANUAL">Anual</option>
+            </select>
+          </div>
+          <div className="col-6 col-md-3 col-lg-3">
+            <select
+              className="form-select stitch-filter-select w-100"
+              value={planFilter}
+              onChange={(e) => setPlanFilter(e.target.value)}
+            >
+              <option value="">Plan: Todos</option>
+              {availablePlanes.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          <div className="col-12 col-md-4 col-lg-3">
+            <select
+              className="form-select stitch-filter-select w-100"
+              value={vendedorFilter}
+              onChange={(e) => setVendedorFilter(e.target.value)}
+            >
+              <option value="">Asesor: Todos</option>
+              {availableVendedores.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -142,13 +237,14 @@ export default function BloqueadosTab({
                 <th>Email</th>
                 <th>Plan</th>
                 <th>Estado</th>
+                <th>Monto Deuda</th>
                 <th className="text-center" style={{ width: '130px' }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
               {filteredClients.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
+                  <td colSpan={8} className="text-center text-muted py-5 fw-semibold">
                     {hasActiveFilters
                       ? 'No se encontraron clientes bloqueados con los filtros aplicados.'
                       : 'No hay clientes en estado bloqueado.'}
@@ -159,6 +255,11 @@ export default function BloqueadosTab({
                   const phone = c.telefono || c.telefonoPersonal;
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;
+                  const deuda = Number(
+                    c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null
+                      ? c.montoSiguienteCobro
+                      : (c.montoMensual || c.precioPlan || 0)
+                  );
 
                   return (
                     <tr key={c.id}>
@@ -208,6 +309,11 @@ export default function BloqueadosTab({
                         <span className="badge-fb badge-fb-secondary">
                           <span className="badge-dot badge-dot-neutral" />
                           BLOQUEADO
+                        </span>
+                      </td>
+                      <td>
+                        <span className="cell-amount text-danger fw-bold">
+                          S/ {deuda.toFixed(2)}
                         </span>
                       </td>
                       <td className="text-center">
