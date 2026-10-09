@@ -211,7 +211,7 @@ export default function CentroControlTab({
                   const { _vencDate: vencDate, _diffDays: diffDays } = c;
                   const isExpired = diffDays !== 9999 && diffDays <= 0;
                   const isNearExpiry = diffDays <= 3 && diffDays >= 0;
-                  const cobroProximo = Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0);
+                  const cobroProximo = Number(c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0 ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0));
                   const estadoVisual = isExpired && c.estadoCuenta === 'HABILITADO' ? 'VENCIDO' : c.estadoCuenta;
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;

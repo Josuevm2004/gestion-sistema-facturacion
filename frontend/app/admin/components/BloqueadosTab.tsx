@@ -105,7 +105,7 @@ export default function BloqueadosTab({
           key: 'deuda',
           type: 'number',
           width: 120,
-          getValue: (c) => Number(c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0)),
+          getValue: (c) => Number(c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0 ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0)),
         },
         {
           header: 'Fecha Registro',
@@ -256,7 +256,7 @@ export default function BloqueadosTab({
                   const initial = (c.razonSocial || 'C').charAt(0).toUpperCase();
                   const isActionOpen = openActionId === c.id;
                   const deuda = Number(
-                    c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null
+                    c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0
                       ? c.montoSiguienteCobro
                       : (c.montoMensual || c.precioPlan || 0)
                   );

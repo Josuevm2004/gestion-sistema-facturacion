@@ -67,8 +67,8 @@ export default function ResumenTab({
       const st = (c.estadoCuenta || '').toUpperCase();
       if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
 
-      // Para bloqueados y vencidos, fijarse en cuánto debe (montoSiguienteCobro), no en cuánto es su plan
-      const deuda = c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null
+      // Para bloqueados y vencidos, fijarse en cuánto debe (montoSiguienteCobro si > 0, sino tarifa de plan)
+      const deuda = c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0
         ? Number(c.montoSiguienteCobro)
         : Number(c.montoMensual || c.precioPlan || 0);
 
@@ -348,7 +348,7 @@ export default function ResumenTab({
                     </div>
                     <div className="text-end">
                       <strong className="d-block text-dark fw-bold" style={{ fontSize: '0.875rem' }}>
-                        S/ {Number(c.montoSiguienteCobro ?? c.montoMensual ?? 0).toFixed(2)}
+                        S/ {Number(c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0 ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0)).toFixed(2)}
                       </strong>
                       <span
                         className="badge rounded-pill mt-1"

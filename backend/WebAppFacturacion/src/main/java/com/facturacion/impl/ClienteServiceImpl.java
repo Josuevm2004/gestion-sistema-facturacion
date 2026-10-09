@@ -917,7 +917,11 @@ public class ClienteServiceImpl implements ClienteService {
         if (ventaParaCobro != null) {
             res.setVentaId(ventaParaCobro.getId());
             if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
-                res.setMontoSiguienteCobro(totalDeudaPendiente);
+                res.setMontoSiguienteCobro(totalDeudaPendiente != null && totalDeudaPendiente.compareTo(BigDecimal.ZERO) > 0
+                        ? totalDeudaPendiente
+                        : (ventaPlan != null && ventaPlan.getSuscripcion() != null && ventaPlan.getSuscripcion().getPrecio() != null
+                                ? ventaPlan.getSuscripcion().getPrecio()
+                                : ventaParaCobro.getMontoTotal()));
             } else {
                 res.setMontoSiguienteCobro(ventaParaCobro.getMontoTotal());
             }
@@ -971,7 +975,10 @@ public class ClienteServiceImpl implements ClienteService {
                     BigDecimal montoServicio = calcularMontoSiguienteCobro(servicio, ventasCliente);
                     res.setMontoSiguienteCobro(montoServicio != null ? montoServicio : servicio.getMontoProrrateo());
                 } else {
-                    res.setMontoSiguienteCobro(BigDecimal.ZERO);
+                    BigDecimal montoPlan = res.getPrecioPlan() != null && res.getPrecioPlan().compareTo(BigDecimal.ZERO) > 0
+                            ? res.getPrecioPlan()
+                            : (ventaPlan != null && ventaPlan.getSuscripcion() != null ? ventaPlan.getSuscripcion().getPrecio() : null);
+                    res.setMontoSiguienteCobro(montoPlan != null && montoPlan.compareTo(BigDecimal.ZERO) > 0 ? montoPlan : BigDecimal.ZERO);
                 }
             }
             res.setDiasProrrateados(servicio.getDiasProrrateados());
@@ -980,9 +987,14 @@ public class ClienteServiceImpl implements ClienteService {
             }
         }
 
-        if (res.getMontoSiguienteCobro() == null) {
+        if (res.getMontoSiguienteCobro() == null
+                || (("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre))
+                        && res.getMontoSiguienteCobro().compareTo(BigDecimal.ZERO) <= 0)) {
             if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
-                res.setMontoSiguienteCobro(BigDecimal.ZERO);
+                BigDecimal montoPlan = res.getPrecioPlan() != null && res.getPrecioPlan().compareTo(BigDecimal.ZERO) > 0
+                        ? res.getPrecioPlan()
+                        : (ventaPlan != null && ventaPlan.getSuscripcion() != null ? ventaPlan.getSuscripcion().getPrecio() : null);
+                res.setMontoSiguienteCobro(montoPlan != null && montoPlan.compareTo(BigDecimal.ZERO) > 0 ? montoPlan : BigDecimal.ZERO);
             }
         }
 

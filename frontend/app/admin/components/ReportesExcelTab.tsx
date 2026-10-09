@@ -756,8 +756,8 @@ export default function ReportesExcelTab({
       const st = (c.estadoCuenta || '').toUpperCase();
       if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
 
-      // Para bloqueados y vencidos, fijarse en el monto de cuánto debe (montoSiguienteCobro), no de cuánto es su plan
-      const deuda = c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null
+      // Para bloqueados y vencidos, fijarse en el monto de cuánto debe (montoSiguienteCobro si > 0, sino tarifa de plan)
+      const deuda = c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0
         ? Number(c.montoSiguienteCobro)
         : Number(c.montoMensual || c.precioPlan || 0);
       const isBloq = st === 'BLOQUEADO' || st === 'SUSPENDIDO';

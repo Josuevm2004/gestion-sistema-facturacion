@@ -74,7 +74,9 @@ function normalizeClientData(c: any): Client {
     planId: c.planId !== undefined && c.planId !== null ? String(c.planId) : String(resolverPlanIdDesdeNombre(c.planNombre || c.planContratado)),
     tipoSuscripcion: c.tipoSuscripcion || '',
     montoMensual: c.precioPlan !== undefined && c.precioPlan !== null ? c.precioPlan : (c.montoMensual ?? 0),
-    montoSiguienteCobro: c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null ? Number(c.montoSiguienteCobro) : undefined,
+    montoSiguienteCobro: (c.montoSiguienteCobro !== undefined && c.montoSiguienteCobro !== null && Number(c.montoSiguienteCobro) > 0)
+      ? Number(c.montoSiguienteCobro)
+      : (c.precioPlan || c.montoMensual || undefined),
     ventaId: c.ventaId !== undefined && c.ventaId !== null ? String(c.ventaId) : undefined,
     diasProrrateados: c.diasProrrateados,
     tipoProrrateo: c.tipoProrrateo || 'NINGUNO',

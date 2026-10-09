@@ -118,7 +118,7 @@ export default function VencidosTab({
           key: 'deuda',
           type: 'number',
           width: 130,
-          getValue: (c) => Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0),
+          getValue: (c) => Number(c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0 ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0)),
         },
         {
           header: 'Fecha Vencimiento',
@@ -325,7 +325,7 @@ export default function VencidosTab({
                       </td>
                       <td>
                         <span className="cell-amount text-danger">
-                          S/ {Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0).toFixed(2)}
+                          S/ {Number(c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0 ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0)).toFixed(2)}
                         </span>
                       </td>
                       <td>

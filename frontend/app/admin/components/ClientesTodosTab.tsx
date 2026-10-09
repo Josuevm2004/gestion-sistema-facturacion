@@ -443,7 +443,7 @@ export default function ClientesTodosTab({
           key: 'cobro',
           type: 'number',
           width: 120,
-          getValue: (c) => Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0),
+          getValue: (c) => Number(c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0 ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0)),
         },
         {
           header: 'Fecha Vencimiento',
@@ -678,7 +678,7 @@ export default function ClientesTodosTab({
                   ? 'VENCIDO'
                   : c.estadoCuenta;
 
-                const cobroProximo = Number(c.montoSiguienteCobro ?? c.montoMensual ?? c.precioPlan ?? 0);
+                const cobroProximo = Number(c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0 ? c.montoSiguienteCobro : (c.montoMensual || c.precioPlan || 0));
                 const isNearExpiry = diffDays <= 3 && diffDays >= 0;
                 const isExpired = diffDays <= 0;
                 const clientInitial = c.razonSocial ? c.razonSocial.charAt(0).toUpperCase() : 'C';
