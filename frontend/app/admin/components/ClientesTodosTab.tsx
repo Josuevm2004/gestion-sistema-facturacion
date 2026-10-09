@@ -26,6 +26,7 @@ import BillingMessageModal from '../modals/BillingMessageModal';
 import RegistrarPagoModal from '../modals/RegistrarPagoModal';
 import { exportTableToExcel } from '../utils/exportTableReport';
 import { TableActionDropdown } from './TableActionDropdown';
+import ClientPortal from './ClientPortal';
 import { parseLocalDate, getDiffDays } from '@/lib/billing';
 
 export type EntityId = number | string;
@@ -1067,12 +1068,16 @@ export default function ClientesTodosTab({
 
       {/* Modal de Personalización de Columnas */}
       {showColumnModal && (
-        <div
-          className="modal fade show d-block admin-dialog admin-columns-modal"
-          tabIndex={-1}
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1070 }}
-        >
-          <div className="modal-dialog modal-dialog-centered modal-lg">
+        <ClientPortal>
+          <div
+            className="modal fade show d-block admin-dialog admin-columns-modal"
+            tabIndex={-1}
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000000 }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowColumnModal(false);
+            }}
+          >
+            <div className="modal-dialog modal-dialog-centered modal-lg">
             <div className="modal-content shadow-lg border-0 rounded-3">
               <div className="modal-header border-bottom py-3 px-4">
                 <div className="d-flex align-items-center gap-2">
@@ -1162,6 +1167,7 @@ export default function ClientesTodosTab({
             </div>
           </div>
         </div>
+        </ClientPortal>
       )}
 
       {/* Modal de Mensajes Inteligentes de Cobranza */}

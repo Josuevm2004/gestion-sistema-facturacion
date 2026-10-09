@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
+import ClientPortal from '../components/ClientPortal';
 
 interface EditClientModalProps {
   editingClient: Client | null;
@@ -72,16 +73,29 @@ export default function EditClientModal({
     LIDER: { MENSUAL: 89, ANUAL: 890 },
   };
 
+  useEffect(() => {
+    if (!editingClient) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditingClient(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingClient, setEditingClient]);
+
   const activePrices = PLAN_PRICES[selectedPlan] || { MENSUAL: 19, ANUAL: 190 };
   const currentPrice = selectedTipo === 'ANUAL' ? activePrices.ANUAL : activePrices.MENSUAL;
 
   return (
-    <div
-      className="modal admin-dialog d-block bg-dark bg-opacity-50"
-      tabIndex={-1}
-      style={{ backdropFilter: 'blur(6px)', overflowY: 'auto' }}
-    >
-      <div className="modal-dialog modal-lg modal-dialog-centered my-3" style={{ maxWidth: '820px' }}>
+    <ClientPortal>
+      <div
+        className="modal admin-dialog d-block bg-dark bg-opacity-50"
+        tabIndex={-1}
+        style={{ backdropFilter: 'blur(6px)', overflowY: 'auto', zIndex: 1000000 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setEditingClient(null);
+        }}
+      >
+        <div className="modal-dialog modal-lg modal-dialog-centered my-3" style={{ maxWidth: '820px' }}>
         <div
           className="modal-content rounded-4 shadow-lg border-0"
           style={{ maxHeight: 'calc(100vh - 3rem)', display: 'flex', flexDirection: 'column' }}
@@ -388,5 +402,6 @@ export default function EditClientModal({
         </div>
       </div>
     </div>
+    </ClientPortal>
   );
 }

@@ -11,12 +11,12 @@
   --module-border: #E2E8F0;
   --module-canvas: #F8FAFC;
   min-width: 0;
-  animation: admin-module-enter 220ms ease-out both;
+  animation: admin-module-enter 220ms ease-out forwards;
 }
 
 @keyframes admin-module-enter {
   from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 
 /* ==========================================================================

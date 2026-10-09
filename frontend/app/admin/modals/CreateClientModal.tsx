@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus, RefreshCw, X, Building2, User, KeyRound, HelpCircle, CheckCircle2 } from 'lucide-react';
+import ClientPortal from '../components/ClientPortal';
 
 interface CreateClientModalProps {
   show: boolean;
@@ -135,13 +136,26 @@ export default function CreateClientModal({
     }
   };
 
+  useEffect(() => {
+    if (!show) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [show, onClose]);
+
   return (
-    <div
-      className="modal admin-dialog d-block bg-dark bg-opacity-50"
-      tabIndex={-1}
-      style={{ backdropFilter: 'blur(6px)', overflowY: 'auto' }}
-    >
-      <div className="modal-dialog modal-lg modal-dialog-centered my-3" style={{ maxWidth: '840px' }}>
+    <ClientPortal>
+      <div
+        className="modal admin-dialog d-block bg-dark bg-opacity-50"
+        tabIndex={-1}
+        style={{ backdropFilter: 'blur(6px)', overflowY: 'auto', zIndex: 1000000 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="modal-dialog modal-lg modal-dialog-centered my-3" style={{ maxWidth: '840px' }}>
         <div
           className="modal-content rounded-4 shadow-lg border-0"
           style={{ maxHeight: 'calc(100vh - 3rem)', display: 'flex', flexDirection: 'column' }}
@@ -544,5 +558,6 @@ export default function CreateClientModal({
         </div>
       </div>
     </div>
+    </ClientPortal>
   );
 }

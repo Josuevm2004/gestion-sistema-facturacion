@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { TrendingUp, X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
+import ClientPortal from '../components/ClientPortal';
 
 interface UpgradePlanModalProps {
   mejoraPlanClient: Client | null;
@@ -42,6 +43,15 @@ export default function UpgradePlanModal({
     }
   }, [mejoraPlanClient, subscriptions.length, loadSubscriptions]);
 
+  useEffect(() => {
+    if (!mejoraPlanClient) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMejoraPlanClient(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [mejoraPlanClient, setMejoraPlanClient]);
+
   if (!mejoraPlanClient) return null;
 
   const currentType = (mejoraPlanClient.tipoSuscripcion || 'MENSUAL').toUpperCase();
@@ -56,8 +66,16 @@ export default function UpgradePlanModal({
   const canUpgrade = Boolean(selectedSubscription && Number(selectedSubscription.precio || 0) > currentPrice);
 
   return (
-    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
-      <div className="modal-dialog modal-dialog-centered">
+    <ClientPortal>
+      <div
+        className="modal admin-dialog d-block bg-dark bg-opacity-50"
+        tabIndex={-1}
+        style={{ backdropFilter: 'blur(6px)', zIndex: 1000000 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setMejoraPlanClient(null);
+        }}
+      >
+        <div className="modal-dialog modal-dialog-centered">
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
             <div>
@@ -141,5 +159,6 @@ export default function UpgradePlanModal({
         </div>
       </div>
     </div>
+    </ClientPortal>
   );
 }

@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MessageSquare, Copy, Check, ExternalLink, RefreshCw, UserCheck, X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
+import ClientPortal from '../components/ClientPortal';
 
 interface BillingMessageModalProps {
   client: Client | null;
@@ -272,10 +273,27 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
     }
   };
 
+  useEffect(() => {
+    if (!client) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [client, onClose]);
+
   if (!client) return null;
 
   return (
-    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(4px)', overflowY: 'auto' }}>
+    <ClientPortal>
+      <div
+        className="modal admin-dialog d-block bg-dark bg-opacity-50"
+        tabIndex={-1}
+        style={{ backdropFilter: 'blur(4px)', overflowY: 'auto', zIndex: 1000000 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
       <div className="modal-dialog modal-dialog-centered modal-lg my-3">
         <div className="modal-content rounded-4 shadow-lg border-0 overflow-hidden">
           <div className="modal-header border-bottom bg-light px-4 py-3">
@@ -399,5 +417,6 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
         </div>
       </div>
     </div>
+    </ClientPortal>
   );
 }

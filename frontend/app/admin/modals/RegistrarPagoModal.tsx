@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Calendar, RefreshCw, CalendarPlus, CheckCircle, AlertCircle, Clock, X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 import { parseLocalDate, getTodayLocalMidnight, formatDatePeru } from '@/lib/billing';
+import ClientPortal from '../components/ClientPortal';
 
 export type RegistrarPagoMode = 'ADELANTO' | 'REANUDAR_PAGO' | 'RENOVAR_PRORRATEO' | 'RENOVACION';
 
@@ -76,6 +77,16 @@ export default function RegistrarPagoModal({
   const [codigoOperacion, setCodigoOperacion] = useState<string>('');
   const [observaciones, setObservaciones] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, loading]);
 
   const payDate = parseLocalDate(fechaPago) || now;
 
@@ -244,15 +255,21 @@ export default function RegistrarPagoModal({
     : 'Confirmar Renovación con Prorrateo';
 
   return (
-    <div
-      className="modal admin-dialog d-block bg-dark bg-opacity-50"
-      tabIndex={-1}
-      style={{ backdropFilter: 'blur(6px)', zIndex: 1060, overflowY: 'auto' }}
-    >
+    <ClientPortal>
       <div
-        className="modal-dialog modal-lg modal-dialog-centered my-3"
-        style={{ maxWidth: '680px', width: '95%', margin: '1.5rem auto' }}
+        className="modal admin-dialog d-block bg-dark bg-opacity-50"
+        tabIndex={-1}
+        style={{ backdropFilter: 'blur(6px)', zIndex: 1000000, overflowY: 'auto' }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !loading) {
+            onClose();
+          }
+        }}
       >
+        <div
+          className="modal-dialog modal-lg modal-dialog-centered my-3"
+          style={{ maxWidth: '680px', width: '95%', margin: '1.5rem auto' }}
+        >
         <div
           className="modal-content rounded-4 shadow-lg border-0"
           style={{
@@ -524,6 +541,7 @@ export default function RegistrarPagoModal({
         </div>
       </div>
     </div>
+    </ClientPortal>
   );
 }
 

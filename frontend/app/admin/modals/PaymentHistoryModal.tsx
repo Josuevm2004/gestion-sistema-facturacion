@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 import { parseLocalDate, formatDatePeru } from '@/lib/billing';
+import ClientPortal from '../components/ClientPortal';
 
 interface PaymentHistoryModalProps {
   historyClient: Client | null;
@@ -147,9 +148,26 @@ export default function PaymentHistoryModal({
   const countSistema = transactions.length - countExcel;
   const totalMontoAbonado = transactions.reduce((acc, t) => acc + (t.monto || 0), 0);
 
+  useEffect(() => {
+    if (!historyClient) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHistoryClient(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyClient, setHistoryClient]);
+
   return (
-    <div className="modal admin-dialog d-block bg-dark bg-opacity-50" tabIndex={-1} style={{ backdropFilter: 'blur(6px)' }}>
-      <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <ClientPortal>
+      <div
+        className="modal admin-dialog d-block bg-dark bg-opacity-50"
+        tabIndex={-1}
+        style={{ backdropFilter: 'blur(6px)', zIndex: 1000000 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setHistoryClient(null);
+        }}
+      >
+        <div className="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div className="modal-content rounded-4 shadow-lg border-0">
           <div className="modal-header border-bottom bg-white px-4 py-3 d-flex justify-content-between align-items-center">
             <div>
@@ -328,5 +346,6 @@ export default function PaymentHistoryModal({
         </div>
       </div>
     </div>
+    </ClientPortal>
   );
 }

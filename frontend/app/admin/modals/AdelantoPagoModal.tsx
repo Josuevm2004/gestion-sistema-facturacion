@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calendar, DollarSign, CheckCircle, X, AlertCircle } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 import { parseLocalDate, getTodayLocalMidnight, formatDatePeru } from '@/lib/billing';
+import ClientPortal from '../components/ClientPortal';
 
 interface AdelantoPagoModalProps {
   client: Client | null;
@@ -55,16 +56,29 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
     }
   };
 
+  useEffect(() => {
+    if (!client) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [client, onClose, loading]);
+
   return (
-    <div
-      className="modal admin-dialog d-block bg-dark bg-opacity-50"
-      tabIndex={-1}
-      style={{ backdropFilter: 'blur(6px)', zIndex: 1060, overflowY: 'auto' }}
-    >
+    <ClientPortal>
       <div
-        className="modal-dialog modal-dialog-centered my-3"
-        style={{ maxWidth: '580px', width: '95%', margin: '1.5rem auto' }}
+        className="modal admin-dialog d-block bg-dark bg-opacity-50"
+        tabIndex={-1}
+        style={{ backdropFilter: 'blur(6px)', zIndex: 1000000, overflowY: 'auto' }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !loading) onClose();
+        }}
       >
+        <div
+          className="modal-dialog modal-dialog-centered my-3"
+          style={{ maxWidth: '580px', width: '95%', margin: '1.5rem auto' }}
+        >
         <div
           className="modal-content rounded-4 shadow-lg border-0"
           style={{
@@ -181,5 +195,6 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
         </div>
       </div>
     </div>
+    </ClientPortal>
   );
 }
