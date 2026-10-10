@@ -53,6 +53,15 @@ export default function PaymentHistoryModal({
       .finally(() => setLoading(false));
   }, [historyClient]);
 
+  useEffect(() => {
+    if (!historyClient) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHistoryClient(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [historyClient, setHistoryClient]);
+
   if (!historyClient) return null;
 
   // Filtrar pagos en memoria
@@ -147,15 +156,6 @@ export default function PaymentHistoryModal({
   const countExcel = transactions.filter((t) => t.isExcel).length;
   const countSistema = transactions.length - countExcel;
   const totalMontoAbonado = transactions.reduce((acc, t) => acc + (t.monto || 0), 0);
-
-  useEffect(() => {
-    if (!historyClient) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setHistoryClient(null);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [historyClient, setHistoryClient]);
 
   return (
     <ClientPortal>
