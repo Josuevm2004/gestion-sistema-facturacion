@@ -163,19 +163,20 @@ public class ClienteServiceImpl implements ClienteService {
             String val = request.getTipoIgv().trim();
             cliente.setTipoIgv(val.isBlank() ? null : val);
         }
+        Entorno entornoSeleccionado = null;
         if (request.getEntornoId() != null) {
-            entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
-                    .ifPresentOrElse(cliente::setEntorno, () -> {
-                        entornoRepository.findAll().stream()
-                                .filter(e -> Boolean.TRUE.equals(e.getActivo()))
-                                .findFirst()
-                                .ifPresent(cliente::setEntorno);
-                    });
-        } else {
-            entornoRepository.findAll().stream()
-                    .filter(e -> Boolean.TRUE.equals(e.getActivo()))
-                    .findFirst()
-                    .ifPresent(cliente::setEntorno);
+            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
+                    .orElse(null);
+        }
+        if (entornoSeleccionado == null) {
+            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(1L)
+                    .orElseGet(() -> entornoRepository.findAll().stream()
+                            .filter(e -> Boolean.TRUE.equals(e.getActivo()))
+                            .findFirst()
+                            .orElse(null));
+        }
+        if (entornoSeleccionado != null) {
+            cliente.setEntorno(entornoSeleccionado);
         }
         cliente.setEstado(estadoPorCobrar);
         cliente.setFechaRegistro(fechaOperacion);
@@ -201,13 +202,19 @@ public class ClienteServiceImpl implements ClienteService {
         }
         TipoSuscripcion tipoSub = request.getTipoSuscripcion() != null ? request.getTipoSuscripcion() : TipoSuscripcion.MENSUAL;
 
-        final Long finalPlanId = planId;
-        Suscripcion suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(finalPlanId, tipoSub)
-                .orElseGet(() -> suscripcionRepository.findAll().stream()
-                        .filter(s -> Boolean.TRUE.equals(s.getActivo()))
-                        .findFirst()
-                        .orElseThrow(() -> new ResourceNotFoundException(
-                                "No existe una suscripcion activa para el plan y modalidad seleccionados")));
+        Suscripcion suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(planId, tipoSub)
+                .orElse(null);
+        if (suscripcion == null) {
+            for (Suscripcion s : suscripcionRepository.findAll()) {
+                if (Boolean.TRUE.equals(s.getActivo())) {
+                    suscripcion = s;
+                    break;
+                }
+            }
+        }
+        if (suscripcion == null) {
+            throw new ResourceNotFoundException("No existe una suscripcion activa para el plan y modalidad seleccionados");
+        }
 
         // 5. Vendedor inicial
         UsuarioAdmin vendedor = null;
