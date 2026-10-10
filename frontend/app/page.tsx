@@ -215,54 +215,57 @@ export default function FormularioPublicoPage() {
     event.preventDefault();
     const form = event.currentTarget;
 
-    if (!form.checkValidity()) {
-      form.classList.add('was-validated');
-      return;
-    }
-
     setIsSubmitting(true);
     setMessage(null);
 
-    if (!selectedSubscription) {
-      setMessage({ type: 'danger', text: 'El plan seleccionado no tiene una tarifa activa para esta modalidad.' });
-      setIsSubmitting(false);
-      return;
+    const formData = new FormData(form);
+    const rawRuc = String(formData.get('ruc') || '').trim().replace(/\D/g, '');
+    let rucFinal = rawRuc;
+    if (!rucFinal) {
+      rucFinal = (isProduccion ? '20' : '99') + Date.now().toString().slice(-9);
+    } else if (rucFinal.length < 11) {
+      rucFinal = rucFinal.padEnd(11, '0');
+    } else if (rucFinal.length > 11) {
+      rucFinal = rucFinal.slice(0, 11);
     }
 
-    const formData = new FormData(form);
-    const rawRuc = String(formData.get('ruc') || '').trim();
-    const rucFinal = rawRuc || (!isProduccion ? ('99' + Date.now().toString().slice(-9)) : '');
+    const razonSocialInput = String(formData.get('razonSocial') || '').trim();
+    const nombreComercialInput = String(formData.get('nombreComercial') || '').trim();
+    const finalRazonSocial = razonSocialInput || nombreComercialInput || `Cliente ${rucFinal}`;
+
+    const sub = selectedSubscription || subscriptions[0];
+    const planId = sub ? sub.planId : 2;
 
     const payload = {
       ruc: rucFinal,
-      razonSocial: formData.get('razonSocial') as string,
-      nombreComercial: (formData.get('nombreComercial') as string) || (formData.get('razonSocial') as string),
-      direccion: formData.get('direccion') as string,
-      telefono: formData.get('telefono') as string,
-      email: formData.get('email') as string,
-      nombres: formData.get('nombres') as string,
-      apellidos: formData.get('apellidos') as string,
-      dni: formData.get('dni') as string,
-      emailPersonal: formData.get('emailPersonal') as string,
-      telefonoPersonal: formData.get('telefonoPersonal') as string,
-      departamento: formData.get('departamento') as string,
-      provincia: formData.get('provincia') as string,
-      distrito: formData.get('distrito') as string,
+      razonSocial: finalRazonSocial,
+      nombreComercial: nombreComercialInput || finalRazonSocial,
+      direccion: (formData.get('direccion') as string) || '',
+      telefono: (formData.get('telefono') as string) || '',
+      email: (formData.get('email') as string) || '',
+      nombres: (formData.get('nombres') as string) || '',
+      apellidos: (formData.get('apellidos') as string) || '',
+      dni: (formData.get('dni') as string) || '',
+      emailPersonal: (formData.get('emailPersonal') as string) || '',
+      telefonoPersonal: (formData.get('telefonoPersonal') as string) || '',
+      departamento: (formData.get('departamento') as string) || '',
+      provincia: (formData.get('provincia') as string) || '',
+      distrito: (formData.get('distrito') as string) || '',
       regimenTributario: isProduccion ? ((formData.get('regimenTributario') as string) || 'MYPE_TRIBUTARIO') : 'MYPE_TRIBUTARIO',
-      planId: selectedSubscription.planId,
-      planContratado: selectedPlan,
-      tipoSuscripcion: tipoSuscripcion,
-      entornoId: selectedEntornoId,
-      usuarioSol: isProduccion ? ((formData.get('usuarioSol') as string) || '') : '',
-      claveSol: isProduccion ? ((formData.get('claveSol') as string) || '') : '',
+      planId: planId,
+      planContratado: selectedPlan || 'EMPRENDE',
+      tipoSuscripcion: tipoSuscripcion || 'MENSUAL',
+      entornoId: selectedEntornoId || 1,
+      usuarioSol: isProduccion ? (((formData.get('usuarioSol') as string) || '').trim() || 'SIN_USUARIO') : 'SIN_USUARIO',
+      claveSol: isProduccion ? (((formData.get('claveSol') as string) || '').trim() || 'SIN_CLAVE') : 'SIN_CLAVE',
       dniRepresentante: isProduccion ? ((formData.get('dniRepresentante') as string) || null) : null,
       correoRepresentante: isProduccion ? ((formData.get('correoRepresentante') as string) || null) : null,
       primeraVezOProviene: isProduccion ? ((formData.get('primeraVezOProviene') as string) || null) : null,
       usabaSunatAnteriormente: isProduccion ? ((formData.get('usabaSunatAnteriormente') as string) || null) : null,
       tipoIgv: isProduccion ? ((formData.get('tipoIgv') as string) || null) : null,
-      comoNosConocio: formData.get('comoNosConocio') as string,
+      comoNosConocio: (formData.get('comoNosConocio') as string) || '',
       usoSistemaAnterior: formData.get('usoSistemaAnterior') === 'true',
-      comentarios: formData.get('comentarios') as string,
+      comentarios: (formData.get('comentarios') as string) || '',
     };
 
     try {
@@ -466,26 +469,20 @@ export default function FormularioPublicoPage() {
                 <div className="row g-3 public-section-body">
 
               <div className="col-md-4">
-                <label className="form-label">RUC {isProduccion ? '(11 dígitos)' : '(opcional)'}</label>
+                <label className="form-label">RUC <small className="text-muted">(opcional)</small></label>
                 <input
                   type="text"
                   name="ruc"
                   className="form-control"
-                  placeholder={isProduccion ? '20601234567' : '20601234567 (opcional)'}
-                  pattern={isProduccion ? '^(10|20)\\d{9}$' : undefined}
+                  placeholder={isProduccion ? '20601234567 (opcional)' : 'Opcional (11 dígitos)'}
                   maxLength={11}
-                  required={isProduccion}
                   onChange={resetSunatValidation}
                 />
-                <div className="invalid-feedback">
-                  {isProduccion ? 'Ingresa un RUC válido de 11 dígitos.' : 'Formato de RUC no válido.'}
-                </div>
               </div>
 
               <div className="col-md-4">
-                <label className="form-label">Razón Social</label>
-                <input type="text" name="razonSocial" className="form-control" placeholder="Mi Empresa S.A.C." required />
-                <div className="invalid-feedback">Ingresa la razón social.</div>
+                <label className="form-label">Razón Social <small className="text-muted">(opcional)</small></label>
+                <input type="text" name="razonSocial" className="form-control" placeholder="Mi Empresa S.A.C." />
               </div>
 
               <div className="col-md-4">
@@ -495,35 +492,32 @@ export default function FormularioPublicoPage() {
 
               <div className="col-md-6">
                 <label className="form-label">Dirección Fiscal</label>
-                <input type="text" name="direccion" className="form-control" placeholder="Av. Principal 123" required />
-                <div className="invalid-feedback">Ingresa la dirección fiscal.</div>
+                <input type="text" name="direccion" className="form-control" placeholder="Av. Principal 123" />
               </div>
 
               <div className="col-md-3">
                 <label className="form-label">Departamento</label>
-                <input type="text" name="departamento" className="form-control" placeholder="Lima" required />
+                <input type="text" name="departamento" className="form-control" placeholder="Lima" />
               </div>
 
               <div className="col-md-3">
                 <label className="form-label">Provincia</label>
-                <input type="text" name="provincia" className="form-control" placeholder="Lima" required />
+                <input type="text" name="provincia" className="form-control" placeholder="Lima" />
               </div>
 
               <div className="col-md-3">
                 <label className="form-label">Distrito</label>
-                <input type="text" name="distrito" className="form-control" placeholder="Miraflores" required />
+                <input type="text" name="distrito" className="form-control" placeholder="Miraflores" />
               </div>
 
               <div className="col-md-3">
                 <label className="form-label">Celular WhatsApp Empresa</label>
-                <input type="text" name="telefono" className="form-control" placeholder="987654321" pattern="^9\d{8}$" maxLength={9} required />
-                <div className="invalid-feedback">Número de 9 dígitos.</div>
+                <input type="text" name="telefono" className="form-control" placeholder="987654321" maxLength={9} />
               </div>
 
               <div className="col-md-6">
                 <label className="form-label">Correo Electrónico Empresa</label>
-                <input type="email" name="email" className="form-control" placeholder="correo@miempresa.pe" required />
-                <div className="invalid-feedback">Correo válido requerido.</div>
+                <input type="text" inputMode="email" name="email" className="form-control" placeholder="correo@miempresa.pe" />
               </div>
 
               {isProduccion && (
@@ -534,7 +528,6 @@ export default function FormularioPublicoPage() {
                     className="form-select"
                     value={regimenTributario}
                     onChange={(e) => setRegimenTributario(e.target.value)}
-                    required
                   >
                     <option value="MYPE_TRIBUTARIO">Régimen MYPE Tributario</option>
                     <option value="REGIMEN_GENERAL">Régimen General</option>
@@ -560,22 +553,22 @@ export default function FormularioPublicoPage() {
 
               <div className="col-md-4">
                 <label className="form-label">Nombres</label>
-                <input type="text" name="nombres" className="form-control" placeholder="Juan Carlos" required />
+                <input type="text" name="nombres" className="form-control" placeholder="Juan Carlos" />
               </div>
 
               <div className="col-md-4">
                 <label className="form-label">Apellidos</label>
-                <input type="text" name="apellidos" className="form-control" placeholder="Pérez Gómez" required />
+                <input type="text" name="apellidos" className="form-control" placeholder="Pérez Gómez" />
               </div>
 
               <div className="col-md-4">
                 <label className="form-label">DNI</label>
-                <input type="text" name="dni" className="form-control" placeholder="12345678" maxLength={8} pattern="^\d{8}$" required />
+                <input type="text" name="dni" className="form-control" placeholder="12345678" maxLength={8} />
               </div>
 
               <div className="col-md-6">
                 <label className="form-label">Correo Personal</label>
-                <input type="email" name="emailPersonal" className="form-control" placeholder="juan.perez@gmail.com" />
+                <input type="text" inputMode="email" name="emailPersonal" className="form-control" placeholder="juan.perez@gmail.com" />
               </div>
 
               <div className="col-md-6">
@@ -608,7 +601,6 @@ export default function FormularioPublicoPage() {
                       className="form-control"
                       placeholder="12345678"
                       maxLength={8}
-                      pattern="^\d{8}$"
                     />
                     <div className="form-text text-muted small">
                       DNI de un tercero mayor de edad diferente al dueño y socios.
@@ -618,7 +610,8 @@ export default function FormularioPublicoPage() {
                   <div className="col-md-6">
                     <label className="form-label">Correo (Diferente al dueño y socios)</label>
                     <input
-                      type="email"
+                      type="text"
+                      inputMode="email"
                       name="correoRepresentante"
                       className="form-control"
                       placeholder="correo.tercero@ejemplo.com"
@@ -649,14 +642,12 @@ export default function FormularioPublicoPage() {
                       </div>
                       <div className="row g-3">
                         <div className="col-md-6">
-                          <label className="form-label">Usuario SOL</label>
-                          <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS" required onChange={resetSunatValidation} />
-                          <div className="invalid-feedback">Ingresa tu usuario SOL.</div>
+                          <label className="form-label">Usuario SOL <small className="text-muted">(opcional)</small></label>
+                          <input type="text" name="usuarioSol" className="form-control" placeholder="MODDATOS (opcional)" onChange={resetSunatValidation} />
                         </div>
                         <div className="col-md-6">
-                          <label className="form-label">Clave SOL</label>
-                          <input type="password" name="claveSol" className="form-control" placeholder="••••••••" required onChange={resetSunatValidation} />
-                          <div className="invalid-feedback">Ingresa tu clave SOL.</div>
+                          <label className="form-label">Clave SOL <small className="text-muted">(opcional)</small></label>
+                          <input type="password" name="claveSol" className="form-control" placeholder="•••••••• (opcional)" onChange={resetSunatValidation} />
                         </div>
                         <div className="col-12 d-flex flex-wrap align-items-center gap-2">
                           <button

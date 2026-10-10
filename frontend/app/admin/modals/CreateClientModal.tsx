@@ -37,14 +37,21 @@ export default function CreateClientModal({
   const [selectedPlan, setSelectedPlan] = useState<string>('EMPRENDE');
   const [selectedTipo, setSelectedTipo] = useState<'MENSUAL' | 'ANUAL'>('MENSUAL');
 
-  // Seleccionar por defecto el entorno de Producción si existe
-  const defaultEntornoId = React.useMemo(() => {
-    if (!entornos.length) return '';
-    const prod = entornos.find((e) => !e.nombre.toLowerCase().includes('interno'));
-    return prod ? String(prod.id) : String(entornos[0].id);
+  const availableEntornos = React.useMemo(() => {
+    if (entornos && entornos.length > 0) return entornos;
+    return [
+      { id: '1', nombre: 'Producción' },
+      { id: '2', nombre: 'Control Interno' },
+    ];
   }, [entornos]);
 
-  const [selectedEntornoId, setSelectedEntornoId] = useState<string>(defaultEntornoId);
+  // Seleccionar por defecto el entorno de Producción si existe
+  const defaultEntornoId = React.useMemo(() => {
+    const prod = availableEntornos.find((e) => !e.nombre.toLowerCase().includes('interno'));
+    return prod ? String(prod.id) : String(availableEntornos[0].id);
+  }, [availableEntornos]);
+
+  const [selectedEntornoId, setSelectedEntornoId] = useState<string>(defaultEntornoId || '1');
 
   React.useEffect(() => {
     if (defaultEntornoId && !selectedEntornoId) {
@@ -54,7 +61,7 @@ export default function CreateClientModal({
 
   if (!show) return null;
 
-  const currentEntorno = entornos.find((e) => String(e.id) === selectedEntornoId);
+  const currentEntorno = availableEntornos.find((e) => String(e.id) === selectedEntornoId);
   const isProduccion = currentEntorno
     ? !currentEntorno.nombre.toLowerCase().includes('interno')
     : true;
@@ -76,19 +83,20 @@ export default function CreateClientModal({
     try {
       const formData = new FormData(e.currentTarget);
 
-      const rucInput = ((formData.get('ruc') as string) || '').trim();
+      const rucInput = ((formData.get('ruc') as string) || '').trim().replace(/\D/g, '');
       let finalRuc = rucInput;
       if (!finalRuc) {
-        if (isProduccion) {
-          throw new Error('El RUC de 11 dígitos es obligatorio para la modalidad de Producción.');
-        }
-        // Para control interno sin RUC, asignar identificador temporal
-        finalRuc = '99' + Date.now().toString().slice(-9);
+        // Generar RUC/identificador de 11 dígitos único para permitir avanzar sin datos incompletos
+        finalRuc = (isProduccion ? '20' : '99') + Date.now().toString().slice(-9);
+      } else if (finalRuc.length < 11) {
+        finalRuc = finalRuc.padEnd(11, '0');
+      } else if (finalRuc.length > 11) {
+        finalRuc = finalRuc.slice(0, 11);
       }
 
-      if (isProduccion && !/^(10|20)\d{9}$/.test(finalRuc)) {
-        throw new Error('El RUC para Producción debe iniciar con 10 o 20 y tener exactamente 11 dígitos.');
-      }
+      const razonSocialInput = ((formData.get('razonSocial') as string) || '').trim();
+      const nombreComercialInput = ((formData.get('nombreComercial') as string) || '').trim();
+      const finalRazonSocial = razonSocialInput || nombreComercialInput || `Cliente ${finalRuc}`;
 
       const vendedorName = formData.get('vendedor') as string;
       let vendedorId: number | null = null;
@@ -99,32 +107,35 @@ export default function CreateClientModal({
         vendedorId = Number(currentUser.id);
       }
 
+      const usuarioSolInput = ((formData.get('usuarioSol') as string) || '').trim();
+      const claveSolInput = ((formData.get('claveSol') as string) || '').trim();
+
       const payload = {
         ruc: finalRuc,
-        razonSocial: (formData.get('razonSocial') as string) || finalRuc,
-        nombreComercial: formData.get('nombreComercial') as string,
-        direccion: formData.get('direccion') as string,
-        departamento: formData.get('departamento') as string,
-        provincia: formData.get('provincia') as string,
-        distrito: formData.get('distrito') as string,
-        telefono: formData.get('telefono') as string,
-        email: formData.get('email') as string,
-        nombres: formData.get('nombres') as string,
-        apellidos: formData.get('apellidos') as string,
-        dni: formData.get('dni') as string,
-        telefonoPersonal: formData.get('telefonoPersonal') as string,
-        emailPersonal: formData.get('emailPersonal') as string,
-        planContratado: selectedPlan,
-        tipoSuscripcion: selectedTipo,
-        entornoId: selectedEntornoId ? Number(selectedEntornoId) : undefined,
+        razonSocial: finalRazonSocial,
+        nombreComercial: nombreComercialInput || undefined,
+        direccion: ((formData.get('direccion') as string) || '').trim() || undefined,
+        departamento: ((formData.get('departamento') as string) || '').trim() || undefined,
+        provincia: ((formData.get('provincia') as string) || '').trim() || undefined,
+        distrito: ((formData.get('distrito') as string) || '').trim() || undefined,
+        telefono: ((formData.get('telefono') as string) || '').trim() || undefined,
+        email: ((formData.get('email') as string) || '').trim() || undefined,
+        nombres: ((formData.get('nombres') as string) || '').trim() || undefined,
+        apellidos: ((formData.get('apellidos') as string) || '').trim() || undefined,
+        dni: ((formData.get('dni') as string) || '').trim() || undefined,
+        telefonoPersonal: ((formData.get('telefonoPersonal') as string) || '').trim() || undefined,
+        emailPersonal: ((formData.get('emailPersonal') as string) || '').trim() || undefined,
+        planContratado: selectedPlan || 'EMPRENDE',
+        tipoSuscripcion: selectedTipo || 'MENSUAL',
+        entornoId: selectedEntornoId ? Number(selectedEntornoId) : 1,
         vendedorId: vendedorId,
-        usuarioSol: isProduccion ? ((formData.get('usuarioSol') as string) || '').trim() : 'SIN_USUARIO',
-        claveSol: isProduccion ? ((formData.get('claveSol') as string) || '').trim() : 'SIN_CLAVE',
-        dniRepresentante: isProduccion ? formData.get('dniRepresentante') as string : undefined,
-        correoRepresentante: isProduccion ? formData.get('correoRepresentante') as string : undefined,
-        primeraVezOProviene: isProduccion ? formData.get('primeraVezOProviene') as string : undefined,
-        usabaSunatAnteriormente: isProduccion ? formData.get('usabaSunatAnteriormente') as string : undefined,
-        tipoIgv: isProduccion ? formData.get('tipoIgv') as string : undefined,
+        usuarioSol: usuarioSolInput || 'SIN_USUARIO',
+        claveSol: claveSolInput || 'SIN_CLAVE',
+        dniRepresentante: ((formData.get('dniRepresentante') as string) || '').trim() || undefined,
+        correoRepresentante: ((formData.get('correoRepresentante') as string) || '').trim() || undefined,
+        primeraVezOProviene: ((formData.get('primeraVezOProviene') as string) || '').trim() || undefined,
+        usabaSunatAnteriormente: ((formData.get('usabaSunatAnteriormente') as string) || '').trim() || undefined,
+        tipoIgv: ((formData.get('tipoIgv') as string) || '').trim() || undefined,
       };
 
       await handleCreateClient(payload);
@@ -186,6 +197,7 @@ export default function CreateClientModal({
 
           <form
             onSubmit={handleSubmit}
+            noValidate
             style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}
           >
             <div className="modal-body p-4" style={{ overflowY: 'auto', flex: 1 }}>
@@ -205,14 +217,13 @@ export default function CreateClientModal({
                 </div>
 
                 <div className="col-md-6">
-                  <label className="form-label fw-bold">Entorno / Modalidad <span className="text-danger">*</span></label>
+                  <label className="form-label fw-bold">Entorno / Modalidad</label>
                   <select
                     className="form-select fw-semibold"
                     value={selectedEntornoId}
                     onChange={(e) => setSelectedEntornoId(e.target.value)}
-                    required
                   >
-                    {entornos.map((entorno) => (
+                    {availableEntornos.map((entorno) => (
                       <option key={String(entorno.id)} value={String(entorno.id)}>
                         {entorno.nombre}
                       </option>
@@ -227,7 +238,7 @@ export default function CreateClientModal({
 
                 <div className="col-md-6">
                   <div className="d-flex justify-content-between align-items-center mb-1">
-                    <label className="form-label fw-bold mb-0">Periodicidad <span className="text-danger">*</span></label>
+                    <label className="form-label fw-bold mb-0">Periodicidad</label>
                     <div className="btn-group btn-group-sm p-0.5 rounded-pill bg-light border">
                       <button
                         type="button"
@@ -260,7 +271,7 @@ export default function CreateClientModal({
 
                 {/* Meta-Style Interactive Plan Cards */}
                 <div className="col-12 mt-2">
-                  <label className="form-label fw-bold mb-2">Selecciona el Plan <span className="text-danger">*</span></label>
+                  <label className="form-label fw-bold mb-2">Selecciona el Plan</label>
                   <div className="row g-2">
                     {[
                       { key: 'INICIA', name: 'Inicia', priceM: 19, priceA: 190, popular: false },
@@ -360,25 +371,22 @@ export default function CreateClientModal({
 
                 <div className="col-md-4">
                   <label className="form-label">
-                    RUC {isProduccion ? <span className="text-danger">*</span> : <small className="text-muted">(opcional)</small>}
+                    RUC <small className="text-muted">(opcional)</small>
                   </label>
                   <input
                     className="form-control fw-bold text-dark"
                     name="ruc"
-                    placeholder={isProduccion ? '20601234567' : 'Opcional (11 dígitos)'}
+                    placeholder={isProduccion ? '20601234567 (opcional)' : 'Opcional (11 dígitos)'}
                     maxLength={11}
-                    required={isProduccion}
                   />
-                  {!isProduccion && (
-                    <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.75rem' }}>
-                      Si se deja vacío, el sistema generará un código interno automáticamente.
-                    </small>
-                  )}
+                  <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.75rem' }}>
+                    Si se deja vacío, el sistema generará un código identificador automáticamente.
+                  </small>
                 </div>
 
                 <div className="col-md-8">
-                  <label className="form-label">Razón Social <span className="text-danger">*</span></label>
-                  <input className="form-control fw-semibold" name="razonSocial" placeholder="Mi Empresa S.A.C." required />
+                  <label className="form-label">Razón Social <small className="text-muted">(opcional)</small></label>
+                  <input className="form-control fw-semibold" name="razonSocial" placeholder="Mi Empresa S.A.C." />
                 </div>
 
                 <div className="col-md-6">
@@ -387,33 +395,33 @@ export default function CreateClientModal({
                 </div>
 
                 <div className="col-md-6">
-                  <label className="form-label">Dirección Fiscal <span className="text-danger">*</span></label>
-                  <input className="form-control" name="direccion" placeholder="Av. Principal 123" required />
+                  <label className="form-label">Dirección Fiscal</label>
+                  <input className="form-control" name="direccion" placeholder="Av. Principal 123" />
                 </div>
 
                 <div className="col-md-4">
-                  <label className="form-label">Departamento <span className="text-danger">*</span></label>
-                  <input className="form-control" name="departamento" placeholder="Lima" required />
+                  <label className="form-label">Departamento</label>
+                  <input className="form-control" name="departamento" placeholder="Lima" />
                 </div>
 
                 <div className="col-md-4">
-                  <label className="form-label">Provincia <span className="text-danger">*</span></label>
-                  <input className="form-control" name="provincia" placeholder="Lima" required />
+                  <label className="form-label">Provincia</label>
+                  <input className="form-control" name="provincia" placeholder="Lima" />
                 </div>
 
                 <div className="col-md-4">
-                  <label className="form-label">Distrito <span className="text-danger">*</span></label>
-                  <input className="form-control" name="distrito" placeholder="Miraflores" required />
+                  <label className="form-label">Distrito</label>
+                  <input className="form-control" name="distrito" placeholder="Miraflores" />
                 </div>
 
                 <div className="col-md-6">
-                  <label className="form-label">Celular WhatsApp Empresa <span className="text-danger">*</span></label>
-                  <input className="form-control fw-semibold" name="telefono" placeholder="987654321" maxLength={9} required />
+                  <label className="form-label">Celular WhatsApp Empresa</label>
+                  <input className="form-control fw-semibold" name="telefono" placeholder="987654321" maxLength={9} />
                 </div>
 
                 <div className="col-md-6">
-                  <label className="form-label">Email Empresa <span className="text-danger">*</span></label>
-                  <input className="form-control" type="email" name="email" placeholder="correo@empresa.pe" required />
+                  <label className="form-label">Email Empresa</label>
+                  <input className="form-control" type="text" inputMode="email" name="email" placeholder="correo@empresa.pe" />
                 </div>
 
                 {isProduccion && (
@@ -458,7 +466,7 @@ export default function CreateClientModal({
 
                 <div className="col-md-6">
                   <label className="form-label">Correo Personal</label>
-                  <input className="form-control" type="email" name="emailPersonal" placeholder="personal@ejemplo.com" />
+                  <input className="form-control" type="text" inputMode="email" name="emailPersonal" placeholder="personal@ejemplo.com" />
                 </div>
 
                 {/* --- SECCIÓN 4: ACCESOS SUNAT (SOLO PRODUCCIÓN) --- */}
@@ -472,13 +480,13 @@ export default function CreateClientModal({
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label">Usuario SOL <span className="text-danger">*</span></label>
-                      <input className="form-control" name="usuarioSol" placeholder="MODDATOS" required />
+                      <label className="form-label">Usuario SOL <small className="text-muted">(opcional)</small></label>
+                      <input className="form-control" name="usuarioSol" placeholder="MODDATOS (opcional)" />
                     </div>
 
                     <div className="col-md-6">
-                      <label className="form-label">Clave SOL <span className="text-danger">*</span></label>
-                      <input className="form-control" name="claveSol" placeholder="••••••••" required />
+                      <label className="form-label">Clave SOL <small className="text-muted">(opcional)</small></label>
+                      <input className="form-control" name="claveSol" placeholder="•••••••• (opcional)" />
                     </div>
 
                     <div className="col-md-6">
@@ -488,7 +496,7 @@ export default function CreateClientModal({
 
                     <div className="col-md-6">
                       <label className="form-label">Correo (Diferente al dueño y socios)</label>
-                      <input className="form-control" type="email" name="correoRepresentante" placeholder="representante@ejemplo.com" />
+                      <input className="form-control" type="text" inputMode="email" name="correoRepresentante" placeholder="representante@ejemplo.com" />
                     </div>
 
                     {/* --- SECCIÓN 5: PREGUNTAS ADICIONALES (SOLO PRODUCCIÓN) --- */}
@@ -544,12 +552,12 @@ export default function CreateClientModal({
                 {isSubmitting ? (
                   <>
                     <RefreshCw size={16} className="spin-anim" />
-                    <span>Guardando Cliente...</span>
+                    <span>Creando Cliente...</span>
                   </>
                 ) : (
                   <>
                     <UserPlus size={16} />
-                    <span>Guardar y Habilitar Cliente</span>
+                    <span>Crear Cliente</span>
                   </>
                 )}
               </button>

@@ -116,6 +116,7 @@ export default function EditClientModal({
           </div>
           <form
             onSubmit={handleSaveEditClient}
+            noValidate
             style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}
           >
             <div className="modal-body p-4" style={{ overflowY: 'auto', flex: 1 }}>
@@ -128,12 +129,12 @@ export default function EditClientModal({
                   </div>
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">RUC <span className="text-danger">*</span></label>
-                  <input className="form-control fw-bold text-dark" name="ruc" defaultValue={editingClient.ruc} required />
+                  <label className="form-label">RUC <small className="text-muted">(opcional)</small></label>
+                  <input className="form-control fw-bold text-dark" name="ruc" defaultValue={editingClient.ruc} />
                 </div>
                 <div className="col-md-8">
-                  <label className="form-label">Razón Social <span className="text-danger">*</span></label>
-                  <input className="form-control fw-semibold" name="razonSocial" defaultValue={editingClient.razonSocial} required />
+                  <label className="form-label">Razón Social <small className="text-muted">(opcional)</small></label>
+                  <input className="form-control fw-semibold" name="razonSocial" defaultValue={editingClient.razonSocial} />
                 </div>
                 <div className="col-md-6">
                   <label className="form-label">Nombre Comercial</label>
@@ -176,12 +177,12 @@ export default function EditClientModal({
                   <input className="form-control" name="dni" defaultValue={editingClient.dni || ''} maxLength={8} />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">WhatsApp Empresa <span className="text-danger">*</span></label>
-                  <input className="form-control fw-semibold" name="telefono" defaultValue={editingClient.telefono} required />
+                  <label className="form-label">WhatsApp Empresa</label>
+                  <input className="form-control fw-semibold" name="telefono" defaultValue={editingClient.telefono} />
                 </div>
                 <div className="col-md-4">
-                  <label className="form-label">Email Empresa <span className="text-danger">*</span></label>
-                  <input className="form-control" name="email" defaultValue={editingClient.email || ''} required />
+                  <label className="form-label">Email Empresa</label>
+                  <input className="form-control" type="text" inputMode="email" name="email" defaultValue={editingClient.email || ''} />
                 </div>
                 <div className="col-md-4">
                   <label className="form-label">Teléfono Personal</label>
