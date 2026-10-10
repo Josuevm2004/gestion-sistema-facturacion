@@ -279,7 +279,7 @@ export default function FormularioPublicoPage() {
         razonSocial: registeredData.razonSocial || payload.razonSocial,
         nombreComercial: registeredData.nombreComercial || payload.nombreComercial,
         planContratado: registeredData.planNombre || registeredData.planContratado || selectedPlan,
-        montoMensual: Number(registeredData.precioPlan ?? selectedSubscription.precio),
+        montoMensual: Number(registeredData.precioPlan ?? selectedSubscription?.precio ?? 29),
         tipoSuscripcion,
         telefono: payload.telefono,
         email: payload.email,
