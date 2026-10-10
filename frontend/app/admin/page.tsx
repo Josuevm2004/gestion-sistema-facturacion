@@ -315,15 +315,17 @@ export default function AdminPage() {
           </div>
         )}
 
-        <EditClientModal
-          editingClient={adminData.editingClient}
-          setEditingClient={adminData.setEditingClient}
-          handleSaveEditClient={adminData.handleSaveEditClient}
-          currentUser={adminData.currentUser}
-          usersList={adminData.usersList}
-          uniqueSellers={adminData.uniqueSellers}
-          entornos={adminData.entornos}
-        />
+        {adminData.editingClient && (
+          <EditClientModal
+            editingClient={adminData.editingClient}
+            setEditingClient={adminData.setEditingClient}
+            handleSaveEditClient={adminData.handleSaveEditClient}
+            currentUser={adminData.currentUser}
+            usersList={adminData.usersList}
+            uniqueSellers={adminData.uniqueSellers}
+            entornos={adminData.entornos}
+          />
+        )}
         <DeleteClientModal
           deletingClient={adminData.deletingClient}
           setDeletingClient={adminData.setDeletingClient}
@@ -374,15 +376,17 @@ export default function AdminPage() {
           handleSaveUser={adminData.handleSaveUser}
         />
 
-        <CreateClientModal
-          show={adminData.showCreateClientModal}
-          onClose={() => adminData.setShowCreateClientModal(false)}
-          handleCreateClient={adminData.handleCreateClient}
-          currentUser={adminData.currentUser}
-          usersList={adminData.usersList}
-          uniqueSellers={adminData.uniqueSellers}
-          entornos={adminData.entornos}
-        />
+        {adminData.showCreateClientModal && (
+          <CreateClientModal
+            show={adminData.showCreateClientModal}
+            onClose={() => adminData.setShowCreateClientModal(false)}
+            handleCreateClient={adminData.handleCreateClient}
+            currentUser={adminData.currentUser}
+            usersList={adminData.usersList}
+            uniqueSellers={adminData.uniqueSellers}
+            entornos={adminData.entornos}
+          />
+        )}
       </main>
     </div>
   );

@@ -24,21 +24,6 @@ export default function EditClientModal({
   uniqueSellers = [],
   entornos = [],
 }: EditClientModalProps) {
-  if (!editingClient) return null;
-
-  const isAssigned = Boolean(
-    editingClient.vendedor &&
-    editingClient.vendedor !== 'Por asignar' &&
-    editingClient.vendedor !== 'Sin Asignar'
-  );
-
-  const isAdmin =
-    !currentUser ||
-    !currentUser.rol ||
-    currentUser.rol.toUpperCase() === 'ADMIN' ||
-    currentUser.username === 'admin';
-  const planLocked = Boolean(editingClient.fechaCapacitacion) ||
-    ['HABILITADO', 'VENCIDO', 'BLOQUEADO'].includes(editingClient.estadoCuenta || '');
   const normalizePlanKey = (planStr?: string) => {
     const normalized = (planStr || 'EMPRENDE')
       .normalize('NFD')
@@ -50,16 +35,49 @@ export default function EditClientModal({
   };
 
   const [selectedPlan, setSelectedPlan] = React.useState<string>(
-    normalizePlanKey(editingClient.planContratado)
+    normalizePlanKey(editingClient?.planContratado)
   );
   const [selectedTipo, setSelectedTipo] = React.useState<string>(
-    (editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase()
+    (editingClient?.tipoSuscripcion || 'MENSUAL').toUpperCase()
   );
   const [selectedEntornoId, setSelectedEntornoId] = React.useState<string>(
-    editingClient.entornoId ? String(editingClient.entornoId) : ''
+    editingClient?.entornoId ? String(editingClient.entornoId) : ''
   );
 
-  const selectedEntornoObj = entornos.find((e) => String(e.id) === selectedEntornoId);
+  React.useEffect(() => {
+    if (editingClient) {
+      setSelectedPlan(normalizePlanKey(editingClient.planContratado));
+      setSelectedTipo((editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase());
+      setSelectedEntornoId(editingClient.entornoId ? String(editingClient.entornoId) : '');
+    }
+  }, [editingClient]);
+
+  useEffect(() => {
+    if (!editingClient) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditingClient(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingClient, setEditingClient]);
+
+  if (!editingClient) return null;
+
+  const isAssigned = Boolean(
+    editingClient.vendedor &&
+    editingClient.vendedor !== 'Por asignar' &&
+    editingClient.vendedor !== 'Sin Asignar'
+  );
+
+  const isAdmin =
+    !currentUser ||
+    !currentUser.rol ||
+    String(currentUser.rol).toUpperCase() === 'ADMIN' ||
+    currentUser.username === 'admin';
+  const planLocked = Boolean(editingClient.fechaCapacitacion) ||
+    ['HABILITADO', 'VENCIDO', 'BLOQUEADO'].includes(editingClient.estadoCuenta || '');
+
+  const selectedEntornoObj = (entornos || []).find((e) => String(e.id) === selectedEntornoId);
   const selectedEntornoName = selectedEntornoObj?.nombre || editingClient.entornoNombre || '';
   const isSelectedProduccion = !selectedEntornoName.toLowerCase().includes('interno');
   const wasInterno = (editingClient.entornoNombre || '').toLowerCase().includes('interno');
@@ -72,15 +90,6 @@ export default function EditClientModal({
     EMPRESARIAL: { MENSUAL: 59, ANUAL: 590 },
     LIDER: { MENSUAL: 89, ANUAL: 890 },
   };
-
-  useEffect(() => {
-    if (!editingClient) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setEditingClient(null);
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editingClient, setEditingClient]);
 
   const activePrices = PLAN_PRICES[selectedPlan] || { MENSUAL: 19, ANUAL: 190 };
   const currentPrice = selectedTipo === 'ANUAL' ? activePrices.ANUAL : activePrices.MENSUAL;
@@ -276,13 +285,13 @@ export default function EditClientModal({
                       defaultValue={editingClient.vendedor || 'Por asignar'}
                     >
                       <option value="Por asignar">-- Seleccionar Vendedor --</option>
-                      {usersList.map((u) => (
-                        <option key={u.id} value={u.nombre || u.username}>
-                          {u.nombre || u.username} ({u.rol})
+                      {(usersList || []).filter(Boolean).map((u) => (
+                        <option key={String(u.id)} value={u.nombre || u.username}>
+                          {u.nombre || u.username} {u.rol ? `(${u.rol})` : ''}
                         </option>
                       ))}
-                      {uniqueSellers
-                        .filter((s) => s !== 'Por asignar' && !usersList.some((u) => u.nombre === s || u.username === s))
+                      {(uniqueSellers || [])
+                        .filter((s) => s && s !== 'Por asignar' && !(usersList || []).some((u) => u && (u.nombre === s || u.username === s)))
                         .map((s) => (
                           <option key={s} value={s}>
                             {s}

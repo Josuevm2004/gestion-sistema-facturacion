@@ -47,8 +47,8 @@ export default function CreateClientModal({
 
   // Seleccionar por defecto el entorno de Producción si existe
   const defaultEntornoId = React.useMemo(() => {
-    const prod = availableEntornos.find((e) => !e.nombre.toLowerCase().includes('interno'));
-    return prod ? String(prod.id) : String(availableEntornos[0].id);
+    const prod = (availableEntornos || []).find((e) => e?.nombre && !e.nombre.toLowerCase().includes('interno'));
+    return prod ? String(prod.id) : String(availableEntornos[0]?.id || '1');
   }, [availableEntornos]);
 
   const [selectedEntornoId, setSelectedEntornoId] = useState<string>(defaultEntornoId || '1');
@@ -59,10 +59,19 @@ export default function CreateClientModal({
     }
   }, [defaultEntornoId, selectedEntornoId]);
 
+  useEffect(() => {
+    if (!show) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [show, onClose]);
+
   if (!show) return null;
 
-  const currentEntorno = availableEntornos.find((e) => String(e.id) === selectedEntornoId);
-  const isProduccion = currentEntorno
+  const currentEntorno = (availableEntornos || []).find((e) => String(e?.id) === selectedEntornoId);
+  const isProduccion = currentEntorno?.nombre
     ? !currentEntorno.nombre.toLowerCase().includes('interno')
     : true;
 
@@ -72,7 +81,7 @@ export default function CreateClientModal({
   const isAdmin =
     !currentUser ||
     !currentUser.rol ||
-    currentUser.rol.toUpperCase() === 'ADMIN' ||
+    String(currentUser.rol).toUpperCase() === 'ADMIN' ||
     currentUser.username === 'admin';
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -101,7 +110,7 @@ export default function CreateClientModal({
       const vendedorName = formData.get('vendedor') as string;
       let vendedorId: number | null = null;
       if (vendedorName && vendedorName !== 'Por asignar') {
-        const u = usersList.find((usr) => usr.nombre === vendedorName || usr.username === vendedorName);
+        const u = (usersList || []).find((usr) => usr && (usr.nombre === vendedorName || usr.username === vendedorName));
         if (u) vendedorId = Number(u.id);
       } else if (!isAdmin && currentUser?.id) {
         vendedorId = Number(currentUser.id);
@@ -147,14 +156,6 @@ export default function CreateClientModal({
     }
   };
 
-  useEffect(() => {
-    if (!show) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [show, onClose]);
 
   return (
     <ClientPortal>
@@ -340,13 +341,13 @@ export default function CreateClientModal({
                   {isAdmin ? (
                     <select className="form-select border-primary fw-semibold" name="vendedor" defaultValue="Por asignar">
                       <option value="Por asignar">-- Sin asignar (Por asignar) --</option>
-                      {usersList.map((u) => (
-                        <option key={u.id} value={u.nombre || u.username}>
-                          {u.nombre || u.username} ({u.rol})
+                      {(usersList || []).filter(Boolean).map((u) => (
+                        <option key={String(u.id)} value={u.nombre || u.username}>
+                          {u.nombre || u.username} {u.rol ? `(${u.rol})` : ''}
                         </option>
                       ))}
-                      {uniqueSellers
-                        .filter((s) => s !== 'Por asignar' && !usersList.some((u) => u.nombre === s || u.username === s))
+                      {(uniqueSellers || [])
+                        .filter((s) => s && s !== 'Por asignar' && !(usersList || []).some((u) => u && (u.nombre === s || u.username === s)))
                         .map((s) => (
                           <option key={s} value={s}>{s}</option>
                         ))}
