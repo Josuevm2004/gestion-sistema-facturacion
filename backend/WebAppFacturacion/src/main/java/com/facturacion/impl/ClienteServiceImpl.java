@@ -88,10 +88,17 @@ public class ClienteServiceImpl implements ClienteService {
         String rucFinal = request.getRuc();
         if (rucFinal == null || rucFinal.trim().isBlank()) {
             rucFinal = "99" + String.format("%09d", System.currentTimeMillis() % 1000000000L);
-            request.setRuc(rucFinal);
         } else {
-            request.setRuc(rucFinal.trim());
+            rucFinal = rucFinal.trim().replaceAll("\\D", "");
+            if (rucFinal.isBlank()) {
+                rucFinal = "99" + String.format("%09d", System.currentTimeMillis() % 1000000000L);
+            } else if (rucFinal.length() < 11) {
+                rucFinal = String.format("%-11s", rucFinal).replace(' ', '0');
+            } else if (rucFinal.length() > 11) {
+                rucFinal = rucFinal.substring(0, 11);
+            }
         }
+        request.setRuc(rucFinal);
 
         Optional<Cliente> clienteExistenteOpt = clienteRepository.findByRuc(request.getRuc());
         Cliente cliente;
@@ -113,7 +120,17 @@ public class ClienteServiceImpl implements ClienteService {
         boolean tieneClaveSol = request.getClaveSol() != null && !request.getClaveSol().trim().isBlank();
         cliente.setUsuarioSol(tieneUsuarioSol ? request.getUsuarioSol().trim() : "SIN_USUARIO");
         cliente.setClaveSolCifrada(tieneClaveSol ? request.getClaveSol().trim() : "SIN_CLAVE");
-        cliente.setRazonSocial(request.getRazonSocial());
+
+        String razonSocialFinal = request.getRazonSocial();
+        if (razonSocialFinal == null || razonSocialFinal.trim().isBlank()) {
+            if (request.getNombreComercial() != null && !request.getNombreComercial().trim().isBlank()) {
+                razonSocialFinal = request.getNombreComercial().trim();
+            } else {
+                razonSocialFinal = "Cliente " + rucFinal;
+            }
+        }
+        cliente.setRazonSocial(razonSocialFinal.trim());
+
         cliente.setNombreComercial(request.getNombreComercial());
         cliente.setDireccion(request.getDireccion());
         cliente.setTelefono(request.getTelefono());
@@ -146,16 +163,27 @@ public class ClienteServiceImpl implements ClienteService {
             String val = request.getTipoIgv().trim();
             cliente.setTipoIgv(val.isBlank() ? null : val);
         }
+<<<<<<< HEAD
         if (request.getRegimenTributario() != null) {
             String val = request.getRegimenTributario().trim();
             cliente.setRegimenTributario(val.isBlank() ? null : val);
         }
+=======
+        Entorno entornoSeleccionado = null;
+>>>>>>> c5e0fb870843f3acfb9402ed7456e8113004b438
         if (request.getEntornoId() != null) {
-            entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
-                    .ifPresent(cliente::setEntorno);
-        } else {
-            entornoRepository.findByIdAndActivoTrue(1L)
-                    .ifPresent(cliente::setEntorno);
+            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
+                    .orElse(null);
+        }
+        if (entornoSeleccionado == null) {
+            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(1L)
+                    .orElseGet(() -> entornoRepository.findAll().stream()
+                            .filter(e -> Boolean.TRUE.equals(e.getActivo()))
+                            .findFirst()
+                            .orElse(null));
+        }
+        if (entornoSeleccionado != null) {
+            cliente.setEntorno(entornoSeleccionado);
         }
         cliente.setEstado(estadoPorCobrar);
         cliente.setFechaRegistro(fechaOperacion);
@@ -176,15 +204,24 @@ public class ClienteServiceImpl implements ClienteService {
 
         // 4. Obtener Suscripción elegida
         Long planId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
+        if (planId == null) {
+            planId = 2L; // EMPRENDE por defecto
+        }
         TipoSuscripcion tipoSub = request.getTipoSuscripcion() != null ? request.getTipoSuscripcion() : TipoSuscripcion.MENSUAL;
 
-        if (planId == null) {
-            throw new ResourceNotFoundException("El plan seleccionado no es valido");
-        }
-
         Suscripcion suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(planId, tipoSub)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "No existe una suscripcion activa para el plan y modalidad seleccionados"));
+                .orElse(null);
+        if (suscripcion == null) {
+            for (Suscripcion s : suscripcionRepository.findAll()) {
+                if (Boolean.TRUE.equals(s.getActivo())) {
+                    suscripcion = s;
+                    break;
+                }
+            }
+        }
+        if (suscripcion == null) {
+            throw new ResourceNotFoundException("No existe una suscripcion activa para el plan y modalidad seleccionados");
+        }
 
         // 5. Vendedor inicial
         UsuarioAdmin vendedor = null;

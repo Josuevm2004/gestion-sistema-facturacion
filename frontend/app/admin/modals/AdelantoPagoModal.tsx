@@ -13,12 +13,21 @@ interface AdelantoPagoModalProps {
 }
 
 export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoModalProps) {
-  if (!client) return null;
-
-  const currentMonto = client.montoSiguienteCobro || client.montoMensual || client.precioPlan || 19;
+  const currentMonto = client?.montoSiguienteCobro || client?.montoMensual || client?.precioPlan || 19;
   const [monto, setMonto] = useState<number>(Number(currentMonto));
   const [observaciones, setObservaciones] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!client) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !loading) onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [client, onClose, loading]);
+
+  if (!client) return null;
 
   // Calcular fechas de forma determinista y segura en cualquier zona horaria
   const rawVenc = client.fechaVencimientoMensual || client.fechaFinServicio;
@@ -55,15 +64,6 @@ export function AdelantoPagoModal({ client, onClose, onConfirm }: AdelantoPagoMo
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (!client) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !loading) onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [client, onClose, loading]);
 
   return (
     <ClientPortal>

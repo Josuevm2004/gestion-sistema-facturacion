@@ -315,74 +315,90 @@ export default function AdminPage() {
           </div>
         )}
 
-        <EditClientModal
-          editingClient={adminData.editingClient}
-          setEditingClient={adminData.setEditingClient}
-          handleSaveEditClient={adminData.handleSaveEditClient}
-          currentUser={adminData.currentUser}
-          usersList={adminData.usersList}
-          uniqueSellers={adminData.uniqueSellers}
-          entornos={adminData.entornos}
-        />
-        <DeleteClientModal
-          deletingClient={adminData.deletingClient}
-          setDeletingClient={adminData.setDeletingClient}
-          handleDeleteClientConfirm={adminData.handleDeleteClientConfirm}
-        />
+        {adminData.editingClient && (
+          <EditClientModal
+            editingClient={adminData.editingClient}
+            setEditingClient={adminData.setEditingClient}
+            handleSaveEditClient={adminData.handleSaveEditClient}
+            currentUser={adminData.currentUser}
+            usersList={adminData.usersList}
+            uniqueSellers={adminData.uniqueSellers}
+            entornos={adminData.entornos}
+          />
+        )}
+        {adminData.deletingClient && (
+          <DeleteClientModal
+            deletingClient={adminData.deletingClient}
+            setDeletingClient={adminData.setDeletingClient}
+            handleDeleteClientConfirm={adminData.handleDeleteClientConfirm}
+          />
+        )}
 
-        <ChangePlanModal
-          cambioPlanClient={adminData.cambioPlanClient}
-          setCambioPlanClient={adminData.setCambioPlanClient}
-          cambioPlanSeleccionado={adminData.cambioPlanSeleccionado}
-          setCambioPlanSeleccionado={adminData.setCambioPlanSeleccionado}
-          cambioPlanTipo={adminData.cambioPlanTipo}
-          setCambioPlanTipo={adminData.setCambioPlanTipo}
-          handleRenovarPlan={adminData.handleRenovarPlan}
-        />
+        {adminData.cambioPlanClient && (
+          <ChangePlanModal
+            cambioPlanClient={adminData.cambioPlanClient}
+            setCambioPlanClient={adminData.setCambioPlanClient}
+            cambioPlanSeleccionado={adminData.cambioPlanSeleccionado}
+            setCambioPlanSeleccionado={adminData.setCambioPlanSeleccionado}
+            cambioPlanTipo={adminData.cambioPlanTipo}
+            setCambioPlanTipo={adminData.setCambioPlanTipo}
+            handleRenovarPlan={adminData.handleRenovarPlan}
+          />
+        )}
 
-        <UpgradePlanModal
-          mejoraPlanClient={adminData.mejoraPlanClient}
-          setMejoraPlanClient={adminData.setMejoraPlanClient}
-          mejoraPlanSeleccionado={adminData.mejoraPlanSeleccionado}
-          setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
-          subscriptions={adminData.subscriptions}
-          loadSubscriptions={adminData.loadSubscriptions}
-          handleMejorarPlan={adminData.handleMejorarPlan}
-        />
+        {adminData.mejoraPlanClient && (
+          <UpgradePlanModal
+            mejoraPlanClient={adminData.mejoraPlanClient}
+            setMejoraPlanClient={adminData.setMejoraPlanClient}
+            mejoraPlanSeleccionado={adminData.mejoraPlanSeleccionado}
+            setMejoraPlanSeleccionado={adminData.setMejoraPlanSeleccionado}
+            subscriptions={adminData.subscriptions}
+            loadSubscriptions={adminData.loadSubscriptions}
+            handleMejorarPlan={adminData.handleMejorarPlan}
+          />
+        )}
 
-        <TrainingModal
-          trainingClient={adminData.trainingClient}
-          setTrainingClient={adminData.setTrainingClient}
-          trainingDateInput={adminData.trainingDateInput}
-          setTrainingDateInput={adminData.setTrainingDateInput}
-          prorrateoCalculado={adminData.prorrateoCalculado}
-          handleSaveTrainingSchedule={adminData.handleSaveTrainingSchedule}
-        />
+        {adminData.trainingClient && (
+          <TrainingModal
+            trainingClient={adminData.trainingClient}
+            setTrainingClient={adminData.setTrainingClient}
+            trainingDateInput={adminData.trainingDateInput}
+            setTrainingDateInput={adminData.setTrainingDateInput}
+            prorrateoCalculado={adminData.prorrateoCalculado}
+            handleSaveTrainingSchedule={adminData.handleSaveTrainingSchedule}
+          />
+        )}
 
-        <PaymentHistoryModal
-          historyClient={adminData.historyClient}
-          setHistoryClient={adminData.setHistoryClient}
-          payments={adminData.payments}
-          calcularProrrateoEntero={adminData.calcularProrrateoEntero}
-        />
+        {adminData.historyClient && (
+          <PaymentHistoryModal
+            historyClient={adminData.historyClient}
+            setHistoryClient={adminData.setHistoryClient}
+            payments={adminData.payments}
+            calcularProrrateoEntero={adminData.calcularProrrateoEntero}
+          />
+        )}
 
-        <UserModal
-          showNewUserModal={adminData.showNewUserModal}
-          setShowNewUserModal={adminData.setShowNewUserModal}
-          editingUser={adminData.editingUser}
-          setEditingUser={adminData.setEditingUser}
-          handleSaveUser={adminData.handleSaveUser}
-        />
+        {(adminData.showNewUserModal || adminData.editingUser) && (
+          <UserModal
+            showNewUserModal={adminData.showNewUserModal}
+            setShowNewUserModal={adminData.setShowNewUserModal}
+            editingUser={adminData.editingUser}
+            setEditingUser={adminData.setEditingUser}
+            handleSaveUser={adminData.handleSaveUser}
+          />
+        )}
 
-        <CreateClientModal
-          show={adminData.showCreateClientModal}
-          onClose={() => adminData.setShowCreateClientModal(false)}
-          handleCreateClient={adminData.handleCreateClient}
-          currentUser={adminData.currentUser}
-          usersList={adminData.usersList}
-          uniqueSellers={adminData.uniqueSellers}
-          entornos={adminData.entornos}
-        />
+        {adminData.showCreateClientModal && (
+          <CreateClientModal
+            show={adminData.showCreateClientModal}
+            onClose={() => adminData.setShowCreateClientModal(false)}
+            handleCreateClient={adminData.handleCreateClient}
+            currentUser={adminData.currentUser}
+            usersList={adminData.usersList}
+            uniqueSellers={adminData.uniqueSellers}
+            entornos={adminData.entornos}
+          />
+        )}
       </main>
     </div>
   );
