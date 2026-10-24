@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 import ClientPortal from '../components/ClientPortal';
+import { normalizeRegimen } from '../hooks/useAdminData';
 
 interface EditClientModalProps {
   editingClient: Client | null;
@@ -213,7 +214,8 @@ export default function EditClientModal({
                   <select
                     className="form-select"
                     name="regimenTributario"
-                    defaultValue={editingClient.regimenTributario || 'MYPE_TRIBUTARIO'}
+                    defaultValue={normalizeRegimen(editingClient.regimenTributario)}
+                    key={`regimen_${editingClient.id}_${editingClient.regimenTributario}`}
                   >
                     <option value="MYPE_TRIBUTARIO">MYPE Tributario</option>
                     <option value="REGIMEN_GENERAL">Régimen General</option>

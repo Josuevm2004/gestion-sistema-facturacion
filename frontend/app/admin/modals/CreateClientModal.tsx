@@ -125,6 +125,7 @@ export default function CreateClientModal({
         primeraVezOProviene: isProduccion ? formData.get('primeraVezOProviene') as string : undefined,
         usabaSunatAnteriormente: isProduccion ? formData.get('usabaSunatAnteriormente') as string : undefined,
         tipoIgv: isProduccion ? formData.get('tipoIgv') as string : undefined,
+        regimenTributario: (formData.get('regimenTributario') as string) || 'MYPE_TRIBUTARIO',
       };
 
       await handleCreateClient(payload);

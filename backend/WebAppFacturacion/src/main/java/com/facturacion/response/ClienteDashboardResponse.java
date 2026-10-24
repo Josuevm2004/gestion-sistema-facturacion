@@ -35,6 +35,7 @@ public class ClienteDashboardResponse {
     private String primeraVezOProviene;
     private String usabaSunatAnteriormente;
     private String tipoIgv;
+    private String regimenTributario;
 
     @JsonSerialize(using = ToStringSerializer.class)
     private Long estadoId;
@@ -189,4 +190,6 @@ public class ClienteDashboardResponse {
     public void setFechaRegistro(LocalDateTime fechaRegistro) { this.fechaRegistro = fechaRegistro; }
     public Boolean getAvisado() { return avisado != null ? avisado : false; }
     public void setAvisado(Boolean avisado) { this.avisado = avisado; }
+    public String getRegimenTributario() { return regimenTributario; }
+    public void setRegimenTributario(String regimenTributario) { this.regimenTributario = regimenTributario; }
 }

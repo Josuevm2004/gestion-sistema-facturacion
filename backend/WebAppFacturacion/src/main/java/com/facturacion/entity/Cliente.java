@@ -86,6 +86,9 @@ public class Cliente {
     @Column(name = "tipo_igv", length = 500)
     private String tipoIgv;
 
+    @Column(name = "regimen_tributario", length = 50)
+    private String regimenTributario;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "estado_id")
     private EstadoCliente estado;
@@ -172,6 +175,8 @@ public class Cliente {
     public void setUsabaSunatAnteriormente(String usabaSunatAnteriormente) { this.usabaSunatAnteriormente = usabaSunatAnteriormente; }
     public String getTipoIgv() { return tipoIgv; }
     public void setTipoIgv(String tipoIgv) { this.tipoIgv = tipoIgv; }
+    public String getRegimenTributario() { return regimenTributario; }
+    public void setRegimenTributario(String regimenTributario) { this.regimenTributario = regimenTributario; }
     public EstadoCliente getEstado() { return estado; }
     public void setEstado(EstadoCliente estado) { this.estado = estado; }
     public ColorTag getColorTag() { return colorTag; }

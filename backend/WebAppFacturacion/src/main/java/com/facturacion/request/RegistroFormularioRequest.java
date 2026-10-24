@@ -35,6 +35,7 @@ public class RegistroFormularioRequest {
     private String primeraVezOProviene;
     private String usabaSunatAnteriormente;
     private String tipoIgv;
+    private String regimenTributario;
 
     private Long entornoId;
     private Long vendedorId;
@@ -101,4 +102,7 @@ public class RegistroFormularioRequest {
     public void setEntornoId(Long entornoId) { this.entornoId = entornoId; }
     public Long getVendedorId() { return vendedorId; }
     public void setVendedorId(Long vendedorId) { this.vendedorId = vendedorId; }
+
+    public String getRegimenTributario() { return regimenTributario; }
+    public void setRegimenTributario(String regimenTributario) { this.regimenTributario = regimenTributario; }
 }

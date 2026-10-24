@@ -28,6 +28,7 @@ public class ClienteUpdateRequest {
     private String primeraVezOProviene;
     private String usabaSunatAnteriormente;
     private String tipoIgv;
+    private String regimenTributario;
 
     private Long colorTagId;
     private Long entornoId;
@@ -105,4 +106,7 @@ public class ClienteUpdateRequest {
     public void setPlanContratado(String planContratado) { this.planContratado = planContratado; }
     public String getTipoSuscripcion() { return tipoSuscripcion; }
     public void setTipoSuscripcion(String tipoSuscripcion) { this.tipoSuscripcion = tipoSuscripcion; }
+
+    public String getRegimenTributario() { return regimenTributario; }
+    public void setRegimenTributario(String regimenTributario) { this.regimenTributario = regimenTributario; }
 }

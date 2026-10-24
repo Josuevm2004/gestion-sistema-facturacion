@@ -172,6 +172,7 @@ CREATE TABLE cliente (
     primera_vez_o_proviene VARCHAR(500),
     usaba_sunat_anteriormente VARCHAR(500),
     tipo_igv VARCHAR(500),
+    regimen_tributario VARCHAR(50),
 
     estado_id BIGINT NULL,
     color_tag_id BIGINT NULL,

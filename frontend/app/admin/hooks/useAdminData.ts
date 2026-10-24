@@ -49,7 +49,44 @@ function resolverPlanIdDesdeNombre(planNombre?: string): number {
   return 1;
 }
 
+const CLIENT_REGIMEN_STORAGE_KEY = 'miquipu_client_regimens';
+
+export function normalizeRegimen(r?: string): string {
+  if (!r) return 'MYPE_TRIBUTARIO';
+  const upper = r.trim().toUpperCase();
+  if (upper === 'GENERAL' || upper === 'REGIMEN_GENERAL') return 'REGIMEN_GENERAL';
+  if (upper === 'ESPECIAL' || upper === 'RER') return 'RER';
+  if (upper === 'RUS' || upper === 'NRUS') return 'NRUS';
+  if (upper === 'MYPE' || upper === 'MYPE_TRIBUTARIO') return 'MYPE_TRIBUTARIO';
+  return upper;
+}
+
+export function getStoredClientRegimens(): Record<string, string> {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(CLIENT_REGIMEN_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveStoredClientRegimen(clientId: string | undefined, ruc: string | undefined, regimen: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    const current = getStoredClientRegimens();
+    const normalized = normalizeRegimen(regimen);
+    if (clientId) current[String(clientId)] = normalized;
+    if (ruc) current[String(ruc)] = normalized;
+    localStorage.setItem(CLIENT_REGIMEN_STORAGE_KEY, JSON.stringify(current));
+  } catch {}
+}
+
 function normalizeClientData(c: any): Client {
+  const storedRegimens = getStoredClientRegimens();
+  const rawRegimen = c.regimenTributario || (c.id ? storedRegimens[String(c.id)] : undefined) || (c.ruc ? storedRegimens[String(c.ruc)] : undefined);
+  const regimenTributario = normalizeRegimen(rawRegimen);
+
   return {
     // Cockroach unique_rowid() supera el limite seguro de Number en JS.
     // Mantener los IDs como texto evita que PUT/GET apunten a otro cliente.
@@ -69,7 +106,7 @@ function normalizeClientData(c: any): Client {
     departamento: c.departamento || '',
     provincia: c.provincia || '',
     distrito: c.distrito || '',
-    regimenTributario: c.regimenTributario || 'GENERAL',
+    regimenTributario,
     planContratado: c.planNombre || c.planContratado || '',
     planId: c.planId !== undefined && c.planId !== null ? String(c.planId) : String(resolverPlanIdDesdeNombre(c.planNombre || c.planContratado)),
     tipoSuscripcion: c.tipoSuscripcion || '',
@@ -1058,6 +1095,9 @@ export function useAdminData() {
       const response = await adminApi(token).post('/admin/clientes', payload);
       const newClient = response.data?.data;
       if (newClient) {
+        if (payload.regimenTributario) {
+          saveStoredClientRegimen(String(newClient.id), newClient.ruc, payload.regimenTributario);
+        }
         setClients((prev) => [normalizeClientData(newClient), ...prev]);
       }
       setNotice(`Cliente ${payload.razonSocial || payload.ruc} registrado exitosamente.`);
@@ -1122,6 +1162,15 @@ export function useAdminData() {
     const parsedEntornoId = rawEntornoId ? Number(rawEntornoId) : undefined;
     const matchedEntorno = entornos.find((e) => String(e.id) === String(rawEntornoId));
 
+    const rawRegimen = (formData.get('regimenTributario') as string) || editingClient.regimenTributario;
+    const selectedRegimen = normalizeRegimen(rawRegimen);
+    const clientIdStr = String(editingClient.id);
+
+    saveStoredClientRegimen(clientIdStr, editingClient.ruc, selectedRegimen);
+    if (formData.get('ruc')) {
+      saveStoredClientRegimen(clientIdStr, String(formData.get('ruc')), selectedRegimen);
+    }
+
     const apiPayload = {
       ruc: formData.get('ruc') as string,
       razonSocial: formData.get('razonSocial') as string,
@@ -1150,21 +1199,35 @@ export function useAdminData() {
       tipoIgv: formData.get('tipoIgv') as string,
       entornoId: parsedEntornoId,
       vendedorId: canEditVendedor ? (foundVendedorId ?? null) : (editingClient.vendedorId ?? null),
-      planId: planLocked ? undefined : planIdNum,
-      planContratado: planLocked ? undefined : planKey,
-      tipoSuscripcion: planLocked ? undefined : tipoSuscripcion,
+      regimenTributario: selectedRegimen,
+      // Solo enviar cambios de plan si fueron deliberados para no recalcular ventas ni servicio
+      planId: planCambio ? planIdNum : undefined,
+      planContratado: planCambio ? planKey : undefined,
+      tipoSuscripcion: planCambio ? tipoSuscripcion : undefined,
+      // Nunca enviar estadoId para proteger el estado actual del cliente
+      estadoId: undefined,
     };
 
-    const clientIdStr = String(editingClient.id);
     const optimisticClient: Partial<Client> = {
       ...apiPayload,
+      regimenTributario: selectedRegimen,
       entornoNombre: matchedEntorno ? matchedEntorno.nombre : editingClient.entornoNombre,
-      planContratado: planLocked ? editingClient.planContratado : planKey,
-      tipoSuscripcion: planLocked ? editingClient.tipoSuscripcion : tipoSuscripcion,
-      planId: planLocked ? editingClient.planId : String(planIdNum),
-      montoMensual: planLocked || !planCambio ? editingClient.montoMensual : nuevoPrecio,
-      montoSiguienteCobro: planLocked || !planCambio ? editingClient.montoSiguienteCobro : nuevoPrecio,
+      planContratado: planCambio ? planKey : editingClient.planContratado,
+      tipoSuscripcion: planCambio ? tipoSuscripcion : editingClient.tipoSuscripcion,
+      planId: planCambio ? String(planIdNum) : editingClient.planId,
+      montoMensual: planCambio ? nuevoPrecio : editingClient.montoMensual,
+      montoSiguienteCobro: planCambio ? nuevoPrecio : editingClient.montoSiguienteCobro,
       vendedor: selectedVendedor || editingClient.vendedor,
+      // Preservar estrictamente el estado y plazo del cliente sin alteraciones
+      estadoCuenta: editingClient.estadoCuenta,
+      estadoCapacitacion: editingClient.estadoCapacitacion,
+      colorTag: editingClient.colorTag,
+      fechaInicioServicio: editingClient.fechaInicioServicio,
+      fechaFinServicio: editingClient.fechaFinServicio,
+      fechaVencimientoMensual: editingClient.fechaVencimientoMensual,
+      diasProrrateados: editingClient.diasProrrateados,
+      tipoProrrateo: editingClient.tipoProrrateo,
+      fechaCapacitacion: editingClient.fechaCapacitacion,
     };
 
     pendingOverridesRef.current.set(clientIdStr, {
@@ -1181,7 +1244,26 @@ export function useAdminData() {
       const response = await adminApi(token).put(`/admin/clientes/${editingClient.id}`, apiPayload);
       const updatedClient = response.data?.data;
       if (updatedClient) {
-        setClients((prev) => prev.map((c) => (String(c.id) === String(updatedClient.id) ? normalizeClientData(updatedClient) : c)));
+        const normalized = normalizeClientData(updatedClient);
+        const mergedClient: Client = {
+          ...normalized,
+          regimenTributario: selectedRegimen || normalized.regimenTributario,
+          // Preservar estrictamente el estado y plazo del cliente para no alterarlos
+          estadoCuenta: editingClient.estadoCuenta || normalized.estadoCuenta,
+          estadoCapacitacion: editingClient.estadoCapacitacion || normalized.estadoCapacitacion,
+          colorTag: editingClient.colorTag || normalized.colorTag,
+          fechaInicioServicio: editingClient.fechaInicioServicio || normalized.fechaInicioServicio,
+          fechaFinServicio: editingClient.fechaFinServicio || normalized.fechaFinServicio,
+          fechaVencimientoMensual: editingClient.fechaVencimientoMensual || normalized.fechaVencimientoMensual,
+          diasProrrateados: editingClient.diasProrrateados !== undefined ? editingClient.diasProrrateados : normalized.diasProrrateados,
+          tipoProrrateo: editingClient.tipoProrrateo || normalized.tipoProrrateo,
+          fechaCapacitacion: editingClient.fechaCapacitacion || normalized.fechaCapacitacion,
+          montoMensual: planCambio ? normalized.montoMensual : (editingClient.montoMensual ?? normalized.montoMensual),
+          montoSiguienteCobro: planCambio ? normalized.montoSiguienteCobro : (editingClient.montoSiguienteCobro ?? normalized.montoSiguienteCobro),
+        };
+        setClients((prev) =>
+          prev.map((c) => (String(c.id) === clientIdStr ? mergedClient : c))
+        );
       }
       setNotice(`Los datos de ${editingClient.razonSocial} se han actualizado correctamente.`);
     } catch (err: any) {
@@ -1571,7 +1653,7 @@ export function useAdminData() {
       }
     }
 
-    if (regimenFilter && c.regimenTributario !== regimenFilter) return false;
+    if (regimenFilter && normalizeRegimen(c.regimenTributario) !== normalizeRegimen(regimenFilter)) return false;
 
     if (planFilter) {
       if (normalizePlanKey(c.planContratado) !== normalizePlanKey(planFilter)) return false;

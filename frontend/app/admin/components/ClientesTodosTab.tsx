@@ -103,6 +103,7 @@ export const AVAILABLE_COLUMNS: ColumnConfig[] = [
   { id: 'ruc', label: 'RUC', defaultVisible: true },
   { id: 'representante', label: 'Representante Legal', defaultVisible: false },
   { id: 'dni', label: 'DNI', defaultVisible: false },
+  { id: 'regimen', label: 'Régimen Tributario', defaultVisible: true },
   { id: 'contacto', label: 'Contacto / Teléfono', defaultVisible: true },
   { id: 'usuarioWsp', label: 'Usuario WSP', defaultVisible: false },
   { id: 'plan', label: 'Plan / Suscripción', defaultVisible: true },
@@ -436,7 +437,7 @@ export default function ClientesTodosTab({
         { header: 'Nombre Comercial', key: 'nombreComercial', width: 180, getValue: (c) => c.nombreComercial || '—' },
         { header: 'Contacto / Teléfono', key: 'telefono', width: 130, getValue: (c) => c.telefono || c.telefonoPersonal || '—' },
         { header: 'Email', key: 'email', width: 180, getValue: (c) => c.email || c.emailPersonal || '—' },
-        { header: 'Régimen', key: 'regimenTributario', width: 120, getValue: (c) => c.regimenTributario || '—' },
+        { header: 'Régimen', key: 'regimenTributario', width: 120, getValue: (c) => formatRegimen(c.regimenTributario) || '—' },
         { header: 'Plan Contratado', key: 'planContratado', width: 130, getValue: (c) => c.planContratado || 'Plan Estándar' },
         { header: 'Suscripción', key: 'tipoSuscripcion', width: 100, align: 'center', getValue: (c) => c.tipoSuscripcion || 'MENSUAL' },
         {
@@ -653,6 +654,7 @@ export default function ClientesTodosTab({
               {visibleColumns.ruc && <th className="py-2.5">RUC</th>}
               {visibleColumns.representante && <th className="py-2.5">Representante</th>}
               {visibleColumns.dni && <th className="py-2.5">DNI</th>}
+              {visibleColumns.regimen && <th className="py-2.5">Régimen</th>}
               {visibleColumns.contacto && <th className="py-2.5">Teléfono / Contacto</th>}
               {visibleColumns.usuarioWsp && <th className="py-2.5">Usuario WSP</th>}
               {visibleColumns.plan && <th className="py-2.5">Plan / Suscripción</th>}
@@ -738,6 +740,22 @@ export default function ClientesTodosTab({
                         ) : (
                           <span className="cell-subtext">—</span>
                         )}
+                      </td>
+                    )}
+
+                    {visibleColumns.regimen && (
+                      <td className="py-2.5">
+                        <span
+                          className="badge px-2 py-1 text-dark fw-semibold"
+                          style={{
+                            fontSize: '0.74rem',
+                            backgroundColor: '#F1F5F9',
+                            border: '1px solid #CBD5E1',
+                            borderRadius: '6px',
+                          }}
+                        >
+                          {formatRegimen(c.regimenTributario)}
+                        </span>
                       </td>
                     )}
 

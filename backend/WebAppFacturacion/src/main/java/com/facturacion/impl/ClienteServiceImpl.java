@@ -146,6 +146,10 @@ public class ClienteServiceImpl implements ClienteService {
             String val = request.getTipoIgv().trim();
             cliente.setTipoIgv(val.isBlank() ? null : val);
         }
+        if (request.getRegimenTributario() != null) {
+            String val = request.getRegimenTributario().trim();
+            cliente.setRegimenTributario(val.isBlank() ? null : val);
+        }
         if (request.getEntornoId() != null) {
             entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
                     .ifPresent(cliente::setEntorno);
@@ -541,6 +545,10 @@ public class ClienteServiceImpl implements ClienteService {
             String val = request.getTipoIgv().trim();
             cliente.setTipoIgv(val.isBlank() ? null : val);
         }
+        if (request.getRegimenTributario() != null) {
+            String val = request.getRegimenTributario().trim();
+            cliente.setRegimenTributario(val.isBlank() ? null : val);
+        }
 
         if (request.getColorTagId() != null) {
             ColorTag colorTag = colorTagRepository.findById(request.getColorTagId()).orElse(null);
@@ -854,6 +862,7 @@ public class ClienteServiceImpl implements ClienteService {
         res.setPrimeraVezOProviene(c.getPrimeraVezOProviene());
         res.setUsabaSunatAnteriormente(c.getUsabaSunatAnteriormente());
         res.setTipoIgv(c.getTipoIgv());
+        res.setRegimenTributario(c.getRegimenTributario());
         res.setAvisado(c.getAvisado());
 
         LocalDateTime ahora = LocalDateTime.now();
