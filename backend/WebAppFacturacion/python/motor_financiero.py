@@ -261,6 +261,8 @@ def calcular_proyeccion_siguiente_mes() -> dict:
                     v_last.tipo_prorrateo as last_tipo_prorrateo,
                     v_last.monto_prorrateo_adicional as last_monto_adicional,
                     v_last.monto_total as last_monto_total,
+                    v_last.observaciones as last_obs,
+                    p_last.observaciones as last_pago_obs,
                     sc.fecha_inicio as serv_inicio,
                     sc.fecha_fin as serv_fin,
                     sc.monto_prorrateo as serv_monto_prorr,
@@ -278,6 +280,12 @@ def calcular_proyeccion_siguiente_mes() -> dict:
                     SELECT v3.id FROM venta v3 
                     WHERE v3.cliente_id = c.id AND v3.estado_venta = 'PAGADA'
                     ORDER BY v3.fecha_venta DESC LIMIT 1
+                )
+                LEFT JOIN pago p_last ON p_last.id = (
+                    SELECT p3.id FROM pago p3
+                    JOIN venta vp3 ON vp3.id = p3.venta_id
+                    WHERE vp3.cliente_id = c.id AND p3.estado_pago = 'PAGADO'
+                    ORDER BY p3.fecha_pago DESC LIMIT 1
                 )
                 LEFT JOIN suscripcion sv ON sv.id = v_last.suscripcion_id
                 LEFT JOIN plan pv ON pv.id = sv.plan_id
@@ -297,8 +305,10 @@ def calcular_proyeccion_siguiente_mes() -> dict:
     total_proyectado = 0.0
     total_regulares = 0.0
     total_prorrateados = 0.0
+    total_adelantos = 0.0
     count_regulares = 0
     count_prorrateados = 0
+    count_adelantos = 0
     count_anuales_sin_cobro = 0
     desglose_clientes = []
 
@@ -310,34 +320,63 @@ def calcular_proyeccion_siguiente_mes() -> dict:
     if ahora.month == 12:
         next_month_name = "Enero"
         next_month_year = ahora.year + 1
+        first_next_month = datetime(ahora.year + 1, 1, 1)
     else:
         next_month_name = meses_nombres[ahora.month + 1]
         next_month_year = ahora.year
+        first_next_month = datetime(ahora.year, ahora.month + 1, 1)
 
     for c in clientes:
         tipo_sub = (c["tipo_suscripcion"] or "MENSUAL").upper()
         tarifa_base = float(c["precio_plan"] or 29.0)
+        serv_inicio = c["serv_inicio"]
         serv_fin = c["serv_fin"]
 
-        if tipo_sub == "ANUAL":
+        if tipo_sub == "ANUAL" or tarifa_base >= 150.0:
+            # Un plan anual solo se cobra una vez al año (en su mes de inicio).
+            # Si inició hace menos de 300 días, su anualidad sigue vigente y no se vuelve a cobrar el próximo mes.
+            if not serv_inicio or serv_inicio > ahora - timedelta(days=300):
+                count_anuales_sin_cobro += 1
+                continue
             if serv_fin and serv_fin > ahora + timedelta(days=32):
                 count_anuales_sin_cobro += 1
                 continue
 
-        tipo_prorr = (c["pend_tipo_prorrateo"] or c["last_tipo_prorrateo"] or "NINGUNO").upper()
+        pend_prorr = (c["pend_tipo_prorrateo"] or "NINGUNO").upper()
+        last_prorr = (c["last_tipo_prorrateo"] or "NINGUNO").upper()
+        tipo_prorr = pend_prorr if pend_prorr != "NINGUNO" else last_prorr
+
         monto_adic = float(c["pend_monto_adicional"] or c["last_monto_adicional"] or 0.0)
         pend_total = float(c["pend_monto_total"] or 0.0)
+        last_total = float(c["last_monto_total"] or 0.0)
         serv_prorr = float(c["serv_monto_prorr"] or 0.0)
+
+        obs_combined = f"{c.get('last_obs') or ''} {c.get('last_pago_obs') or ''}".lower()
+        es_adelanto = False
+        if serv_inicio and serv_inicio >= first_next_month:
+            es_adelanto = True
+        elif "adelanto" in obs_combined and serv_fin and serv_fin > first_next_month + timedelta(days=20):
+            es_adelanto = True
 
         monto_a_cobrar = tarifa_base
         es_prorrateado = False
         concepto = f"Tarifa Base ({c['nombre_plan'] or 'Plan Emprende'})"
 
-        if tipo_prorr == "SEGUNDO_PRORRATEO" and monto_adic > 0:
-            # Si tiene venta pendiente de 2.° prorrateo, se cobra la fracción adicional o el total programado
-            monto_a_cobrar = pend_total if pend_total > tarifa_base else (tarifa_base + monto_adic)
-            es_prorrateado = True
-            concepto = f"Segundo Prorrateo (Mes S/ {tarifa_base:.2f} + Adic. S/ {monto_adic:.2f})"
+        if tipo_prorr == "SEGUNDO_PRORRATEO":
+            if pend_total > tarifa_base:
+                monto_a_cobrar = pend_total
+                adic_real = round(pend_total - tarifa_base, 2)
+                es_prorrateado = True
+                concepto = f"Segundo Prorrateo (Mes S/ {tarifa_base:.2f} + Adic. S/ {adic_real:.2f})"
+            elif monto_adic > 0:
+                monto_a_cobrar = tarifa_base + monto_adic
+                es_prorrateado = True
+                concepto = f"Segundo Prorrateo (Mes S/ {tarifa_base:.2f} + Adic. S/ {monto_adic:.2f})"
+            elif last_total > tarifa_base:
+                monto_a_cobrar = last_total
+                adic_real = round(last_total - tarifa_base, 2)
+                es_prorrateado = True
+                concepto = f"Segundo Prorrateo (Mes S/ {tarifa_base:.2f} + Adic. S/ {adic_real:.2f})"
         elif tipo_prorr == "PRIMER_PRORRATEO" and 0 < pend_total < tarifa_base:
             monto_a_cobrar = pend_total
             es_prorrateado = True
@@ -346,11 +385,17 @@ def calcular_proyeccion_siguiente_mes() -> dict:
             monto_a_cobrar = serv_prorr
             es_prorrateado = True
             concepto = f"Primer Prorrateo (S/ {serv_prorr:.2f})"
+        elif es_adelanto:
+            monto_a_cobrar = last_total if last_total > 0 else tarifa_base
+            concepto = f"Adelanto Pagado ({c['nombre_plan'] or 'Plan Emprende'})"
 
         total_proyectado += monto_a_cobrar
         if es_prorrateado:
             total_prorrateados += monto_a_cobrar
             count_prorrateados += 1
+        elif es_adelanto:
+            total_adelantos += monto_a_cobrar
+            count_adelantos += 1
         else:
             total_regulares += monto_a_cobrar
             count_regulares += 1
@@ -361,6 +406,7 @@ def calcular_proyeccion_siguiente_mes() -> dict:
             "razon_social": c["razon_social"] or "",
             "monto": round(monto_a_cobrar, 2),
             "es_prorrateado": es_prorrateado,
+            "es_adelanto": es_adelanto,
             "concepto": concepto,
             "tarifa_base": tarifa_base,
             "estado_cuenta": c["estado_cuenta"],
@@ -371,9 +417,11 @@ def calcular_proyeccion_siguiente_mes() -> dict:
         "total_proyectado": round(total_proyectado, 2),
         "total_regulares": round(total_regulares, 2),
         "total_prorrateados": round(total_prorrateados, 2),
+        "total_adelantos": round(total_adelantos, 2),
         "clientes_no_bloqueados": len(clientes),
         "count_regulares": count_regulares,
         "count_prorrateados": count_prorrateados,
+        "count_adelantos": count_adelantos,
         "count_anuales_sin_cobro": count_anuales_sin_cobro,
         "desglose": desglose_clientes,
     }
@@ -561,11 +609,16 @@ def generar_suite_financiera_excel() -> bytes:
 
     proyeccion_rows = []
     for p_item in proyeccion["desglose"]:
+        tipo_cobro_lbl = (
+            "Prorrateado"
+            if p_item["es_prorrateado"]
+            else ("Adelanto Pagado" if p_item.get("es_adelanto") else "Tarifa Regular")
+        )
         proyeccion_rows.append({
             "RUC": p_item["ruc"],
             "Razón Social": p_item["razon_social"],
             "Estado Cuenta": p_item["estado_cuenta"],
-            "Tipo Cobro": "Prorrateado" if p_item["es_prorrateado"] else "Tarifa Regular",
+            "Tipo Cobro": tipo_cobro_lbl,
             "Detalle / Concepto": p_item["concepto"],
             "Tarifa Base (S/)": p_item["tarifa_base"],
             f"Monto a Facturar ({proyeccion['periodo_proyectado']})": p_item["monto"],
