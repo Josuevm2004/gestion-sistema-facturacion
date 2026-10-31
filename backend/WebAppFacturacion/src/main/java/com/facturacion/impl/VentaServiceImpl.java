@@ -110,7 +110,9 @@ public class VentaServiceImpl implements VentaService {
         LocalDateTime fechaPagoReal = resolverFechaPagoReal(request, fechaRef);
         boolean conProrrateo = Boolean.TRUE.equals(request.getConProrrateo());
         boolean usarMontoPendienteProgramado = debeUsarMontoPendienteProgramado(ventaPendiente, fechaRef);
-        LocalDate fechaInicioDate = resolverFechaInicioOperacion(ventaPendiente, servicioActual, tipo, conProrrateo, fechaRef, fechaPagoReal);
+        LocalDate fechaInicioDate = usarMontoPendienteProgramado
+                ? resolverFechaInicioProrrateoProgramado(ventaPendiente, fechaRef)
+                : resolverFechaInicioOperacion(ventaPendiente, servicioActual, tipo, conProrrateo, fechaRef, fechaPagoReal);
         LocalDateTime fechaInicio = LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
 
         BigDecimal precioLista = suscripcion.getPrecio();
@@ -140,8 +142,9 @@ public class VentaServiceImpl implements VentaService {
             diasProrrateoAdicional = ventaPendiente.getDiasProrrateoAdicional() != null ? ventaPendiente.getDiasProrrateoAdicional() : 0;
             fechaInicioProrrateoAdicional = ventaPendiente.getFechaInicioProrrateoAdicional();
             fechaFinProrrateoAdicional = ventaPendiente.getFechaFinProrrateoAdicional();
-            fechaFin = fechaInicio.plusMonths(1);
-            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFin.toLocalDate()));
+            LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaInicioDate, monthlyBillingDay);
+            fechaFin = LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME);
+            diasProrrateados = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMensual));
             if (request.getMonto() != null && request.getMonto().compareTo(BigDecimal.ZERO) > 0) {
                 montoTotal = request.getMonto();
             }
@@ -766,7 +769,21 @@ public class VentaServiceImpl implements VentaService {
                 && ventaPendiente.getMontoTotal() != null
                 && ventaPendiente.getFechaVenta() != null
                 && (ventaPendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO
+                    || ventaPendiente.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO
                     || !fechaRef.toLocalDate().isAfter(ventaPendiente.getFechaVenta().toLocalDate()));
+    }
+
+    private LocalDate resolverFechaInicioProrrateoProgramado(Venta ventaPendiente, LocalDateTime fechaRef) {
+        LocalDate hoy = fechaRef.toLocalDate();
+        int diaCobroHoy = Math.min(monthlyBillingDay, hoy.lengthOfMonth());
+        LocalDate primerDiaMesActual = hoy.withDayOfMonth(diaCobroHoy);
+        if (ventaPendiente != null && ventaPendiente.getFechaVenta() != null) {
+            LocalDate fechaProgramada = ventaPendiente.getFechaVenta().toLocalDate();
+            if (!fechaProgramada.isBefore(primerDiaMesActual)) {
+                return fechaProgramada.withDayOfMonth(Math.min(monthlyBillingDay, fechaProgramada.lengthOfMonth()));
+            }
+        }
+        return primerDiaMesActual;
     }
 
     private LocalDateTime resolverFechaPagoReal(ProcesarOperacionVentaRequest request, LocalDateTime fallback) {

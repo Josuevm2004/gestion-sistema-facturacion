@@ -5,11 +5,14 @@ node_modules/
 
 # Next.js build output
 frontend/.next/
+frontend/.next*/
 frontend/out/
 frontend/build/
 .next/
+*.tsbuildinfo
 
-# Java / Maven target output
+# Java / Maven / Eclipse output
+backend/.metadata/
 backend/WebAppFacturacion/target/
 *.class
 *.jar

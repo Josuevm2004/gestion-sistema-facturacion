@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/auth/**", "/api/admin/login", "/admin/login").permitAll()
                         .requestMatchers("/api/public/**", "/public/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/admin/planes/**", "/admin/planes/**", "/api/admin/entornos/**", "/admin/entornos/**").permitAll()
+                        .requestMatchers("/api/admin/motor-python/**", "/admin/motor-python/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/api/admin/**", "/admin/**").authenticated()
                         .anyRequest().authenticated()

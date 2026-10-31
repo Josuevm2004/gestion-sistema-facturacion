@@ -180,14 +180,22 @@ public class PagoServiceImpl implements PagoService {
                 && venta.getMontoTotal() != null
                 && venta.getFechaVenta() != null
                 && (venta.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO
+                    || venta.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO
                     || !fechaOperacion.toLocalDate().isAfter(venta.getFechaVenta().toLocalDate()));
     }
 
     private AjusteCobro construirAjusteDesdeVentaPendiente(Venta venta, LocalDateTime fechaOperacion) {
-        LocalDate fechaInicioDate = resolverFechaInicioOperacion(venta, fechaOperacion);
-        LocalDateTime fechaInicio = fechaInicioDate.equals(fechaOperacion.toLocalDate())
-                ? fechaOperacion
-                : LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
+        LocalDate hoy = fechaOperacion.toLocalDate();
+        int diaCobroHoy = Math.min(monthlyBillingDay, hoy.lengthOfMonth());
+        LocalDate primerDiaMesActual = hoy.withDayOfMonth(diaCobroHoy);
+        LocalDate fechaInicioDate = primerDiaMesActual;
+        if (venta.getFechaVenta() != null) {
+            LocalDate fechaProgramada = venta.getFechaVenta().toLocalDate();
+            if (!fechaProgramada.isBefore(primerDiaMesActual)) {
+                fechaInicioDate = fechaProgramada.withDayOfMonth(Math.min(monthlyBillingDay, fechaProgramada.lengthOfMonth()));
+            }
+        }
+        LocalDateTime fechaInicio = LocalDateTime.of(fechaInicioDate, LocalTime.NOON);
 
         if (venta.getSuscripcion() != null && venta.getSuscripcion().getTipoSuscripcion() == TipoSuscripcion.ANUAL) {
             return new AjusteCobro(

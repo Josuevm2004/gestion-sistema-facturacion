@@ -1,39 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { spawn } from 'child_process';
-import path from 'path';
+
+export const dynamic = 'force-dynamic';
+
+const BACKEND_API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://146.181.58.160:8080/api').replace(/\/$/, '');
 
 export async function GET(request: NextRequest) {
   try {
-    const rootDir = path.resolve(process.cwd(), '..');
-    const pythonExe = path.join(rootDir, '.venv', 'Scripts', 'python.exe');
+    const authHeader = request.headers.get('authorization');
+    const headers: Record<string, string> = { Accept: 'application/json' };
+    if (authHeader) headers['Authorization'] = authHeader;
 
-    const pythonProcess = spawn(pythonExe, [
-      '-c',
-      `import sys, json; sys.path.append(r'${rootDir}'); from motor_financiero_python import auditar_cartera_completa; print(json.dumps(auditar_cartera_completa()[:100]))`
-    ], {
-      cwd: rootDir,
-      env: process.env,
+    const response = await fetch(`${BACKEND_API_URL}/admin/motor-python/auditoria-cartera`, {
+      method: 'GET',
+      headers,
+      cache: 'no-store',
     });
 
-    let output = '';
-    let errorOutput = '';
+    if (!response.ok) {
+      throw new Error(`Backend responded with status ${response.status}`);
+    }
 
-    await new Promise<void>((resolve, reject) => {
-      pythonProcess.stdout.on('data', (data) => (output += data.toString()));
-      pythonProcess.stderr.on('data', (data) => (errorOutput += data.toString()));
-      pythonProcess.on('close', (code) => {
-        if (code === 0) resolve();
-        else reject(new Error(errorOutput || `Exit code ${code}`));
-      });
-    });
-
-    const data = JSON.parse(output.trim() || '[]');
-    return NextResponse.json({ success: true, count: data.length, data });
+    const payload = await response.json();
+    return NextResponse.json(payload);
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, message: error?.message || 'Error en auditoría' },
+      { success: false, count: 0, data: [], message: error?.message || 'Error en auditoría' },
       { status: 500 }
     );
   }
 }
-
