@@ -91,9 +91,76 @@ export default function ResumenTab({
     };
   }, [clients]);
 
+  // Cálculo de planes activos y previa del próximo mes (lo que debería ganar)
+  const { totalPlanesActivosMensual, clientesActivosFacturables } = React.useMemo(() => {
+    let sumActivos = 0;
+    let countActivos = 0;
+    (clients || []).forEach((c) => {
+      const st = (c.estadoCuenta || '').toUpperCase();
+      if (st === 'BLOQUEADO' || st === 'SUSPENDIDO') return;
+      const isAnnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+      // Excluir anuales antiguos: solo planes mensuales recurrentes o anuales que renueven
+      if (isAnnual) return;
+      const tarifa = Number(c.montoMensual || c.precioPlan || 0);
+      sumActivos += tarifa;
+      countActivos++;
+    });
+    return {
+      totalPlanesActivosMensual: sumActivos,
+      clientesActivosFacturables: countActivos,
+    };
+  }, [clients]);
+
   return (
     <div className="admin-module admin-module--overview">
       {/* TailAdmin Signature KPI Stat Cards (Matches Captura 2) */}
+            {/* Banner de Previa de Ingresos en Planes Activos */}
+      <div
+        className="card shadow-sm border-0 mb-4 p-3.5"
+        style={{
+          background: 'linear-gradient(135deg, #1E1B4B 0%, #312E81 50%, #4338CA 100%)',
+          color: '#FFFFFF',
+          borderRadius: '14px',
+        }}
+      >
+        <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div>
+            <div className="d-flex align-items-center gap-2 mb-1.5">
+              <span
+                className="badge rounded-pill fw-bold px-2.5 py-1"
+                style={{ backgroundColor: '#EEF2FF', color: '#4338CA', fontSize: '0.74rem' }}
+              >
+                ⭐ Previa de Ganancia del Próximo Mes
+              </span>
+              <span className="text-light-subtle small opacity-75">
+                | Estimación en Planes Activos (Sin bloqueados ni anuales antiguos)
+              </span>
+            </div>
+            <div className="d-flex align-items-baseline gap-3 flex-wrap">
+              <div style={{ fontSize: '1.9rem', fontWeight: 800, color: '#38BDF8', letterSpacing: '-0.5px' }}>
+                S/ {totalPlanesActivosMensual.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-light small d-flex align-items-center gap-2 opacity-90">
+                <span>{clientesActivosFacturables} clientes recurrentes activos</span>
+                <span>·</span>
+                <span>Excluye anuales antiguos pagados</span>
+              </div>
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <button
+              onClick={() => setActiveTab('reporte')}
+              className="btn btn-light fw-bold d-flex align-items-center gap-1.5 px-3 py-2 rounded-3 shadow-sm"
+              style={{ color: '#312E81', fontSize: '0.85rem' }}
+            >
+              <CreditCard size={16} />
+              <span>Ver Hoja de Pagos del Mes</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="row g-3 g-xl-4 mb-4 admin-stat-strip">
         {/* Card 1: Ingresos del Día */}
         <div className="col-12 col-sm-6 col-xl-3">

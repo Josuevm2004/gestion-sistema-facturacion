@@ -136,7 +136,7 @@ export default function ReportesExcelTab({
 
   // Navegación de secciones
   const [activeSection, setActiveSection] = useState<
-    'RESUMEN' | 'TOTAL_MES' | 'PAGOS_MES' | 'ALTAS' | 'MENSUALIDADES' | 'ANUALES' | 'PRORRATEOS' | 'BLOQUEADOS'
+    'RESUMEN' | 'HOJA_EXCEL' | 'PAGOS_MES' | 'TOTAL_MES' | 'ALTAS' | 'MENSUALIDADES' | 'ANUALES' | 'PRORRATEOS' | 'BLOQUEADOS'
   >('RESUMEN');
 
   // Paginación y verificador instantáneo
@@ -1967,6 +1967,22 @@ ${summaryMonthRowsXml}
 
         <button
           onClick={() => {
+            setActiveSection('HOJA_EXCEL');
+            setTablePage(1);
+          }}
+          className={`btn btn-sm px-3.5 py-2 fw-semibold rounded-pill d-flex align-items-center gap-2 ${
+            activeSection === 'HOJA_EXCEL' ? 'btn-success text-white shadow-sm' : 'btn-light text-secondary'
+          }`}
+          style={{ whiteSpace: 'nowrap', backgroundColor: activeSection === 'HOJA_EXCEL' ? '#047857' : undefined }}
+          title="Ver en pantalla la sábana matriz completa con todas las columnas de cada mes (idéntico al Excel)"
+        >
+          <FileSpreadsheet size={15} />
+          <span>Hoja Matriz Excel (Columnas por Mes)</span>
+        </button>
+
+
+        <button
+          onClick={() => {
             setActiveSection('TOTAL_MES');
             setTablePage(1);
           }}
@@ -2110,6 +2126,29 @@ ${summaryMonthRowsXml}
               </span>
             </div>
           </div>
+
+          
+          {activeMonthForPayments === nextMonthKey && (
+            <div className="p-3 mb-3 rounded-3 shadow-xs" style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <strong className="text-primary d-block" style={{ fontSize: '0.92rem' }}>
+                    ⭐ Previa de Ganancia del Mes Siguiente ({formatMonthKeyLabel(nextMonthKey)})
+                  </strong>
+                  <small className="text-muted">
+                    Proyección de ingresos en planes activos: incluye adelantos pagados, prorrateos vigentes y mensualidades por vencer.
+                    (Los planes anuales antiguos pagados previamente están excluidos, solo aplican si se afilian o cumplen su año).
+                  </small>
+                </div>
+                <div className="d-flex align-items-baseline gap-2">
+                  <span className="text-muted small">Total Estimado a Cobrar:</span>
+                  <strong className="text-primary fw-bold" style={{ fontSize: '1.25rem' }}>
+                    S/ {(proyeccionNextMonth?.total_proyectado || monthColumnTotals.get(nextMonthKey)?.totalGenerado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0 table-meta">
@@ -2351,19 +2390,242 @@ ${summaryMonthRowsXml}
         </>
       )}
 
+      
+      {/* 8.0 HOJA MATRIZ COMPLETA ESTILO EXCEL EN PANTALLA (COLUMNAS POR CADA MES) */}
+      {activeSection === 'HOJA_EXCEL' && (
+        <div className="custom-card p-4 shadow-sm mb-4" style={{ borderLeft: '4px solid #047857', backgroundColor: '#FFFFFF' }}>
+          <div className="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom flex-wrap gap-2">
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <FileSpreadsheet size={19} className="text-success" />
+                <strong className="text-dark fw-bold" style={{ fontSize: '1.05rem' }}>
+                  Hoja Matriz Consolidada de Clientes (Estilo Excel en Pantalla)
+                </strong>
+                <span className="badge rounded-pill bg-success-subtle text-success fw-bold px-2.5 py-1" style={{ fontSize: '0.74rem' }}>
+                  {clientMatrixRows.length} clientes en cartera
+                </span>
+              </div>
+              <small className="text-muted d-block mt-1">
+                Visualización idéntica a la hoja principal del Excel oficial: columnas para cada mes con cobros, prorrateos y previa del próximo mes.
+              </small>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', fontWeight: 'bold', fontSize: '0.9rem', padding: '0.45rem 0.85rem' }}>
+                Gran Total Acumulado: S/ {granTotalCobros.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div className="table-responsive" style={{ maxHeight: '720px', overflowY: 'auto' }}>
+            <table className="table table-bordered table-hover align-middle mb-0 text-nowrap" style={{ fontSize: '0.8rem' }}>
+              <thead className="table-light sticky-top" style={{ zIndex: 2 }}>
+                <tr>
+                  <th style={{ minWidth: '40px', backgroundColor: '#F1F5F9' }}>#</th>
+                  <th style={{ minWidth: '110px', backgroundColor: '#F1F5F9' }}>RUC</th>
+                  <th style={{ minWidth: '220px', backgroundColor: '#F1F5F9' }}>Razón Social</th>
+                  <th style={{ minWidth: '130px', backgroundColor: '#F1F5F9' }}>Plan</th>
+                  <th style={{ minWidth: '100px', backgroundColor: '#F1F5F9' }}>Tarifa (S/)</th>
+                  <th style={{ minWidth: '110px', backgroundColor: '#F1F5F9' }}>Asesor</th>
+                  <th style={{ minWidth: '100px', backgroundColor: '#F1F5F9' }}>Estado</th>
+                  {allMonthKeys.map((mk) => {
+                    const isNext = mk === nextMonthKey;
+                    const isCurr = mk === currentMonthKey;
+                    return (
+                      <th
+                        key={mk}
+                        className="text-end"
+                        style={{
+                          minWidth: '115px',
+                          backgroundColor: isNext ? '#EEF2FF' : isCurr ? '#ECFDF5' : '#F8FAFC',
+                          color: isNext ? '#4F46E5' : isCurr ? '#047857' : '#1E293B',
+                          borderBottom: isNext ? '2px solid #6366F1' : isCurr ? '2px solid #10B981' : undefined,
+                        }}
+                      >
+                        <div>{formatMonthKeyLabel(mk)}</div>
+                        {isNext && <span className="badge bg-primary text-white" style={{ fontSize: '0.62rem' }}>Previa</span>}
+                        {isCurr && <span className="badge bg-success text-white" style={{ fontSize: '0.62rem' }}>Mes Actual</span>}
+                      </th>
+                    );
+                  })}
+                  <th className="text-end fw-bold" style={{ minWidth: '130px', backgroundColor: '#E2E8F0', color: '#0F172A' }}>
+                    TOTAL CLIENTE (S/)
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {clientMatrixRows.map((row, idx) => {
+                  const c = row.client;
+                  const st = (c.estadoCuenta || '').toUpperCase();
+                  const isBlocked = st === 'BLOQUEADO' || st === 'SUSPENDIDO';
+                  return (
+                    <tr key={c.id || idx} style={{ backgroundColor: isBlocked ? '#FEF2F2' : undefined }}>
+                      <td className="text-muted text-center">{idx + 1}</td>
+                      <td className="font-monospace fw-semibold text-secondary">{c.ruc || '—'}</td>
+                      <td>
+                        <strong className="text-dark d-block text-truncate" style={{ maxWidth: '210px' }} title={c.razonSocial}>
+                          {c.razonSocial || 'Cliente General'}
+                        </strong>
+                        <small className="text-muted text-truncate d-block" style={{ maxWidth: '210px' }}>
+                          {c.nombreComercial || '—'}
+                        </small>
+                      </td>
+                      <td>
+                        <span className="badge-tag badge-plan-tag">{c.planContratado || '—'}</span>
+                      </td>
+                      <td className="fw-semibold text-dark">
+                        S/ {Number(c.montoMensual || c.precioPlan || 0).toFixed(2)}
+                      </td>
+                      <td className="text-muted small">{c.vendedor || '—'}</td>
+                      <td>
+                        <span className={`badge rounded-pill ${isBlocked ? 'bg-danger text-white' : 'bg-success-subtle text-success'}`} style={{ fontSize: '0.68rem' }}>
+                          {c.estadoCuenta || 'HABILITADO'}
+                        </span>
+                      </td>
+                      {allMonthKeys.map((mk) => {
+                        const cell = row.cellDataByMonth.get(mk);
+                        const amt = cell ? cell.amount : 0;
+                        const isNext = mk === nextMonthKey;
+                        const isCurr = mk === currentMonthKey;
+                        if (!amt || amt === 0) {
+                          return (
+                            <td key={mk} className="text-end text-muted font-monospace" style={{ opacity: 0.35 }}>
+                              —
+                            </td>
+                          );
+                        }
+                        return (
+                          <td
+                            key={mk}
+                            className="text-end"
+                            style={{
+                              backgroundColor: isNext ? '#F5F3FF' : isCurr ? '#F0FDF4' : undefined,
+                            }}
+                          >
+                            <span
+                              className={`badge ${
+                                isNext
+                                  ? 'bg-primary text-white'
+                                  : cell?.tipo === 'ANUAL'
+                                  ? 'bg-dark text-white'
+                                  : cell?.tipo === 'PRORRATEO'
+                                  ? 'bg-warning text-dark'
+                                  : 'bg-success text-white'
+                              }`}
+                              style={{ fontSize: '0.74rem' }}
+                            >
+                              S/ {amt.toFixed(2)}
+                            </span>
+                          </td>
+                        );
+                      })}
+                      <td className="text-end fw-bold text-dark" style={{ backgroundColor: '#F8FAFC' }}>
+                        S/ {row.clientTotal.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="table-light sticky-bottom" style={{ zIndex: 2 }}>
+                <tr style={{ borderTop: '2px solid #CBD5E1', backgroundColor: '#F1F5F9' }}>
+                  <td colSpan={7} className="fw-bold text-dark py-2.5">
+                    TOTAL GENERADO POR MES (S/)
+                  </td>
+                  {allMonthKeys.map((mk) => {
+                    const col = monthColumnTotals.get(mk);
+                    const totalM = col ? col.totalGenerado : 0;
+                    const isNext = mk === nextMonthKey;
+                    const isCurr = mk === currentMonthKey;
+                    return (
+                      <td
+                        key={mk}
+                        className="text-end fw-bold py-2.5"
+                        style={{
+                          fontSize: '0.85rem',
+                          color: isNext ? '#4F46E5' : isCurr ? '#047857' : '#0F172A',
+                          backgroundColor: isNext ? '#EEF2FF' : isCurr ? '#ECFDF5' : undefined,
+                        }}
+                      >
+                        S/ {totalM.toFixed(2)}
+                      </td>
+                    );
+                  })}
+                  <td className="text-end fw-bold py-2.5 text-success" style={{ fontSize: '0.95rem', backgroundColor: '#E2E8F0' }}>
+                    S/ {granTotalCobros.toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* 8.1 HOJA DE PAGOS DEL MES SELECCIONADO (CORROBORADO CON HISTORIAL DE PAGOS) */}
       {activeSection === 'PAGOS_MES' && (
         <div className="custom-card p-4 shadow-sm mb-4" style={{ borderLeft: '4px solid #4F46E5', backgroundColor: '#FFFFFF' }}>
           <div className="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom flex-wrap gap-2">
             <div>
-              <div className="d-flex align-items-center gap-2">
+              <div className="d-flex align-items-center gap-2 flex-wrap mb-2">
                 <CreditCard size={18} className="text-primary" />
-                <strong className="text-dark fw-bold" style={{ fontSize: '1rem' }}>
-                  Hoja Oficial de Pagos: {formatMonthKeyLabel(activeMonthForPayments)}
+                <strong className="text-dark fw-bold" style={{ fontSize: '1.05rem' }}>
+                  Hoja de Pagos del Mes: {formatMonthKeyLabel(activeMonthForPayments)}
                 </strong>
-                <span className="badge rounded-pill" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE', fontSize: '0.72rem' }}>
-                  {pagosDelMesSeleccionado.length} pagos registrados
+                <span className="badge rounded-pill" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE', fontSize: '0.74rem' }}>
+                  {pagosDelMesSeleccionado.length} transacciones registradas
                 </span>
+                {activeMonthForPayments === nextMonthKey && (
+                  <span className="badge rounded-pill bg-primary text-white px-2.5 py-1" style={{ fontSize: '0.72rem' }}>
+                    ⭐ Previa Próximo Mes
+                  </span>
+                )}
+                {activeMonthForPayments === currentMonthKey && (
+                  <span className="badge rounded-pill bg-success text-white px-2.5 py-1" style={{ fontSize: '0.72rem' }}>
+                    🟢 Mes Actual en Curso
+                  </span>
+                )}
+              </div>
+
+              {/* Selector interactivo de mes directo en la hoja de pagos */}
+              <div className="d-flex align-items-center gap-2 flex-wrap mt-2 pt-2 border-top">
+                <span className="small fw-bold text-dark d-flex align-items-center gap-1">
+                  <Calendar size={14} className="text-primary" /> Consultar Mes:
+                </span>
+                <select
+                  className="form-select form-select-sm rounded-3 fw-bold border-primary shadow-xs"
+                  style={{ width: 'auto', minWidth: '220px', cursor: 'pointer' }}
+                  value={activeMonthForPayments}
+                  onChange={(e) => {
+                    setSelectedMesFacturacion(e.target.value);
+                    setTablePage(1);
+                  }}
+                >
+                  {availableBillingMonths.map(([k, label]) => (
+                    <option key={k} value={k}>
+                      {label} {k === nextMonthKey ? '⭐ (Previa / Próximo Mes)' : k === currentMonthKey ? '🟢 (Mes Actual)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <div className="btn-group btn-group-sm">
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${activeMonthForPayments === currentMonthKey ? 'btn-success text-white fw-bold' : 'btn-outline-secondary'}`}
+                    onClick={() => {
+                      setSelectedMesFacturacion(currentMonthKey);
+                      setTablePage(1);
+                    }}
+                  >
+                    Mes Actual ({formatMonthKeyLabel(currentMonthKey).split(' ')[0]})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm ${activeMonthForPayments === nextMonthKey ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary'}`}
+                    onClick={() => {
+                      setSelectedMesFacturacion(nextMonthKey);
+                      setTablePage(1);
+                    }}
+                  >
+                    Próximo Mes ({formatMonthKeyLabel(nextMonthKey).split(' ')[0]} - Previa)
+                  </button>
+                </div>
               </div>
               <small className="text-muted d-block mt-1">
                 Listado completo de todos los pagos corroborados en el historial para este mes (incluye adelantos imputados al siguiente mes y prorrateos).
@@ -2375,6 +2637,29 @@ ${summaryMonthRowsXml}
               </span>
             </div>
           </div>
+
+          
+          {activeMonthForPayments === nextMonthKey && (
+            <div className="p-3 mb-3 rounded-3 shadow-xs" style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <strong className="text-primary d-block" style={{ fontSize: '0.92rem' }}>
+                    ⭐ Previa de Ganancia del Mes Siguiente ({formatMonthKeyLabel(nextMonthKey)})
+                  </strong>
+                  <small className="text-muted">
+                    Proyección de ingresos en planes activos: incluye adelantos pagados, prorrateos vigentes y mensualidades por vencer.
+                    (Los planes anuales antiguos pagados previamente están excluidos, solo aplican si se afilian o cumplen su año).
+                  </small>
+                </div>
+                <div className="d-flex align-items-baseline gap-2">
+                  <span className="text-muted small">Total Estimado a Cobrar:</span>
+                  <strong className="text-primary fw-bold" style={{ fontSize: '1.25rem' }}>
+                    S/ {(proyeccionNextMonth?.total_proyectado || monthColumnTotals.get(nextMonthKey)?.totalGenerado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0 table-meta">
@@ -2493,6 +2778,29 @@ ${summaryMonthRowsXml}
             </div>
           </div>
 
+          
+          {activeMonthForPayments === nextMonthKey && (
+            <div className="p-3 mb-3 rounded-3 shadow-xs" style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <strong className="text-primary d-block" style={{ fontSize: '0.92rem' }}>
+                    ⭐ Previa de Ganancia del Mes Siguiente ({formatMonthKeyLabel(nextMonthKey)})
+                  </strong>
+                  <small className="text-muted">
+                    Proyección de ingresos en planes activos: incluye adelantos pagados, prorrateos vigentes y mensualidades por vencer.
+                    (Los planes anuales antiguos pagados previamente están excluidos, solo aplican si se afilian o cumplen su año).
+                  </small>
+                </div>
+                <div className="d-flex align-items-baseline gap-2">
+                  <span className="text-muted small">Total Estimado a Cobrar:</span>
+                  <strong className="text-primary fw-bold" style={{ fontSize: '1.25rem' }}>
+                    S/ {(proyeccionNextMonth?.total_proyectado || monthColumnTotals.get(nextMonthKey)?.totalGenerado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="table-responsive">
             <table className="table table-hover align-middle mb-0 table-meta">
               <thead>
@@ -2564,7 +2872,7 @@ ${summaryMonthRowsXml}
       )}
 
       {/* 9. TABLA PRINCIPAL DE AUDITORÍA Y DETALLE DE OPERACIONES */}
-      {activeSection !== 'BLOQUEADOS' && activeSection !== 'PAGOS_MES' && (
+      {activeSection !== 'BLOQUEADOS' && activeSection !== 'PAGOS_MES' && activeSection !== 'HOJA_EXCEL' && (
         <div className="custom-card admin-report-table-card p-3.5 shadow-sm">
           <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
@@ -2591,7 +2899,30 @@ ${summaryMonthRowsXml}
           </div>
 
           <div className="table-card-meta mb-3">
-            <div className="table-responsive">
+            
+          {activeMonthForPayments === nextMonthKey && (
+            <div className="p-3 mb-3 rounded-3 shadow-xs" style={{ backgroundColor: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <strong className="text-primary d-block" style={{ fontSize: '0.92rem' }}>
+                    ⭐ Previa de Ganancia del Mes Siguiente ({formatMonthKeyLabel(nextMonthKey)})
+                  </strong>
+                  <small className="text-muted">
+                    Proyección de ingresos en planes activos: incluye adelantos pagados, prorrateos vigentes y mensualidades por vencer.
+                    (Los planes anuales antiguos pagados previamente están excluidos, solo aplican si se afilian o cumplen su año).
+                  </small>
+                </div>
+                <div className="d-flex align-items-baseline gap-2">
+                  <span className="text-muted small">Total Estimado a Cobrar:</span>
+                  <strong className="text-primary fw-bold" style={{ fontSize: '1.25rem' }}>
+                    S/ {(proyeccionNextMonth?.total_proyectado || monthColumnTotals.get(nextMonthKey)?.totalGenerado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="table-responsive">
               <table className="table table-hover align-middle mb-0 table-meta">
                 <thead>
                   <tr>
