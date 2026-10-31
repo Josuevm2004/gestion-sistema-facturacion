@@ -21,6 +21,7 @@ import {
   BarChart3,
   Eye,
   Check,
+  CreditCard,
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import {
@@ -135,7 +136,7 @@ export default function ReportesExcelTab({
 
   // Navegación de secciones
   const [activeSection, setActiveSection] = useState<
-    'RESUMEN' | 'TOTAL_MES' | 'ALTAS' | 'MENSUALIDADES' | 'ANUALES' | 'PRORRATEOS' | 'BLOQUEADOS'
+    'RESUMEN' | 'TOTAL_MES' | 'PAGOS_MES' | 'ALTAS' | 'MENSUALIDADES' | 'ANUALES' | 'PRORRATEOS' | 'BLOQUEADOS'
   >('RESUMEN');
 
   // Paginación y verificador instantáneo
@@ -436,7 +437,7 @@ export default function ReportesExcelTab({
       const advanceMonths = new Set<string>();
 
       if (isClientAnnual) {
-        // PLAN ANUAL: solo figura una vez en el mes que inicia su plan (no se repite en meses posteriores)
+        // PLAN ANUAL: solo figura una única vez en el mes exacto que inicia/afilia su suscripción (nunca en meses posteriores)
         const annualPay = clPays.find((p) => {
           const isAnn = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
           return isAnn || Number(p?.monto || 0) >= 150;
@@ -448,17 +449,22 @@ export default function ReportesExcelTab({
           ? parseLocalDateSafe(annualPay?.periodoInicio || annualPay?.fechaVenta || annualPay?.venta?.fechaVenta || annualPay?.fechaPago || annualPay?.fechaRegistro)
           : null;
         const annualMonthKey = (annualPayD && monthKeyFromDate(annualPayD)) || startMonthKey;
+        // Solo colocar el cobro en el mes de afiliación
         monthlySums.set(annualMonthKey, annualAmount);
 
-        // Solo si su año completo vence exactamente en nextKey (inició hace ~12 meses) figurará en nextKey
-        if (!isBlocked) {
-          const proyItem = (c.id && proyeccionByClient.get(String(c.id))) || (c.ruc && proyeccionByClient.get(`ruc-${c.ruc}`));
-          if (proyItem && Number(proyItem.monto || 0) > 0 && monthIndexFromKey(annualMonthKey) <= monthIndexFromKey(currKey) - 10) {
-            monthlySums.set(nextKey, Number(proyItem.monto));
+        // Los anuales antiguos NO vuelven a figurar en la previa a menos que su año esté realmente vencido y tenga renovación pendiente
+        if (!isBlocked && endD) {
+          const endKey = monthKeyFromDate(endD);
+          if (endKey === nextKey && monthIndexFromKey(annualMonthKey) <= monthIndexFromKey(currKey) - 10) {
+            const proyItem = (c.id && proyeccionByClient.get(String(c.id))) || (c.ruc && proyeccionByClient.get(`ruc-${c.ruc}`));
+            if (proyItem && Number(proyItem.monto || 0) > 0) {
+              monthlySums.set(nextKey, Number(proyItem.monto));
+            }
           }
         }
       } else {
-        // 1. Registrar todos los pagos confirmados en su mes correspondiente (incluyendo prorrateos y adelantos)
+        // 1. Corroborar pagos del historial:
+        // Si pagan adelantado para el siguiente mes (o con observaciones de adelanto), debe figurar en el siguiente mes
         if (clPays.length > 0) {
           const sortedPays = [...clPays].sort((a, b) => {
             const dA = parseLocalDateSafe(a?.fechaPago || a?.fechaVenta || a?.periodoInicio)?.getTime() || 0;
@@ -474,26 +480,28 @@ export default function ReportesExcelTab({
             const isObsAdelanto = obsStr.includes('adelanto');
             const perD = parseLocalDateSafe(p?.periodoInicio);
             const payD = parseLocalDateSafe(p?.fechaVenta || p?.venta?.fechaVenta || p?.fechaPago || p?.fechaRegistro);
-            let k = monthKeyFromDate(perD || payD);
-            if (!k) return;
+            const payMonthKey = monthKeyFromDate(payD);
+            let targetKey = monthKeyFromDate(perD) || payMonthKey;
+            if (!targetKey) return;
 
-            // Si un pago realizado en el mes actual quedó con periodoInicio más allá del próximo mes (ej. 2026-12),
-            // asignarlo al mes actual (si está vacío) o al próximo mes (como adelanto) para que no se pierda
-            if (monthIndexFromKey(k) > monthIndexFromKey(nextKey)) {
-              const payKey = monthKeyFromDate(payD);
-              if (payKey === currKey) {
-                k = (monthlySums.get(currKey) || 0) === 0 && !isObsAdelanto ? currKey : nextKey;
-              } else {
-                k = nextKey;
+            // Si es un pago adelantado para el siguiente mes:
+            if (isObsAdelanto) {
+              if (targetKey === currKey || targetKey === payMonthKey) {
+                targetKey = nextKey;
               }
-            } else if (k === currKey && isObsAdelanto && (monthlySums.get(currKey) || 0) > 0) {
-              k = nextKey;
+            } else if (payMonthKey === currKey && targetKey && monthIndexFromKey(targetKey) > monthIndexFromKey(currKey)) {
+              // El pago se hizo en el mes actual pero cubre el período siguiente -> asignar al mes siguiente
+              targetKey = nextKey;
             }
 
-            if (k === nextKey || isObsAdelanto) {
-              advanceMonths.add(k);
+            if (monthIndexFromKey(targetKey) > monthIndexFromKey(nextKey)) {
+              targetKey = nextKey;
             }
-            monthlySums.set(k, (monthlySums.get(k) || 0) + pAmount);
+
+            if (targetKey === nextKey || isObsAdelanto) {
+              advanceMonths.add(targetKey);
+            }
+            monthlySums.set(targetKey, (monthlySums.get(targetKey) || 0) + pAmount);
           });
         }
 
@@ -803,6 +811,96 @@ export default function ReportesExcelTab({
       totalDeudaPendiente: sumDeuda,
     };
   }, [filteredClients]);
+
+  // --------------------------------------------------------------------------
+  // HOJA / AUDITORÍA DE TODOS LOS PAGOS DEL MES SELECCIONADO (DESDE HISTORIAL DE PAGOS)
+  // --------------------------------------------------------------------------
+  const activeMonthForPayments = selectedMesFacturacion === 'ALL' ? currentMonthKey : selectedMesFacturacion;
+
+  const pagosDelMesSeleccionado = useMemo(() => {
+    const list: Array<{
+      pagoId: string;
+      clienteId: string;
+      razonSocial: string;
+      ruc: string;
+      plan: string;
+      asesor: string;
+      monto: number;
+      medioPago: string;
+      codigoOperacion: string;
+      fechaPagoStr: string;
+      fechaRegistroStr: string;
+      periodoCubiertoStr: string;
+      observaciones: string;
+      esAdelanto: boolean;
+      esProrrateo: boolean;
+      tipoVenta: string;
+    }> = [];
+
+    const seenUids = new Set<string>();
+
+    safePayments.forEach((p, idx) => {
+      const uId = String(p?.id ?? p?.pagoId ?? `${p?.fechaPago || p?.fechaRegistro}-${p?.monto}-${idx}`);
+      if (seenUids.has(uId)) return;
+      seenUids.add(uId);
+
+      const payD = parseLocalDateSafe(p?.fechaPago || p?.fechaVenta || p?.venta?.fechaVenta || p?.fechaRegistro);
+      const perD = parseLocalDateSafe(p?.periodoInicio);
+      const perFinD = parseLocalDateSafe(p?.periodoFin);
+
+      const payMonth = monthKeyFromDate(payD);
+      const perMonth = monthKeyFromDate(perD);
+      const obsStr = String(p?.observaciones || p?.venta?.observaciones || '').toLowerCase();
+      const isObsAdelanto = obsStr.includes('adelanto');
+
+      // Determinar a qué mes se imputa el pago:
+      let mesImputado = perMonth || payMonth;
+      if (isObsAdelanto && (mesImputado === currentMonthKey || payMonth === currentMonthKey)) {
+        mesImputado = nextMonthKey;
+      } else if (payMonth === currentMonthKey && perMonth && monthIndexFromKey(perMonth) > monthIndexFromKey(currentMonthKey)) {
+        mesImputado = nextMonthKey;
+      }
+
+      // Filtrar para ver los pagos que corresponden al mes activo (por fecha de pago o por período imputado)
+      const matchesTarget = (mesImputado === activeMonthForPayments) || (payMonth === activeMonthForPayments);
+      if (!matchesTarget) return;
+
+      const cId = p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId;
+      const cRuc = p?.clienteRuc || p?.venta?.cliente?.ruc || '';
+      const cRazon = p?.clienteRazonSocial || p?.venta?.cliente?.razonSocial || 'Cliente';
+      const vNombre = p?.vendedorNombre || p?.venta?.vendedor?.nombre || 'Por asignar';
+      const planNom = p?.planNombre || p?.venta?.suscripcion?.plan?.nombrePlan || 'Plan Estándar';
+      const tProrr = p?.tipoProrrateo || p?.venta?.tipoProrrateo || 'NINGUNO';
+      const isProrr = tProrr !== 'NINGUNO' || obsStr.includes('prorrateo');
+
+      const fechaPagoStr = payD ? formatExcelDate(payD) : '—';
+      const fechaRegistroStr = formatExcelDate(p?.fechaRegistro || payD);
+      const perIniStr = perD ? formatExcelDate(perD) : '';
+      const perFinStr = perFinD ? formatExcelDate(perFinD) : '';
+      const periodoCubiertoStr = perIniStr && perFinStr ? `${perIniStr} al ${perFinStr}` : perIniStr || '—';
+
+      list.push({
+        pagoId: String(p?.id || idx),
+        clienteId: String(cId || ''),
+        razonSocial: cRazon,
+        ruc: cRuc,
+        plan: planNom,
+        asesor: vNombre,
+        monto: Number(p?.monto || p?.venta?.montoTotal || 0),
+        medioPago: String(p?.medioPago || 'TRANSFERENCIA'),
+        codigoOperacion: String(p?.codigoOperacion || '—'),
+        fechaPagoStr,
+        fechaRegistroStr,
+        periodoCubiertoStr,
+        observaciones: p?.observaciones || 'Pago registrado',
+        esAdelanto: isObsAdelanto || mesImputado === nextMonthKey,
+        esProrrateo: isProrr,
+        tipoVenta: String(p?.tipoVenta || p?.venta?.tipoVenta || 'RENOVACION'),
+      });
+    });
+
+    return list.sort((a, b) => b.monto - a.monto);
+  }, [safePayments, activeMonthForPayments, currentMonthKey, nextMonthKey]);
 
   // Datos para la tabla mensual (lista de filas por mes)
   const monthlySummaryTableData = useMemo(() => {
@@ -1185,6 +1283,45 @@ ${summaryMonthRowsXml}
    </Row>
   </Table>
  </Worksheet>
+  <Worksheet ss:Name="Pagos del Mes Seleccionado">
+   <Table>
+    <Row ss:Height="26">
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Cliente / Razón Social</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">RUC</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Plan</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Fecha Pago</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Período Cubierto</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Medio de Pago</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Código Operación</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Tipo / Concepto</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Asesor</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Monto Pagado (S/)</Data></Cell>
+     <Cell ss:StyleID="HeaderStyle"><Data ss:Type="String">Observaciones</Data></Cell>
+    </Row>
+    ${pagosDelMesSeleccionado
+      .map(
+        (p) => `<Row ss:Height="22">
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${String(p.razonSocial).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.ruc}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.plan}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.fechaPagoStr}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.periodoCubiertoStr}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.medioPago}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.codigoOperacion}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.esAdelanto ? 'Adelanto' : p.esProrrateo ? 'Prorrateo' : p.tipoVenta}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${p.asesor}</Data></Cell>
+     <Cell ss:StyleID="NumberStyle"><Data ss:Type="Number">${p.monto.toFixed(2)}</Data></Cell>
+     <Cell ss:StyleID="DataStyle"><Data ss:Type="String">${String(p.observaciones).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+    </Row>`
+      )
+      .join('\n')}
+    <Row ss:Height="26">
+     <Cell ss:StyleID="TotalLabelStyle" ss:MergeAcross="8"><Data ss:Type="String">TOTAL PAGOS DEL MES (${formatMonthKeyLabel(activeMonthForPayments)})</Data></Cell>
+     <Cell ss:StyleID="GrandTotalStyle"><Data ss:Type="Number">${pagosDelMesSeleccionado.reduce((acc, p) => acc + p.monto, 0).toFixed(2)}</Data></Cell>
+     <Cell ss:StyleID="TotalLabelStyle"><Data ss:Type="String"></Data></Cell>
+    </Row>
+   </Table>
+  </Worksheet>
 </Workbook>`;
 
       const blob = new Blob([excelTemplate], { type: 'application/vnd.ms-excel;charset=utf-8' });
@@ -1847,6 +1984,24 @@ ${summaryMonthRowsXml}
 
         <button
           onClick={() => {
+            setActiveSection('PAGOS_MES');
+            setTablePage(1);
+          }}
+          className={`btn btn-sm px-3.5 py-2 fw-semibold rounded-pill d-flex align-items-center gap-2 ${
+            activeSection === 'PAGOS_MES' ? 'btn-primary text-white shadow-sm' : 'btn-light text-secondary'
+          }`}
+          style={{ whiteSpace: 'nowrap', backgroundColor: activeSection === 'PAGOS_MES' ? '#4F46E5' : undefined }}
+          title="Ver en una sola hoja todos los pagos confirmados del mes seleccionado con comprobante, medio y fecha"
+        >
+          <CreditCard size={15} />
+          <span>Hoja de Pagos del Mes ({pagosDelMesSeleccionado.length})</span>
+          <span className="badge rounded-pill bg-white px-2 py-0.5" style={{ fontSize: '0.7rem', color: '#4F46E5' }}>
+            S/ {pagosDelMesSeleccionado.reduce((acc, p) => acc + p.monto, 0).toFixed(0)}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
             setActiveSection('ALTAS');
             setTablePage(1);
           }}
@@ -2196,6 +2351,134 @@ ${summaryMonthRowsXml}
         </>
       )}
 
+      {/* 8.1 HOJA DE PAGOS DEL MES SELECCIONADO (CORROBORADO CON HISTORIAL DE PAGOS) */}
+      {activeSection === 'PAGOS_MES' && (
+        <div className="custom-card p-4 shadow-sm mb-4" style={{ borderLeft: '4px solid #4F46E5', backgroundColor: '#FFFFFF' }}>
+          <div className="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom flex-wrap gap-2">
+            <div>
+              <div className="d-flex align-items-center gap-2">
+                <CreditCard size={18} className="text-primary" />
+                <strong className="text-dark fw-bold" style={{ fontSize: '1rem' }}>
+                  Hoja Oficial de Pagos: {formatMonthKeyLabel(activeMonthForPayments)}
+                </strong>
+                <span className="badge rounded-pill" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', border: '1px solid #C7D2FE', fontSize: '0.72rem' }}>
+                  {pagosDelMesSeleccionado.length} pagos registrados
+                </span>
+              </div>
+              <small className="text-muted d-block mt-1">
+                Listado completo de todos los pagos corroborados en el historial para este mes (incluye adelantos imputados al siguiente mes y prorrateos).
+              </small>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge-tag" style={{ backgroundColor: '#ECFDF5', color: '#047857', border: '1px solid #A7F3D0', fontWeight: 'bold', fontSize: '0.88rem', padding: '0.4rem 0.8rem' }}>
+                Total Pagos del Mes: S/ {pagosDelMesSeleccionado.reduce((acc, p) => acc + p.monto, 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0 table-meta">
+              <thead>
+                <tr style={{ backgroundColor: '#F8FAFC' }}>
+                  <th>Cliente / Razón Social</th>
+                  <th>RUC</th>
+                  <th>Fecha de Pago</th>
+                  <th>Período Cubierto</th>
+                  <th>Medio / Código Op.</th>
+                  <th>Tipo / Concepto</th>
+                  <th>Asesor</th>
+                  <th className="text-end">Monto Pagado (S/)</th>
+                  <th className="text-end">Historial</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pagosDelMesSeleccionado.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center text-muted py-5 fw-semibold">
+                      No se encontraron pagos registrados para {formatMonthKeyLabel(activeMonthForPayments)}. Puedes cambiar el mes en el selector de filtros superior.
+                    </td>
+                  </tr>
+                ) : (
+                  pagosDelMesSeleccionado.map((p, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <strong className="text-dark d-block">{p.razonSocial}</strong>
+                        <small className="text-muted">{p.plan}</small>
+                      </td>
+                      <td className="font-monospace text-muted">{p.ruc || '—'}</td>
+                      <td>
+                        <strong className="text-dark d-block">{p.fechaPagoStr}</strong>
+                        <small className="text-muted font-monospace">{p.fechaRegistroStr}</small>
+                      </td>
+                      <td>
+                        <span className="badge rounded-pill bg-light text-dark border px-2.5 py-1 font-monospace" style={{ fontSize: '0.74rem' }}>
+                          {p.periodoCubiertoStr}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="badge bg-secondary-subtle text-secondary fw-semibold d-block text-truncate mb-0.5" style={{ maxWidth: '140px', fontSize: '0.7rem' }}>
+                          {p.medioPago}
+                        </span>
+                        <small className="text-muted font-monospace">{p.codigoOperacion}</small>
+                      </td>
+                      <td>
+                        <div className="d-flex flex-column gap-1">
+                          <span
+                            className={`badge rounded-pill ${
+                              p.esAdelanto
+                                ? 'bg-success text-white'
+                                : p.esProrrateo
+                                ? 'bg-warning text-dark'
+                                : 'bg-primary text-white'
+                            }`}
+                            style={{ fontSize: '0.7rem', width: 'fit-content' }}
+                          >
+                            {p.esAdelanto ? 'Adelanto Siguiente Mes' : p.esProrrateo ? 'Prorrateo' : p.tipoVenta}
+                          </span>
+                          <small className="text-muted text-truncate" style={{ maxWidth: '160px', fontSize: '0.68rem' }} title={p.observaciones}>
+                            {p.observaciones}
+                          </small>
+                        </div>
+                      </td>
+                      <td className="text-dark fw-semibold">{p.asesor}</td>
+                      <td className="text-end">
+                        <strong className="text-success fw-bold" style={{ fontSize: '1rem' }}>
+                          S/ {p.monto.toFixed(2)}
+                        </strong>
+                      </td>
+                      <td className="text-end">
+                        <button
+                          onClick={() => {
+                            const found = safeClients.find((c) => String(c.id) === p.clienteId || c.ruc === p.ruc);
+                            if (found) setHistoryClient(found);
+                          }}
+                          className="btn btn-outline-primary btn-sm py-1 px-2 rounded-3 d-inline-flex align-items-center gap-1"
+                          title="Ver historial completo del cliente"
+                        >
+                          <Eye size={13} />
+                          <span>Historial</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              <tfoot>
+                <tr style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #CBD5E1' }}>
+                  <td colSpan={7} className="fw-bold text-dark py-2.5">
+                    TOTAL PAGOS COBRADOS ({pagosDelMesSeleccionado.length} transacciones en {formatMonthKeyLabel(activeMonthForPayments)})
+                  </td>
+                  <td className="fw-bold py-2.5 text-end text-success" style={{ fontSize: '1.05rem' }}>
+                    S/ {pagosDelMesSeleccionado.reduce((acc, p) => acc + p.monto, 0).toFixed(2)}
+                  </td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* 8. TABLA DE CLIENTES CON DEUDA (SI LA SECCIÓN ES 'BLOQUEADOS') */}
       {activeSection === 'BLOQUEADOS' && (
         <div className="custom-card p-3.5 shadow-sm mb-4">
@@ -2281,7 +2564,7 @@ ${summaryMonthRowsXml}
       )}
 
       {/* 9. TABLA PRINCIPAL DE AUDITORÍA Y DETALLE DE OPERACIONES */}
-      {activeSection !== 'BLOQUEADOS' && (
+      {activeSection !== 'BLOQUEADOS' && activeSection !== 'PAGOS_MES' && (
         <div className="custom-card admin-report-table-card p-3.5 shadow-sm">
           <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
