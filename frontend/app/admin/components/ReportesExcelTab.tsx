@@ -145,7 +145,23 @@ export default function ReportesExcelTab({
   const [verifierQuery, setVerifierQuery] = useState<string>('');
   const ITEMS_PER_PAGE = 25;
 
-  const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
+  const safeClients = useMemo(() => {
+    const raw = Array.isArray(clients) ? clients : [];
+    const seenIds = new Set<string>();
+    const seenRucs = new Set<string>();
+    const unique: Client[] = [];
+    raw.forEach((c) => {
+      if (!c) return;
+      const idStr = String(c.id ?? '').trim();
+      const rucStr = String(c.ruc ?? '').trim();
+      if (idStr && seenIds.has(idStr)) return;
+      if (rucStr && rucStr !== '' && seenRucs.has(rucStr)) return;
+      if (idStr) seenIds.add(idStr);
+      if (rucStr && rucStr !== '') seenRucs.add(rucStr);
+      unique.push(c);
+    });
+    return unique;
+  }, [clients]);
   const safePayments = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
 
   // Helper robusto para parsear cualquier fecha a Date local sin desfases UTC
@@ -954,8 +970,12 @@ export default function ReportesExcelTab({
       estado: string;
     }> = [];
 
+    const seenEntryKeys = new Set<string>();
+
     clientMatrixRows.forEach((row) => {
       const c = row.client;
+      const cKey = String(c.id || c.ruc || c.razonSocial || Math.random());
+
       row.cellDataByMonth.forEach((cell, mKey) => {
         if (cell.amount <= 0 || cell.isCoveredBySpan) return;
 
@@ -967,6 +987,11 @@ export default function ReportesExcelTab({
         if (activeSection === 'MENSUALIDADES' && cell.tipo !== 'RENOVACION') return;
         if (activeSection === 'ANUALES' && cell.tipo !== 'ANUAL' && (c.tipoSuscripcion || '').toUpperCase() !== 'ANUAL') return;
         if (activeSection === 'PRORRATEOS' && cell.tipo !== 'PRORRATEO') return;
+
+        // Desduplicación estricta: un cliente nunca aparece 2 veces en el mismo período seleccionado
+        const uniqueKey = selectedMesFacturacion !== 'ALL' ? cKey : `${cKey}-${mKey}`;
+        if (seenEntryKeys.has(uniqueKey)) return;
+        seenEntryKeys.add(uniqueKey);
 
         list.push({
           id: `${c.id}-${mKey}-${cell.tipo}`,
@@ -2891,10 +2916,61 @@ ${summaryMonthRowsXml}
                 Mostrando {displayedRows.length} de {detailedTableList.length} operaciones filtradas · Período: {currentMonthLabel}
               </small>
             </div>
-            <div className="d-flex align-items-center gap-2">
-              <span className="badge-tag" style={{ backgroundColor: '#F1F5F9', color: '#475569' }}>
-                {currentMonthLabel}
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <span className="small fw-bold text-dark d-flex align-items-center gap-1">
+                <Calendar size={14} className="text-primary" /> Período:
               </span>
+              <select
+                className="form-select form-select-sm rounded-3 fw-bold border-primary shadow-xs"
+                style={{ width: 'auto', minWidth: '200px', cursor: 'pointer' }}
+                value={selectedMesFacturacion}
+                onChange={(e) => {
+                  setSelectedMesFacturacion(e.target.value);
+                  setTablePage(1);
+                }}
+              >
+                <option value="ALL">Histórico Consolidado (Todos los meses)</option>
+                {availableBillingMonths.map(([k, label]) => (
+                  <option key={k} value={k}>
+                    {label} {k === nextMonthKey ? '⭐ (Previa / Próximo Mes)' : k === currentMonthKey ? '🟢 (Mes Actual)' : ''}
+                  </option>
+                ))}
+              </select>
+              <div className="btn-group btn-group-sm">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${selectedMesFacturacion === currentMonthKey ? 'btn-success text-white fw-bold' : 'btn-outline-secondary'}`}
+                  onClick={() => {
+                    setSelectedMesFacturacion(currentMonthKey);
+                    setTablePage(1);
+                  }}
+                  title="Ver sólo las operaciones del mes actual en curso"
+                >
+                  Mes Actual
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${selectedMesFacturacion === nextMonthKey ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary'}`}
+                  onClick={() => {
+                    setSelectedMesFacturacion(nextMonthKey);
+                    setTablePage(1);
+                  }}
+                  title="Ver la previa de lo que debería ganar el próximo mes"
+                >
+                  Próximo Mes (Previa)
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${selectedMesFacturacion === 'ALL' ? 'btn-dark text-white fw-bold' : 'btn-outline-secondary'}`}
+                  onClick={() => {
+                    setSelectedMesFacturacion('ALL');
+                    setTablePage(1);
+                  }}
+                  title="Ver todas las operaciones históricas de todos los meses"
+                >
+                  Todos los Meses
+                </button>
+              </div>
             </div>
           </div>
 
