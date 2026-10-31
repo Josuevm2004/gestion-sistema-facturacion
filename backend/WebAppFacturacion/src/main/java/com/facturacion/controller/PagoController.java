@@ -3,6 +3,8 @@ package com.facturacion.controller;
 import com.facturacion.entity.Pago;
 import com.facturacion.request.RegistrarPagoRequest;
 import com.facturacion.response.ApiResponse;
+import com.facturacion.entity.ServicioCliente;
+import com.facturacion.repository.ServicioClienteRepository;
 import com.facturacion.service.PagoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,9 @@ public class PagoController {
 
     @Autowired
     private PagoService pagoService;
+
+    @Autowired
+    private ServicioClienteRepository servicioClienteRepository;
 
     @PostMapping({"/registrar", "/confirmar"})
     public ResponseEntity<ApiResponse<Map<String, Object>>> registrarPago(@RequestBody RegistrarPagoRequest request) {
@@ -54,6 +59,14 @@ public class PagoController {
         data.put("observaciones", pago.getObservaciones());
 
         if (pago.getVenta() != null) {
+            ServicioCliente sc = servicioClienteRepository.findByVentaId(pago.getVenta().getId()).orElse(null);
+            if (sc != null) {
+                data.put("periodoInicio", sc.getFechaInicio());
+                data.put("periodoFin", sc.getFechaFin());
+            } else if (pago.getVenta().getFechaVenta() != null) {
+                data.put("periodoInicio", pago.getVenta().getFechaVenta());
+                data.put("periodoFin", pago.getVenta().getFechaVenta().plusMonths(1));
+            }
             Map<String, Object> venta = new LinkedHashMap<>();
             venta.put("id", pago.getVenta().getId());
             venta.put("clienteId", pago.getVenta().getCliente() != null ? pago.getVenta().getCliente().getId() : null);

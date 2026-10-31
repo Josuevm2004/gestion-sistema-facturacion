@@ -108,6 +108,21 @@ export default function ReportesExcelTab({
   COLOR_MAP,
 }: ReportesExcelTabProps) {
   const [isExportingExcel, setIsExportingExcel] = useState(false);
+  const [proyeccionNextMonth, setProyeccionNextMonth] = useState<any>(null);
+  const [loadingProyeccion, setLoadingProyeccion] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    setLoadingProyeccion(true);
+    fetch('/api/admin/proyeccion-mes')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.success && data.data) {
+          setProyeccionNextMonth(data.data);
+        }
+      })
+      .catch((err) => console.error('Error cargando proyección:', err))
+      .finally(() => setLoadingProyeccion(false));
+  }, []);
 
   // --------------------------------------------------------------------------
   // FILTROS PRINCIPALES (UBICADOS AL INICIO DE LA PÁGINA)
@@ -920,6 +935,25 @@ export default function ReportesExcelTab({
 
     setIsExportingExcel(true);
     try {
+      // 1. Intentar exportación oficial directa generada con Python (Pandas/OpenPyXL 100% fiel a la BD)
+      try {
+        const res = await fetch('/api/admin/reporte-excel-oficial');
+        if (res.ok) {
+          const blob = await res.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Reporte_Oficial_Clientes_${new Date().toISOString().slice(0, 10)}.xlsx`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(url);
+          setIsExportingExcel(false);
+          return;
+        }
+      } catch (pythonErr) {
+        console.warn('Fallo endpoint Python, recurriendo a exportador local:', pythonErr);
+      }
       const monthHeaders = allMonthKeys.map((k) => `${formatMonthKeyLabel(k)} (S/)`);
       const headers = [
         'RUC', 'Razón Social', 'Nombre Comercial', 'Dirección Fiscal',
@@ -1270,8 +1304,46 @@ ${summaryMonthRowsXml}
         </div>
 
         <div className="row g-3">
-          {/* Card 1: Total Recaudado General Histórico */}
-          <div className="col-12 col-md-4">
+          {/* Card 1: Por Facturar Próximo Mes (Automático con Python) */}
+          <div className="col-12 col-sm-6 col-lg-3">
+            <div
+              className="card admin-stat-card h-100 shadow-sm border-0"
+              style={{ borderLeft: '4px solid #6366F1', backgroundColor: '#FAFAFE' }}
+              title="Monto exacto a facturar el próximo mes excluyendo bloqueados (Prorrateados + Regulares)"
+            >
+              <div className="admin-stat-card-header">
+                <span className="admin-stat-card-label fw-bold text-primary">
+                  Facturar {proyeccionNextMonth?.periodo_proyectado || 'Próximo Mes'}
+                </span>
+                <span className="admin-stat-card-icon admin-stat-card-icon--purple" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}>
+                  <Calendar size={18} strokeWidth={2.2} />
+                </span>
+              </div>
+              <div className="admin-stat-card-value text-primary" style={{ fontSize: '1.6rem' }}>
+                {loadingProyeccion ? (
+                  <span className="text-muted fs-6">Calculando...</span>
+                ) : (
+                  `S/ ${(proyeccionNextMonth?.total_proyectado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                )}
+              </div>
+              <div className="text-muted mt-auto pt-2 border-top d-flex flex-column gap-1" style={{ fontSize: '0.72rem' }}>
+                <div className="d-flex justify-content-between align-items-center">
+                  <span>Regulares ({proyeccionNextMonth?.count_regulares || 0}):</span>
+                  <strong className="text-dark">S/ {(proyeccionNextMonth?.total_regulares || 0).toFixed(2)}</strong>
+                </div>
+                <div className="d-flex justify-content-between align-items-center">
+                  <span>Prorrateos ({proyeccionNextMonth?.count_prorrateados || 0}):</span>
+                  <strong className="text-indigo" style={{ color: '#4F46E5' }}>S/ {(proyeccionNextMonth?.total_prorrateados || 0).toFixed(2)}</strong>
+                </div>
+                <div className="text-muted small mt-0.5 d-flex align-items-center gap-1" style={{ fontSize: '0.68rem' }}>
+                  <Check size={11} className="text-success" /> Sin bloqueados ({proyeccionNextMonth?.clientes_no_bloqueados || 0} activos)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 2: Total Recaudado General Histórico */}
+          <div className="col-12 col-sm-6 col-lg-3">
             <div
               className="card admin-stat-card h-100 shadow-sm border-0"
               onClick={() => setActiveSection('TOTAL_MES')}
@@ -1279,23 +1351,23 @@ ${summaryMonthRowsXml}
               title="Total acumulado recaudado en toda la historia de la empresa"
             >
               <div className="admin-stat-card-header">
-                <span className="admin-stat-card-label fw-bold">Total Recaudado General</span>
+                <span className="admin-stat-card-label fw-bold">Total Recaudado</span>
                 <span className="admin-stat-card-icon admin-stat-card-icon--green">
                   <DollarSign size={18} strokeWidth={2.2} />
                 </span>
               </div>
-              <div className="admin-stat-card-value text-success" style={{ fontSize: '1.65rem' }}>
+              <div className="admin-stat-card-value text-success" style={{ fontSize: '1.6rem' }}>
                 S/ {granTotalCobros.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="text-muted mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.74rem' }}>
-                <span>Acumulado de todos los períodos</span>
-                <span className="badge bg-success-subtle text-success fw-bold">Histórico Oficial</span>
+                <span>Acumulado histórico</span>
+                <span className="badge bg-success-subtle text-success fw-bold">Oficial BD</span>
               </div>
             </div>
           </div>
 
-          {/* Card 2: Cartera Total de Clientes */}
-          <div className="col-12 col-md-4">
+          {/* Card 3: Cartera Total de Clientes */}
+          <div className="col-12 col-sm-6 col-lg-3">
             <div
               className="card admin-stat-card h-100 shadow-sm border-0"
               onClick={() => setActiveSection('RESUMEN')}
@@ -1303,23 +1375,23 @@ ${summaryMonthRowsXml}
               title="Clientes activos registrados en la base de datos"
             >
               <div className="admin-stat-card-header">
-                <span className="admin-stat-card-label fw-bold">Clientes en Cartera Total</span>
+                <span className="admin-stat-card-label fw-bold">Cartera de Clientes</span>
                 <span className="admin-stat-card-icon admin-stat-card-icon--blue">
                   <Users size={18} strokeWidth={2.2} />
                 </span>
               </div>
-              <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.65rem' }}>
+              <div className="admin-stat-card-value text-dark" style={{ fontSize: '1.6rem' }}>
                 {safeClients.length} clientes
               </div>
               <div className="text-muted mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.74rem' }}>
                 <span>Al día: <strong className="text-success">{safeClients.filter(c => (c.estadoCuenta || '').toUpperCase() === 'HABILITADO').length}</strong></span>
-                <span>Con deuda: <strong className="text-danger">{clientesConDeudaList.length}</strong></span>
+                <span>Bloqueados: <strong className="text-danger">{safeClients.filter(c => (c.estadoCuenta || '').toUpperCase() === 'BLOQUEADO').length}</strong></span>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Deuda Total Pendiente de Cobro */}
-          <div className="col-12 col-md-4">
+          {/* Card 4: Deuda Total Pendiente de Cobro */}
+          <div className="col-12 col-sm-6 col-lg-3">
             <div
               className="card admin-stat-card h-100 shadow-sm border-0"
               onClick={() => setActiveSection('BLOQUEADOS')}
@@ -1327,12 +1399,12 @@ ${summaryMonthRowsXml}
               title="Deuda total acumulada de clientes vencidos y bloqueados"
             >
               <div className="admin-stat-card-header">
-                <span className="admin-stat-card-label fw-bold">Cartera con Deuda Pendiente</span>
+                <span className="admin-stat-card-label fw-bold">Deuda Pendiente</span>
                 <span className="admin-stat-card-icon admin-stat-card-icon--red">
                   <AlertTriangle size={18} strokeWidth={2.2} />
                 </span>
               </div>
-              <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.65rem' }}>
+              <div className="admin-stat-card-value text-danger" style={{ fontSize: '1.6rem' }}>
                 S/ {totalDeudaPendiente.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="text-muted mt-auto pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.74rem' }}>

@@ -163,14 +163,11 @@ public class ClienteServiceImpl implements ClienteService {
             String val = request.getTipoIgv().trim();
             cliente.setTipoIgv(val.isBlank() ? null : val);
         }
-<<<<<<< HEAD
         if (request.getRegimenTributario() != null) {
             String val = request.getRegimenTributario().trim();
             cliente.setRegimenTributario(val.isBlank() ? null : val);
         }
-=======
         Entorno entornoSeleccionado = null;
->>>>>>> c5e0fb870843f3acfb9402ed7456e8113004b438
         if (request.getEntornoId() != null) {
             entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
                     .orElse(null);

@@ -138,24 +138,14 @@ export default function CreateClientModal({
         tipoSuscripcion: selectedTipo || 'MENSUAL',
         entornoId: selectedEntornoId ? Number(selectedEntornoId) : 1,
         vendedorId: vendedorId,
-<<<<<<< HEAD
-        usuarioSol: isProduccion ? ((formData.get('usuarioSol') as string) || '').trim() : 'SIN_USUARIO',
-        claveSol: isProduccion ? ((formData.get('claveSol') as string) || '').trim() : 'SIN_CLAVE',
-        dniRepresentante: isProduccion ? formData.get('dniRepresentante') as string : undefined,
-        correoRepresentante: isProduccion ? formData.get('correoRepresentante') as string : undefined,
-        primeraVezOProviene: isProduccion ? formData.get('primeraVezOProviene') as string : undefined,
-        usabaSunatAnteriormente: isProduccion ? formData.get('usabaSunatAnteriormente') as string : undefined,
-        tipoIgv: isProduccion ? formData.get('tipoIgv') as string : undefined,
-        regimenTributario: (formData.get('regimenTributario') as string) || 'MYPE_TRIBUTARIO',
-=======
-        usuarioSol: usuarioSolInput || 'SIN_USUARIO',
-        claveSol: claveSolInput || 'SIN_CLAVE',
-        dniRepresentante: ((formData.get('dniRepresentante') as string) || '').trim() || undefined,
-        correoRepresentante: ((formData.get('correoRepresentante') as string) || '').trim() || undefined,
-        primeraVezOProviene: ((formData.get('primeraVezOProviene') as string) || '').trim() || undefined,
-        usabaSunatAnteriormente: ((formData.get('usabaSunatAnteriormente') as string) || '').trim() || undefined,
-        tipoIgv: ((formData.get('tipoIgv') as string) || '').trim() || undefined,
->>>>>>> c5e0fb870843f3acfb9402ed7456e8113004b438
+        usuarioSol: isProduccion ? (usuarioSolInput || 'SIN_USUARIO') : 'SIN_USUARIO',
+        claveSol: isProduccion ? (claveSolInput || 'SIN_CLAVE') : 'SIN_CLAVE',
+        dniRepresentante: isProduccion ? (((formData.get('dniRepresentante') as string) || '').trim() || undefined) : undefined,
+        correoRepresentante: isProduccion ? (((formData.get('correoRepresentante') as string) || '').trim() || undefined) : undefined,
+        primeraVezOProviene: isProduccion ? (((formData.get('primeraVezOProviene') as string) || '').trim() || undefined) : undefined,
+        usabaSunatAnteriormente: isProduccion ? (((formData.get('usabaSunatAnteriormente') as string) || '').trim() || undefined) : undefined,
+        tipoIgv: isProduccion ? (((formData.get('tipoIgv') as string) || '').trim() || undefined) : undefined,
+        regimenTributario: ((formData.get('regimenTributario') as string) || '').trim() || 'MYPE_TRIBUTARIO',
       };
 
       await handleCreateClient(payload);
