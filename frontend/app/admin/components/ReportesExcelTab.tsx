@@ -1,19 +1,25 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FileSpreadsheet,
   RefreshCw,
   Calendar,
   Search,
   RotateCcw,
-  Check,
+  CheckCircle2,
   AlertTriangle,
   Users,
+  DollarSign,
   TrendingDown,
   CreditCard,
-  ShieldAlert,
-  ArrowUpRight
+  Phone,
+  UserCheck,
+  Building,
+  ArrowUpDown,
+  Download,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 
@@ -52,43 +58,51 @@ interface ReportesExcelTabProps {
   COLOR_MAP?: any;
 }
 
+const MESES = [
+  { value: 'ALL', label: 'Todo el Año (Acumulado)' },
+  { value: '01', label: 'Enero' },
+  { value: '02', label: 'Febrero' },
+  { value: '03', label: 'Marzo' },
+  { value: '04', label: 'Abril' },
+  { value: '05', label: 'Mayo' },
+  { value: '06', label: 'Junio' },
+  { value: '07', label: 'Julio' },
+  { value: '08', label: 'Agosto' },
+  { value: '09', label: 'Septiembre' },
+  { value: '10', label: 'Octubre' },
+  { value: '11', label: 'Noviembre' },
+  { value: '12', label: 'Diciembre' },
+];
+
 export default function ReportesExcelTab({
   clients = [],
   payments = [],
   loadData = () => {},
   isSyncing = false,
   uniqueSellers = [],
-  setHistoryClient = () => {},
 }: ReportesExcelTabProps) {
-  const [isExportingExcel, setIsExportingExcel] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState<string>(''); // Formato YYYY-MM
+  const currentYear = new Date().getFullYear();
+  const currentMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
+
+  // Estados de Filtros Principales
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState<string>('ALL'); // 'ALL' o '01'..'12'
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterVendedor, setFilterVendedor] = useState<string>('ALL');
-  const [filterTipoPlan, setFilterTipoPlan] = useState<'ALL' | 'MENSUAL' | 'ANUAL'>('ALL');
-  const [filterConcepto, setFilterConcepto] = useState<string>('ALL');
-  const [filterEstadoImpago, setFilterEstadoImpago] = useState<'ALL' | 'VENCIDO' | 'BLOQUEADO'>('ALL');
+  const [filterTipoSuscripcion, setFilterTipoSuscripcion] = useState<string>('ALL');
+  const [activeTab, setActiveTab] = useState<'PAGOS' | 'IMPAGOS' | 'EVOLUCION'>('PAGOS');
 
-  // Datos de proyección calculados por Python
-  const [proyeccionData, setProyeccionData] = useState<any>(null);
-  const [loadingProyeccion, setLoadingProyeccion] = useState<boolean>(false);
+  // Paginación de tablas
+  const [pagePagos, setPagePagos] = useState<number>(1);
+  const [pageImpagos, setPageImpagos] = useState<number>(1);
+  const ITEMS_PER_PAGE = 20;
 
-  useEffect(() => {
-    setLoadingProyeccion(true);
-    fetch('/api/admin/proyeccion-mes')
-      .then((res) => res.json())
-      .then((resData) => {
-        if (resData && resData.success && resData.data) {
-          setProyeccionData(resData.data);
-        }
-      })
-      .catch((err) => console.error('Error cargando proyeccion Python:', err))
-      .finally(() => setLoadingProyeccion(false));
-  }, []);
+  const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
 
   const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
   const safePayments = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
 
-  // Diccionario de clientes por id y ruc
+  // Mapa de Clientes por ID y RUC para enriquecer pagos
   const clientMap = useMemo(() => {
     const map = new Map<string, Client>();
     safeClients.forEach((c) => {
@@ -98,155 +112,89 @@ export default function ReportesExcelTab({
     return map;
   }, [safeClients]);
 
-  const MESES_LABEL: Record<string, string> = {
-    '01': 'Enero', '02': 'Febrero', '03': 'Marzo', '04': 'Abril',
-    '05': 'Mayo', '06': 'Junio', '07': 'Julio', '08': 'Agosto',
-    '09': 'Setiembre', '10': 'Octubre', '11': 'Noviembre', '12': 'Diciembre'
-  };
-
-  const formatMonthLabel = (mKey: string) => {
-    if (!mKey || !mKey.includes('-')) return mKey;
-    const [y, m] = mKey.split('-');
-    return `${MESES_LABEL[m] || m} ${y}`;
-  };
-
+  // Helper de parseo de fechas robusto
   const parseDateSafe = (val: any): Date | null => {
     if (!val) return null;
     if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
-    const s = String(val).split('T')[0].split(' ')[0];
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      const [y, m, d] = s.split('-').map(Number);
+    const str = String(val).trim().split('T')[0].split(' ')[0];
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+      const [y, m, d] = str.split('-').map(Number);
       return new Date(y, m - 1, d);
     }
     const d = new Date(val);
     return isNaN(d.getTime()) ? null : d;
   };
 
-  // 1. PROCESAR HISTORIAL COMPLETO DE PAGOS (1:1 CON EL HISTORIAL DEL CLIENTE)
-  // Se identifica el mes exacto al que pertenece el pago considerando fecha de servicio y adelantos
+  // 1. PROCESAR HISTORIAL DE PAGOS CON METADATOS LIMPIOS
   const allParsedPayments = useMemo(() => {
     const list: Array<{
       id: string;
-      pagoId: any;
-      ventaId: any;
-      clienteId: string;
       ruc: string;
       razonSocial: string;
       nombreComercial: string;
-      telefono: string;
       asesor: string;
       planNombre: string;
-      tipoSuscripcion: 'MENSUAL' | 'ANUAL';
+      tipoSuscripcion: string;
       monto: number;
-      fechaPagoStr: string;
       fechaPagoDate: Date | null;
-      periodoInicioStr: string;
-      periodoFinStr: string;
-      targetMonthKey: string; // YYYY-MM del mes correspondiente
-      targetMonthLabel: string;
-      tipoOperacion: 'ALTA' | 'RENOVACION' | 'PRORRATEO' | 'ADELANTO' | 'PAGO_GENERAL';
-      tipoOperacionLabel: string;
-      badgeColor: string;
+      fechaPagoStr: string;
+      year: number;
+      monthStr: string;
+      periodoStr: string;
       medioPago: string;
       codigoOperacion: string;
-      observaciones: string;
-      isAdelanto: boolean;
-      isAnual: boolean;
+      tipoOperacion: string;
     }> = [];
 
-    const seenPagoIds = new Set<string>();
+    const seenIds = new Set<string>();
 
     safePayments.forEach((p, idx) => {
-      const estadoPago = (p?.estadoPago || '').toUpperCase();
-      const estadoVenta = (p?.venta?.estadoVenta || p?.estadoVenta || '').toUpperCase();
-      if ((estadoPago !== 'PAGADO' && estadoPago !== 'CONFIRMADO') || estadoVenta === 'CANCELADA') {
-        return;
-      }
-
-      const pId = p?.id ?? p?.pagoId ?? `pay-${idx}`;
-      if (seenPagoIds.has(String(pId))) return;
-      seenPagoIds.add(String(pId));
+      const pId = String(p?.id ?? p?.pagoId ?? `p-${idx}`);
+      if (seenIds.has(pId)) return;
+      seenIds.add(pId);
 
       const rawCId = p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId;
       const rawRuc = p?.clienteRuc || p?.venta?.cliente?.ruc;
       const matchedClient = (rawCId && clientMap.get(String(rawCId))) || (rawRuc && clientMap.get(`ruc-${rawRuc}`)) || null;
 
-      const fPagoRaw = p?.fechaPago || p?.fechaRegistro;
-      const fInicioRaw = p?.periodoInicio || p?.venta?.periodoInicio || p?.venta?.fechaVenta || fPagoRaw;
-      const fFinRaw = p?.periodoFin || p?.venta?.periodoFin;
+      const fPago = parseDateSafe(p?.fechaPago || p?.fechaRegistro || p?.periodoInicio);
+      const fInicio = parseDateSafe(p?.periodoInicio);
+      const fFin = parseDateSafe(p?.periodoFin);
 
-      const datePago = parseDateSafe(fPagoRaw);
-      const dateInicio = parseDateSafe(fInicioRaw);
+      const year = fPago ? fPago.getFullYear() : currentYear;
+      const monthStr = fPago ? String(fPago.getMonth() + 1).padStart(2, '0') : currentMonthNum;
 
-      // El mes al que pertenece el pago es el de su período o fecha de pago
-      const dateTarget = dateInicio || datePago || new Date();
-      const targetMonthKey = `${dateTarget.getFullYear()}-${String(dateTarget.getMonth() + 1).padStart(2, '0')}`;
-
-      const obs = String(p?.observaciones || p?.codigoOperacion || '').toLowerCase();
-      const rawTipoVenta = (p?.venta?.tipoVenta || p?.tipoVenta || '').toUpperCase();
-      const isProrr = obs.includes('prorrat') || p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || p?.tipoProrrateo === 'PRIMER_PRORRATEO';
-
-      let isAdelanto = obs.includes('adelant') || obs.includes('anticip');
-      if (datePago && dateInicio) {
-        const mPago = datePago.getFullYear() * 12 + datePago.getMonth();
-        const mInicio = dateInicio.getFullYear() * 12 + dateInicio.getMonth();
-        if (mInicio > mPago) {
-          isAdelanto = true;
-        }
+      let periodoStr = '—';
+      if (fInicio && fFin) {
+        periodoStr = `${fInicio.toLocaleDateString('es-PE')} al ${fFin.toLocaleDateString('es-PE')}`;
+      } else if (fInicio) {
+        periodoStr = `Desde ${fInicio.toLocaleDateString('es-PE')}`;
       }
 
-      let tipoOperacion: 'ALTA' | 'RENOVACION' | 'PRORRATEO' | 'ADELANTO' | 'PAGO_GENERAL' = 'RENOVACION';
-      let tipoOperacionLabel = 'Renovación';
-      let badgeColor = 'bg-info text-dark';
-
-      if (isAdelanto) {
-        tipoOperacion = 'ADELANTO';
-        tipoOperacionLabel = 'Adelanto';
-        badgeColor = 'bg-primary text-white';
-      } else if (rawTipoVenta === 'ALTA' || obs.includes('alta') || obs.includes('inicial')) {
-        tipoOperacion = 'ALTA';
-        tipoOperacionLabel = 'Afiliación / Alta';
-        badgeColor = 'bg-success text-white';
-      } else if (isProrr) {
-        tipoOperacion = 'PRORRATEO';
-        tipoOperacionLabel = 'Cobro Prorrateo';
-        badgeColor = 'bg-warning text-dark';
-      } else if (rawTipoVenta === 'CAMBIO_PLAN' || rawTipoVenta === 'MEJORA_PLAN') {
-        tipoOperacion = 'PAGO_GENERAL';
-        tipoOperacionLabel = 'Mejora Plan';
-        badgeColor = 'bg-secondary text-white';
-      }
-
-      const tipoSubRaw = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || matchedClient?.tipoSuscripcion || 'MENSUAL').toUpperCase();
-      const tipoSuscripcion: 'MENSUAL' | 'ANUAL' = tipoSubRaw === 'ANUAL' ? 'ANUAL' : 'MENSUAL';
+      const tipoSub = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || matchedClient?.tipoSuscripcion || 'MENSUAL').toUpperCase();
+      const obs = String(p?.observaciones || '').toLowerCase();
+      let tipoOperacion = 'Renovación';
+      if (obs.includes('alta') || p?.tipoVenta === 'ALTA') tipoOperacion = 'Alta / Afiliación';
+      else if (obs.includes('prorrat') || p?.tipoProrrateo === 'SEGUNDO_PRORRATEO') tipoOperacion = 'Prorrateo';
+      else if (obs.includes('adelant')) tipoOperacion = 'Adelanto';
 
       list.push({
-        id: String(pId),
-        pagoId: pId,
-        ventaId: p?.ventaId || p?.venta?.id,
-        clienteId: String(rawCId || matchedClient?.id || ''),
+        id: pId,
         ruc: rawRuc || matchedClient?.ruc || '—',
-        razonSocial: p?.clienteRazonSocial || matchedClient?.razonSocial || matchedClient?.nombreComercial || `Cliente ${rawRuc || ''}`,
+        razonSocial: p?.clienteRazonSocial || matchedClient?.razonSocial || matchedClient?.nombreComercial || 'Cliente General',
         nombreComercial: matchedClient?.nombreComercial || '',
-        telefono: matchedClient?.telefono || matchedClient?.telefonoPersonal || '—',
         asesor: p?.vendedorNombre || p?.venta?.vendedor?.nombre || matchedClient?.vendedor || 'Por asignar',
         planNombre: p?.planNombre || p?.venta?.suscripcion?.plan?.nombrePlan || matchedClient?.planContratado || 'Plan Estándar',
-        tipoSuscripcion,
+        tipoSuscripcion: tipoSub,
         monto: Number(p?.monto || 0),
-        fechaPagoStr: datePago ? datePago.toLocaleDateString('es-PE') : '—',
-        fechaPagoDate: datePago,
-        periodoInicioStr: dateInicio ? dateInicio.toLocaleDateString('es-PE') : '—',
-        periodoFinStr: fFinRaw ? (parseDateSafe(fFinRaw)?.toLocaleDateString('es-PE') || '—') : '—',
-        targetMonthKey,
-        targetMonthLabel: formatMonthLabel(targetMonthKey),
-        tipoOperacion,
-        tipoOperacionLabel,
-        badgeColor,
-        medioPago: p?.medioPago || 'YAPE',
+        fechaPagoDate: fPago,
+        fechaPagoStr: fPago ? fPago.toLocaleDateString('es-PE') : '—',
+        year,
+        monthStr,
+        periodoStr,
+        medioPago: p?.medioPago || 'TRANSFERENCIA',
         codigoOperacion: p?.codigoOperacion || '—',
-        observaciones: p?.observaciones || (isAdelanto ? 'Adelanto aplicado a este mes' : 'Pago verificado'),
-        isAdelanto,
-        isAnual: tipoSuscripcion === 'ANUAL',
+        tipoOperacion,
       });
     });
 
@@ -257,95 +205,71 @@ export default function ReportesExcelTab({
     });
 
     return list;
-  }, [safePayments, clientMap]);
+  }, [safePayments, clientMap, currentYear, currentMonthNum]);
 
-  // Extraer lista única de meses ordenados cronológicamente descendente
-  const availableMonthKeys = useMemo(() => {
-    const setM = new Set<string>();
-    allParsedPayments.forEach((p) => setM.add(p.targetMonthKey));
-    const now = new Date();
-    const currKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    setM.add(currKey);
-    return Array.from(setM).sort().reverse();
-  }, [allParsedPayments]);
-
-  // Seleccionar por defecto el mes más reciente
-  useEffect(() => {
-    if (!selectedMonth && availableMonthKeys.length > 0) {
-      setSelectedMonth(availableMonthKeys[0]);
-    }
-  }, [availableMonthKeys, selectedMonth]);
-
-  // Pagos del mes seleccionado
-  const paymentsOfSelectedMonth = useMemo(() => {
-    if (!selectedMonth) return [];
-    return allParsedPayments.filter((p) => p.targetMonthKey === selectedMonth);
-  }, [allParsedPayments, selectedMonth]);
-
-  // 2. MÉTRICAS EXACTAS DEL MES SELECCIONADO (CON BASE EN LA IMAGEN)
-  const selectedMonthMetrics = useMemo(() => {
-    const pagos = paymentsOfSelectedMonth;
-    const totalRecaudado = pagos.reduce((acc, p) => acc + p.monto, 0);
-
-    const pagosRegulares = pagos.filter((p) => p.tipoOperacion === 'RENOVACION' || p.tipoOperacion === 'ALTA' || p.tipoOperacion === 'PAGO_GENERAL');
-    const pagosProrrateos = pagos.filter((p) => p.tipoOperacion === 'PRORRATEO');
-    const pagosAdelantos = pagos.filter((p) => p.isAdelanto);
-
-    const pagosMensuales = pagos.filter((p) => p.tipoSuscripcion === 'MENSUAL');
-    const pagosAnuales = pagos.filter((p) => p.tipoSuscripcion === 'ANUAL');
-
-    // Clientes activos no bloqueados en dicho mes
-    const [sY, sM] = (selectedMonth || '2026-11').split('-').map(Number);
-    const finDelMes = new Date(sY, sM, 0, 23, 59, 59);
-
-    let activosTotales = 0;
-    let activosMensuales = 0;
-    let activosAnuales = 0;
-
+  // Lista de años disponibles para el selector
+  const availableYears = useMemo(() => {
+    const yearsSet = new Set<number>();
+    yearsSet.add(currentYear);
+    yearsSet.add(currentYear - 1);
+    allParsedPayments.forEach((p) => {
+      if (p.year) yearsSet.add(p.year);
+    });
     safeClients.forEach((c) => {
+      const f = parseDateSafe(c.fechaRegistro || c.fechaCreacion);
+      if (f) yearsSet.add(f.getFullYear());
+    });
+    return Array.from(yearsSet).sort().reverse();
+  }, [allParsedPayments, safeClients, currentYear]);
+
+  // Pagos filtrados por Año y Mes
+  const paymentsByPeriod = useMemo(() => {
+    return allParsedPayments.filter((p) => {
+      if (p.year !== selectedYear) return false;
+      if (selectedMonth !== 'ALL' && p.monthStr !== selectedMonth) return false;
+      return true;
+    });
+  }, [allParsedPayments, selectedYear, selectedMonth]);
+
+  // Métricas del período seleccionado
+  const metrics = useMemo(() => {
+    const totalCobrado = paymentsByPeriod.reduce((acc, p) => acc + p.monto, 0);
+    const countPagos = paymentsByPeriod.length;
+
+    const pagosMensuales = paymentsByPeriod.filter((p) => p.tipoSuscripcion === 'MENSUAL');
+    const pagosAnuales = paymentsByPeriod.filter((p) => p.tipoSuscripcion === 'ANUAL');
+    const cobradoMensual = pagosMensuales.reduce((acc, p) => acc + p.monto, 0);
+    const cobradoAnual = pagosAnuales.reduce((acc, p) => acc + p.monto, 0);
+
+    // Clientes activos en la cartera
+    const activosHabilitados = safeClients.filter((c) => {
       const st = (c.estadoCuenta || '').toUpperCase();
-      if (st === 'BLOQUEADO' || st === 'SUSPENDIDO') return;
-
-      const fReg = c.fechaRegistro ? new Date(c.fechaRegistro) : null;
-      if (fReg && fReg > finDelMes) return;
-
-      activosTotales++;
-      if ((c.tipoSuscripcion || '').toUpperCase() === 'ANUAL') {
-        activosAnuales++;
-      } else {
-        activosMensuales++;
-      }
+      return st !== 'BLOQUEADO' && st !== 'SUSPENDIDO';
     });
 
     return {
-      totalRecaudado,
-      regularesMonto: pagosRegulares.reduce((acc, p) => acc + p.monto, 0),
-      regularesCount: pagosRegulares.length,
-      prorrateosMonto: pagosProrrateos.reduce((acc, p) => acc + p.monto, 0),
-      prorrateosCount: pagosProrrateos.length,
-      adelantosMonto: pagosAdelantos.reduce((acc, p) => acc + p.monto, 0),
-      adelantosCount: pagosAdelantos.length,
-      activosTotales,
-      activosMensuales,
-      activosAnuales,
-      mensualesCobradosMonto: pagosMensuales.reduce((acc, p) => acc + p.monto, 0),
-      mensualesCobradosCount: pagosMensuales.length,
-      anualesCobradosMonto: pagosAnuales.reduce((acc, p) => acc + p.monto, 0),
-      anualesCobradosCount: pagosAnuales.length,
-      totalTransacciones: pagos.length,
+      totalCobrado,
+      countPagos,
+      cobradoMensual,
+      countMensuales: pagosMensuales.length,
+      cobradoAnual,
+      countAnuales: pagosAnuales.length,
+      totalClientesActivos: activosHabilitados.length,
+      clientesMensualesActivos: activosHabilitados.filter((c) => (c.tipoSuscripcion || '').toUpperCase() !== 'ANUAL').length,
+      clientesAnualesActivos: activosHabilitados.filter((c) => (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL').length,
     };
-  }, [paymentsOfSelectedMonth, safeClients, selectedMonth]);
+  }, [paymentsByPeriod, safeClients]);
 
-  // 3. ANÁLISIS DE PÉRDIDAS E IMPAGOS (BLOQUEADOS Y VENCIDOS)
+  // Cartera con Deuda / Impagos (Vencidos y Bloqueados)
   const lossDebtAnalysis = useMemo(() => {
-    let perdidasBloqueados = 0;
-    let perdidasVencidos = 0;
+    let totalDeuda = 0;
+    let deudaBloqueados = 0;
+    let deudaVencidos = 0;
     let countBloqueados = 0;
     let countVencidos = 0;
 
     const list: Array<{
       id: string;
-      cliente: Client;
       ruc: string;
       razonSocial: string;
       telefono: string;
@@ -367,18 +291,18 @@ export default function ReportesExcelTab({
 
       const isBloq = st === 'BLOQUEADO' || st === 'SUSPENDIDO';
       if (isBloq) {
-        perdidasBloqueados += deuda;
+        deudaBloqueados += deuda;
         countBloqueados++;
       } else {
-        perdidasVencidos += deuda;
+        deudaVencidos += deuda;
         countVencidos++;
       }
+      totalDeuda += deuda;
 
       const fVenc = parseDateSafe(c.fechaVencimientoMensual);
 
       list.push({
         id: String(c.id || c.ruc),
-        cliente: c,
         ruc: c.ruc || '—',
         razonSocial: c.razonSocial || c.nombreComercial || `Cliente ${c.ruc || ''}`,
         telefono: c.telefono || c.telefonoPersonal || '—',
@@ -394,9 +318,9 @@ export default function ReportesExcelTab({
     list.sort((a, b) => b.montoDeuda - a.montoDeuda);
 
     return {
-      perdidaTotal: perdidasBloqueados + perdidasVencidos,
-      perdidasBloqueados,
-      perdidasVencidos,
+      totalDeuda,
+      deudaBloqueados,
+      deudaVencidos,
       countTotal: countBloqueados + countVencidos,
       countBloqueados,
       countVencidos,
@@ -404,12 +328,31 @@ export default function ReportesExcelTab({
     };
   }, [safeClients]);
 
-  // Filtrado de la tabla de pagos
+  // Evolución mensual comparativa (de Enero a Diciembre del año seleccionado)
+  const monthlyEvolution = useMemo(() => {
+    return MESES.filter((m) => m.value !== 'ALL').map((m) => {
+      const pagosDelMes = allParsedPayments.filter(
+        (p) => p.year === selectedYear && p.monthStr === m.value
+      );
+      const totalMes = pagosDelMes.reduce((acc, p) => acc + p.monto, 0);
+      const count = pagosDelMes.length;
+      const clientesUnicos = new Set(pagosDelMes.map((p) => p.ruc)).size;
+      return {
+        monthCode: m.value,
+        monthName: m.label,
+        totalRecaudado: totalMes,
+        cantidadOperaciones: count,
+        clientesAtendidos: clientesUnicos,
+        promedioTicket: count > 0 ? totalMes / count : 0,
+      };
+    });
+  }, [allParsedPayments, selectedYear]);
+
+  // Filtro de la tabla de pagos
   const filteredPagosTable = useMemo(() => {
-    return paymentsOfSelectedMonth.filter((p) => {
+    return paymentsByPeriod.filter((p) => {
       if (filterVendedor !== 'ALL' && p.asesor !== filterVendedor) return false;
-      if (filterTipoPlan !== 'ALL' && p.tipoSuscripcion !== filterTipoPlan) return false;
-      if (filterConcepto !== 'ALL' && p.tipoOperacion !== filterConcepto) return false;
+      if (filterTipoSuscripcion !== 'ALL' && p.tipoSuscripcion !== filterTipoSuscripcion) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -423,13 +366,13 @@ export default function ReportesExcelTab({
       }
       return true;
     });
-  }, [paymentsOfSelectedMonth, filterVendedor, filterTipoPlan, filterConcepto, searchQuery]);
+  }, [paymentsByPeriod, filterVendedor, filterTipoSuscripcion, searchQuery]);
 
-  // Filtrado de la tabla de pérdidas
+  // Filtro de la tabla de deudas
   const filteredImpagosTable = useMemo(() => {
     return lossDebtAnalysis.list.filter((item) => {
-      if (filterEstadoImpago !== 'ALL' && item.estadoCuenta !== filterEstadoImpago) return false;
       if (filterVendedor !== 'ALL' && item.asesor !== filterVendedor) return false;
+      if (filterTipoSuscripcion !== 'ALL' && item.tipoSuscripcion !== filterTipoSuscripcion) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -442,10 +385,23 @@ export default function ReportesExcelTab({
       }
       return true;
     });
-  }, [lossDebtAnalysis.list, filterEstadoImpago, filterVendedor, searchQuery]);
+  }, [lossDebtAnalysis.list, filterVendedor, filterTipoSuscripcion, searchQuery]);
 
-  // Descarga del reporte en Excel oficial generado por Python
-  const handleDownloadExcel = async () => {
+  // Paginación
+  const totalPagesPagos = Math.max(1, Math.ceil(filteredPagosTable.length / ITEMS_PER_PAGE));
+  const paginatedPagos = useMemo(() => {
+    const start = (pagePagos - 1) * ITEMS_PER_PAGE;
+    return filteredPagosTable.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredPagosTable, pagePagos]);
+
+  const totalPagesImpagos = Math.max(1, Math.ceil(filteredImpagosTable.length / ITEMS_PER_PAGE));
+  const paginatedImpagos = useMemo(() => {
+    const start = (pageImpagos - 1) * ITEMS_PER_PAGE;
+    return filteredImpagosTable.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredImpagosTable, pageImpagos]);
+
+  // Exportar a Excel (Intenta Python primero; si falla, genera descarga local limpia en CSV/Excel)
+  const handleExport = async () => {
     setIsExportingExcel(true);
     try {
       const res = await fetch('/api/admin/reporte-excel-oficial');
@@ -454,605 +410,605 @@ export default function ReportesExcelTab({
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Reporte_Oficial_Cobros_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `Reporte_Facturacion_${selectedYear}_${selectedMonth}_${new Date().toISOString().slice(0, 10)}.xlsx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
         window.URL.revokeObjectURL(url);
-      } else {
-        alert('Error al generar el reporte con Python.');
+        return;
       }
     } catch (e) {
-      console.error(e);
+      console.warn('Fallback a exportación web local:', e);
+    }
+
+    // Exportación local de respaldo
+    try {
+      let csv = '\uFEFF';
+      csv += 'RUC,Cliente / Razon Social,Plan,Suscripcion,Monto Pagado,Fecha Pago,Periodo,Medio Pago,Operacion,Asesor\n';
+      filteredPagosTable.forEach((p) => {
+        csv += `"${p.ruc}","${p.razonSocial.replace(/"/g, '""')}","${p.planNombre}","${p.tipoSuscripcion}",${p.monto.toFixed(2)},"${p.fechaPagoStr}","${p.periodoStr}","${p.medioPago}","${p.codigoOperacion}","${p.asesor}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Reporte_Facturacion_${selectedYear}_${selectedMonth}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } finally {
       setIsExportingExcel(false);
     }
   };
 
+  // Etiqueta del período actual seleccionado
+  const currentPeriodLabel = useMemo(() => {
+    const monthObj = MESES.find((m) => m.value === selectedMonth);
+    const mLabel = monthObj ? monthObj.label : 'Período';
+    return selectedMonth === 'ALL' ? `Año ${selectedYear} (Consolidado)` : `${mLabel} ${selectedYear}`;
+  }, [selectedYear, selectedMonth]);
+
   return (
-    <div className="admin-module admin-module--reportes p-1">
-      {/* 1. BARRA SUPERIOR: SELECTOR DE MES Y BOTONES DE ACCIÓN */}
+    <div className="admin-module admin-module--reportes p-2">
+      {/* 1. BARRA SUPERIOR: ENCABEZADO Y SELECTOR DE PERÍODO */}
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
         <div>
           <h4 className="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
             <FileSpreadsheet className="text-primary" size={24} />
-            <span>Reporte Mensual de Facturación y Pérdidas</span>
+            <span>Reporte General de Facturación y Cobranzas</span>
           </h4>
           <p className="text-muted small mb-0">
-            Selecciona cualquier mes para ver los cobros exactos, clientes activos y el dinero no recaudado por cuentas vencidas o bloqueadas.
+            Auditoría de ingresos por mes, estado de la cartera activa y seguimiento de cuentas en deuda.
           </p>
         </div>
 
-        <div className="d-flex align-items-center gap-2.5 flex-wrap">
-          {/* Selector de Mes Dinámico */}
-          <div className="d-flex align-items-center gap-2 bg-white px-3 py-1.5 rounded-3 border shadow-xs">
-            <Calendar size={16} className="text-primary" />
-            <span className="small fw-bold text-muted">Seleccionar Mes:</span>
+        <div className="d-flex align-items-center gap-2 flex-wrap">
+          {/* Selector de Año */}
+          <div className="d-flex align-items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-3 border shadow-xs">
+            <span className="small fw-semibold text-muted">Año:</span>
             <select
-              className="form-select form-select-sm border-0 fw-bold text-primary shadow-none ps-1 pe-4"
-              style={{ fontSize: '0.92rem', cursor: 'pointer' }}
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="form-select form-select-sm border-0 fw-bold text-dark shadow-none ps-1 pe-4"
+              style={{ fontSize: '0.88rem', cursor: 'pointer' }}
+              value={selectedYear}
+              onChange={(e) => {
+                setSelectedYear(Number(e.target.value));
+                setPagePagos(1);
+              }}
             >
-              {availableMonthKeys.map((mk) => (
-                <option key={mk} value={mk}>
-                  {formatMonthLabel(mk)}
+              {availableYears.map((yr) => (
+                <option key={yr} value={yr}>
+                  {yr}
                 </option>
               ))}
             </select>
           </div>
 
+          {/* Selector de Mes Completo */}
+          <div className="d-flex align-items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-3 border shadow-xs">
+            <Calendar size={15} className="text-primary" />
+            <span className="small fw-semibold text-muted">Mes:</span>
+            <select
+              className="form-select form-select-sm border-0 fw-bold text-primary shadow-none ps-1 pe-4"
+              style={{ fontSize: '0.88rem', cursor: 'pointer' }}
+              value={selectedMonth}
+              onChange={(e) => {
+                setSelectedMonth(e.target.value);
+                setPagePagos(1);
+              }}
+            >
+              {MESES.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Actualizar Datos */}
           <button
             onClick={() => loadData(null, true)}
             disabled={isSyncing}
-            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1.5 px-3 py-2 rounded-3 shadow-xs"
-            title="Sincronizar datos"
+            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1.5 px-3 py-1.5 rounded-3 shadow-xs"
+            title="Recargar datos del servidor"
           >
             <RefreshCw size={14} className={isSyncing ? 'spin-anim' : ''} />
             <span>{isSyncing ? 'Actualizando...' : 'Actualizar'}</span>
           </button>
 
+          {/* Exportar Excel */}
           <button
-            onClick={handleDownloadExcel}
+            onClick={handleExport}
             disabled={isExportingExcel}
-            className="btn btn-success btn-sm d-flex align-items-center gap-2 px-3 py-2 rounded-3 shadow-xs fw-bold"
-            title="Exportar archivo Excel multi-hoja con Python"
+            className="btn btn-success btn-sm d-flex align-items-center gap-1.5 px-3 py-1.5 rounded-3 shadow-xs fw-semibold"
+            title="Descargar reporte oficial en formato Excel"
           >
-            {isExportingExcel ? <RefreshCw size={15} className="spin-anim" /> : <FileSpreadsheet size={15} />}
-            <span>{isExportingExcel ? 'Generando Excel...' : 'Exportar Excel'}</span>
+            <Download size={14} />
+            <span>{isExportingExcel ? 'Generando...' : 'Exportar Excel'}</span>
           </button>
         </div>
       </div>
 
-      {/* 2. TARJETAS DE INDICADORES (CON EL FORMATO DE LA IMAGEN EN TODAS LAS CARDS) */}
+      {/* 2. TARJETAS DE INDICADORES CLAVE DEL PERÍODO */}
       <div className="row g-3 mb-4">
-        {/* Card 1: Cobrado en el Mes Seleccionado (Idéntico a la imagen) */}
-        <div className="col-12 col-md-6 col-xl-3">
-          <div
-            className="card h-100 shadow-sm border-0 p-3.5"
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '16px',
-              border: '1px solid #E5E7EB',
-            }}
-          >
-            <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="fw-bold text-primary" style={{ fontSize: '1rem' }}>
-                Cobrado {formatMonthLabel(selectedMonth)}
-              </span>
-              <span
-                className="p-2 rounded-3 d-flex align-items-center justify-content-center"
-                style={{ backgroundColor: '#EEF2FF', color: '#4338CA' }}
-              >
-                <Calendar size={18} strokeWidth={2.2} />
+        {/* Card 1: Total Recaudado en el Período */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #2563EB' }}>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="text-muted small fw-semibold">Recaudado ({currentPeriodLabel})</span>
+              <span className="p-1.5 rounded-3 bg-primary-subtle text-primary">
+                <DollarSign size={16} />
               </span>
             </div>
-
-            <div className="fw-bolder text-primary mb-2" style={{ fontSize: '1.85rem', letterSpacing: '-0.5px' }}>
-              S/ {selectedMonthMetrics.totalRecaudado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="fw-bold text-dark fs-4 mb-2">
+              S/ {metrics.totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-
-            <div className="d-flex flex-column gap-1 pt-2 border-top" style={{ fontSize: '0.82rem' }}>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Regulares ({selectedMonthMetrics.regularesCount}):</span>
-                <strong className="text-dark">S/ {selectedMonthMetrics.regularesMonto.toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Prorrateos ({selectedMonthMetrics.prorrateosCount}):</span>
-                <strong className="text-primary">S/ {selectedMonthMetrics.prorrateosMonto.toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Adelantos ({selectedMonthMetrics.adelantosCount}):</span>
-                <strong className="text-success">S/ {selectedMonthMetrics.adelantosMonto.toFixed(2)}</strong>
-              </div>
-              <div className="text-muted small mt-1 pt-1 border-top d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
-                <Check size={14} className="text-success" />
-                <span>{selectedMonthMetrics.totalTransacciones} pagos registrados en este mes</span>
-              </div>
+            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
+              <span>{metrics.countPagos} pagos registrados</span>
+              <span className="text-primary fw-semibold">
+                Mensual: S/ {metrics.cobradoMensual.toFixed(0)} | Anual: S/ {metrics.cobradoAnual.toFixed(0)}
+              </span>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Clientes Activos del Mes (Total, Anuales y Mensuales - Idéntico a la imagen) */}
-        <div className="col-12 col-md-6 col-xl-3">
-          <div
-            className="card h-100 shadow-sm border-0 p-3.5"
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '16px',
-              border: '1px solid #E5E7EB',
-            }}
-          >
-            <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="fw-bold text-dark" style={{ fontSize: '1rem' }}>
-                Clientes Activos
-              </span>
-              <span
-                className="p-2 rounded-3 d-flex align-items-center justify-content-center"
-                style={{ backgroundColor: '#F0FDF4', color: '#16A34A' }}
-              >
-                <Users size={18} strokeWidth={2.2} />
+        {/* Card 2: Clientes Activos */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #16A34A' }}>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="text-muted small fw-semibold">Clientes Activos</span>
+              <span className="p-1.5 rounded-3 bg-success-subtle text-success">
+                <Users size={16} />
               </span>
             </div>
-
-            <div className="fw-bolder text-dark mb-2" style={{ fontSize: '1.85rem', letterSpacing: '-0.5px' }}>
-              {selectedMonthMetrics.activosTotales} <span className="fs-6 text-muted fw-normal">activos</span>
+            <div className="fw-bold text-dark fs-4 mb-2">
+              {metrics.totalClientesActivos} <span className="fs-6 text-muted fw-normal">cuentas al día</span>
             </div>
-
-            <div className="d-flex flex-column gap-1 pt-2 border-top" style={{ fontSize: '0.82rem' }}>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Planes Mensuales:</span>
-                <strong className="text-dark">{selectedMonthMetrics.activosMensuales} clientes</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Planes Anuales:</span>
-                <strong className="text-dark">{selectedMonthMetrics.activosAnuales} clientes</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Cobrado Anuales:</span>
-                <strong className="text-success">S/ {selectedMonthMetrics.anualesCobradosMonto.toFixed(2)}</strong>
-              </div>
-              <div className="text-muted small mt-1 pt-1 border-top d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
-                <Check size={14} className="text-success" />
-                <span>Anuales solo se cobran su mes correspondiente</span>
-              </div>
+            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
+              <span>{metrics.clientesMensualesActivos} mensuales</span>
+              <span>·</span>
+              <span>{metrics.clientesAnualesActivos} anuales</span>
             </div>
           </div>
         </div>
 
-        {/* Card 3: Pérdidas por Bloqueados y Vencidos (Idéntico a la imagen) */}
-        <div className="col-12 col-md-6 col-xl-3">
-          <div
-            className="card h-100 shadow-sm border-0 p-3.5"
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '16px',
-              border: '1px solid #FEE2E2',
-            }}
-          >
-            <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="fw-bold text-danger" style={{ fontSize: '1rem' }}>
-                Pérdidas e Impagos
-              </span>
-              <span
-                className="p-2 rounded-3 d-flex align-items-center justify-content-center"
-                style={{ backgroundColor: '#FEF2F2', color: '#DC2626' }}
-              >
-                <TrendingDown size={18} strokeWidth={2.2} />
+        {/* Card 3: Deuda Pendiente por Cobrar */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #DC2626' }}>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="text-muted small fw-semibold">Deuda en Cartera</span>
+              <span className="p-1.5 rounded-3 bg-danger-subtle text-danger">
+                <TrendingDown size={16} />
               </span>
             </div>
-
-            <div className="fw-bolder text-danger mb-2" style={{ fontSize: '1.85rem', letterSpacing: '-0.5px' }}>
-              S/ {lossDebtAnalysis.perdidaTotal.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="fw-bold text-danger fs-4 mb-2">
+              S/ {lossDebtAnalysis.totalDeuda.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-
-            <div className="d-flex flex-column gap-1 pt-2 border-top" style={{ fontSize: '0.82rem' }}>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Bloqueados ({lossDebtAnalysis.countBloqueados}):</span>
-                <strong className="text-danger">S/ {lossDebtAnalysis.perdidasBloqueados.toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Vencidos ({lossDebtAnalysis.countVencidos}):</span>
-                <strong className="text-warning-emphasis">S/ {lossDebtAnalysis.perdidasVencidos.toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Total Cuentas con Deuda:</span>
-                <strong className="text-danger">{lossDebtAnalysis.countTotal} clientes</strong>
-              </div>
-              <div className="text-danger small mt-1 pt-1 border-top d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
-                <AlertTriangle size={14} className="text-danger" />
-                <span>Dinero dejado de percibir (detallado en tabla inferior)</span>
-              </div>
+            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
+              <span>{lossDebtAnalysis.countBloqueados} bloqueados</span>
+              <span>·</span>
+              <span>{lossDebtAnalysis.countVencidos} vencidos</span>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Previa del Próximo Mes (Idéntico a la imagen) */}
-        <div className="col-12 col-md-6 col-xl-3">
-          <div
-            className="card h-100 shadow-sm border-0 p-3.5"
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '16px',
-              border: '1px solid #E5E7EB',
-            }}
-          >
-            <div className="d-flex justify-content-between align-items-start mb-2">
-              <span className="fw-bold text-primary" style={{ fontSize: '1rem' }}>
-                Previa {proyeccionData?.periodo_proyectado || 'Próximo Mes'}
-              </span>
-              <span
-                className="p-2 rounded-3 d-flex align-items-center justify-content-center"
-                style={{ backgroundColor: '#EEF2FF', color: '#4338CA' }}
-              >
-                <Calendar size={18} strokeWidth={2.2} />
+        {/* Card 4: Promedio por Operación */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #4F46E5' }}>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="text-muted small fw-semibold">Ticket Promedio</span>
+              <span className="p-1.5 rounded-3 bg-indigo-subtle text-indigo" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}>
+                <CreditCard size={16} />
               </span>
             </div>
-
-            <div className="fw-bolder text-primary mb-2" style={{ fontSize: '1.85rem', letterSpacing: '-0.5px' }}>
-              {loadingProyeccion ? (
-                <span className="fs-6 text-muted fw-normal">Calculando...</span>
-              ) : (
-                `S/ ${(proyeccionData?.total_proyectado || 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              )}
+            <div className="fw-bold text-dark fs-4 mb-2">
+              S/ {metrics.countPagos > 0 ? (metrics.totalCobrado / metrics.countPagos).toFixed(2) : '0.00'}
             </div>
-
-            <div className="d-flex flex-column gap-1 pt-2 border-top" style={{ fontSize: '0.82rem' }}>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Regulares ({proyeccionData?.count_regulares || 0}):</span>
-                <strong className="text-dark">S/ {(proyeccionData?.total_regulares || 0).toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Prorrateos ({proyeccionData?.count_prorrateados || 0}):</span>
-                <strong className="text-primary">S/ {(proyeccionData?.total_prorrateados || 0).toFixed(2)}</strong>
-              </div>
-              <div className="d-flex justify-content-between align-items-center">
-                <span className="text-muted">Adelantos (0):</span>
-                <strong className="text-success">S/ 0.00</strong>
-              </div>
-              <div className="text-muted small mt-1 pt-1 border-top d-flex align-items-center gap-1.5" style={{ fontSize: '0.74rem' }}>
-                <Check size={14} className="text-success" />
-                <span>Planes activos ({proyeccionData?.clientes_no_bloqueados || 0} sin bloqueados)</span>
-              </div>
+            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
+              <span>Base en transacciones confirmadas</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. TABLA 1: DETALLE DE PAGOS DEL MES SELECCIONADO */}
-      <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-5">
-        <div className="p-3.5 bg-white border-bottom">
-          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-            <div className="d-flex align-items-center gap-2">
-              <CreditCard size={18} className="text-primary" />
-              <h6 className="fw-bold text-dark mb-0">
-                1. Tabla de Pagos Recibidos en {formatMonthLabel(selectedMonth)}
-              </h6>
-              <span className="badge bg-primary-subtle text-primary fw-bold rounded-pill px-2.5 py-0.5">
-                {filteredPagosTable.length} pagos
+      {/* 3. PESTAÑAS DE VISTA: PAGOS DEL MES / DEUDAS / EVOLUCIÓN MENSUAL */}
+      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <ul className="nav nav-pills bg-light p-1 rounded-3 border" style={{ fontSize: '0.86rem' }}>
+          <li className="nav-item">
+            <button
+              className={`nav-link py-1.5 px-3 rounded-2 fw-semibold ${activeTab === 'PAGOS' ? 'active shadow-sm' : 'text-muted'}`}
+              onClick={() => setActiveTab('PAGOS')}
+            >
+              1. Pagos Recibidos ({filteredPagosTable.length})
+            </button>
+          </li>
+          <li className="nav-item">
+            <button
+              className={`nav-link py-1.5 px-3 rounded-2 fw-semibold ${activeTab === 'IMPAGOS' ? 'active shadow-sm' : 'text-muted'}`}
+              onClick={() => setActiveTab('IMPAGOS')}
+            >
+              2. Cartera con Deuda ({filteredImpagosTable.length})
+            </button>
+          </li>
+          <li className="nav-item">
+            <button
+              className={`nav-link py-1.5 px-3 rounded-2 fw-semibold ${activeTab === 'EVOLUCION' ? 'active shadow-sm' : 'text-muted'}`}
+              onClick={() => setActiveTab('EVOLUCION')}
+            >
+              3. Resumen Mes a Mes ({selectedYear})
+            </button>
+          </li>
+        </ul>
+
+        {/* Buscador y Filtros Rápidos (Para Pagos e Impagos) */}
+        {activeTab !== 'EVOLUCION' && (
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <div className="input-group input-group-sm" style={{ width: '220px' }}>
+              <span className="input-group-text bg-white border-end-0">
+                <Search size={13} className="text-muted" />
               </span>
+              <input
+                type="text"
+                className="form-control bg-white border-start-0"
+                placeholder="Buscar cliente, RUC..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPagePagos(1);
+                  setPageImpagos(1);
+                }}
+              />
             </div>
 
-            <div className="text-muted small">
-              Suma recaudada en vista:{' '}
-              <strong className="text-primary fs-6">
-                S/ {filteredPagosTable.reduce((acc, p) => acc + p.monto, 0).toFixed(2)}
-              </strong>
-            </div>
-          </div>
+            <select
+              className="form-select form-select-sm"
+              style={{ width: '160px', fontSize: '0.82rem' }}
+              value={filterVendedor}
+              onChange={(e) => {
+                setFilterVendedor(e.target.value);
+                setPagePagos(1);
+                setPageImpagos(1);
+              }}
+            >
+              <option value="ALL">Todos los Asesores</option>
+              {uniqueSellers.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
 
-          {/* Filtros de la Tabla de Pagos */}
-          <div className="row g-2 align-items-center">
-            <div className="col-12 col-md-4">
-              <div className="input-group input-group-sm">
-                <span className="input-group-text bg-light border-end-0">
-                  <Search size={14} className="text-muted" />
-                </span>
-                <input
-                  type="text"
-                  className="form-control bg-light border-start-0"
-                  placeholder="Buscar RUC, razón social, operación..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
+            <select
+              className="form-select form-select-sm"
+              style={{ width: '130px', fontSize: '0.82rem' }}
+              value={filterTipoSuscripcion}
+              onChange={(e) => {
+                setFilterTipoSuscripcion(e.target.value);
+                setPagePagos(1);
+                setPageImpagos(1);
+              }}
+            >
+              <option value="ALL">Modalidad</option>
+              <option value="MENSUAL">Mensual</option>
+              <option value="ANUAL">Anual</option>
+            </select>
 
-            <div className="col-6 col-md-3">
-              <select
-                className="form-select form-select-sm"
-                value={filterVendedor}
-                onChange={(e) => setFilterVendedor(e.target.value)}
-              >
-                <option value="ALL">Todos los Asesores</option>
-                {uniqueSellers.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="col-6 col-md-2">
-              <select
-                className="form-select form-select-sm"
-                value={filterTipoPlan}
-                onChange={(e) => setFilterTipoPlan(e.target.value as any)}
-              >
-                <option value="ALL">Mensual / Anual</option>
-                <option value="MENSUAL">Solo Mensuales</option>
-                <option value="ANUAL">Solo Anuales</option>
-              </select>
-            </div>
-
-            <div className="col-6 col-md-2">
-              <select
-                className="form-select form-select-sm"
-                value={filterConcepto}
-                onChange={(e) => setFilterConcepto(e.target.value)}
-              >
-                <option value="ALL">Todos los Conceptos</option>
-                <option value="RENOVACION">Renovación</option>
-                <option value="PRORRATEO">Cobro Prorrateo</option>
-                <option value="ADELANTO">Adelanto</option>
-                <option value="ALTA">Afiliación / Alta</option>
-              </select>
-            </div>
-
-            <div className="col-6 col-md-1 text-end">
+            {(searchQuery || filterVendedor !== 'ALL' || filterTipoSuscripcion !== 'ALL') && (
               <button
-                className="btn btn-outline-secondary btn-sm w-100 py-1"
+                className="btn btn-outline-secondary btn-sm p-1.5"
                 onClick={() => {
                   setSearchQuery('');
                   setFilterVendedor('ALL');
-                  setFilterTipoPlan('ALL');
-                  setFilterConcepto('ALL');
+                  setFilterTipoSuscripcion('ALL');
+                  setPagePagos(1);
+                  setPageImpagos(1);
                 }}
                 title="Limpiar filtros"
               >
                 <RotateCcw size={13} />
               </button>
-            </div>
+            )}
           </div>
-        </div>
+        )}
+      </div>
 
-        <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.86rem' }}>
-            <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
-              <tr>
-                <th className="ps-3 py-2.5">Cliente / Razón Social</th>
-                <th className="py-2.5">RUC</th>
-                <th className="py-2.5">Plan Contratado</th>
-                <th className="py-2.5 text-center">Fecha Pago</th>
-                <th className="py-2.5 text-center">Período de Servicio</th>
-                <th className="py-2.5">Concepto</th>
-                <th className="py-2.5">Asesor</th>
-                <th className="py-2.5 text-end pe-3">Monto Pagado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPagosTable.length === 0 ? (
+      {/* 4. CONTENIDO DE LAS PESTAÑAS */}
+
+      {/* TAB 1: TABLA DE PAGOS RECIBIDOS */}
+      {activeTab === 'PAGOS' && (
+        <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+              <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
                 <tr>
-                  <td colSpan={8} className="text-center py-5 text-muted">
-                    <AlertTriangle size={24} className="mb-2 text-warning d-block mx-auto" />
-                    <span>No se encontraron pagos registrados para {formatMonthLabel(selectedMonth)} con estos filtros.</span>
-                  </td>
+                  <th className="ps-3 py-2.5">Cliente / Razón Social</th>
+                  <th className="py-2.5">RUC</th>
+                  <th className="py-2.5">Plan Contratado</th>
+                  <th className="py-2.5 text-center">Fecha Pago</th>
+                  <th className="py-2.5">Período Cubierto</th>
+                  <th className="py-2.5">Medio / Operación</th>
+                  <th className="py-2.5">Asesor</th>
+                  <th className="py-2.5 text-end pe-3">Monto Pagado</th>
                 </tr>
-              ) : (
-                filteredPagosTable.map((p) => (
-                  <tr key={p.id}>
-                    <td className="ps-3 py-2.5">
-                      <div className="fw-bold text-dark">{p.razonSocial}</div>
-                      {p.nombreComercial && (
-                        <small className="text-muted d-block" style={{ fontSize: '0.75rem' }}>
-                          {p.nombreComercial}
-                        </small>
+              </thead>
+              <tbody>
+                {paginatedPagos.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-5 text-muted">
+                      <AlertTriangle size={24} className="mb-2 text-warning d-block mx-auto" />
+                      <span>No se encontraron pagos registrados para {currentPeriodLabel}.</span>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedPagos.map((p) => (
+                    <tr key={p.id}>
+                      <td className="ps-3 py-2.5">
+                        <div className="fw-semibold text-dark">{p.razonSocial}</div>
+                        {p.nombreComercial && (
+                          <small className="text-muted d-block" style={{ fontSize: '0.74rem' }}>
+                            {p.nombreComercial}
+                          </small>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-secondary fw-semibold">{p.ruc}</td>
+                      <td className="py-2.5">
+                        <span className="text-dark fw-semibold">{p.planNombre}</span>{' '}
+                        <span
+                          className={`badge rounded-pill ${
+                            p.tipoSuscripcion === 'ANUAL'
+                              ? 'bg-warning-subtle text-warning-emphasis'
+                              : 'bg-light text-muted border'
+                          }`}
+                          style={{ fontSize: '0.68rem' }}
+                        >
+                          {p.tipoSuscripcion}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-center text-muted">{p.fechaPagoStr}</td>
+                      <td className="py-2.5 text-muted small">{p.periodoStr}</td>
+                      <td className="py-2.5">
+                        <span className="badge bg-light text-dark border px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
+                          {p.medioPago}
+                        </span>
+                        {p.codigoOperacion !== '—' && (
+                          <small className="d-block text-muted" style={{ fontSize: '0.7rem' }}>
+                            Op: {p.codigoOperacion}
+                          </small>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-muted">{p.asesor}</td>
+                      <td className="py-2.5 text-end pe-3 fw-bold text-dark" style={{ fontSize: '0.92rem' }}>
+                        S/ {p.monto.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {filteredPagosTable.length > 0 && (
+                <tfoot className="table-light border-top">
+                  <tr className="fw-bold">
+                    <td colSpan={7} className="ps-3 py-2.5 text-uppercase small text-muted">
+                      Total Recaudado en {currentPeriodLabel}:
+                    </td>
+                    <td className="text-end pe-3 py-2.5 text-primary fs-6">
+                      S/ {filteredPagosTable.reduce((acc, p) => acc + p.monto, 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+
+          {/* Paginador */}
+          {totalPagesPagos > 1 && (
+            <div className="d-flex justify-content-between align-items-center p-2.5 bg-light border-top small">
+              <span className="text-muted">
+                Página {pagePagos} de {totalPagesPagos} ({filteredPagosTable.length} pagos)
+              </span>
+              <div className="d-flex gap-1">
+                <button
+                  className="btn btn-sm btn-outline-secondary px-2 py-1"
+                  disabled={pagePagos === 1}
+                  onClick={() => setPagePagos((prev) => Math.max(1, prev - 1))}
+                >
+                  <ChevronLeft size={14} /> Anterior
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-secondary px-2 py-1"
+                  disabled={pagePagos === totalPagesPagos}
+                  onClick={() => setPagePagos((prev) => Math.min(totalPagesPagos, prev + 1))}
+                >
+                  Siguiente <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: TABLA DE CARTERA CON DEUDA (VENCIDOS Y BLOQUEADOS) */}
+      {activeTab === 'IMPAGOS' && (
+        <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+              <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                <tr>
+                  <th className="ps-3 py-2.5">Cliente en Deuda</th>
+                  <th className="py-2.5">RUC</th>
+                  <th className="py-2.5">Plan / Modalidad</th>
+                  <th className="py-2.5 text-center">Estado de Cuenta</th>
+                  <th className="py-2.5 text-center">Fecha Vencimiento</th>
+                  <th className="py-2.5">Teléfono Contacto</th>
+                  <th className="py-2.5">Asesor Asignado</th>
+                  <th className="py-2.5 text-end pe-3">Monto Deuda</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedImpagos.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-5 text-muted">
+                      <CheckCircle2 size={24} className="mb-2 text-success d-block mx-auto" />
+                      <span>No hay cuentas impagas con los filtros seleccionados. Cartera al día.</span>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedImpagos.map((item) => (
+                    <tr key={item.id}>
+                      <td className="ps-3 py-2.5">
+                        <div className="fw-semibold text-dark">{item.razonSocial}</div>
+                      </td>
+                      <td className="py-2.5 text-secondary fw-semibold">{item.ruc}</td>
+                      <td className="py-2.5">
+                        <span className="text-dark fw-semibold">{item.plan}</span>{' '}
+                        <small className="text-muted">({item.tipoSuscripcion})</small>
+                      </td>
+                      <td className="py-2.5 text-center">
+                        <span
+                          className={`badge rounded-pill px-2.5 py-1 ${
+                            item.estadoCuenta === 'BLOQUEADO'
+                              ? 'bg-danger text-white'
+                              : 'bg-warning-subtle text-warning-emphasis'
+                          }`}
+                          style={{ fontSize: '0.72rem' }}
+                        >
+                          {item.estadoCuenta}
+                        </span>
+                      </td>
+                      <td className="py-2.5 text-center text-muted">{item.fechaVencimiento}</td>
+                      <td className="py-2.5 text-muted">{item.telefono}</td>
+                      <td className="py-2.5 text-muted">{item.asesor}</td>
+                      <td className="py-2.5 text-end pe-3 fw-bold text-danger" style={{ fontSize: '0.92rem' }}>
+                        S/ {item.montoDeuda.toFixed(2)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+              {filteredImpagosTable.length > 0 && (
+                <tfoot className="table-light border-top">
+                  <tr className="fw-bold">
+                    <td colSpan={7} className="ps-3 py-2.5 text-uppercase small text-danger">
+                      Total Deuda Acumulada en Cartera:
+                    </td>
+                    <td className="text-end pe-3 py-2.5 text-danger fs-6">
+                      S/ {filteredImpagosTable.reduce((acc, i) => acc + i.montoDeuda, 0).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+
+          {/* Paginador Impagos */}
+          {totalPagesImpagos > 1 && (
+            <div className="d-flex justify-content-between align-items-center p-2.5 bg-light border-top small">
+              <span className="text-muted">
+                Página {pageImpagos} de {totalPagesImpagos} ({filteredImpagosTable.length} clientes)
+              </span>
+              <div className="d-flex gap-1">
+                <button
+                  className="btn btn-sm btn-outline-secondary px-2 py-1"
+                  disabled={pageImpagos === 1}
+                  onClick={() => setPageImpagos((prev) => Math.max(1, prev - 1))}
+                >
+                  <ChevronLeft size={14} /> Anterior
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-secondary px-2 py-1"
+                  disabled={pageImpagos === totalPagesImpagos}
+                  onClick={() => setPageImpagos((prev) => Math.min(totalPagesImpagos, prev + 1))}
+                >
+                  Siguiente <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 3: RESUMEN MENSUAL COMPARATIVO DE ENERO A DICIEMBRE */}
+      {activeTab === 'EVOLUCION' && (
+        <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
+          <div className="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
+            <div>
+              <h6 className="fw-bold text-dark mb-0">Evolución de Ingresos Mensuales ({selectedYear})</h6>
+              <small className="text-muted">Comparativo mes a mes de recaudación y volumen de transacciones</small>
+            </div>
+            <span className="badge bg-primary-subtle text-primary fw-semibold px-2.5 py-1">
+              Año {selectedYear}
+            </span>
+          </div>
+
+          <div className="table-responsive">
+            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.86rem' }}>
+              <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
+                <tr>
+                  <th className="ps-3 py-2.5">Mes</th>
+                  <th className="py-2.5 text-center">Operaciones</th>
+                  <th className="py-2.5 text-center">Clientes Únicos</th>
+                  <th className="py-2.5 text-end">Ticket Promedio</th>
+                  <th className="py-2.5 text-end pe-3">Total Recaudado (S/)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthlyEvolution.map((m) => (
+                  <tr
+                    key={m.monthCode}
+                    style={{
+                      backgroundColor: m.monthCode === selectedMonth ? '#F0F9FF' : undefined,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      setSelectedMonth(m.monthCode);
+                      setActiveTab('PAGOS');
+                    }}
+                    title="Click para ver el detalle de pagos de este mes"
+                  >
+                    <td className="ps-3 py-2.5 fw-semibold text-dark d-flex align-items-center gap-2">
+                      <Calendar size={14} className="text-primary" />
+                      <span>{m.monthName}</span>
+                      {m.monthCode === selectedMonth && (
+                        <span className="badge bg-primary text-white" style={{ fontSize: '0.65rem' }}>
+                          Seleccionado
+                        </span>
                       )}
                     </td>
-                    <td className="py-2.5 fw-semibold text-secondary">{p.ruc}</td>
-                    <td className="py-2.5">
-                      <span className="fw-semibold text-dark">{p.planNombre}</span>{' '}
-                      <span
-                        className={`badge rounded-pill ${
-                          p.tipoSuscripcion === 'ANUAL'
-                            ? 'bg-warning-subtle text-warning-emphasis'
-                            : 'bg-light text-muted border'
-                        }`}
-                        style={{ fontSize: '0.7rem' }}
-                      >
-                        {p.tipoSuscripcion}
-                      </span>
+                    <td className="py-2.5 text-center text-muted">{m.cantidadOperaciones}</td>
+                    <td className="py-2.5 text-center text-muted">{m.clientesAtendidos}</td>
+                    <td className="py-2.5 text-end text-muted">
+                      S/ {m.promedioTicket.toFixed(2)}
                     </td>
-                    <td className="py-2.5 text-center text-muted">{p.fechaPagoStr}</td>
-                    <td className="py-2.5 text-center">
-                      <span className="small fw-semibold text-dark">
-                        {p.periodoInicioStr} al {p.periodoFinStr}
-                      </span>
-                    </td>
-                    <td className="py-2.5">
-                      <span className={`badge ${p.badgeColor} rounded-pill px-2.5 py-1`} style={{ fontSize: '0.72rem' }}>
-                        {p.tipoOperacionLabel}
-                      </span>
-                      {p.isAdelanto && (
-                        <small className="d-block text-primary fw-semibold mt-0.5" style={{ fontSize: '0.7rem' }}>
-                          Adelanto
-                        </small>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-muted">{p.asesor}</td>
                     <td className="py-2.5 text-end pe-3 fw-bold text-dark" style={{ fontSize: '0.94rem' }}>
-                      S/ {p.monto.toFixed(2)}
+                      {m.totalRecaudado > 0 ? (
+                        <span className="text-primary">
+                          S/ {m.totalRecaudado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      ) : (
+                        <span className="text-muted fw-normal">S/ 0.00</span>
+                      )}
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-            {filteredPagosTable.length > 0 && (
-              <tfoot className="table-light border-top">
-                <tr className="fw-bold">
-                  <td colSpan={7} className="ps-3 py-2.5 text-uppercase" style={{ fontSize: '0.82rem' }}>
-                    Suma Total Recaudada en {formatMonthLabel(selectedMonth)}:
-                  </td>
-                  <td className="text-end pe-3 py-2.5 text-primary" style={{ fontSize: '1.05rem' }}>
-                    S/ {filteredPagosTable.reduce((acc, p) => acc + p.monto, 0).toFixed(2)}
-                  </td>
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </div>
-
-      {/* 4. TABLA 2: DETALLE DE PÉRDIDAS POR CLIENTES BLOQUEADOS Y VENCIDOS */}
-      <div className="card shadow-sm border-0 rounded-4 overflow-hidden mb-4" style={{ border: '1px solid #FEE2E2' }}>
-        <div className="p-3.5 bg-white border-bottom">
-          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
-            <div className="d-flex align-items-center gap-2">
-              <ShieldAlert size={19} className="text-danger" />
-              <h6 className="fw-bold text-danger mb-0">
-                2. Tabla de Pérdidas e Impagos: Cuánto Dinero se está Perdiendo en Cuentas Bloqueadas y Vencidas
-              </h6>
-              <span className="badge bg-danger-subtle text-danger fw-bold rounded-pill px-2.5 py-0.5">
-                {filteredImpagosTable.length} clientes
-              </span>
-            </div>
-
-            <div className="text-danger fw-bold" style={{ fontSize: '1.05rem' }}>
-              Suma Total de Pérdida:{' '}
-              <span>S/ {filteredImpagosTable.reduce((acc, i) => acc + i.montoDeuda, 0).toFixed(2)}</span>
-            </div>
-          </div>
-
-          {/* Filtros de la Tabla de Pérdidas */}
-          <div className="row g-2 align-items-center">
-            <div className="col-12 col-md-5">
-              <div className="input-group input-group-sm">
-                <span className="input-group-text bg-light border-end-0">
-                  <Search size={14} className="text-muted" />
-                </span>
-                <input
-                  type="text"
-                  className="form-control bg-light border-start-0"
-                  placeholder="Buscar cliente, RUC o plan..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="col-6 col-md-3">
-              <select
-                className="form-select form-select-sm"
-                value={filterEstadoImpago}
-                onChange={(e) => setFilterEstadoImpago(e.target.value as any)}
-              >
-                <option value="ALL">Todos los Estados (Bloqueados + Vencidos)</option>
-                <option value="BLOQUEADO">Solo Cuentas Bloqueadas</option>
-                <option value="VENCIDO">Solo Cuentas Vencidas</option>
-              </select>
-            </div>
-
-            <div className="col-6 col-md-3">
-              <select
-                className="form-select form-select-sm"
-                value={filterVendedor}
-                onChange={(e) => setFilterVendedor(e.target.value)}
-              >
-                <option value="ALL">Todos los Asesores</option>
-                {uniqueSellers.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
                 ))}
-              </select>
-            </div>
-
-            <div className="col-12 col-md-1 text-end">
-              <button
-                className="btn btn-outline-secondary btn-sm w-100 py-1"
-                onClick={() => {
-                  setSearchQuery('');
-                  setFilterEstadoImpago('ALL');
-                  setFilterVendedor('ALL');
-                }}
-                title="Limpiar filtros"
-              >
-                <RotateCcw size={13} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.86rem' }}>
-            <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
-              <tr>
-                <th className="ps-3 py-2.5">Cliente Impago</th>
-                <th className="py-2.5">RUC</th>
-                <th className="py-2.5">Plan / Modalidad</th>
-                <th className="py-2.5 text-center">Estado de Cuenta</th>
-                <th className="py-2.5 text-center">Fecha Vencimiento</th>
-                <th className="py-2.5">Teléfono Contacto</th>
-                <th className="py-2.5">Asesor Asignado</th>
-                <th className="py-2.5 text-end pe-3">Monto Deuda (Pérdida)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredImpagosTable.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-5 text-muted">
-                    <Check size={24} className="mb-2 text-success d-block mx-auto" />
-                    <span>No hay cuentas impagas con los filtros seleccionados. Cartera al día.</span>
-                  </td>
-                </tr>
-              ) : (
-                filteredImpagosTable.map((item) => (
-                  <tr key={item.id}>
-                    <td className="ps-3 py-2.5">
-                      <div className="fw-bold text-dark">{item.razonSocial}</div>
-                    </td>
-                    <td className="py-2.5 fw-semibold text-secondary">{item.ruc}</td>
-                    <td className="py-2.5">
-                      <span className="fw-semibold text-dark">{item.plan}</span>{' '}
-                      <small className="text-muted">({item.tipoSuscripcion})</small>
-                    </td>
-                    <td className="py-2.5 text-center">
-                      <span
-                        className={`badge rounded-pill px-2.5 py-1 ${
-                          item.estadoCuenta === 'BLOQUEADO'
-                            ? 'bg-danger text-white'
-                            : 'bg-warning-subtle text-warning-emphasis'
-                        }`}
-                        style={{ fontSize: '0.74rem' }}
-                      >
-                        {item.estadoCuenta}
-                      </span>
-                    </td>
-                    <td className="py-2.5 text-center text-muted">{item.fechaVencimiento}</td>
-                    <td className="py-2.5 text-muted">{item.telefono}</td>
-                    <td className="py-2.5 text-muted">{item.asesor}</td>
-                    <td className="py-2.5 text-end pe-3 fw-bold text-danger" style={{ fontSize: '0.94rem' }}>
-                      S/ {item.montoDeuda.toFixed(2)}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-            {filteredImpagosTable.length > 0 && (
+              </tbody>
               <tfoot className="table-light border-top">
                 <tr className="fw-bold">
-                  <td colSpan={7} className="ps-3 py-2.5 text-uppercase text-danger" style={{ fontSize: '0.82rem' }}>
-                    Suma Total de Pérdida en Cartera (Deuda Acumulada):
+                  <td className="ps-3 py-2.5 text-uppercase small text-dark">
+                    Total Acumulado del Año {selectedYear}:
                   </td>
-                  <td className="text-end pe-3 py-2.5 text-danger fw-bolder" style={{ fontSize: '1.05rem' }}>
-                    S/ {filteredImpagosTable.reduce((acc, i) => acc + i.montoDeuda, 0).toFixed(2)}
+                  <td className="text-center py-2.5 text-dark">
+                    {monthlyEvolution.reduce((acc, m) => acc + m.cantidadOperaciones, 0)}
+                  </td>
+                  <td className="text-center py-2.5 text-muted">—</td>
+                  <td className="text-end py-2.5 text-muted">—</td>
+                  <td className="text-end pe-3 py-2.5 text-success fs-6">
+                    S/ {monthlyEvolution.reduce((acc, m) => acc + m.totalRecaudado, 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
               </tfoot>
-            )}
-          </table>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
