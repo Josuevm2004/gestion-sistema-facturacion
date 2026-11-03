@@ -30,8 +30,26 @@ interface ReportesExcelTabProps {
   sellerFilter?: string;
   setSellerFilter?: (v: string) => void;
   uniqueSellers?: string[];
+  colorFilter?: string;
+  setColorFilter?: (v: string) => void;
+  regimenFilter?: string;
+  setRegimenFilter?: (v: string) => void;
+  planFilter?: string;
+  setPlanFilter?: (v: string) => void;
+  estadoCuentaFilter?: string;
+  setEstadoCuentaFilter?: (v: string) => void;
+  capacitacionFilter?: string;
+  setCapacitacionFilter?: (v: string) => void;
+  suscripcionFilter?: string;
+  setSuscripcionFilter?: (v: string) => void;
+  periodoIngresoTipo?: string;
+  setPeriodoIngresoTipo?: (v: any) => void;
+  fechaCustomFilter?: string;
+  setFechaCustomFilter?: (v: string) => void;
+  filterClientUnified?: (c: Client) => boolean;
   setEditingClient?: (client: Client) => void;
   setHistoryClient?: (client: Client | null) => void;
+  COLOR_MAP?: any;
 }
 
 export default function ReportesExcelTab({
