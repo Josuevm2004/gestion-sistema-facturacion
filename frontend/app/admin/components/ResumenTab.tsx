@@ -130,7 +130,7 @@ export default function ResumenTab({
                 className="badge rounded-pill fw-bold px-2.5 py-1"
                 style={{ backgroundColor: '#EEF2FF', color: '#4338CA', fontSize: '0.74rem' }}
               >
-                ⭐ Previa de Ganancia del Próximo Mes
+                Previa de Ganancia del Próximo Mes
               </span>
               <span className="text-light-subtle small opacity-75">
                 | Estimación en Planes Activos (Sin bloqueados ni anuales antiguos)
