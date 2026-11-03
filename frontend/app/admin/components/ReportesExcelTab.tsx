@@ -8,18 +8,16 @@ import {
   Search,
   RotateCcw,
   CheckCircle2,
-  AlertTriangle,
+  AlertCircle,
   Users,
   DollarSign,
-  TrendingDown,
+  TrendingUp,
   CreditCard,
-  Phone,
-  UserCheck,
-  Building,
-  ArrowUpDown,
   Download,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  Tag
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 
@@ -58,20 +56,19 @@ interface ReportesExcelTabProps {
   COLOR_MAP?: any;
 }
 
-const MESES = [
-  { value: 'ALL', label: 'Todo el Año (Acumulado)' },
-  { value: '01', label: 'Enero' },
-  { value: '02', label: 'Febrero' },
-  { value: '03', label: 'Marzo' },
-  { value: '04', label: 'Abril' },
-  { value: '05', label: 'Mayo' },
-  { value: '06', label: 'Junio' },
-  { value: '07', label: 'Julio' },
-  { value: '08', label: 'Agosto' },
-  { value: '09', label: 'Septiembre' },
-  { value: '10', label: 'Octubre' },
-  { value: '11', label: 'Noviembre' },
-  { value: '12', label: 'Diciembre' },
+const MESES_LIST = [
+  { num: '01', nombre: 'Enero' },
+  { num: '02', nombre: 'Febrero' },
+  { num: '03', nombre: 'Marzo' },
+  { num: '04', nombre: 'Abril' },
+  { num: '05', nombre: 'Mayo' },
+  { num: '06', nombre: 'Junio' },
+  { num: '07', nombre: 'Julio' },
+  { num: '08', nombre: 'Agosto' },
+  { num: '09', nombre: 'Septiembre' },
+  { num: '10', nombre: 'Octubre' },
+  { num: '11', nombre: 'Noviembre' },
+  { num: '12', nombre: 'Diciembre' },
 ];
 
 export default function ReportesExcelTab({
@@ -81,38 +78,40 @@ export default function ReportesExcelTab({
   isSyncing = false,
   uniqueSellers = [],
 }: ReportesExcelTabProps) {
-  const currentYear = new Date().getFullYear();
-  const currentMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
+  const currentDate = new Date();
+  const currentYear = currentDate.getFullYear();
+  const currentMonthNum = String(currentDate.getMonth() + 1).padStart(2, '0');
 
-  // Estados de Filtros Principales
+  // Estado del selector de fecha
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  const [selectedMonth, setSelectedMonth] = useState<string>('ALL'); // 'ALL' o '01'..'12'
+  const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthNum); // '01'..'12'
+
+  // Filtros de búsqueda
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterVendedor, setFilterVendedor] = useState<string>('ALL');
+  const [filterConcepto, setFilterConcepto] = useState<string>('ALL');
   const [filterTipoSuscripcion, setFilterTipoSuscripcion] = useState<string>('ALL');
-  const [activeTab, setActiveTab] = useState<'PAGOS' | 'IMPAGOS' | 'EVOLUCION'>('PAGOS');
 
-  // Paginación de tablas
-  const [pagePagos, setPagePagos] = useState<number>(1);
-  const [pageImpagos, setPageImpagos] = useState<number>(1);
-  const ITEMS_PER_PAGE = 20;
+  // Paginación
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ITEMS_PER_PAGE = 25;
 
   const [isExportingExcel, setIsExportingExcel] = useState<boolean>(false);
 
   const safeClients = useMemo(() => (Array.isArray(clients) ? clients : []), [clients]);
   const safePayments = useMemo(() => (Array.isArray(payments) ? payments : []), [payments]);
 
-  // Mapa de Clientes por ID y RUC para enriquecer pagos
+  // Diccionario rápido de clientes por ID y por RUC
   const clientMap = useMemo(() => {
     const map = new Map<string, Client>();
     safeClients.forEach((c) => {
       if (c.id) map.set(String(c.id), c);
-      if (c.ruc) map.set(`ruc-${c.ruc}`, c);
+      if (c.ruc) map.set(`ruc-${c.ruc.trim()}`, c);
     });
     return map;
   }, [safeClients]);
 
-  // Helper de parseo de fechas robusto
+  // Función robusta para parsear cualquier fecha sin desfases horarios
   const parseDateSafe = (val: any): Date | null => {
     if (!val) return null;
     if (val instanceof Date) return isNaN(val.getTime()) ? null : val;
@@ -125,292 +124,348 @@ export default function ReportesExcelTab({
     return isNaN(d.getTime()) ? null : d;
   };
 
-  // 1. PROCESAR HISTORIAL DE PAGOS CON METADATOS LIMPIOS
-  const allParsedPayments = useMemo(() => {
-    const list: Array<{
-      id: string;
+  const formatFechaPE = (d: Date | null): string => {
+    if (!d) return '—';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Helper para determinar a qué mes corresponde un pago (considerando adelantos, periodo de servicio y fecha de pago)
+  const resolveTargetMonthKey = (
+    fPago: Date | null,
+    fInicio: Date | null,
+    obsRaw: string,
+    tipoVentaRaw: string
+  ): string | null => {
+    const obs = obsRaw.toLowerCase();
+    const isAdelanto = obs.includes('adelant') || obs.includes('anticip');
+
+    // Si tiene período de inicio explícito:
+    // Si es un adelanto pagado antes, el mes al que corresponde el cobro es el de su periodo de inicio
+    if (fInicio) {
+      const year = fInicio.getFullYear();
+      const monthStr = String(fInicio.getMonth() + 1).padStart(2, '0');
+      return `${year}-${monthStr}`;
+    }
+
+    // Si no tiene periodoInicio pero tiene fecha de pago:
+    if (fPago) {
+      const year = fPago.getFullYear();
+      const monthStr = String(fPago.getMonth() + 1).padStart(2, '0');
+      return `${year}-${monthStr}`;
+    }
+
+    return null;
+  };
+
+  // --------------------------------------------------------------------------
+  // CONSOLIDACIÓN POR CLIENTE PARA EL MES SELECCIONADO (1 FILA POR CLIENTE)
+  // --------------------------------------------------------------------------
+  const targetPeriodKey = `${selectedYear}-${selectedMonth}`;
+
+  const { consolidatedMonthRows, periodMetrics } = useMemo(() => {
+    // Mapa: clientKey -> acumulador del cliente en este mes
+    const clientRowMap = new Map<string, {
+      clienteId: string;
       ruc: string;
       razonSocial: string;
       nombreComercial: string;
-      asesor: string;
       planNombre: string;
-      tipoSuscripcion: string;
-      monto: number;
-      fechaPagoDate: Date | null;
-      fechaPagoStr: string;
-      year: number;
-      monthStr: string;
-      periodoStr: string;
-      medioPago: string;
-      codigoOperacion: string;
-      tipoOperacion: string;
-    }> = [];
+      tipoSuscripcion: 'MENSUAL' | 'ANUAL';
+      precioBasePlan: number;
+      asesor: string;
+      telefono: string;
+      totalCobradoMes: number;
+      conceptosSet: Set<string>;
+      mediosPagoSet: Set<string>;
+      fechasPagoList: Date[];
+      operacionesSet: Set<string>;
+      esAnual: boolean;
+      esAlta: boolean;
+      esAdelanto: boolean;
+      esProrrateo: boolean;
+      esAumentoPlan: boolean;
+    }>();
 
-    const seenIds = new Set<string>();
-
+    // 1. Procesar todos los pagos registrados en la base de datos
     safePayments.forEach((p, idx) => {
-      const pId = String(p?.id ?? p?.pagoId ?? `p-${idx}`);
-      if (seenIds.has(pId)) return;
-      seenIds.add(pId);
+      const estadoPago = (p?.estadoPago || '').toUpperCase();
+      const estadoVenta = (p?.venta?.estadoVenta || p?.estadoVenta || '').toUpperCase();
+      // Solo pagos válidos (no cancelados ni rechazados)
+      if (estadoPago === 'CANCELADO' || estadoPago === 'RECHAZADO' || estadoVenta === 'CANCELADA') {
+        return;
+      }
 
+      const fPago = parseDateSafe(p?.fechaPago || p?.fechaRegistro);
+      const fInicio = parseDateSafe(p?.periodoInicio);
+      const obs = String(p?.observaciones || p?.codigoOperacion || '').toLowerCase();
+      const rawTipoVenta = (p?.venta?.tipoVenta || p?.tipoVenta || '').toUpperCase();
+
+      // Resolver a qué mes corresponde este pago
+      let monthKey = resolveTargetMonthKey(fPago, fInicio, obs, rawTipoVenta);
+
+      // Si el pago no tiene fechas pero se pagó en el mes seleccionado
+      if (!monthKey && fPago) {
+        monthKey = `${fPago.getFullYear()}-${String(fPago.getMonth() + 1).padStart(2, '0')}`;
+      }
+
+      // Detectar adelantos explícitos que cubren este mes
+      if (fPago && fInicio) {
+        const mPago = `${fPago.getFullYear()}-${String(fPago.getMonth() + 1).padStart(2, '0')}`;
+        const mInicio = `${fInicio.getFullYear()}-${String(fInicio.getMonth() + 1).padStart(2, '0')}`;
+        // Si el periodo cubierto es el mes seleccionado, debe figurar en este mes
+        if (mInicio === targetPeriodKey) {
+          monthKey = targetPeriodKey;
+        } else if (mPago === targetPeriodKey && !obs.includes('adelant')) {
+          // Si se pagó en este mes y no es adelanto para otro mes futuro
+          monthKey = targetPeriodKey;
+        }
+      }
+
+      // Si este pago no pertenece al mes seleccionado, no se procesa aquí
+      if (monthKey !== targetPeriodKey) {
+        return;
+      }
+
+      // Vincular con el cliente
       const rawCId = p?.venta?.cliente?.id ?? p?.clienteId ?? p?.venta?.clienteId;
       const rawRuc = p?.clienteRuc || p?.venta?.cliente?.ruc;
-      const matchedClient = (rawCId && clientMap.get(String(rawCId))) || (rawRuc && clientMap.get(`ruc-${rawRuc}`)) || null;
+      const matchedClient = (rawCId && clientMap.get(String(rawCId))) || (rawRuc && clientMap.get(`ruc-${rawRuc.trim()}`)) || null;
 
-      const fPago = parseDateSafe(p?.fechaPago || p?.fechaRegistro || p?.periodoInicio);
-      const fInicio = parseDateSafe(p?.periodoInicio);
-      const fFin = parseDateSafe(p?.periodoFin);
+      const ruc = (rawRuc || matchedClient?.ruc || '—').trim();
+      const clientKey = String(rawCId || (ruc !== '—' ? ruc : `pago-cli-${idx}`));
 
-      const year = fPago ? fPago.getFullYear() : currentYear;
-      const monthStr = fPago ? String(fPago.getMonth() + 1).padStart(2, '0') : currentMonthNum;
+      const monto = Number(p?.monto || 0);
+      if (monto <= 0) return;
 
-      let periodoStr = '—';
-      if (fInicio && fFin) {
-        periodoStr = `${fInicio.toLocaleDateString('es-PE')} al ${fFin.toLocaleDateString('es-PE')}`;
-      } else if (fInicio) {
-        periodoStr = `Desde ${fInicio.toLocaleDateString('es-PE')}`;
+      // Tipo de suscripción (Mensual o Anual)
+      const rawSub = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || matchedClient?.tipoSuscripcion || 'MENSUAL').toUpperCase();
+      const isAnual = rawSub === 'ANUAL';
+
+      // REGLA CLAVE PARA ANUALES:
+      // "los anuales que se afilian en dicho mes que solo figure ahi en los otros meses no"
+      if (isAnual) {
+        // Verificar si la fecha de alta/cobro del anual corresponde exactamente a este mes
+        const fAltaAnual = parseDateSafe(matchedClient?.fechaRegistro || matchedClient?.fechaCreacion || fPago);
+        const altaAnualKey = fAltaAnual ? `${fAltaAnual.getFullYear()}-${String(fAltaAnual.getMonth() + 1).padStart(2, '0')}` : monthKey;
+        if (altaAnualKey !== targetPeriodKey && monthKey !== targetPeriodKey) {
+          return;
+        }
       }
 
-      const tipoSub = (p?.tipoSuscripcion || p?.venta?.suscripcion?.tipoSuscripcion || matchedClient?.tipoSuscripcion || 'MENSUAL').toUpperCase();
-      const obs = String(p?.observaciones || '').toLowerCase();
-      let tipoOperacion = 'Renovación';
-      if (obs.includes('alta') || p?.tipoVenta === 'ALTA') tipoOperacion = 'Alta / Afiliación';
-      else if (obs.includes('prorrat') || p?.tipoProrrateo === 'SEGUNDO_PRORRATEO') tipoOperacion = 'Prorrateo';
-      else if (obs.includes('adelant')) tipoOperacion = 'Adelanto';
+      // Identificar concepto de la transacción
+      const isProrr = obs.includes('prorrat') || p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || p?.tipoProrrateo === 'PRIMER_PRORRATEO';
+      const isAdelanto = obs.includes('adelant') || obs.includes('anticip') || (fPago && fInicio && fInicio > fPago);
+      const isAlta = rawTipoVenta === 'ALTA' || obs.includes('alta') || obs.includes('inicial') || obs.includes('afiliac');
+      const isAumento = rawTipoVenta === 'CAMBIO_PLAN' || rawTipoVenta === 'MEJORA_PLAN' || obs.includes('aumento') || obs.includes('mejora');
 
-      list.push({
-        id: pId,
-        ruc: rawRuc || matchedClient?.ruc || '—',
-        razonSocial: p?.clienteRazonSocial || matchedClient?.razonSocial || matchedClient?.nombreComercial || 'Cliente General',
-        nombreComercial: matchedClient?.nombreComercial || '',
-        asesor: p?.vendedorNombre || p?.venta?.vendedor?.nombre || matchedClient?.vendedor || 'Por asignar',
-        planNombre: p?.planNombre || p?.venta?.suscripcion?.plan?.nombrePlan || matchedClient?.planContratado || 'Plan Estándar',
-        tipoSuscripcion: tipoSub,
-        monto: Number(p?.monto || 0),
-        fechaPagoDate: fPago,
-        fechaPagoStr: fPago ? fPago.toLocaleDateString('es-PE') : '—',
-        year,
-        monthStr,
-        periodoStr,
-        medioPago: p?.medioPago || 'TRANSFERENCIA',
-        codigoOperacion: p?.codigoOperacion || '—',
-        tipoOperacion,
-      });
-    });
+      let conceptoLabel = 'Renovación';
+      if (isAlta) conceptoLabel = 'Afiliación / Alta';
+      else if (isAumento) conceptoLabel = 'Aumento de Plan';
+      else if (isProrr) conceptoLabel = 'Cobro Prorrateo';
+      else if (isAdelanto) conceptoLabel = 'Pago Adelantado';
 
-    list.sort((a, b) => {
-      const tA = a.fechaPagoDate ? a.fechaPagoDate.getTime() : 0;
-      const tB = b.fechaPagoDate ? b.fechaPagoDate.getTime() : 0;
-      return tB - tA;
-    });
+      // Medio de pago
+      const medioPago = (p?.medioPago || 'Transferencia').toUpperCase();
+      const codOp = p?.codigoOperacion ? String(p.codigoOperacion).trim() : '';
 
-    return list;
-  }, [safePayments, clientMap, currentYear, currentMonthNum]);
+      // Consolidar en la fila única del cliente
+      let row = clientRowMap.get(clientKey);
+      if (!row) {
+        const razonSocial = p?.clienteRazonSocial || matchedClient?.razonSocial || matchedClient?.nombreComercial || `Cliente ${ruc}`;
+        const nombreComercial = matchedClient?.nombreComercial || '';
+        const asesor = p?.vendedorNombre || p?.venta?.vendedor?.nombre || matchedClient?.vendedor || 'Por asignar';
+        const planNombre = p?.planNombre || p?.venta?.suscripcion?.plan?.nombrePlan || matchedClient?.planContratado || 'Plan Estándar';
+        const precioBase = Number(matchedClient?.montoMensual || matchedClient?.precioPlan || monto);
+        const telefono = matchedClient?.telefono || matchedClient?.telefonoPersonal || '—';
 
-  // Lista de años disponibles para el selector
-  const availableYears = useMemo(() => {
-    const yearsSet = new Set<number>();
-    yearsSet.add(currentYear);
-    yearsSet.add(currentYear - 1);
-    allParsedPayments.forEach((p) => {
-      if (p.year) yearsSet.add(p.year);
-    });
-    safeClients.forEach((c) => {
-      const f = parseDateSafe(c.fechaRegistro || c.fechaCreacion);
-      if (f) yearsSet.add(f.getFullYear());
-    });
-    return Array.from(yearsSet).sort().reverse();
-  }, [allParsedPayments, safeClients, currentYear]);
-
-  // Pagos filtrados por Año y Mes
-  const paymentsByPeriod = useMemo(() => {
-    return allParsedPayments.filter((p) => {
-      if (p.year !== selectedYear) return false;
-      if (selectedMonth !== 'ALL' && p.monthStr !== selectedMonth) return false;
-      return true;
-    });
-  }, [allParsedPayments, selectedYear, selectedMonth]);
-
-  // Métricas del período seleccionado
-  const metrics = useMemo(() => {
-    const totalCobrado = paymentsByPeriod.reduce((acc, p) => acc + p.monto, 0);
-    const countPagos = paymentsByPeriod.length;
-
-    const pagosMensuales = paymentsByPeriod.filter((p) => p.tipoSuscripcion === 'MENSUAL');
-    const pagosAnuales = paymentsByPeriod.filter((p) => p.tipoSuscripcion === 'ANUAL');
-    const cobradoMensual = pagosMensuales.reduce((acc, p) => acc + p.monto, 0);
-    const cobradoAnual = pagosAnuales.reduce((acc, p) => acc + p.monto, 0);
-
-    // Clientes activos en la cartera
-    const activosHabilitados = safeClients.filter((c) => {
-      const st = (c.estadoCuenta || '').toUpperCase();
-      return st !== 'BLOQUEADO' && st !== 'SUSPENDIDO';
-    });
-
-    return {
-      totalCobrado,
-      countPagos,
-      cobradoMensual,
-      countMensuales: pagosMensuales.length,
-      cobradoAnual,
-      countAnuales: pagosAnuales.length,
-      totalClientesActivos: activosHabilitados.length,
-      clientesMensualesActivos: activosHabilitados.filter((c) => (c.tipoSuscripcion || '').toUpperCase() !== 'ANUAL').length,
-      clientesAnualesActivos: activosHabilitados.filter((c) => (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL').length,
-    };
-  }, [paymentsByPeriod, safeClients]);
-
-  // Cartera con Deuda / Impagos (Vencidos y Bloqueados)
-  const lossDebtAnalysis = useMemo(() => {
-    let totalDeuda = 0;
-    let deudaBloqueados = 0;
-    let deudaVencidos = 0;
-    let countBloqueados = 0;
-    let countVencidos = 0;
-
-    const list: Array<{
-      id: string;
-      ruc: string;
-      razonSocial: string;
-      telefono: string;
-      plan: string;
-      tipoSuscripcion: string;
-      estadoCuenta: 'BLOQUEADO' | 'VENCIDO';
-      montoDeuda: number;
-      fechaVencimiento: string;
-      asesor: string;
-    }> = [];
-
-    safeClients.forEach((c) => {
-      const st = (c.estadoCuenta || '').toUpperCase();
-      if (st !== 'BLOQUEADO' && st !== 'SUSPENDIDO' && st !== 'VENCIDO') return;
-
-      const deuda = c.montoSiguienteCobro && Number(c.montoSiguienteCobro) > 0
-        ? Number(c.montoSiguienteCobro)
-        : Number(c.montoMensual || c.precioPlan || 29);
-
-      const isBloq = st === 'BLOQUEADO' || st === 'SUSPENDIDO';
-      if (isBloq) {
-        deudaBloqueados += deuda;
-        countBloqueados++;
-      } else {
-        deudaVencidos += deuda;
-        countVencidos++;
+        row = {
+          clienteId: clientKey,
+          ruc,
+          razonSocial,
+          nombreComercial,
+          planNombre,
+          tipoSuscripcion: isAnual ? 'ANUAL' : 'MENSUAL',
+          precioBasePlan: precioBase,
+          asesor,
+          telefono,
+          totalCobradoMes: 0,
+          conceptosSet: new Set<string>(),
+          mediosPagoSet: new Set<string>(),
+          fechasPagoList: [],
+          operacionesSet: new Set<string>(),
+          esAnual: isAnual,
+          esAlta: false,
+          esAdelanto: false,
+          esProrrateo: false,
+          esAumentoPlan: false,
+        };
+        clientRowMap.set(clientKey, row);
       }
-      totalDeuda += deuda;
 
-      const fVenc = parseDateSafe(c.fechaVencimientoMensual);
+      // Acumular montos y conceptos sin duplicar fila
+      row.totalCobradoMes += monto;
+      row.conceptosSet.add(conceptoLabel);
+      if (medioPago) row.mediosPagoSet.add(medioPago);
+      if (codOp && codOp !== '—') row.operacionesSet.add(codOp);
+      if (fPago) row.fechasPagoList.push(fPago);
 
-      list.push({
-        id: String(c.id || c.ruc),
-        ruc: c.ruc || '—',
-        razonSocial: c.razonSocial || c.nombreComercial || `Cliente ${c.ruc || ''}`,
-        telefono: c.telefono || c.telefonoPersonal || '—',
-        plan: c.planContratado || 'Plan Estándar',
-        tipoSuscripcion: c.tipoSuscripcion || 'MENSUAL',
-        estadoCuenta: isBloq ? 'BLOQUEADO' : 'VENCIDO',
-        montoDeuda: deuda,
-        fechaVencimiento: fVenc ? fVenc.toLocaleDateString('es-PE') : '—',
-        asesor: c.vendedor || 'Por asignar',
-      });
+      if (isAlta) row.esAlta = true;
+      if (isAdelanto) row.esAdelanto = true;
+      if (isProrr) row.esProrrateo = true;
+      if (isAumento) row.esAumentoPlan = true;
     });
 
-    list.sort((a, b) => b.montoDeuda - a.montoDeuda);
+    // 2. Incluir también clientes con plan activo que se registraron/afiliaron en este mes
+    // si aún no estaban en la lista de pagos para asegurar que no falte ningún cliente
+    safeClients.forEach((c) => {
+      const st = (c.estadoCuenta || '').toUpperCase();
+      if (st === 'BLOQUEADO' || st === 'SUSPENDIDO') return;
+
+      const isAnual = (c.tipoSuscripcion || '').toUpperCase() === 'ANUAL';
+      const fReg = parseDateSafe(c.fechaRegistro || c.fechaCreacion);
+      const regMonthKey = fReg ? `${fReg.getFullYear()}-${String(fReg.getMonth() + 1).padStart(2, '0')}` : null;
+
+      // Si es un cliente anual, SOLO si su alta fue en este mes
+      if (isAnual && regMonthKey !== targetPeriodKey) {
+        return;
+      }
+
+      const ruc = (c.ruc || '').trim();
+      const clientKey = String(c.id || (ruc ? ruc : ''));
+      if (!clientKey || clientRowMap.has(clientKey)) {
+        return;
+      }
+
+      // Si se afilió en este mes y tiene monto
+      if (regMonthKey === targetPeriodKey) {
+        const monto = Number(c.montoMensual || c.precioPlan || 0);
+        if (monto > 0) {
+          clientRowMap.set(clientKey, {
+            clienteId: clientKey,
+            ruc: ruc || '—',
+            razonSocial: c.razonSocial || c.nombreComercial || `Cliente ${ruc}`,
+            nombreComercial: c.nombreComercial || '',
+            planNombre: c.planContratado || 'Plan Estándar',
+            tipoSuscripcion: isAnual ? 'ANUAL' : 'MENSUAL',
+            precioBasePlan: monto,
+            asesor: c.vendedor || 'Por asignar',
+            telefono: c.telefono || c.telefonoPersonal || '—',
+            totalCobradoMes: monto,
+            conceptosSet: new Set([isAnual ? 'Afiliación Anual' : 'Afiliación / Alta']),
+            mediosPagoSet: new Set(['Confirmado']),
+            fechasPagoList: fReg ? [fReg] : [],
+            operacionesSet: new Set(),
+            esAnual: isAnual,
+            esAlta: true,
+            esAdelanto: false,
+            esProrrateo: false,
+            esAumentoPlan: false,
+          });
+        }
+      }
+    });
+
+    // Convertir a lista y ordenar por mayor monto cobrado
+    const rows = Array.from(clientRowMap.values()).sort((a, b) => b.totalCobradoMes - a.totalCobradoMes);
+
+    // Calcular métricas exactas del mes
+    const totalRecaudadoMes = rows.reduce((acc, r) => acc + r.totalCobradoMes, 0);
+    const countClientesMes = rows.length;
+    const countAnualesMes = rows.filter((r) => r.esAnual).length;
+    const montoAnualesMes = rows.filter((r) => r.esAnual).reduce((acc, r) => acc + r.totalCobradoMes, 0);
+    const countAdelantosProrr = rows.filter((r) => r.esAdelanto || r.esProrrateo).length;
+    const montoAdelantosProrr = rows.filter((r) => r.esAdelanto || r.esProrrateo).reduce((acc, r) => acc + r.totalCobradoMes, 0);
+    const countAltasMes = rows.filter((r) => r.esAlta).length;
+    const montoAltasMes = rows.filter((r) => r.esAlta).reduce((acc, r) => acc + r.totalCobradoMes, 0);
 
     return {
-      totalDeuda,
-      deudaBloqueados,
-      deudaVencidos,
-      countTotal: countBloqueados + countVencidos,
-      countBloqueados,
-      countVencidos,
-      list,
+      consolidatedMonthRows: rows,
+      periodMetrics: {
+        totalRecaudadoMes,
+        countClientesMes,
+        countAnualesMes,
+        montoAnualesMes,
+        countAdelantosProrr,
+        montoAdelantosProrr,
+        countAltasMes,
+        montoAltasMes,
+      },
     };
-  }, [safeClients]);
+  }, [safePayments, safeClients, clientMap, targetPeriodKey]);
 
-  // Evolución mensual comparativa (de Enero a Diciembre del año seleccionado)
-  const monthlyEvolution = useMemo(() => {
-    return MESES.filter((m) => m.value !== 'ALL').map((m) => {
-      const pagosDelMes = allParsedPayments.filter(
-        (p) => p.year === selectedYear && p.monthStr === m.value
-      );
-      const totalMes = pagosDelMes.reduce((acc, p) => acc + p.monto, 0);
-      const count = pagosDelMes.length;
-      const clientesUnicos = new Set(pagosDelMes.map((p) => p.ruc)).size;
-      return {
-        monthCode: m.value,
-        monthName: m.label,
-        totalRecaudado: totalMes,
-        cantidadOperaciones: count,
-        clientesAtendidos: clientesUnicos,
-        promedioTicket: count > 0 ? totalMes / count : 0,
-      };
-    });
-  }, [allParsedPayments, selectedYear]);
+  // Filtrar filas según la búsqueda y filtros rápidos
+  const filteredRows = useMemo(() => {
+    return consolidatedMonthRows.filter((r) => {
+      if (filterVendedor !== 'ALL' && r.asesor !== filterVendedor) return false;
+      if (filterTipoSuscripcion !== 'ALL' && r.tipoSuscripcion !== filterTipoSuscripcion) return false;
 
-  // Filtro de la tabla de pagos
-  const filteredPagosTable = useMemo(() => {
-    return paymentsByPeriod.filter((p) => {
-      if (filterVendedor !== 'ALL' && p.asesor !== filterVendedor) return false;
-      if (filterTipoSuscripcion !== 'ALL' && p.tipoSuscripcion !== filterTipoSuscripcion) return false;
+      if (filterConcepto !== 'ALL') {
+        const hasConcepto = Array.from(r.conceptosSet).some((c) =>
+          c.toLowerCase().includes(filterConcepto.toLowerCase())
+        );
+        if (!hasConcepto) return false;
+      }
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const match =
-          p.ruc.toLowerCase().includes(q) ||
-          p.razonSocial.toLowerCase().includes(q) ||
-          p.planNombre.toLowerCase().includes(q) ||
-          p.codigoOperacion.toLowerCase().includes(q) ||
-          p.asesor.toLowerCase().includes(q);
+          r.ruc.toLowerCase().includes(q) ||
+          r.razonSocial.toLowerCase().includes(q) ||
+          r.nombreComercial.toLowerCase().includes(q) ||
+          r.planNombre.toLowerCase().includes(q) ||
+          r.asesor.toLowerCase().includes(q);
         if (!match) return false;
       }
+
       return true;
     });
-  }, [paymentsByPeriod, filterVendedor, filterTipoSuscripcion, searchQuery]);
-
-  // Filtro de la tabla de deudas
-  const filteredImpagosTable = useMemo(() => {
-    return lossDebtAnalysis.list.filter((item) => {
-      if (filterVendedor !== 'ALL' && item.asesor !== filterVendedor) return false;
-      if (filterTipoSuscripcion !== 'ALL' && item.tipoSuscripcion !== filterTipoSuscripcion) return false;
-
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const match =
-          item.ruc.toLowerCase().includes(q) ||
-          item.razonSocial.toLowerCase().includes(q) ||
-          item.plan.toLowerCase().includes(q) ||
-          item.asesor.toLowerCase().includes(q);
-        if (!match) return false;
-      }
-      return true;
-    });
-  }, [lossDebtAnalysis.list, filterVendedor, filterTipoSuscripcion, searchQuery]);
+  }, [consolidatedMonthRows, filterVendedor, filterTipoSuscripcion, filterConcepto, searchQuery]);
 
   // Paginación
-  const totalPagesPagos = Math.max(1, Math.ceil(filteredPagosTable.length / ITEMS_PER_PAGE));
-  const paginatedPagos = useMemo(() => {
-    const start = (pagePagos - 1) * ITEMS_PER_PAGE;
-    return filteredPagosTable.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredPagosTable, pagePagos]);
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / ITEMS_PER_PAGE));
+  const paginatedRows = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRows.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredRows, currentPage]);
 
-  const totalPagesImpagos = Math.max(1, Math.ceil(filteredImpagosTable.length / ITEMS_PER_PAGE));
-  const paginatedImpagos = useMemo(() => {
-    const start = (pageImpagos - 1) * ITEMS_PER_PAGE;
-    return filteredImpagosTable.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredImpagosTable, pageImpagos]);
+  // Suma total de los clientes que se muestran filtrados
+  const sumaTotalFiltrada = useMemo(() => {
+    return filteredRows.reduce((acc, r) => acc + r.totalCobradoMes, 0);
+  }, [filteredRows]);
 
-  // Exportar a Excel (Intenta Python primero; si falla, genera descarga local limpia en CSV/Excel)
-  const handleExport = async () => {
+  // Nombre legible del mes seleccionado
+  const mesNombreSeleccionado = useMemo(() => {
+    const m = MESES_LIST.find((item) => item.num === selectedMonth);
+    return m ? m.nombre : 'Mes';
+  }, [selectedMonth]);
+
+  // Años disponibles en el selector
+  const availableYears = useMemo(() => {
+    const set = new Set<number>();
+    set.add(currentYear);
+    set.add(currentYear - 1);
+    safePayments.forEach((p) => {
+      const d = parseDateSafe(p?.fechaPago || p?.fechaRegistro);
+      if (d) set.add(d.getFullYear());
+    });
+    return Array.from(set).sort().reverse();
+  }, [safePayments, currentYear]);
+
+  // Exportar Excel Oficial
+  const handleExportarExcel = async () => {
     setIsExportingExcel(true);
     try {
+      // 1. Intentar el endpoint oficial de Python del backend
       const res = await fetch('/api/admin/reporte-excel-oficial');
       if (res.ok) {
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Reporte_Facturacion_${selectedYear}_${selectedMonth}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.download = `Reporte_Facturacion_${mesNombreSeleccionado}_${selectedYear}.xlsx`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -421,18 +476,24 @@ export default function ReportesExcelTab({
       console.warn('Fallback a exportación web local:', e);
     }
 
-    // Exportación local de respaldo
+    // 2. Exportación local directa si el microservicio de Python no está disponible
     try {
       let csv = '\uFEFF';
-      csv += 'RUC,Cliente / Razon Social,Plan,Suscripcion,Monto Pagado,Fecha Pago,Periodo,Medio Pago,Operacion,Asesor\n';
-      filteredPagosTable.forEach((p) => {
-        csv += `"${p.ruc}","${p.razonSocial.replace(/"/g, '""')}","${p.planNombre}","${p.tipoSuscripcion}",${p.monto.toFixed(2)},"${p.fechaPagoStr}","${p.periodoStr}","${p.medioPago}","${p.codigoOperacion}","${p.asesor}"\n`;
+      csv += 'N°,RUC,Cliente / Razon Social,Nombre Comercial,Plan Activo,Modalidad,Conceptos del Mes,Fecha Ultimo Pago,Medios de Pago,Operaciones,Asesor,Monto Cobrado (S/)\n';
+      filteredRows.forEach((r, idx) => {
+        const conceptosStr = Array.from(r.conceptosSet).join(' + ');
+        const mediosStr = Array.from(r.mediosPagoSet).join(', ');
+        const opStr = Array.from(r.operacionesSet).join(', ') || '—';
+        const fUlt = r.fechasPagoList.length > 0 ? formatFechaPE(r.fechasPagoList[0]) : '—';
+        csv += `${idx + 1},"${r.ruc}","${r.razonSocial.replace(/"/g, '""')}","${r.nombreComercial.replace(/"/g, '""')}","${r.planNombre}","${r.tipoSuscripcion}","${conceptosStr}","${fUlt}","${mediosStr}","${opStr}","${r.asesor}",${r.totalCobradoMes.toFixed(2)}\n`;
       });
+      csv += `\nTOTAL COBRADO EN ${mesNombreSeleccionado.toUpperCase()} ${selectedYear},,,,,,,,,,,${sumaTotalFiltrada.toFixed(2)}\n`;
+
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Reporte_Facturacion_${selectedYear}_${selectedMonth}.csv`;
+      a.download = `Reporte_Facturacion_${mesNombreSeleccionado}_${selectedYear}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -442,573 +503,447 @@ export default function ReportesExcelTab({
     }
   };
 
-  // Etiqueta del período actual seleccionado
-  const currentPeriodLabel = useMemo(() => {
-    const monthObj = MESES.find((m) => m.value === selectedMonth);
-    const mLabel = monthObj ? monthObj.label : 'Período';
-    return selectedMonth === 'ALL' ? `Año ${selectedYear} (Consolidado)` : `${mLabel} ${selectedYear}`;
-  }, [selectedYear, selectedMonth]);
-
   return (
-    <div className="admin-module admin-module--reportes p-2">
-      {/* 1. BARRA SUPERIOR: ENCABEZADO Y SELECTOR DE PERÍODO */}
-      <div className="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 pb-3 border-bottom">
-        <div>
-          <h4 className="fw-bold text-dark mb-1 d-flex align-items-center gap-2">
-            <FileSpreadsheet className="text-primary" size={24} />
-            <span>Reporte General de Facturación y Cobranzas</span>
-          </h4>
-          <p className="text-muted small mb-0">
-            Auditoría de ingresos por mes, estado de la cartera activa y seguimiento de cuentas en deuda.
-          </p>
-        </div>
+    <div className="admin-module admin-module--reportes" style={{ padding: '4px' }}>
+      {/* 1. ENCABEZADO PRINCIPAL */}
+      <div className="card shadow-sm border-0 mb-3 bg-white" style={{ borderRadius: '14px', border: '1px solid #E2E8F0' }}>
+        <div className="card-body p-3.5">
+          <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+              <div className="d-flex align-items-center gap-2 mb-1">
+                <FileSpreadsheet className="text-primary" size={22} />
+                <h4 className="fw-bold text-dark mb-0" style={{ fontSize: '1.25rem', letterSpacing: '-0.3px' }}>
+                  Reporte General de Facturación Mensual
+                </h4>
+              </div>
+              <p className="text-muted small mb-0">
+                Detalle consolidado de cobros por cliente para <strong className="text-primary">{mesNombreSeleccionado} {selectedYear}</strong>. Incluye renovaciones, adelantos, prorrateos y afiliaciones en una sola fila por cliente.
+              </p>
+            </div>
 
-        <div className="d-flex align-items-center gap-2 flex-wrap">
-          {/* Selector de Año */}
-          <div className="d-flex align-items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-3 border shadow-xs">
-            <span className="small fw-semibold text-muted">Año:</span>
-            <select
-              className="form-select form-select-sm border-0 fw-bold text-dark shadow-none ps-1 pe-4"
-              style={{ fontSize: '0.88rem', cursor: 'pointer' }}
-              value={selectedYear}
-              onChange={(e) => {
-                setSelectedYear(Number(e.target.value));
-                setPagePagos(1);
-              }}
-            >
-              {availableYears.map((yr) => (
-                <option key={yr} value={yr}>
-                  {yr}
-                </option>
-              ))}
-            </select>
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              {/* Selector de Año */}
+              <div className="d-flex align-items-center gap-1.5 bg-light px-3 py-1.5 rounded-3 border">
+                <span className="small fw-bold text-muted">Año:</span>
+                <select
+                  className="form-select form-select-sm border-0 bg-transparent fw-bold text-dark shadow-none p-0 pe-3"
+                  style={{ fontSize: '0.9rem', cursor: 'pointer' }}
+                  value={selectedYear}
+                  onChange={(e) => {
+                    setSelectedYear(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  {availableYears.map((yr) => (
+                    <option key={yr} value={yr}>
+                      {yr}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Botón Actualizar */}
+              <button
+                onClick={() => loadData(null, true)}
+                disabled={isSyncing}
+                className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1.5 px-3 py-2 rounded-3 shadow-xs"
+                title="Sincronizar datos"
+              >
+                <RefreshCw size={14} className={isSyncing ? 'spin-anim' : ''} />
+                <span>{isSyncing ? 'Actualizando...' : 'Actualizar'}</span>
+              </button>
+
+              {/* Botón Exportar Excel */}
+              <button
+                onClick={handleExportarExcel}
+                disabled={isExportingExcel}
+                className="btn btn-success btn-sm d-flex align-items-center gap-1.5 px-3.5 py-2 rounded-3 shadow-xs fw-bold"
+                title="Descargar archivo Excel con los datos del mes"
+              >
+                <Download size={15} />
+                <span>{isExportingExcel ? 'Generando...' : 'Exportar Excel'}</span>
+              </button>
+            </div>
           </div>
-
-          {/* Selector de Mes Completo */}
-          <div className="d-flex align-items-center gap-1.5 bg-white px-2.5 py-1.5 rounded-3 border shadow-xs">
-            <Calendar size={15} className="text-primary" />
-            <span className="small fw-semibold text-muted">Mes:</span>
-            <select
-              className="form-select form-select-sm border-0 fw-bold text-primary shadow-none ps-1 pe-4"
-              style={{ fontSize: '0.88rem', cursor: 'pointer' }}
-              value={selectedMonth}
-              onChange={(e) => {
-                setSelectedMonth(e.target.value);
-                setPagePagos(1);
-              }}
-            >
-              {MESES.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Actualizar Datos */}
-          <button
-            onClick={() => loadData(null, true)}
-            disabled={isSyncing}
-            className="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1.5 px-3 py-1.5 rounded-3 shadow-xs"
-            title="Recargar datos del servidor"
-          >
-            <RefreshCw size={14} className={isSyncing ? 'spin-anim' : ''} />
-            <span>{isSyncing ? 'Actualizando...' : 'Actualizar'}</span>
-          </button>
-
-          {/* Exportar Excel */}
-          <button
-            onClick={handleExport}
-            disabled={isExportingExcel}
-            className="btn btn-success btn-sm d-flex align-items-center gap-1.5 px-3 py-1.5 rounded-3 shadow-xs fw-semibold"
-            title="Descargar reporte oficial en formato Excel"
-          >
-            <Download size={14} />
-            <span>{isExportingExcel ? 'Generando...' : 'Exportar Excel'}</span>
-          </button>
         </div>
       </div>
 
-      {/* 2. TARJETAS DE INDICADORES CLAVE DEL PERÍODO */}
-      <div className="row g-3 mb-4">
-        {/* Card 1: Total Recaudado en el Período */}
+      {/* 2. SELECTOR DE MESES TIPO BARRA HORIZONTAL (INTERACTIVO Y ELEGANTE) */}
+      <div className="card shadow-sm border-0 mb-3 bg-white" style={{ borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+        <div className="card-body p-2">
+          <div className="d-flex align-items-center gap-1 overflow-x-auto pb-1" style={{ scrollbarWidth: 'thin' }}>
+            <div className="px-2.5 py-1.5 text-muted small fw-bold d-flex align-items-center gap-1 border-end me-1 text-nowrap">
+              <Calendar size={15} className="text-primary" />
+              <span>Mes:</span>
+            </div>
+            {MESES_LIST.map((m) => {
+              const isSelected = selectedMonth === m.num;
+              return (
+                <button
+                  key={m.num}
+                  onClick={() => {
+                    setSelectedMonth(m.num);
+                    setCurrentPage(1);
+                  }}
+                  className={`btn btn-sm px-3 py-1.5 rounded-2 fw-semibold text-nowrap transition-all ${
+                    isSelected
+                      ? 'btn-primary shadow-sm text-white'
+                      : 'btn-light text-secondary border-0 hover-bg-gray'
+                  }`}
+                  style={{
+                    fontSize: '0.85rem',
+                    minWidth: '85px',
+                    backgroundColor: isSelected ? '#2563EB' : '#F8FAFC',
+                    color: isSelected ? '#FFFFFF' : '#475569',
+                  }}
+                >
+                  {m.nombre}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. TARJETAS DE INDICADORES DEL MES SELECCIONADO (PROPORCIONADAS Y SIN DISTORSIÓN) */}
+      <div className="row g-2.5 mb-3">
+        {/* Card 1: Total Ingresado */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #2563EB' }}>
             <div className="d-flex justify-content-between align-items-center mb-1">
-              <span className="text-muted small fw-semibold">Recaudado ({currentPeriodLabel})</span>
+              <span className="text-muted small fw-semibold">Total Ingresado en {mesNombreSeleccionado}</span>
               <span className="p-1.5 rounded-3 bg-primary-subtle text-primary">
                 <DollarSign size={16} />
               </span>
             </div>
-            <div className="fw-bold text-dark fs-4 mb-2">
-              S/ {metrics.totalCobrado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            <div className="fw-bold text-primary mb-1" style={{ fontSize: '1.65rem', letterSpacing: '-0.5px' }}>
+              S/ {periodMetrics.totalRecaudadoMes.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
-              <span>{metrics.countPagos} pagos registrados</span>
-              <span className="text-primary fw-semibold">
-                Mensual: S/ {metrics.cobradoMensual.toFixed(0)} | Anual: S/ {metrics.cobradoAnual.toFixed(0)}
-              </span>
+            <div className="text-muted small pt-1.5 border-top d-flex justify-content-between" style={{ fontSize: '0.76rem' }}>
+              <span>{periodMetrics.countClientesMes} clientes con cobro</span>
+              <span className="text-success fw-semibold">100% verificado</span>
             </div>
           </div>
         </div>
 
-        {/* Card 2: Clientes Activos */}
+        {/* Card 2: Clientes Anuales del Mes */}
         <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #16A34A' }}>
+          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #F59E0B' }}>
             <div className="d-flex justify-content-between align-items-center mb-1">
-              <span className="text-muted small fw-semibold">Clientes Activos</span>
+              <span className="text-muted small fw-semibold">Planes Anuales (Solo {mesNombreSeleccionado})</span>
+              <span className="p-1.5 rounded-3 bg-warning-subtle text-warning-emphasis">
+                <Tag size={16} />
+              </span>
+            </div>
+            <div className="fw-bold text-dark mb-1" style={{ fontSize: '1.65rem', letterSpacing: '-0.5px' }}>
+              S/ {periodMetrics.montoAnualesMes.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted small pt-1.5 border-top d-flex justify-content-between" style={{ fontSize: '0.76rem' }}>
+              <span>{periodMetrics.countAnualesMes} anuales de este mes</span>
+              <span className="text-muted">No figuran en otros meses</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Adelantos y Prorrateos */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #10B981' }}>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="text-muted small fw-semibold">Adelantos y Prorrateos</span>
               <span className="p-1.5 rounded-3 bg-success-subtle text-success">
+                <CheckCircle2 size={16} />
+              </span>
+            </div>
+            <div className="fw-bold text-dark mb-1" style={{ fontSize: '1.65rem', letterSpacing: '-0.5px' }}>
+              S/ {periodMetrics.montoAdelantosProrr.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted small pt-1.5 border-top d-flex justify-content-between" style={{ fontSize: '0.76rem' }}>
+              <span>{periodMetrics.countAdelantosProrr} clientes con cobro especial</span>
+              <span className="text-success fw-semibold">Aplicado al mes</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Afiliaciones Nuevas del Mes */}
+        <div className="col-12 col-sm-6 col-xl-3">
+          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #6366F1' }}>
+            <div className="d-flex justify-content-between align-items-center mb-1">
+              <span className="text-muted small fw-semibold">Nuevas Afiliaciones / Altas</span>
+              <span className="p-1.5 rounded-3" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}>
                 <Users size={16} />
               </span>
             </div>
-            <div className="fw-bold text-dark fs-4 mb-2">
-              {metrics.totalClientesActivos} <span className="fs-6 text-muted fw-normal">cuentas al día</span>
+            <div className="fw-bold text-dark mb-1" style={{ fontSize: '1.65rem', letterSpacing: '-0.5px' }}>
+              S/ {periodMetrics.montoAltasMes.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
-            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
-              <span>{metrics.clientesMensualesActivos} mensuales</span>
-              <span>·</span>
-              <span>{metrics.clientesAnualesActivos} anuales</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Deuda Pendiente por Cobrar */}
-        <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #DC2626' }}>
-            <div className="d-flex justify-content-between align-items-center mb-1">
-              <span className="text-muted small fw-semibold">Deuda en Cartera</span>
-              <span className="p-1.5 rounded-3 bg-danger-subtle text-danger">
-                <TrendingDown size={16} />
-              </span>
-            </div>
-            <div className="fw-bold text-danger fs-4 mb-2">
-              S/ {lossDebtAnalysis.totalDeuda.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
-              <span>{lossDebtAnalysis.countBloqueados} bloqueados</span>
-              <span>·</span>
-              <span>{lossDebtAnalysis.countVencidos} vencidos</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4: Promedio por Operación */}
-        <div className="col-12 col-sm-6 col-xl-3">
-          <div className="card h-100 shadow-sm border-0 p-3 bg-white" style={{ borderRadius: '12px', borderLeft: '4px solid #4F46E5' }}>
-            <div className="d-flex justify-content-between align-items-center mb-1">
-              <span className="text-muted small fw-semibold">Ticket Promedio</span>
-              <span className="p-1.5 rounded-3 bg-indigo-subtle text-indigo" style={{ backgroundColor: '#EEF2FF', color: '#4F46E5' }}>
-                <CreditCard size={16} />
-              </span>
-            </div>
-            <div className="fw-bold text-dark fs-4 mb-2">
-              S/ {metrics.countPagos > 0 ? (metrics.totalCobrado / metrics.countPagos).toFixed(2) : '0.00'}
-            </div>
-            <div className="text-muted small pt-2 border-top d-flex justify-content-between align-items-center" style={{ fontSize: '0.78rem' }}>
-              <span>Base en transacciones confirmadas</span>
+            <div className="text-muted small pt-1.5 border-top d-flex justify-content-between" style={{ fontSize: '0.76rem' }}>
+              <span>{periodMetrics.countAltasMes} clientes nuevos</span>
+              <span className="text-primary fw-semibold">Ingresos iniciales</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. PESTAÑAS DE VISTA: PAGOS DEL MES / DEUDAS / EVOLUCIÓN MENSUAL */}
-      <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-        <ul className="nav nav-pills bg-light p-1 rounded-3 border" style={{ fontSize: '0.86rem' }}>
-          <li className="nav-item">
-            <button
-              className={`nav-link py-1.5 px-3 rounded-2 fw-semibold ${activeTab === 'PAGOS' ? 'active shadow-sm' : 'text-muted'}`}
-              onClick={() => setActiveTab('PAGOS')}
-            >
-              1. Pagos Recibidos ({filteredPagosTable.length})
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link py-1.5 px-3 rounded-2 fw-semibold ${activeTab === 'IMPAGOS' ? 'active shadow-sm' : 'text-muted'}`}
-              onClick={() => setActiveTab('IMPAGOS')}
-            >
-              2. Cartera con Deuda ({filteredImpagosTable.length})
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link py-1.5 px-3 rounded-2 fw-semibold ${activeTab === 'EVOLUCION' ? 'active shadow-sm' : 'text-muted'}`}
-              onClick={() => setActiveTab('EVOLUCION')}
-            >
-              3. Resumen Mes a Mes ({selectedYear})
-            </button>
-          </li>
-        </ul>
-
-        {/* Buscador y Filtros Rápidos (Para Pagos e Impagos) */}
-        {activeTab !== 'EVOLUCION' && (
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <div className="input-group input-group-sm" style={{ width: '220px' }}>
-              <span className="input-group-text bg-white border-end-0">
-                <Search size={13} className="text-muted" />
-              </span>
-              <input
-                type="text"
-                className="form-control bg-white border-start-0"
-                placeholder="Buscar cliente, RUC..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setPagePagos(1);
-                  setPageImpagos(1);
-                }}
-              />
+      {/* 4. TABLA PRINCIPAL: 1 FILA POR CLIENTE CON TODOS LOS COBROS CONSOLIDADOS */}
+      <div className="card shadow-sm border-0 bg-white mb-4" style={{ borderRadius: '14px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+        {/* Barra de Filtros y Búsqueda */}
+        <div className="p-3 border-bottom bg-white">
+          <div className="row g-2 align-items-center">
+            {/* Buscador */}
+            <div className="col-12 col-md-4">
+              <div className="input-group input-group-sm">
+                <span className="input-group-text bg-light border-end-0 text-muted">
+                  <Search size={14} />
+                </span>
+                <input
+                  type="text"
+                  className="form-control bg-light border-start-0 shadow-none"
+                  placeholder="Buscar por RUC, razón social o asesor..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  style={{ fontSize: '0.85rem' }}
+                />
+              </div>
             </div>
 
-            <select
-              className="form-select form-select-sm"
-              style={{ width: '160px', fontSize: '0.82rem' }}
-              value={filterVendedor}
-              onChange={(e) => {
-                setFilterVendedor(e.target.value);
-                setPagePagos(1);
-                setPageImpagos(1);
-              }}
-            >
-              <option value="ALL">Todos los Asesores</option>
-              {uniqueSellers.map((v) => (
-                <option key={v} value={v}>
-                  {v}
-                </option>
-              ))}
-            </select>
+            {/* Filtro Asesor */}
+            <div className="col-6 col-md-3">
+              <select
+                className="form-select form-select-sm shadow-none"
+                value={filterVendedor}
+                onChange={(e) => {
+                  setFilterVendedor(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{ fontSize: '0.84rem' }}
+              >
+                <option value="ALL">Todos los Asesores</option>
+                {uniqueSellers.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-            <select
-              className="form-select form-select-sm"
-              style={{ width: '130px', fontSize: '0.82rem' }}
-              value={filterTipoSuscripcion}
-              onChange={(e) => {
-                setFilterTipoSuscripcion(e.target.value);
-                setPagePagos(1);
-                setPageImpagos(1);
-              }}
-            >
-              <option value="ALL">Modalidad</option>
-              <option value="MENSUAL">Mensual</option>
-              <option value="ANUAL">Anual</option>
-            </select>
+            {/* Filtro Concepto */}
+            <div className="col-6 col-md-2">
+              <select
+                className="form-select form-select-sm shadow-none"
+                value={filterConcepto}
+                onChange={(e) => {
+                  setFilterConcepto(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{ fontSize: '0.84rem' }}
+              >
+                <option value="ALL">Todos los Conceptos</option>
+                <option value="Renovación">Renovación</option>
+                <option value="Adelant">Pago Adelantado</option>
+                <option value="Prorrat">Cobro Prorrateo</option>
+                <option value="Afiliac">Afiliación / Alta</option>
+                <option value="Aumento">Aumento de Plan</option>
+              </select>
+            </div>
 
-            {(searchQuery || filterVendedor !== 'ALL' || filterTipoSuscripcion !== 'ALL') && (
+            {/* Filtro Modalidad */}
+            <div className="col-6 col-md-2">
+              <select
+                className="form-select form-select-sm shadow-none"
+                value={filterTipoSuscripcion}
+                onChange={(e) => {
+                  setFilterTipoSuscripcion(e.target.value);
+                  setCurrentPage(1);
+                }}
+                style={{ fontSize: '0.84rem' }}
+              >
+                <option value="ALL">Mensual / Anual</option>
+                <option value="MENSUAL">Solo Mensuales</option>
+                <option value="ANUAL">Solo Anuales</option>
+              </select>
+            </div>
+
+            {/* Botón Limpiar */}
+            <div className="col-6 col-md-1 text-end">
               <button
-                className="btn btn-outline-secondary btn-sm p-1.5"
+                className="btn btn-outline-secondary btn-sm w-100 py-1"
                 onClick={() => {
                   setSearchQuery('');
                   setFilterVendedor('ALL');
+                  setFilterConcepto('ALL');
                   setFilterTipoSuscripcion('ALL');
-                  setPagePagos(1);
-                  setPageImpagos(1);
+                  setCurrentPage(1);
                 }}
                 title="Limpiar filtros"
               >
                 <RotateCcw size={13} />
               </button>
-            )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* 4. CONTENIDO DE LAS PESTAÑAS */}
-
-      {/* TAB 1: TABLA DE PAGOS RECIBIDOS */}
-      {activeTab === 'PAGOS' && (
-        <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
-              <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
+        {/* Tabla Responsiva con Diseño Proporcional */}
+        <div className="table-responsive">
+          <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
+            <thead style={{ backgroundColor: '#F8FAFC', borderBottom: '2px solid #E2E8F0' }}>
+              <tr className="text-muted small text-uppercase" style={{ letterSpacing: '0.4px' }}>
+                <th className="ps-3 py-3" style={{ width: '40px' }}>#</th>
+                <th className="py-3" style={{ minWidth: '220px' }}>Cliente / Razón Social</th>
+                <th className="py-3" style={{ minWidth: '110px' }}>RUC</th>
+                <th className="py-3" style={{ minWidth: '150px' }}>Plan Activo</th>
+                <th className="py-3" style={{ minWidth: '160px' }}>Conceptos en {mesNombreSeleccionado}</th>
+                <th className="py-3 text-center" style={{ minWidth: '110px' }}>Último Pago</th>
+                <th className="py-3" style={{ minWidth: '110px' }}>Medio Pago</th>
+                <th className="py-3" style={{ minWidth: '120px' }}>Asesor</th>
+                <th className="py-3 text-end pe-3" style={{ minWidth: '130px' }}>Monto Cobrado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedRows.length === 0 ? (
                 <tr>
-                  <th className="ps-3 py-2.5">Cliente / Razón Social</th>
-                  <th className="py-2.5">RUC</th>
-                  <th className="py-2.5">Plan Contratado</th>
-                  <th className="py-2.5 text-center">Fecha Pago</th>
-                  <th className="py-2.5">Período Cubierto</th>
-                  <th className="py-2.5">Medio / Operación</th>
-                  <th className="py-2.5">Asesor</th>
-                  <th className="py-2.5 text-end pe-3">Monto Pagado</th>
+                  <td colSpan={9} className="text-center py-5 text-muted">
+                    <AlertCircle size={28} className="mb-2 text-muted d-block mx-auto opacity-50" />
+                    <span className="fw-semibold d-block text-dark">No se encontraron cobros registrados para {mesNombreSeleccionado} {selectedYear}</span>
+                    <small className="text-muted">Si se registraron adelantos o cobros en otros meses, puedes cambiar de mes en la barra superior.</small>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {paginatedPagos.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-5 text-muted">
-                      <AlertTriangle size={24} className="mb-2 text-warning d-block mx-auto" />
-                      <span>No se encontraron pagos registrados para {currentPeriodLabel}.</span>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedPagos.map((p) => (
-                    <tr key={p.id}>
-                      <td className="ps-3 py-2.5">
-                        <div className="fw-semibold text-dark">{p.razonSocial}</div>
-                        {p.nombreComercial && (
-                          <small className="text-muted d-block" style={{ fontSize: '0.74rem' }}>
-                            {p.nombreComercial}
-                          </small>
+              ) : (
+                paginatedRows.map((row, idx) => {
+                  const globalIdx = (currentPage - 1) * ITEMS_PER_PAGE + idx + 1;
+                  const fechaUltimoPago = row.fechasPagoList.length > 0 ? formatFechaPE(row.fechasPagoList[0]) : '—';
+                  const mediosStr = Array.from(row.mediosPagoSet).join(', ') || 'Confirmado';
+
+                  return (
+                    <tr key={row.clienteId} style={{ transition: 'background-color 0.15s ease' }}>
+                      {/* Correlativo */}
+                      <td className="ps-3 py-2.5 text-muted small">{globalIdx}</td>
+
+                      {/* Razón Social y Nombre Comercial */}
+                      <td className="py-2.5">
+                        <div className="fw-semibold text-dark" style={{ lineHeight: '1.2' }}>
+                          {row.razonSocial}
+                        </div>
+                        {row.nombreComercial && (
+                          <div className="text-muted small" style={{ fontSize: '0.74rem' }}>
+                            {row.nombreComercial}
+                          </div>
                         )}
                       </td>
-                      <td className="py-2.5 text-secondary fw-semibold">{p.ruc}</td>
+
+                      {/* RUC */}
+                      <td className="py-2.5 text-secondary fw-semibold font-monospace" style={{ fontSize: '0.82rem' }}>
+                        {row.ruc}
+                      </td>
+
+                      {/* Plan Activo */}
                       <td className="py-2.5">
-                        <span className="text-dark fw-semibold">{p.planNombre}</span>{' '}
+                        <div className="fw-semibold text-dark">{row.planNombre}</div>
                         <span
-                          className={`badge rounded-pill ${
-                            p.tipoSuscripcion === 'ANUAL'
-                              ? 'bg-warning-subtle text-warning-emphasis'
-                              : 'bg-light text-muted border'
+                          className={`badge rounded-pill mt-0.5 ${
+                            row.tipoSuscripcion === 'ANUAL'
+                              ? 'bg-warning-subtle text-warning-emphasis border border-warning-subtle'
+                              : 'bg-light text-secondary border'
                           }`}
-                          style={{ fontSize: '0.68rem' }}
+                          style={{ fontSize: '0.68rem', padding: '2px 8px' }}
                         >
-                          {p.tipoSuscripcion}
+                          {row.tipoSuscripcion} (S/ {row.precioBasePlan.toFixed(2)})
                         </span>
                       </td>
-                      <td className="py-2.5 text-center text-muted">{p.fechaPagoStr}</td>
-                      <td className="py-2.5 text-muted small">{p.periodoStr}</td>
+
+                      {/* Conceptos aplicados al mes (Afiliación, Renovación, Adelanto, Prorrateo, Aumento) */}
                       <td className="py-2.5">
-                        <span className="badge bg-light text-dark border px-2 py-0.5" style={{ fontSize: '0.72rem' }}>
-                          {p.medioPago}
-                        </span>
-                        {p.codigoOperacion !== '—' && (
-                          <small className="d-block text-muted" style={{ fontSize: '0.7rem' }}>
-                            Op: {p.codigoOperacion}
-                          </small>
-                        )}
+                        <div className="d-flex flex-wrap gap-1">
+                          {Array.from(row.conceptosSet).map((cName) => {
+                            let badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
+                            if (cName.includes('Adelant')) badgeClass = 'bg-success-subtle text-success border border-success-subtle';
+                            else if (cName.includes('Prorrat')) badgeClass = 'bg-warning-subtle text-warning-emphasis border border-warning-subtle';
+                            else if (cName.includes('Alta') || cName.includes('Afiliac')) badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
+                            else if (cName.includes('Aumento')) badgeClass = 'bg-secondary-subtle text-dark border border-secondary-subtle';
+
+                            return (
+                              <span
+                                key={cName}
+                                className={`badge rounded-pill fw-semibold ${badgeClass}`}
+                                style={{ fontSize: '0.71rem', padding: '3px 8px' }}
+                              >
+                                {cName}
+                              </span>
+                            );
+                          })}
+                        </div>
                       </td>
-                      <td className="py-2.5 text-muted">{p.asesor}</td>
-                      <td className="py-2.5 text-end pe-3 fw-bold text-dark" style={{ fontSize: '0.92rem' }}>
-                        S/ {p.monto.toFixed(2)}
+
+                      {/* Fecha de Pago */}
+                      <td className="py-2.5 text-center text-muted small">
+                        {fechaUltimoPago}
+                      </td>
+
+                      {/* Medio de Pago */}
+                      <td className="py-2.5">
+                        <span className="badge bg-light text-dark border px-2 py-1" style={{ fontSize: '0.72rem' }}>
+                          {mediosStr}
+                        </span>
+                      </td>
+
+                      {/* Asesor */}
+                      <td className="py-2.5 text-muted small">
+                        {row.asesor}
+                      </td>
+
+                      {/* Monto Cobrado (En una sola fila consolidada) */}
+                      <td className="py-2.5 text-end pe-3 fw-bold text-dark" style={{ fontSize: '0.96rem' }}>
+                        S/ {row.totalCobradoMes.toFixed(2)}
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-              {filteredPagosTable.length > 0 && (
-                <tfoot className="table-light border-top">
-                  <tr className="fw-bold">
-                    <td colSpan={7} className="ps-3 py-2.5 text-uppercase small text-muted">
-                      Total Recaudado en {currentPeriodLabel}:
-                    </td>
-                    <td className="text-end pe-3 py-2.5 text-primary fs-6">
-                      S/ {filteredPagosTable.reduce((acc, p) => acc + p.monto, 0).toFixed(2)}
-                    </td>
-                  </tr>
-                </tfoot>
+                  );
+                })
               )}
-            </table>
-          </div>
+            </tbody>
 
-          {/* Paginador */}
-          {totalPagesPagos > 1 && (
-            <div className="d-flex justify-content-between align-items-center p-2.5 bg-light border-top small">
-              <span className="text-muted">
-                Página {pagePagos} de {totalPagesPagos} ({filteredPagosTable.length} pagos)
-              </span>
-              <div className="d-flex gap-1">
-                <button
-                  className="btn btn-sm btn-outline-secondary px-2 py-1"
-                  disabled={pagePagos === 1}
-                  onClick={() => setPagePagos((prev) => Math.max(1, prev - 1))}
-                >
-                  <ChevronLeft size={14} /> Anterior
-                </button>
-                <button
-                  className="btn btn-sm btn-outline-secondary px-2 py-1"
-                  disabled={pagePagos === totalPagesPagos}
-                  onClick={() => setPagePagos((prev) => Math.min(totalPagesPagos, prev + 1))}
-                >
-                  Siguiente <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 2: TABLA DE CARTERA CON DEUDA (VENCIDOS Y BLOQUEADOS) */}
-      {activeTab === 'IMPAGOS' && (
-        <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.85rem' }}>
-              <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
-                <tr>
-                  <th className="ps-3 py-2.5">Cliente en Deuda</th>
-                  <th className="py-2.5">RUC</th>
-                  <th className="py-2.5">Plan / Modalidad</th>
-                  <th className="py-2.5 text-center">Estado de Cuenta</th>
-                  <th className="py-2.5 text-center">Fecha Vencimiento</th>
-                  <th className="py-2.5">Teléfono Contacto</th>
-                  <th className="py-2.5">Asesor Asignado</th>
-                  <th className="py-2.5 text-end pe-3">Monto Deuda</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedImpagos.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center py-5 text-muted">
-                      <CheckCircle2 size={24} className="mb-2 text-success d-block mx-auto" />
-                      <span>No hay cuentas impagas con los filtros seleccionados. Cartera al día.</span>
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedImpagos.map((item) => (
-                    <tr key={item.id}>
-                      <td className="ps-3 py-2.5">
-                        <div className="fw-semibold text-dark">{item.razonSocial}</div>
-                      </td>
-                      <td className="py-2.5 text-secondary fw-semibold">{item.ruc}</td>
-                      <td className="py-2.5">
-                        <span className="text-dark fw-semibold">{item.plan}</span>{' '}
-                        <small className="text-muted">({item.tipoSuscripcion})</small>
-                      </td>
-                      <td className="py-2.5 text-center">
-                        <span
-                          className={`badge rounded-pill px-2.5 py-1 ${
-                            item.estadoCuenta === 'BLOQUEADO'
-                              ? 'bg-danger text-white'
-                              : 'bg-warning-subtle text-warning-emphasis'
-                          }`}
-                          style={{ fontSize: '0.72rem' }}
-                        >
-                          {item.estadoCuenta}
-                        </span>
-                      </td>
-                      <td className="py-2.5 text-center text-muted">{item.fechaVencimiento}</td>
-                      <td className="py-2.5 text-muted">{item.telefono}</td>
-                      <td className="py-2.5 text-muted">{item.asesor}</td>
-                      <td className="py-2.5 text-end pe-3 fw-bold text-danger" style={{ fontSize: '0.92rem' }}>
-                        S/ {item.montoDeuda.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-              {filteredImpagosTable.length > 0 && (
-                <tfoot className="table-light border-top">
-                  <tr className="fw-bold">
-                    <td colSpan={7} className="ps-3 py-2.5 text-uppercase small text-danger">
-                      Total Deuda Acumulada en Cartera:
-                    </td>
-                    <td className="text-end pe-3 py-2.5 text-danger fs-6">
-                      S/ {filteredImpagosTable.reduce((acc, i) => acc + i.montoDeuda, 0).toFixed(2)}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-
-          {/* Paginador Impagos */}
-          {totalPagesImpagos > 1 && (
-            <div className="d-flex justify-content-between align-items-center p-2.5 bg-light border-top small">
-              <span className="text-muted">
-                Página {pageImpagos} de {totalPagesImpagos} ({filteredImpagosTable.length} clientes)
-              </span>
-              <div className="d-flex gap-1">
-                <button
-                  className="btn btn-sm btn-outline-secondary px-2 py-1"
-                  disabled={pageImpagos === 1}
-                  onClick={() => setPageImpagos((prev) => Math.max(1, prev - 1))}
-                >
-                  <ChevronLeft size={14} /> Anterior
-                </button>
-                <button
-                  className="btn btn-sm btn-outline-secondary px-2 py-1"
-                  disabled={pageImpagos === totalPagesImpagos}
-                  onClick={() => setPageImpagos((prev) => Math.min(totalPagesImpagos, prev + 1))}
-                >
-                  Siguiente <ChevronRight size={14} />
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 3: RESUMEN MENSUAL COMPARATIVO DE ENERO A DICIEMBRE */}
-      {activeTab === 'EVOLUCION' && (
-        <div className="card shadow-sm border-0 rounded-3 overflow-hidden">
-          <div className="p-3 bg-white border-bottom d-flex justify-content-between align-items-center">
-            <div>
-              <h6 className="fw-bold text-dark mb-0">Evolución de Ingresos Mensuales ({selectedYear})</h6>
-              <small className="text-muted">Comparativo mes a mes de recaudación y volumen de transacciones</small>
-            </div>
-            <span className="badge bg-primary-subtle text-primary fw-semibold px-2.5 py-1">
-              Año {selectedYear}
-            </span>
-          </div>
-
-          <div className="table-responsive">
-            <table className="table table-hover align-middle mb-0" style={{ fontSize: '0.86rem' }}>
-              <thead className="table-light text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>
-                <tr>
-                  <th className="ps-3 py-2.5">Mes</th>
-                  <th className="py-2.5 text-center">Operaciones</th>
-                  <th className="py-2.5 text-center">Clientes Únicos</th>
-                  <th className="py-2.5 text-end">Ticket Promedio</th>
-                  <th className="py-2.5 text-end pe-3">Total Recaudado (S/)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {monthlyEvolution.map((m) => (
-                  <tr
-                    key={m.monthCode}
-                    style={{
-                      backgroundColor: m.monthCode === selectedMonth ? '#F0F9FF' : undefined,
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => {
-                      setSelectedMonth(m.monthCode);
-                      setActiveTab('PAGOS');
-                    }}
-                    title="Click para ver el detalle de pagos de este mes"
-                  >
-                    <td className="ps-3 py-2.5 fw-semibold text-dark d-flex align-items-center gap-2">
-                      <Calendar size={14} className="text-primary" />
-                      <span>{m.monthName}</span>
-                      {m.monthCode === selectedMonth && (
-                        <span className="badge bg-primary text-white" style={{ fontSize: '0.65rem' }}>
-                          Seleccionado
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 text-center text-muted">{m.cantidadOperaciones}</td>
-                    <td className="py-2.5 text-center text-muted">{m.clientesAtendidos}</td>
-                    <td className="py-2.5 text-end text-muted">
-                      S/ {m.promedioTicket.toFixed(2)}
-                    </td>
-                    <td className="py-2.5 text-end pe-3 fw-bold text-dark" style={{ fontSize: '0.94rem' }}>
-                      {m.totalRecaudado > 0 ? (
-                        <span className="text-primary">
-                          S/ {m.totalRecaudado.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      ) : (
-                        <span className="text-muted fw-normal">S/ 0.00</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="table-light border-top">
+            {/* Pie de Tabla con Suma Total General */}
+            {filteredRows.length > 0 && (
+              <tfoot style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #CBD5E1' }}>
                 <tr className="fw-bold">
-                  <td className="ps-3 py-2.5 text-uppercase small text-dark">
-                    Total Acumulado del Año {selectedYear}:
+                  <td colSpan={8} className="ps-3 py-3 text-uppercase text-dark" style={{ fontSize: '0.85rem' }}>
+                    Suma Total Cobrada en {mesNombreSeleccionado.toUpperCase()} {selectedYear} ({filteredRows.length} clientes):
                   </td>
-                  <td className="text-center py-2.5 text-dark">
-                    {monthlyEvolution.reduce((acc, m) => acc + m.cantidadOperaciones, 0)}
-                  </td>
-                  <td className="text-center py-2.5 text-muted">—</td>
-                  <td className="text-end py-2.5 text-muted">—</td>
-                  <td className="text-end pe-3 py-2.5 text-success fs-6">
-                    S/ {monthlyEvolution.reduce((acc, m) => acc + m.totalRecaudado, 0).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <td className="text-end pe-3 py-3 text-primary" style={{ fontSize: '1.12rem' }}>
+                    S/ {sumaTotalFiltrada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </td>
                 </tr>
               </tfoot>
-            </table>
-          </div>
+            )}
+          </table>
         </div>
-      )}
+
+        {/* Paginador */}
+        {totalPages > 1 && (
+          <div className="d-flex justify-content-between align-items-center p-3 bg-white border-top small">
+            <span className="text-muted">
+              Mostrando página <strong>{currentPage}</strong> de <strong>{totalPages}</strong> ({filteredRows.length} clientes consolidados)
+            </span>
+            <div className="d-flex gap-1.5">
+              <button
+                className="btn btn-sm btn-outline-secondary px-2.5 py-1"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              >
+                <ChevronLeft size={14} /> Anterior
+              </button>
+              <button
+                className="btn btn-sm btn-outline-secondary px-2.5 py-1"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              >
+                Siguiente <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
