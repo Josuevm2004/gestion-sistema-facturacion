@@ -22,7 +22,8 @@ import {
   History,
   Layers,
   CalendarDays,
-  FileText
+  FileText,
+  Clock
 } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 
@@ -93,7 +94,7 @@ export default function ReportesExcelTab({
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthNum);
 
   // Sub-Pestaña activa: 'TODOS' | 'MENSUAL' | 'ANUAL' | 'PERDIDA'
-  const [activeReportSubTab, setActiveReportSubTab] = useState<'TODOS' | 'MENSUAL' | 'ANUAL' | 'PERDIDA'>('TODOS');
+  const [activeReportSubTab, setActiveReportSubTab] = useState<'TODOS' | 'MENSUAL' | 'ANUAL' | 'POR_CAPACITAR' | 'PERDIDA'>('TODOS');
 
   // Filtros de búsqueda
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -192,6 +193,14 @@ export default function ReportesExcelTab({
       }
     }
 
+    // 2.b Si las observaciones mencionan una fecha de ciclo explícita (ej. "período 01/11/2026")
+    const dateMatch = obs.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
+    if (dateMatch) {
+      const mNum = String(dateMatch[2]).padStart(2, '0');
+      const yNum = dateMatch[3];
+      return `${yNum}-${mNum}`;
+    }
+
     // 3. Si tiene periodo de inicio de servicio explícito (ej. periodo 01/10/2026 al 01/11/2026 pertenece a 2026-10)
     if (fInicio) {
       const year = fInicio.getFullYear();
@@ -214,7 +223,7 @@ export default function ReportesExcelTab({
   // --------------------------------------------------------------------------
   // 1. CONSOLIDACIÓN DE PAGOS Y PLANES ACTIVOS DEL MES (1 FILA POR CLIENTE)
   // --------------------------------------------------------------------------
-  const { consolidatedMonthRows, periodMetrics, deudoresList, totalPerdidaDeuda } = useMemo(() => {
+  const { consolidatedMonthRows, porCapacitarRows, periodMetrics, deudoresList, totalPerdidaDeuda } = useMemo(() => {
     const clientRowMap = new Map<string, {
       clienteId: string;
       rawClient: Client | null;
@@ -236,6 +245,7 @@ export default function ReportesExcelTab({
       esAdelanto: boolean;
       esProrrateo: boolean;
       esAumentoPlan: boolean;
+      esPorCapacitar: boolean;
       estadoCuenta: string;
     }>();
 
@@ -327,10 +337,12 @@ export default function ReportesExcelTab({
         }
       }
 
-      // Un cliente antiguo (afiliado en meses previos a targetPeriodKey) NUNCA debe ser rotulado como Alta
+      // La fecha de alta efectiva del cliente es la fecha en que se le capacita (o registro inicial si no fue capacitado)
+      const fCapClient = parseDateSafe(matchedClient?.fechaCapacitacion);
       const fRegClient = parseDateSafe(matchedClient?.fechaRegistro);
-      const regMonthKey = fRegClient ? `${fRegClient.getFullYear()}-${String(fRegClient.getMonth() + 1).padStart(2, '0')}` : null;
-      const isClientAncient = regMonthKey !== null && regMonthKey < targetPeriodKey;
+      const effectiveAltaDate = fCapClient || fRegClient;
+      const effectiveAltaMonthKey = effectiveAltaDate ? `${effectiveAltaDate.getFullYear()}-${String(effectiveAltaDate.getMonth() + 1).padStart(2, '0')}` : null;
+      const isClientAncient = effectiveAltaMonthKey !== null && effectiveAltaMonthKey < targetPeriodKey;
 
       // Identificar concepto de cobro
       const isProrr = obs.includes('prorrat') || p?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || p?.tipoProrrateo === 'PRIMER_PRORRATEO';
@@ -359,6 +371,11 @@ export default function ReportesExcelTab({
         const telefono = matchedClient?.telefono || matchedClient?.telefonoPersonal || '—';
         const st = (matchedClient?.estadoCuenta || 'HABILITADO').toUpperCase();
 
+        const isUntrained =
+          st === 'POR_CAPACITAR' ||
+          (matchedClient?.estadoCapacitacion || '').toUpperCase() === 'PENDIENTE' ||
+          (!matchedClient?.fechaCapacitacion && isAlta);
+
         row = {
           clienteId: clientKey,
           rawClient: matchedClient,
@@ -380,6 +397,7 @@ export default function ReportesExcelTab({
           esAdelanto: false,
           esProrrateo: false,
           esAumentoPlan: false,
+          esPorCapacitar: isUntrained,
           estadoCuenta: st,
         };
         clientRowMap.set(clientKey, row);
@@ -397,7 +415,12 @@ export default function ReportesExcelTab({
       if (codOp && codOp !== '—') row.operacionesSet.add(codOp);
       if (fPago) row.fechasPagoList.push(fPago);
 
-      if (isAlta) row.esAlta = true;
+      if (isAlta) {
+        row.esAlta = true;
+        if (row.estadoCuenta === 'POR_CAPACITAR' || !matchedClient?.fechaCapacitacion) {
+          row.esPorCapacitar = true;
+        }
+      }
       if (isAdelanto) row.esAdelanto = true;
       if (isProrr) row.esProrrateo = true;
       if (isAumento) row.esAumentoPlan = true;
@@ -418,9 +441,10 @@ export default function ReportesExcelTab({
       const regMonthKey = fReg ? `${fReg.getFullYear()}-${String(fReg.getMonth() + 1).padStart(2, '0')}` : null;
       const capMonthKey = fCap ? `${fCap.getFullYear()}-${String(fCap.getMonth() + 1).padStart(2, '0')}` : null;
 
-      // REGLA: Si son clientes antiguos que se afiliaron antes, NO debe salir el alta.
-      // Solo para los nuevos del mes seleccionado siempre y cuando se le haya capacitado.
-      if (regMonthKey && regMonthKey < targetPeriodKey) {
+      // REGLA: La fecha de alta depende de cuándo se le capacita. Si ya fue capacitado en meses previos, es antiguo.
+      const effectiveAltaDate = fCap || fReg;
+      const effectiveAltaMonthKey = effectiveAltaDate ? `${effectiveAltaDate.getFullYear()}-${String(effectiveAltaDate.getMonth() + 1).padStart(2, '0')}` : null;
+      if (effectiveAltaMonthKey && effectiveAltaMonthKey < targetPeriodKey) {
         return;
       }
 
@@ -454,16 +478,19 @@ export default function ReportesExcelTab({
             esAdelanto: false,
             esProrrateo: false,
             esAumentoPlan: false,
+            esPorCapacitar: st === 'POR_CAPACITAR' || (c.estadoCapacitacion || '').toUpperCase() === 'PENDIENTE' || !fCap,
             estadoCuenta: st,
           });
         }
       }
     });
 
-    const rows = Array.from(clientRowMap.values()).sort((a, b) => b.totalCobradoMes - a.totalCobradoMes);
+    const allRows = Array.from(clientRowMap.values()).sort((a, b) => b.totalCobradoMes - a.totalCobradoMes);
+    const operativeRows = allRows.filter((r) => !r.esPorCapacitar);
+    const porCapacitarRows = allRows.filter((r) => r.esPorCapacitar);
 
-    // Desglose exacto para la tarjeta estilo imagen: Regulares, Prorrateos, Adelantos
-    rows.forEach((r) => {
+    // Desglose para la tarjeta previa mes: cobros de clientes operativos
+    operativeRows.forEach((r) => {
       if (r.esAdelanto) {
         sumaAdelantos += r.totalCobradoMes;
         countAdelantos += 1;
@@ -479,12 +506,19 @@ export default function ReportesExcelTab({
       }
     });
 
-    const totalRecaudadoMes = rows.reduce((acc, r) => acc + r.totalCobradoMes, 0);
-    const countClientesMes = rows.length;
-    const countAnualesMes = rows.filter((r) => r.esAnual).length;
-    const montoAnualesMes = rows.filter((r) => r.esAnual).reduce((acc, r) => acc + r.totalCobradoMes, 0);
-    const countMensualesMes = rows.filter((r) => !r.esAnual).length;
-    const montoMensualesMes = rows.filter((r) => !r.esAnual).reduce((acc, r) => acc + r.totalCobradoMes, 0);
+    const sumaOperativaMes = operativeRows.reduce((acc, r) => acc + r.totalCobradoMes, 0);
+    const countOperativos = operativeRows.length;
+
+    const sumaPorCapacitarMes = porCapacitarRows.reduce((acc, r) => acc + r.totalCobradoMes, 0);
+    const countPorCapacitar = porCapacitarRows.length;
+
+    const totalGeneralMes = sumaOperativaMes + sumaPorCapacitarMes;
+    const countTotalMes = countOperativos + countPorCapacitar;
+
+    const countAnualesMes = operativeRows.filter((r) => r.esAnual).length;
+    const montoAnualesMes = operativeRows.filter((r) => r.esAnual).reduce((acc, r) => acc + r.totalCobradoMes, 0);
+    const countMensualesMes = operativeRows.filter((r) => !r.esAnual).length;
+    const montoMensualesMes = operativeRows.filter((r) => !r.esAnual).reduce((acc, r) => acc + r.totalCobradoMes, 0);
 
     // C. Cartera Vencida y Bloqueada ("Cuánto estoy perdiendo"):
     // Clientes que están en VENCIDO, BLOQUEADO o SUSPENDIDO
@@ -514,10 +548,15 @@ export default function ReportesExcelTab({
     const totalPerdida = deudores.reduce((acc, d) => acc + d.montoDeuda, 0);
 
     return {
-      consolidatedMonthRows: rows,
+      consolidatedMonthRows: operativeRows,
+      porCapacitarRows,
       periodMetrics: {
-        totalRecaudadoMes,
-        countClientesMes,
+        totalRecaudadoMes: totalGeneralMes,
+        sumaOperativaMes,
+        countOperativos,
+        sumaPorCapacitarMes,
+        countPorCapacitar,
+        countClientesMes: countTotalMes,
         sumaRegulares,
         countRegulares,
         sumaProrrateos,
@@ -536,10 +575,12 @@ export default function ReportesExcelTab({
     };
   }, [safePayments, safeClients, clientMap, targetPeriodKey, selectedYear]);
 
-  // Filtrar según sub-pestaña (TODOS / MENSUAL / ANUAL) y filtros de búsqueda
+  // Filtrar según sub-pestaña (TODOS / MENSUAL / ANUAL / POR_CAPACITAR) y filtros de búsqueda
   const filteredRows = useMemo(() => {
-    return consolidatedMonthRows.filter((r) => {
-      // Filtro de sub-pestaña
+    const baseSource = activeReportSubTab === 'POR_CAPACITAR' ? porCapacitarRows : consolidatedMonthRows;
+
+    return baseSource.filter((r) => {
+      // Filtro de sub-pestaña (si es dentro de operativos)
       if (activeReportSubTab === 'MENSUAL' && r.esAnual) return false;
       if (activeReportSubTab === 'ANUAL' && !r.esAnual) return false;
 
@@ -547,7 +588,7 @@ export default function ReportesExcelTab({
       if (filterVendedor !== 'ALL' && r.asesor !== filterVendedor) return false;
 
       // Filtro Concepto
-      if (filterConcepto !== 'ALL') {
+      if (filterConcepto !== 'ALL' && activeReportSubTab !== 'POR_CAPACITAR') {
         const hasConcepto = Array.from(r.conceptosSet).some((c) =>
           c.toLowerCase().includes(filterConcepto.toLowerCase())
         );
@@ -576,7 +617,7 @@ export default function ReportesExcelTab({
 
       return true;
     });
-  }, [consolidatedMonthRows, activeReportSubTab, filterVendedor, filterConcepto, filterMedioPago, searchQuery]);
+  }, [consolidatedMonthRows, porCapacitarRows, activeReportSubTab, filterVendedor, filterConcepto, filterMedioPago, searchQuery]);
 
   // Filtrar deudores en la pestaña de PÉRDIDA
   const filteredDeudores = useMemo(() => {
@@ -661,6 +702,14 @@ export default function ReportesExcelTab({
           csv += `${idx + 1},"${d.ruc}","${d.razonSocial.replace(/"/g, '""')}","${d.planNombre}","${d.tipoSuscripcion}","${d.estadoCuenta}","${d.asesor}","${d.telefono}","${formatFechaPE(d.fechaVencimiento)}",${d.montoDeuda.toFixed(2)}\n`;
         });
         csv += `\nTOTAL PERDIDA EN CARTERA VENCIDA/BLOQUEADA,,,,,,,,,${sumaPerdidaFiltrada.toFixed(2)}\n`;
+      } else if (activeReportSubTab === 'POR_CAPACITAR') {
+        csv += 'N°,RUC,Cliente / Razon Social,Nombre Comercial,Plan Contratado,Modalidad,Estado,Fecha de Pago,Medio Pago,Asesor,Monto Pagado (S/)\n';
+        filteredRows.forEach((r, idx) => {
+          const mediosStr = Array.from(r.mediosPagoSet).join(', ') || 'Confirmado';
+          const fUlt = r.fechasPagoList.length > 0 ? formatFechaPE(r.fechasPagoList[0]) : '—';
+          csv += `${idx + 1},"${r.ruc}","${r.razonSocial.replace(/"/g, '""')}","${r.nombreComercial.replace(/"/g, '""')}","${r.planNombre}","${r.tipoSuscripcion}","POR CAPACITAR","${fUlt}","${mediosStr}","${r.asesor}",${r.totalCobradoMes.toFixed(2)}\n`;
+        });
+        csv += `\nTOTAL AFILIACIONES PENDIENTES DE CAPACITACION,,,,,,,,,,${sumaTotalFiltrada.toFixed(2)}\n`;
       } else {
         csv += 'N°,RUC,Cliente / Razon Social,Nombre Comercial,Plan Activo,Modalidad,Conceptos en el Mes,Fecha Ultimo Pago,Medios de Pago,Operaciones,Asesor,Total Cobrado (S/)\n';
         filteredRows.forEach((r, idx) => {
@@ -670,7 +719,18 @@ export default function ReportesExcelTab({
           const fUlt = r.fechasPagoList.length > 0 ? formatFechaPE(r.fechasPagoList[0]) : '—';
           csv += `${idx + 1},"${r.ruc}","${r.razonSocial.replace(/"/g, '""')}","${r.nombreComercial.replace(/"/g, '""')}","${r.planNombre}","${r.tipoSuscripcion}","${conceptosStr}","${fUlt}","${mediosStr}","${opStr}","${r.asesor}",${r.totalCobradoMes.toFixed(2)}\n`;
         });
-        csv += `\nTOTAL COBRADO EN ${mesNombreSeleccionado.toUpperCase()} ${selectedYear},,,,,,,,,,,${sumaTotalFiltrada.toFixed(2)}\n`;
+        csv += `\nSUBTOTAL COBRADO CLIENTES OPERATIVOS,,,,,,,,,,,${sumaTotalFiltrada.toFixed(2)}\n`;
+
+        if (porCapacitarRows.length > 0) {
+          csv += `\n\n--- AFILIACIONES PENDIENTES DE CAPACITACION (${mesNombreSeleccionado.toUpperCase()} ${selectedYear}) ---\n`;
+          csv += 'N°,RUC,Cliente / Razon Social,Plan Contratado,Modalidad,Estado,Fecha Pago,Asesor,Monto (S/)\n';
+          porCapacitarRows.forEach((pc, idx) => {
+            const fUlt = pc.fechasPagoList.length > 0 ? formatFechaPE(pc.fechasPagoList[0]) : '—';
+            csv += `${idx + 1},"${pc.ruc}","${pc.razonSocial.replace(/"/g, '""')}","${pc.planNombre}","${pc.tipoSuscripcion}","POR CAPACITAR","${fUlt}","${pc.asesor}",${pc.totalCobradoMes.toFixed(2)}\n`;
+          });
+          csv += `SUBTOTAL AFILIACIONES PENDIENTES DE CAPACITACION,,,,,,,,${periodMetrics.sumaPorCapacitarMes.toFixed(2)}\n`;
+          csv += `TOTAL GENERAL RECAUDADO EN EL MES,,,,,,,,${periodMetrics.totalRecaudadoMes.toFixed(2)}\n`;
+        }
       }
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -801,29 +861,23 @@ export default function ReportesExcelTab({
             </div>
 
             <div className="mt-2 pt-2 border-top" style={{ fontSize: '0.84rem' }}>
-              <div className="d-flex justify-content-between py-1 text-muted">
-                <span>Regulares ({periodMetrics.countRegulares}):</span>
-                <strong className="text-dark">S/ {periodMetrics.sumaRegulares.toFixed(2)}</strong>
+              <div className="d-flex justify-content-between py-0.5 text-muted">
+                <span>Operativos ({periodMetrics.countOperativos}):</span>
+                <strong className="text-dark">S/ {periodMetrics.sumaOperativaMes.toFixed(2)}</strong>
               </div>
-              <div className="d-flex justify-content-between py-1 text-muted">
-                <span>Prorrateos ({periodMetrics.countProrrateos}):</span>
-                <strong className="text-primary">S/ {periodMetrics.sumaProrrateos.toFixed(2)}</strong>
+              <div className="d-flex justify-content-between py-0.5 text-muted ps-2" style={{ fontSize: '0.76rem' }}>
+                <span>· Regulares ({periodMetrics.countRegulares}): S/ {periodMetrics.sumaRegulares.toFixed(2)}</span>
+                <span>· Prorrateos ({periodMetrics.countProrrateos}): S/ {periodMetrics.sumaProrrateos.toFixed(2)}</span>
               </div>
-              <div className="d-flex justify-content-between py-1 text-muted">
-                <span>Adelantos ({periodMetrics.countAdelantos}):</span>
-                <strong className="text-success">S/ {periodMetrics.sumaAdelantos.toFixed(2)}</strong>
+              <div className="d-flex justify-content-between py-1 text-muted border-top mt-1">
+                <span className="text-warning-emphasis fw-semibold">Por Capacitar ({periodMetrics.countPorCapacitar}):</span>
+                <strong className="text-warning-emphasis">S/ {periodMetrics.sumaPorCapacitarMes.toFixed(2)}</strong>
               </div>
-              {periodMetrics.countAltas > 0 && (
-                <div className="d-flex justify-content-between py-1 text-muted">
-                  <span>Nuevas Altas ({periodMetrics.countAltas}):</span>
-                  <strong className="text-dark">S/ {periodMetrics.sumaAltas.toFixed(2)}</strong>
-                </div>
-              )}
             </div>
 
             <div className="pt-2 mt-2 border-top text-success fw-semibold small d-flex align-items-center gap-1.5" style={{ fontSize: '0.78rem' }}>
               <CheckCircle2 size={15} />
-              <span>Planes activos ({periodMetrics.countClientesMes} sin bloqueados)</span>
+              <span>{periodMetrics.countOperativos} operativos + {periodMetrics.countPorCapacitar} por capacitar ({periodMetrics.countClientesMes} total)</span>
             </div>
           </div>
         </div>
@@ -920,7 +974,7 @@ export default function ReportesExcelTab({
               }}
             >
               <Layers size={14} className="me-1" />
-              Consolidado General ({periodMetrics.countClientesMes})
+              Operativos ({periodMetrics.countOperativos})
             </button>
           </li>
           <li className="nav-item">
@@ -934,7 +988,7 @@ export default function ReportesExcelTab({
               }}
             >
               <Calendar size={14} className="me-1" />
-              Planes Mensuales ({periodMetrics.countMensualesMes})
+              Mensuales ({periodMetrics.countMensualesMes})
             </button>
           </li>
           <li className="nav-item">
@@ -948,7 +1002,26 @@ export default function ReportesExcelTab({
               }}
             >
               <Tag size={14} className="me-1" />
-              Planes Anuales ({periodMetrics.countAnualesMes})
+              Anuales ({periodMetrics.countAnualesMes})
+            </button>
+          </li>
+          <li className="nav-item">
+            <button
+              className={`nav-link py-1.5 px-3 fw-bold rounded-2 transition-all ${
+                activeReportSubTab === 'POR_CAPACITAR'
+                  ? 'active shadow-sm text-white'
+                  : 'text-warning-emphasis'
+              }`}
+              style={{
+                backgroundColor: activeReportSubTab === 'POR_CAPACITAR' ? '#D97706' : undefined,
+              }}
+              onClick={() => {
+                setActiveReportSubTab('POR_CAPACITAR');
+                setCurrentPage(1);
+              }}
+            >
+              <Clock size={14} className="me-1" />
+              Por Capacitar ({periodMetrics.countPorCapacitar})
             </button>
           </li>
           <li className="nav-item">
@@ -962,7 +1035,7 @@ export default function ReportesExcelTab({
               }}
             >
               <AlertTriangle size={14} className="me-1" />
-              Pérdida en Cartera ({deudoresList.length})
+              Pérdida ({deudoresList.length})
             </button>
           </li>
         </ul>
@@ -1101,7 +1174,7 @@ export default function ReportesExcelTab({
                   <th className="py-3" style={{ minWidth: '220px' }}>Cliente / Razón Social</th>
                   <th className="py-3" style={{ minWidth: '110px' }}>RUC</th>
                   <th className="py-3" style={{ minWidth: '150px' }}>Plan Activo</th>
-                  <th className="py-3" style={{ minWidth: '180px' }}>Conceptos en {mesNombreSeleccionado}</th>
+                  <th className="py-3" style={{ minWidth: '180px' }}>{activeReportSubTab === 'POR_CAPACITAR' ? 'Estado / Concepto' : `Conceptos en ${mesNombreSeleccionado}`}</th>
                   <th className="py-3 text-center" style={{ minWidth: '105px' }}>Último Pago</th>
                   <th className="py-3" style={{ minWidth: '110px' }}>Medio Pago</th>
                   <th className="py-3" style={{ minWidth: '120px' }}>Asesor</th>
@@ -1169,8 +1242,13 @@ export default function ReportesExcelTab({
                           </span>
                         </td>
 
-                        {/* Conceptos en el mes (Sin duplicar filas: Renovación + Mejora + Prorrateo consolidados) */}
+                        {/* Conceptos en el mes */}
                         <td className="py-2.5">
+                          {activeReportSubTab === 'POR_CAPACITAR' ? (
+                            <span className="badge rounded-pill fw-semibold bg-warning-subtle text-warning-emphasis border border-warning-subtle" style={{ fontSize: '0.71rem', padding: '3px 8px' }}>
+                              Por Capacitar (Sin inicio de servicio)
+                            </span>
+                          ) : (
                           <div className="d-flex flex-wrap gap-1">
                             {Array.from(row.conceptosSet).map((cName) => {
                               let badgeClass = 'bg-primary-subtle text-primary border border-primary-subtle';
@@ -1190,6 +1268,7 @@ export default function ReportesExcelTab({
                               );
                             })}
                           </div>
+                          )}
                         </td>
 
                         {/* Fecha de Pago */}
@@ -1224,7 +1303,9 @@ export default function ReportesExcelTab({
                 <tfoot style={{ backgroundColor: '#F8FAFC', borderTop: '2px solid #CBD5E1' }}>
                   <tr className="fw-bold">
                     <td colSpan={8} className="ps-3 py-3 text-uppercase text-dark" style={{ fontSize: '0.85rem' }}>
-                      Suma Total Cobrada en {mesNombreSeleccionado.toUpperCase()} {selectedYear} ({filteredRows.length} clientes):
+                      {activeReportSubTab === 'POR_CAPACITAR'
+                        ? `Suma Total Afiliaciones Pendientes de Capacitación (${filteredRows.length} clientes):`
+                        : `Suma Total Cobrada en ${mesNombreSeleccionado.toUpperCase()} ${selectedYear} (${filteredRows.length} clientes):`}
                     </td>
                     <td className="text-end pe-3 py-3 text-primary" style={{ fontSize: '1.12rem' }}>
                       S/ {sumaTotalFiltrada.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

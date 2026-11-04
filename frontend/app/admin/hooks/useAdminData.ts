@@ -546,7 +546,8 @@ export function useAdminData() {
       .toUpperCase()
       .replace(/^PLAN\s+/, '')
       .trim();
-    if (normalized === 'INICIAL') return 'INICIA';
+    if (normalized === 'INICIAL' || normalized === 'INICIA') return 'INICIA';
+    if (normalized.includes('REST')) return 'REST';
     return normalized;
   }
 
@@ -868,15 +869,22 @@ export function useAdminData() {
     const planAUsar = normalizePlanKey(nuevoPlan || client.planContratado);
     const tipoAUsar = (nuevoTipo || client.tipoSuscripcion || 'MENSUAL').toUpperCase() as 'MENSUAL' | 'ANUAL';
 
-    const PLAN_ID_MAP: Record<string, number> = {
+    const matchedSub = subscriptions.find((sub) => {
+      const subPlanKey = normalizePlanKey(sub?.plan?.nombrePlan || sub?.nombrePlan || '');
+      const subTipo = (sub?.tipoSuscripcion || '').toUpperCase();
+      return subPlanKey === planAUsar && (subTipo === tipoAUsar || !subTipo);
+    });
+
+    const PLAN_ID_MAP: Record<string, string | number> = {
       INICIA: 1,
       EMPRENDE: 2,
       IMPULSA: 3,
       EMPRESARIAL: 4,
       LIDER: 5,
+      REST: '1224527417792757761',
     };
 
-    const planId = PLAN_ID_MAP[planAUsar];
+    const planId = matchedSub?.plan?.id || matchedSub?.planId || PLAN_ID_MAP[planAUsar];
     if (!planId) {
       setNotice('El cliente no tiene un plan válido registrado en la base de datos.');
       return;
@@ -950,6 +958,7 @@ export function useAdminData() {
       await adminApi(token).post(`/admin/ventas/procesar-operacion`, {
         clienteId: client.id,
         planId,
+        suscripcionId: matchedSub?.id,
         tipoSuscripcion: tipoAUsar,
         tipoVenta: tipoVenta,
         monto: paymentDetails?.monto,
@@ -1150,12 +1159,13 @@ export function useAdminData() {
 
     const planCambio = !planLocked && (planKey !== editingClient.planContratado || tipoSuscripcion !== (editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase());
 
-    const PLAN_ID_MAP: Record<string, number> = {
+    const PLAN_ID_MAP: Record<string, string | number> = {
       INICIA: 1,
       EMPRENDE: 2,
       IMPULSA: 3,
       EMPRESARIAL: 4,
       LIDER: 5,
+      REST: '1224527417792757761',
     };
     const planIdNum = PLAN_ID_MAP[planKey] || 1;
 

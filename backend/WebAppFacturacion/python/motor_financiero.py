@@ -549,6 +549,33 @@ def generar_suite_financiera_excel() -> bytes:
                   AND v.estado_venta != 'CANCELADA';
             """)
             pagos = cur.fetchall()
+
+            cur.execute("""
+                SELECT 
+                    c.ruc as "RUC",
+                    COALESCE(c.razon_social, c.nombre_comercial, '') as "Razón Social",
+                    COALESCE(c.telefono, '') as "Teléfono",
+                    COALESCE(u.nombre, 'Por asignar') as "Asesor",
+                    COALESCE(p.nombre_plan, 'Plan Emprende') as "Plan",
+                    COALESCE(s.tipo_suscripcion, 'MENSUAL') as "Modalidad",
+                    'Pendiente de Capacitación' as "Estado",
+                    COALESCE(pg.monto, s.precio, 29.0) as "Monto Pagado (S/)",
+                    TO_CHAR(pg.fecha_pago, 'DD/MM/YYYY') as "Fecha Pago",
+                    TO_CHAR(c.fecha_registro, 'DD/MM/YYYY') as "Fecha Registro"
+                FROM cliente c
+                JOIN estado_cliente ec ON ec.id = c.estado_id
+                LEFT JOIN venta v ON v.id = (
+                    SELECT id FROM venta v2 WHERE v2.cliente_id = c.id ORDER BY fecha_venta DESC LIMIT 1
+                )
+                LEFT JOIN suscripcion s ON s.id = v.suscripcion_id
+                LEFT JOIN plan p ON p.id = s.plan_id
+                LEFT JOIN usuario_admin u ON u.id = v.vendedor_id
+                LEFT JOIN pago pg ON pg.venta_id = v.id AND (pg.estado_pago = 'PAGADO' OR pg.estado_pago = 'CONFIRMADO')
+                WHERE c.activo = true 
+                  AND ec.nombre = 'POR_CAPACITAR'
+                ORDER BY c.fecha_registro DESC;
+            """)
+            por_capacitar_rows = cur.fetchall()
     finally:
         conn.close()
 
@@ -630,6 +657,10 @@ def generar_suite_financiera_excel() -> bytes:
         "RUC": "-", "Razón Social": "Sin alertas críticas detectadas", "Anomalías": "Cartera en orden", "Criticidad": "BAJA"
     }])
 
+    df_por_capacitar = pd.DataFrame(por_capacitar_rows if por_capacitar_rows else [{
+        "RUC": "-", "Razón Social": "Sin clientes por capacitar", "Plan": "-", "Modalidad": "-", "Estado": "-", "Monto Pagado (S/)": 0.0
+    }])
+
     resumen_asesor = (
         df_matriz.groupby("Asesor")["TOTAL HISTÓRICO (S/)"].agg(["count", "sum"]).reset_index()
         if not df_matriz.empty
@@ -642,6 +673,7 @@ def generar_suite_financiera_excel() -> bytes:
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df_matriz.to_excel(writer, sheet_name="Matriz de Cobros", index=False)
         df_proyeccion.to_excel(writer, sheet_name=f"Proyección {proyeccion['periodo_proyectado']}"[:31], index=False)
+        df_por_capacitar.to_excel(writer, sheet_name="Por Capacitar", index=False)
         df_alertas.to_excel(writer, sheet_name="Auditoría y Alertas", index=False)
         resumen_asesor.to_excel(writer, sheet_name="Resumen por Asesor", index=False)
 

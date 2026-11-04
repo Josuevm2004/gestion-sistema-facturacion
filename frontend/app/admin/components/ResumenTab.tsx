@@ -43,6 +43,7 @@ export default function ResumenTab({
       .trim();
     if (normalized === 'INICIAL' || normalized === 'INICIA') return 'INICIA';
     if (normalized === 'LIDER') return 'LIDER';
+    if (normalized.includes('REST')) return 'REST';
     return normalized;
   };
 
@@ -57,14 +58,34 @@ export default function ResumenTab({
     return isNaN(d.getTime()) ? null : d;
   };
 
-  const { totalDeudaAcumulada, totalDeudaVencidos, totalDeudaBloqueados, clientesBloqueadosCount, clientesVencidosCount, totalClientesImpagos } = React.useMemo(() => {
+  const {
+    totalDeudaAcumulada,
+    totalDeudaVencidos,
+    totalDeudaBloqueados,
+    clientesBloqueadosCount,
+    clientesVencidosCount,
+    totalClientesImpagos,
+    totalClientesCartera,
+    clientesHabilitadosCount,
+    clientesPorCapacitarCount,
+  } = React.useMemo(() => {
     let deudaVenc = 0;
     let deudaBloq = 0;
     let vCount = 0;
     let bCount = 0;
+    let hCount = 0;
+    let capCount = 0;
 
     (clients || []).forEach((c) => {
       const st = (c.estadoCuenta || '').toUpperCase();
+      const capSt = (c.estadoCapacitacion || '').toUpperCase();
+
+      if (st === 'HABILITADO') {
+        hCount++;
+      } else if (st === 'POR_CAPACITAR' || capSt === 'PENDIENTE') {
+        capCount++;
+      }
+
       if (st !== 'VENCIDO' && st !== 'BLOQUEADO' && st !== 'SUSPENDIDO') return;
 
       // Para bloqueados y vencidos, fijarse en cuánto debe (montoSiguienteCobro si > 0, sino tarifa de plan)
@@ -88,6 +109,9 @@ export default function ResumenTab({
       clientesBloqueadosCount: bCount,
       clientesVencidosCount: vCount,
       totalClientesImpagos: vCount + bCount,
+      totalClientesCartera: (clients || []).length,
+      clientesHabilitadosCount: hCount,
+      clientesPorCapacitarCount: capCount,
     };
   }, [clients]);
 
@@ -128,23 +152,30 @@ export default function ResumenTab({
           </div>
         </div>
 
-        {/* Card 2: Clientes Activos */}
+        {/* Card 2: Clientes Activos y Desglose de Cartera */}
         <div className="col-12 col-sm-6 col-xl-3">
           <div className="card admin-stat-card h-100">
             <div className="admin-stat-card-header">
-              <span className="admin-stat-card-label">Clientes Activos</span>
+              <span className="admin-stat-card-label">Clientes Habilitados</span>
               <span className="admin-stat-card-icon admin-stat-card-icon--blue">
                 <Users size={18} strokeWidth={2.2} />
               </span>
             </div>
-            <div className="d-flex align-items-center gap-1 mb-3">
+            <div className="d-flex align-items-center gap-1 mb-2">
               <span className="admin-stat-card-trend">
-                <ArrowUpRight size={13} /> +15%
+                <ArrowUpRight size={13} /> {totalClientesCartera} clientes
               </span>
-              <span className="admin-stat-card-trend-label">frente al mes pasado</span>
+              <span className="admin-stat-card-trend-label">en cartera total</span>
             </div>
             <div className="d-flex align-items-end justify-content-between mt-auto">
-              <div className="admin-stat-card-value">{clientesActivos}</div>
+              <div>
+                <div className="admin-stat-card-value text-primary">{clientesHabilitadosCount || clientesActivos}</div>
+                <div className="text-muted fw-semibold" style={{ fontSize: '0.71rem', lineHeight: '1.25' }}>
+                  <span className="text-success">{clientesHabilitadosCount || clientesActivos} Activos</span> ·{' '}
+                  <span className="text-warning">{clientesPorCapacitarCount} Por Capacitar</span> ·{' '}
+                  <span className="text-danger">{totalClientesImpagos} Con Deuda</span>
+                </div>
+              </div>
               <div className="admin-stat-card-sparkline">
                 <svg width="90" height="34" viewBox="0 0 90 34" fill="none" aria-hidden="true">
                   <path d="M0 24C12 20 28 8 45 16C62 24 75 6 82 10L90 6" stroke="#465FFF" strokeWidth="2" strokeLinecap="round" />
@@ -451,6 +482,7 @@ export default function ResumenTab({
                 { key: 'IMPULSA', name: 'Plan Impulsa', color: '#8B5CF6' },
                 { key: 'EMPRESARIAL', name: 'Plan Empresarial', color: '#0284C7' },
                 { key: 'LIDER', name: 'Plan Líder', color: '#1C2434' },
+                { key: 'REST', name: 'Plan REST', color: '#F59E0B' },
               ].map((p) => {
                 const count = clients.filter((c) => normalizePlanKey(c.planContratado) === p.key).length;
                 const pct = clients.length > 0 ? Math.round((count / clients.length) * 100) : 0;
