@@ -841,9 +841,9 @@ public class ClienteServiceImpl implements ClienteService {
         cliente.setFechaEliminacion(LocalDateTime.now());
         clienteRepository.save(cliente);
 
-        // 2. Cancelar servicios en curso
+        // 2. Cancelar / bloquear servicios en curso
         servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId).forEach(servicio -> {
-            servicio.setEstado(EstadoServicio.CANCELADO);
+            servicio.setEstado(EstadoServicio.BLOQUEADO);
             servicio.setFechaActualizacion(LocalDateTime.now());
             servicioClienteRepository.save(servicio);
         });

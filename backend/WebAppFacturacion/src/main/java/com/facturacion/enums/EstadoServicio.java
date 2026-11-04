@@ -4,5 +4,6 @@ public enum EstadoServicio {
     PENDIENTE_CAPACITACION,
     ACTIVO,
     VENCIDO,
-    BLOQUEADO
+    BLOQUEADO,
+    CANCELADO
 }
