@@ -45,10 +45,10 @@ public class PagoController {
 
     private Map<String, Object> mapPago(Pago pago) {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("id", pago.getId());
-        data.put("pagoId", pago.getId());
-        data.put("ventaId", pago.getVenta() != null ? pago.getVenta().getId() : null);
-        data.put("clienteId", pago.getVenta() != null && pago.getVenta().getCliente() != null ? pago.getVenta().getCliente().getId() : null);
+        data.put("id", pago.getId() != null ? pago.getId().toString() : null);
+        data.put("pagoId", pago.getId() != null ? pago.getId().toString() : null);
+        data.put("ventaId", pago.getVenta() != null ? pago.getVenta().getId().toString() : null);
+        data.put("clienteId", pago.getVenta() != null && pago.getVenta().getCliente() != null ? pago.getVenta().getCliente().getId().toString() : null);
         data.put("codigoOperacion", pago.getCodigoOperacion());
         data.put("monto", pago.getMonto());
         data.put("medioPago", pago.getMedioPago() != null ? pago.getMedioPago().name() : null);
@@ -68,8 +68,8 @@ public class PagoController {
                 data.put("periodoFin", pago.getVenta().getFechaVenta().plusMonths(1));
             }
             Map<String, Object> venta = new LinkedHashMap<>();
-            venta.put("id", pago.getVenta().getId());
-            venta.put("clienteId", pago.getVenta().getCliente() != null ? pago.getVenta().getCliente().getId() : null);
+            venta.put("id", pago.getVenta().getId() != null ? pago.getVenta().getId().toString() : null);
+            venta.put("clienteId", pago.getVenta().getCliente() != null ? pago.getVenta().getCliente().getId().toString() : null);
             venta.put("montoTotal", pago.getVenta().getMontoTotal());
             venta.put("fechaVenta", pago.getVenta().getFechaVenta());
             data.put("fechaVenta", pago.getVenta().getFechaVenta());
@@ -96,7 +96,7 @@ public class PagoController {
             }
             if (pago.getVenta().getCliente() != null) {
                 Map<String, Object> cli = new LinkedHashMap<>();
-                cli.put("id", pago.getVenta().getCliente().getId());
+                cli.put("id", pago.getVenta().getCliente().getId() != null ? pago.getVenta().getCliente().getId().toString() : null);
                 cli.put("ruc", pago.getVenta().getCliente().getRuc());
                 cli.put("razonSocial", pago.getVenta().getCliente().getRazonSocial());
                 venta.put("cliente", cli);
@@ -105,7 +105,7 @@ public class PagoController {
             }
             if (pago.getVenta().getVendedor() != null) {
                 Map<String, Object> vendedor = new LinkedHashMap<>();
-                vendedor.put("id", pago.getVenta().getVendedor().getId());
+                vendedor.put("id", pago.getVenta().getVendedor().getId() != null ? pago.getVenta().getVendedor().getId().toString() : null);
                 vendedor.put("nombre", pago.getVenta().getVendedor().getNombre());
                 vendedor.put("username", pago.getVenta().getVendedor().getUsername());
                 venta.put("vendedor", vendedor);
