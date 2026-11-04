@@ -41,6 +41,9 @@ public class PythonBridgeController {
 
     private File getScriptFile() {
         String[] paths = {
+            "python/motor_financiero.py",
+            "../python/motor_financiero.py",
+            "motor_financiero.py",
             "motor_financiero_python.py",
             "../motor_financiero_python.py",
             "../../motor_financiero_python.py"
@@ -60,7 +63,9 @@ public class PythonBridgeController {
             ProcessBuilder pb = new ProcessBuilder(
                 getPythonExecutable(),
                 "-c",
-                "import sys, json; sys.path.append('.'); from motor_financiero_python import calcular_proyeccion_siguiente_mes; print(json.dumps(calcular_proyeccion_siguiente_mes()))"
+                "import sys, json; sys.path.extend(['.', 'python', '../python', 'backend/WebAppFacturacion/python']); " +
+                "try:\n from motor_financiero import calcular_proyeccion_siguiente_mes\nexcept ImportError:\n from motor_financiero_python import calcular_proyeccion_siguiente_mes\n" +
+                "print(json.dumps(calcular_proyeccion_siguiente_mes()))"
             );
             pb.directory(workDir);
             pb.redirectErrorStream(true);
@@ -94,7 +99,9 @@ public class PythonBridgeController {
             ProcessBuilder pb = new ProcessBuilder(
                 getPythonExecutable(),
                 "-c",
-                "import sys; sys.path.append('.'); from motor_financiero_python import generar_suite_financiera_excel; sys.stdout.buffer.write(generar_suite_financiera_excel())"
+                "import sys; sys.path.extend(['.', 'python', '../python', 'backend/WebAppFacturacion/python']); " +
+                "try:\n from motor_financiero import generar_suite_financiera_excel\nexcept ImportError:\n from motor_financiero_python import generar_suite_financiera_excel\n" +
+                "sys.stdout.buffer.write(generar_suite_financiera_excel())"
             );
             pb.directory(workDir);
             Process process = pb.start();

@@ -45,6 +45,7 @@ function resolverPlanIdDesdeNombre(planNombre?: string): number {
   if (norm === 'IMPULSA') return 3;
   if (norm === 'EMPRESARIAL') return 4;
   if (norm === 'LIDER') return 5;
+  if (norm === 'REST') return 6;
   if (norm === 'INICIAL' || norm === 'INICIA') return 1;
   return 1;
 }

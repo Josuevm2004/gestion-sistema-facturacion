@@ -20,6 +20,7 @@ const PLAN_PRICES: Record<string, { MENSUAL: number; ANUAL: number }> = {
   IMPULSA: { MENSUAL: 39, ANUAL: 390 },
   EMPRESARIAL: { MENSUAL: 59, ANUAL: 590 },
   LIDER: { MENSUAL: 89, ANUAL: 890 },
+  REST: { MENSUAL: 109, ANUAL: 1090 },
 };
 
 export default function CreateClientModal({
@@ -281,6 +282,7 @@ export default function CreateClientModal({
                       { key: 'IMPULSA', name: 'Impulsa', priceM: 39, priceA: 390, popular: false },
                       { key: 'EMPRESARIAL', name: 'Empresarial', priceM: 59, priceA: 590, popular: false },
                       { key: 'LIDER', name: 'Líder', priceM: 89, priceA: 890, popular: false },
+                      { key: 'REST', name: 'REST (Ilimitado)', priceM: 109, priceA: 1090, popular: false },
                     ].map((plan) => {
                       const isSelected = selectedPlan === plan.key;
                       const price = selectedTipo === 'ANUAL' ? plan.priceA : plan.priceM;
@@ -323,6 +325,7 @@ export default function CreateClientModal({
                     <option value="IMPULSA">Plan Impulsa</option>
                     <option value="EMPRESARIAL">Plan Empresarial</option>
                     <option value="LIDER">Plan Líder</option>
+                    <option value="REST">Plan REST (Ilimitado)</option>
                   </select>
                 </div>
 

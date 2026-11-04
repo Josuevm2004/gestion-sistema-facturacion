@@ -283,6 +283,7 @@ public class ClienteServiceImpl implements ClienteService {
             case "IMPULSA" -> 3L;
             case "EMPRESARIAL" -> 4L;
             case "LIDER" -> 5L;
+            case "REST" -> 6L;
             case "INICIAL", "INICIA" -> 1L;
             default -> null;
         };

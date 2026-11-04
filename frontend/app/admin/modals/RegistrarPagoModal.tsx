@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, RefreshCw, CalendarPlus, CheckCircle, AlertCircle, Clock, X } from 'lucide-react';
+import { Calendar, RefreshCw, CalendarPlus, CheckCircle, AlertCircle, Clock, X, Edit3 } from 'lucide-react';
 import { Client } from '../components/ClientesTodosTab';
 import { parseLocalDate, getTodayLocalMidnight, formatDatePeru } from '@/lib/billing';
 import ClientPortal from '../components/ClientPortal';
@@ -14,6 +14,7 @@ const OFFICIAL_PLAN_PRICES: Record<string, number> = {
   IMPULSA: 39,
   EMPRESARIAL: 59,
   LIDER: 89,
+  REST: 109,
 };
 
 function getOfficialPlanPrice(planStr?: string, fallback?: number): number {
@@ -55,6 +56,12 @@ export default function RegistrarPagoModal({
   if (!client) return null;
 
   const [modalidad, setModalidad] = useState<RegistrarPagoMode>(mode);
+  const [customMonto, setCustomMonto] = useState<string>('');
+
+  const handleSelectModalidad = (newMode: RegistrarPagoMode) => {
+    setModalidad(newMode);
+    setCustomMonto('');
+  };
 
   const isAdelanto = modalidad === 'ADELANTO';
   const isReanudarPago = modalidad === 'REANUDAR_PAGO';
@@ -90,7 +97,7 @@ export default function RegistrarPagoModal({
 
   const payDate = parseLocalDate(fechaPago) || now;
 
-  // Cálculo determinístico del período y monto a cobrar según el flujo
+  // Cálculo determinístico del período y monto sugerido a cobrar según el flujo
   const { monto, fechaInicioPeriodo, fechaFinPeriodo, detalleCalculo } = useMemo(() => {
     if (isAdelanto) {
       const inicio = vencDate && vencDate >= now ? vencDate : now;
@@ -121,11 +128,23 @@ export default function RegistrarPagoModal({
       } else {
         fin.setMonth(fin.getMonth() + 1);
       }
+
+      // Si el cliente tiene un cobro programado pendiente registrado (ej. 2.° prorrateo S/ 37.42)
+      const scheduledMonto = Number(client.montoSiguienteCobro || 0);
+      if (scheduledMonto > 0 && scheduledMonto !== precioOficialPlan) {
+        return {
+          monto: scheduledMonto,
+          fechaInicioPeriodo: inicio,
+          fechaFinPeriodo: fin,
+          detalleCalculo: `Cobro programado pendiente: S/ ${scheduledMonto.toFixed(2)} (Ciclo completo desde el 1.° del mes)`,
+        };
+      }
+
       return {
         monto: precioOficialPlan,
         fechaInicioPeriodo: inicio,
         fechaFinPeriodo: fin,
-        detalleCalculo: 'Ciclo completo desde el 1.° del mes (habilitado)',
+        detalleCalculo: 'Ciclo completo desde el 1.° del mes (tarifa regular)',
       };
     }
 
@@ -142,20 +161,21 @@ export default function RegistrarPagoModal({
       };
     }
 
-    // Si el cliente ya tiene una renovación pendiente con 2.° o 1.° prorrateo programado desde la capacitación:
+    // Si el cliente ya tiene una renovación pendiente con 2.° o 1.° prorrateo programado desde la capacitación o monto agendado:
+    const scheduledMonto = Number(client.montoSiguienteCobro || 0);
     if (
+      scheduledMonto > 0 &&
       (client.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
-        (client.tipoProrrateo === 'PRIMER_PRORRATEO' && Number(client.montoSiguienteCobro || 0) < precioOficialPlan)) &&
-      Number(client.montoSiguienteCobro || 0) > 0
+        client.tipoProrrateo === 'PRIMER_PRORRATEO' ||
+        scheduledMonto !== precioOficialPlan)
     ) {
-      const scheduledMonto = Number(client.montoSiguienteCobro);
       const primerDiaMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
       let inicioCiclo = primerDiaMesActual;
       if (vencDate && vencDate >= primerDiaMesActual) {
         inicioCiclo = new Date(vencDate.getFullYear(), vencDate.getMonth(), 1);
       }
       const fin = new Date(inicioCiclo.getFullYear(), inicioCiclo.getMonth() + 1, 1);
-      if (client.tipoProrrateo === 'SEGUNDO_PRORRATEO') {
+      if (client.tipoProrrateo === 'SEGUNDO_PRORRATEO' || scheduledMonto > precioOficialPlan) {
         const diasAdic = client.diasProrrateoAdicional ? ` + ${client.diasProrrateoAdicional} días adic.` : '';
         const montoAdic = client.montoProrrateoAdicional ? ` (S/ ${Number(client.montoProrrateoAdicional).toFixed(2)})` : '';
         return {
@@ -170,7 +190,7 @@ export default function RegistrarPagoModal({
           monto: scheduledMonto,
           fechaInicioPeriodo: inicioCiclo,
           fechaFinPeriodo: fin,
-          detalleCalculo: `Renovación programada con 1.° prorrateo pendiente: S/ ${scheduledMonto.toFixed(2)} (Mes regular S/ ${precioOficialPlan.toFixed(2)} - S/ ${descuento.toFixed(2)} descuento prorrateado)`,
+          detalleCalculo: `Renovación programada con 1.° prorrateo pendiente: S/ ${scheduledMonto.toFixed(2)} (Mes regular S/ ${precioOficialPlan.toFixed(2)} - S/ ${descuento.toFixed(2)} descuento)`,
         };
       }
     }
@@ -212,9 +232,12 @@ export default function RegistrarPagoModal({
     }
   }, [isAdelanto, isReanudarPago, isRenovarProrrateo, precioOficialPlan, vencDate, now, isAnual, payDate, client]);
 
+  // Monto final editable por el usuario
+  const finalMonto = customMonto !== '' && !isNaN(Number(customMonto)) ? Math.max(0, Number(customMonto)) : monto;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (monto <= 0) return;
+    if (finalMonto <= 0) return;
     setLoading(true);
     try {
       const defaultObs = isAdelanto
@@ -224,7 +247,7 @@ export default function RegistrarPagoModal({
         : `Renovación con prorrateo por atraso de pago período ${formatDatePeru(fechaInicioPeriodo)} al ${formatDatePeru(fechaFinPeriodo)}`;
 
       await onConfirm(client, {
-        monto,
+        monto: finalMonto,
         fechaPago,
         medioPago,
         codigoOperacion: codigoOperacion.trim(),
@@ -270,7 +293,7 @@ export default function RegistrarPagoModal({
     ? 'Confirmar Adelanto'
     : isReanudarPago
     ? 'Reanudar Fecha de Pago'
-    : 'Confirmar Renovación con Prorrateo';
+    : 'Confirmar Renovación';
 
   return (
     <ClientPortal>
@@ -365,7 +388,7 @@ export default function RegistrarPagoModal({
                       className={`btn btn-sm w-100 py-2 px-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
                         isRenovarProrrateo ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
                       }`}
-                      onClick={() => setModalidad('RENOVAR_PRORRATEO')}
+                      onClick={() => handleSelectModalidad('RENOVAR_PRORRATEO')}
                     >
                       <Clock size={14} className="flex-shrink-0" />
                       <span className="text-truncate">Renovar (Prorrateo)</span>
@@ -377,7 +400,7 @@ export default function RegistrarPagoModal({
                       className={`btn btn-sm w-100 py-2 px-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
                         isReanudarPago ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
                       }`}
-                      onClick={() => setModalidad('REANUDAR_PAGO')}
+                      onClick={() => handleSelectModalidad('REANUDAR_PAGO')}
                     >
                       <RefreshCw size={14} className="flex-shrink-0" />
                       <span className="text-truncate">Reanudar Ciclo</span>
@@ -389,7 +412,7 @@ export default function RegistrarPagoModal({
                       className={`btn btn-sm w-100 py-2 px-2 fw-bold d-flex align-items-center justify-content-center gap-1.5 ${
                         isAdelanto ? 'btn-primary shadow-sm' : 'btn-outline-secondary'
                       }`}
-                      onClick={() => setModalidad('ADELANTO')}
+                      onClick={() => handleSelectModalidad('ADELANTO')}
                     >
                       <CalendarPlus size={14} className="flex-shrink-0" />
                       <span className="text-truncate">Adelantar Pago</span>
@@ -430,7 +453,7 @@ export default function RegistrarPagoModal({
                       <><strong>Cobertura extendida:</strong> El cliente mantiene sus días vigentes y la fecha de corte se aplaza al siguiente mes.</>
                     )}
                     {isReanudarPago && (
-                      <><strong>Ciclo contractual completo:</strong> El cliente venció pero siguió habilitado consumiendo el sistema. Su pago cuenta desde su fecha de corte contractual (el 1.°), cubriendo el ciclo completo.</>
+                      <><strong>Ciclo contractual completo:</strong> El cliente venció pero siguió habilitado consumiendo el sistema. Su cobertura corre desde el 1.° del mes para cubrir su ciclo normal.</>
                     )}
                     {isRenovarProrrateo && (
                       <><strong>Prorrateo por atraso de pago:</strong> El nuevo servicio inicia en la fecha real de pago ({formatDatePeru(fechaInicioPeriodo)}) y el cobro se ajusta proporcionalmente a los días a disfrutar.</>
@@ -443,19 +466,60 @@ export default function RegistrarPagoModal({
               <div className="row g-3">
                 {/* Monto a Cobrar */}
                 <div className="col-12 col-sm-6">
-                  <label className="form-label small fw-bold text-dark mb-1">
-                    Monto a Cobrar:
-                  </label>
+                  <div className="d-flex justify-content-between align-items-center mb-1">
+                    <label className="form-label small fw-bold text-dark mb-0">
+                      Monto a Cobrar:
+                    </label>
+                    <span className="badge bg-light text-muted border d-flex align-items-center gap-1" style={{ fontSize: '0.68rem' }}>
+                      <Edit3 size={10} /> Editable
+                    </span>
+                  </div>
                   <div className="input-group input-group-sm">
                     <span className="input-group-text bg-light fw-bold text-muted">S/</span>
                     <input
-                      type="text"
-                      className="form-control fw-bold text-primary bg-light"
-                      value={monto.toFixed(2)}
-                      readOnly
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      className="form-control fw-bold text-primary"
+                      value={customMonto !== '' ? customMonto : monto.toFixed(2)}
+                      onChange={(e) => setCustomMonto(e.target.value)}
+                      placeholder="0.00"
+                      required
                     />
                   </div>
-                  <small className="text-muted d-block mt-0.5" style={{ fontSize: '0.73rem', lineHeight: '1.2' }}>
+
+                  {/* Botones de selección rápida si el cliente tiene un cobro agendado distinto al plan base */}
+                  {Number(client.montoSiguienteCobro || 0) > 0 &&
+                    Number(client.montoSiguienteCobro) !== precioOficialPlan && (
+                      <div className="d-flex gap-1.5 mt-1.5 flex-wrap">
+                        <button
+                          type="button"
+                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold border ${
+                            Math.abs(finalMonto - Number(client.montoSiguienteCobro)) < 0.01
+                              ? 'btn-primary text-white shadow-xs'
+                              : 'btn-light text-secondary'
+                          }`}
+                          style={{ fontSize: '0.72rem' }}
+                          onClick={() => setCustomMonto(Number(client.montoSiguienteCobro).toFixed(2))}
+                        >
+                          Programado: S/ {Number(client.montoSiguienteCobro).toFixed(2)}
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn btn-xs py-0.5 px-2 rounded-pill fw-bold border ${
+                            Math.abs(finalMonto - precioOficialPlan) < 0.01
+                              ? 'btn-primary text-white shadow-xs'
+                              : 'btn-light text-secondary'
+                          }`}
+                          style={{ fontSize: '0.72rem' }}
+                          onClick={() => setCustomMonto(precioOficialPlan.toFixed(2))}
+                        >
+                          Plan base: S/ {precioOficialPlan.toFixed(2)}
+                        </button>
+                      </div>
+                    )}
+
+                  <small className="text-muted d-block mt-1" style={{ fontSize: '0.73rem', lineHeight: '1.2' }}>
                     {detalleCalculo}
                   </small>
                 </div>
@@ -543,7 +607,7 @@ export default function RegistrarPagoModal({
               <button
                 type="submit"
                 className={`btn-meta-action ${submitButtonColor} d-inline-flex align-items-center gap-1.5`}
-                disabled={loading || monto <= 0}
+                disabled={loading || finalMonto <= 0}
               >
                 {loading ? (
                   <span>Procesando pago...</span>
@@ -562,4 +626,3 @@ export default function RegistrarPagoModal({
     </ClientPortal>
   );
 }
-

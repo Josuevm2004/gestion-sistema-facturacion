@@ -95,6 +95,7 @@ export default function ChangePlanModal({
                   <option value="IMPULSA">Plan Impulsa (S/ 39.00)</option>
                   <option value="EMPRESARIAL">Plan Empresarial (S/ 59.00)</option>
                   <option value="LIDER">Plan Líder (S/ 89.00)</option>
+                  <option value="REST">Plan REST - Todo Ilimitado (S/ 109.00)</option>
                 </select>
               </div>
               <div className="col-md-6">
