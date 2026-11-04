@@ -174,16 +174,13 @@ export default function ReportesExcelTab({
     }
 
     // 2. REGLA DE ALTA / AFILIACIÓN INICIAL:
-    // El pago de alta / afiliación inicial pertenece estrictamente al mes en que se registró o capacitó (ej. Octubre).
-    // En ningún caso debe trasladarse al mes siguiente aunque cubra hasta el día 15 del mes siguiente.
+    // El pago de alta / afiliación inicial pertenece estrictamente a la fecha en que se pagó o fecha de registro inicial.
+    // NUNCA debe tomar fechas de capacitaciones o renovaciones de servicios mensuales posteriores.
     const isAlta = tipoVentaRaw === 'ALTA' || obs.includes('alta') || obs.includes('inicial') || obs.includes('afiliac');
     if (isAlta) {
-      const fCapOrReg = parseDateSafe(matchedClient?.fechaCapacitacion || matchedClient?.fechaRegistro || fPago);
-      if (fCapOrReg) {
-        return `${fCapOrReg.getFullYear()}-${String(fCapOrReg.getMonth() + 1).padStart(2, '0')}`;
-      }
-      if (fPago) {
-        return `${fPago.getFullYear()}-${String(fPago.getMonth() + 1).padStart(2, '0')}`;
+      const fAltaDate = fPago || parseDateSafe(matchedClient?.fechaRegistro);
+      if (fAltaDate) {
+        return `${fAltaDate.getFullYear()}-${String(fAltaDate.getMonth() + 1).padStart(2, '0')}`;
       }
     }
 
@@ -296,15 +293,18 @@ export default function ReportesExcelTab({
       // 1) En el mes M (Octubre) figura su afiliación / pago inicial.
       // 2) En el mes M+1 (Noviembre) NO debe figurar ningún cobro (el cliente no paga en este mes).
       // 3) En el mes M+2 (Diciembre) figura su segundo prorrateo.
-      const fCapDate = parseDateSafe(matchedClient?.fechaCapacitacion || matchedClient?.fechaRegistro);
-      if (fCapDate && fCapDate.getDate() >= 10) {
+      const fRegDate = parseDateSafe(matchedClient?.fechaRegistro);
+      const fCapDate = parseDateSafe(matchedClient?.fechaCapacitacion);
+      const isInitialPeriod = fRegDate && fCapDate && fRegDate.getFullYear() === fCapDate.getFullYear() && fRegDate.getMonth() === fCapDate.getMonth();
+      const effectiveCapDate = isInitialPeriod ? fCapDate : fRegDate;
+      if (effectiveCapDate && effectiveCapDate.getDate() >= 10) {
         const isClientSegundoProrr = 
           matchedClient?.tipoProrrateo === 'SEGUNDO_PRORRATEO' || 
           Number(matchedClient?.diasProrrateoAdicional) > 0 || 
           Number(matchedClient?.montoProrrateoAdicional) > 0;
         
         if (isClientSegundoProrr) {
-          const nextMonthDate = new Date(fCapDate.getFullYear(), fCapDate.getMonth() + 1, 1);
+          const nextMonthDate = new Date(effectiveCapDate.getFullYear(), effectiveCapDate.getMonth() + 1, 1);
           const nextMonthKey = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
           // En el mes M+1 (Noviembre), este cliente NO debe figurar:
@@ -422,8 +422,9 @@ export default function ReportesExcelTab({
       if (!clientKey) return;
 
       // REGLA SEGUNDO PRORRATEO (Día >= 10):
-      // Si fue capacitado el día >= 10 en un mes M (ej. Octubre), NO debe figurar en el mes M+1 (Noviembre).
-      const fCapOrReg = fCap || fReg;
+      // Si fue capacitado el día >= 10 en su mes de afiliación inicial (ej. Octubre), NO debe figurar en el mes M+1 (Noviembre).
+      const isInitialPeriod = fReg && fCap && fReg.getFullYear() === fCap.getFullYear() && fReg.getMonth() === fCap.getMonth();
+      const fCapOrReg = isInitialPeriod ? fCap : fReg;
       if (fCapOrReg && fCapOrReg.getDate() >= 10) {
         const isSegundoProrr = c.tipoProrrateo === 'SEGUNDO_PRORRATEO' || Number(c.diasProrrateoAdicional) > 0 || Number(c.montoProrrateoAdicional) > 0;
         if (isSegundoProrr) {
@@ -472,9 +473,8 @@ export default function ReportesExcelTab({
         return;
       }
 
-      // En el mes M de su capacitación o registro (ej. Octubre), figura su afiliación / alta
-      const targetEffectiveMonth = capMonthKey || regMonthKey;
-      if (targetEffectiveMonth === targetPeriodKey) {
+      // En el mes M de su registro inicial, figura su afiliación / alta si aún no tuviera pago procesado en pagos
+      if (regMonthKey === targetPeriodKey) {
         const monto = Number(c.montoMensual || c.precioPlan || 0);
         if (monto > 0) {
           clientRowMap.set(clientKey, {

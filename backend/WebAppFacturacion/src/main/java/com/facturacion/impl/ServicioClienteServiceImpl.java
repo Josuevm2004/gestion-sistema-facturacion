@@ -487,7 +487,10 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 nuevoServicio.setVenta(venta);
                 nuevoServicio.setFechaInicio(fechaInicio);
                 nuevoServicio.setFechaFin(fechaFin);
-                nuevoServicio.setFechaCapacitacion(fechaInicio);
+                LocalDateTime fechaCapOriginal = venta.getCliente() != null && venta.getCliente().getFechaRegistro() != null
+                        ? venta.getCliente().getFechaRegistro()
+                        : fechaInicio;
+                nuevoServicio.setFechaCapacitacion(venta.getTipoVenta() == TipoVenta.ALTA ? fechaInicio : fechaCapOriginal);
                 nuevoServicio.setEstado(EstadoServicio.ACTIVO);
                 nuevoServicio.setMontoProrrateo(venta.getMontoTotal() != null ? venta.getMontoTotal() : BigDecimal.ZERO);
                 nuevoServicio.setDiasProrrateados(30);
@@ -519,7 +522,7 @@ public class ServicioClienteServiceImpl implements ServicioClienteService {
                 continue;
             }
 
-            Venta ventaServicio = resolverVentaVigente(servicio);
+            Venta ventaServicio = servicio.getVenta() != null ? servicio.getVenta() : resolverVentaVigente(servicio);
             if (servicio.getFechaInicio() == null
                     || ventaServicio == null
                     || ventaServicio.getSuscripcion() == null

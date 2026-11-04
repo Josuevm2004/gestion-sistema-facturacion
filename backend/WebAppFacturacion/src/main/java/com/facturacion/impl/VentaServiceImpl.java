@@ -931,7 +931,14 @@ public class VentaServiceImpl implements VentaService {
         servicio.setVenta(venta);
         servicio.setFechaInicio(fechaInicio);
         servicio.setFechaFin(fechaFin);
-        servicio.setFechaCapacitacion(fechaInicio);
+        if (venta.getTipoVenta() == TipoVenta.ALTA) {
+            servicio.setFechaCapacitacion(fechaInicio);
+        } else {
+            LocalDateTime fechaCapOriginal = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(cliente.getId())
+                    .map(ServicioCliente::getFechaCapacitacion)
+                    .orElse(cliente.getFechaRegistro() != null ? cliente.getFechaRegistro() : fechaInicio);
+            servicio.setFechaCapacitacion(fechaCapOriginal != null ? fechaCapOriginal : fechaInicio);
+        }
         servicio.setEstado(EstadoServicio.ACTIVO);
         servicio.setMontoProrrateo(montoTotal);
         servicio.setDiasProrrateados(diasProrrateados);
