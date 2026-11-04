@@ -200,6 +200,7 @@ export default function ClientesTodosTab({
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
   const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
   const [avisadoFilter, setAvisadoFilter] = React.useState<string>('');
+  const [cicloFilter, setCicloFilter] = React.useState<string>('');
 
   // Configuración de visibilidad de columnas
   const [visibleColumns, setVisibleColumns] = React.useState<Record<string, boolean>>(() => {
@@ -368,7 +369,8 @@ export default function ClientesTodosTab({
     (capacitacionFilter && capacitacionFilter !== 'TODOS') ||
     (suscripcionFilter && suscripcionFilter !== 'TODOS') ||
     sellerFilter ||
-    avisadoFilter
+    avisadoFilter ||
+    cicloFilter
   );
 
   const resetAllFilters = () => {
@@ -380,9 +382,10 @@ export default function ClientesTodosTab({
     setSuscripcionFilter('');
     setSellerFilter('');
     setAvisadoFilter('');
+    setCicloFilter('');
   };
 
-  // Clientes procesados con fechas de vencimiento y filtro de avisado
+  // Clientes procesados con fechas de vencimiento, filtro de avisado y ciclo (prorrateo vs regular)
   const processedClients = React.useMemo(() => {
     return allFilteredClients
       .filter((c) => {
@@ -391,6 +394,27 @@ export default function ClientesTodosTab({
         } else if (avisadoFilter === 'NO_AVISADO') {
           if (c.avisado) return false;
         }
+
+        if (cicloFilter === 'PRORRATEO') {
+          const rawTipoProrr = (c.tipoProrrateo || '').toUpperCase();
+          const hasProrrateo =
+            rawTipoProrr === 'PRIMER_PRORRATEO' ||
+            rawTipoProrr === 'SEGUNDO_PRORRATEO' ||
+            Number(c.diasProrrateoAdicional) > 0 ||
+            Number(c.montoProrrateoAdicional) > 0 ||
+            (Number(c.diasProrrateados) > 0 && Number(c.diasProrrateados) < 30);
+          if (!hasProrrateo) return false;
+        } else if (cicloFilter === 'REGULAR') {
+          const rawTipoProrr = (c.tipoProrrateo || '').toUpperCase();
+          const hasProrrateo =
+            rawTipoProrr === 'PRIMER_PRORRATEO' ||
+            rawTipoProrr === 'SEGUNDO_PRORRATEO' ||
+            Number(c.diasProrrateoAdicional) > 0 ||
+            Number(c.montoProrrateoAdicional) > 0 ||
+            (Number(c.diasProrrateados) > 0 && Number(c.diasProrrateados) < 30);
+          if (hasProrrateo) return false;
+        }
+
         return true;
       })
       .map((c) => {
@@ -398,7 +422,7 @@ export default function ClientesTodosTab({
         const diffDays = getDiffDays(c.fechaVencimientoMensual);
         return { ...c, _vencDate: vencDate, _diffDays: diffDays };
       });
-  }, [allFilteredClients, avisadoFilter]);
+  }, [allFilteredClients, avisadoFilter, cicloFilter]);
 
   const totalPages = Math.max(1, Math.ceil(processedClients.length / pageSize));
   const visibleClients = React.useMemo(
@@ -417,6 +441,7 @@ export default function ClientesTodosTab({
     suscripcionFilter,
     sellerFilter,
     avisadoFilter,
+    cicloFilter,
     processedClients.length,
   ]);
 
@@ -586,6 +611,7 @@ export default function ClientesTodosTab({
               <option value="IMPULSA">Plan Impulsa (S/ 39)</option>
               <option value="EMPRESARIAL">Plan Empresarial (S/ 59)</option>
               <option value="LIDER">Plan Líder (S/ 89)</option>
+              <option value="REST">Plan REST (S/ 109)</option>
             </select>
           </div>
           <div className="col-lg-2 col-md-6 col-6">
@@ -638,6 +664,17 @@ export default function ClientesTodosTab({
               <option value="">Estado de Aviso: Todos</option>
               <option value="AVISADO">Sólo Avisados</option>
               <option value="NO_AVISADO">Sin Avisar (Pendientes)</option>
+            </select>
+          </div>
+          <div className="col-lg-3 col-md-4 col-12">
+            <select
+              className="form-select stitch-filter-select"
+              value={cicloFilter}
+              onChange={(e) => setCicloFilter(e.target.value)}
+            >
+              <option value="">Ciclo: Todos</option>
+              <option value="PRORRATEO">Con Prorrateo</option>
+              <option value="REGULAR">Ciclo Regular</option>
             </select>
           </div>
         </div>

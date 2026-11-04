@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { GraduationCap, CheckCircle, Calendar } from 'lucide-react';
+import React, { useState } from 'react';
+import { GraduationCap, CheckCircle, Calendar, Search, X } from 'lucide-react';
 import { Client } from './ClientesTodosTab';
 import PaginationControls from './PaginationControls';
 import { TableActionDropdown } from './TableActionDropdown';
@@ -23,6 +23,8 @@ export default function CapacitacionesTab({
   setTrainingDateInput,
 }: CapacitacionesTabProps) {
   const [openActionId, setOpenActionId] = React.useState<string | number | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [estadoFilter, setEstadoFilter] = useState<string>('');
 
   const targetList: Client[] = React.useMemo(() => {
     const list = clients.filter(
@@ -58,17 +60,51 @@ export default function CapacitacionesTab({
     });
   }, [clients]);
 
+  const filteredList: Client[] = React.useMemo(() => {
+    let list = targetList;
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase().trim();
+      list = list.filter((c) => {
+        const matchRuc = c.ruc?.toLowerCase().includes(q);
+        const matchRazon = c.razonSocial?.toLowerCase().includes(q);
+        const matchComercial = c.nombreComercial?.toLowerCase().includes(q);
+        const matchTel = c.telefono?.toLowerCase().includes(q) || c.telefonoPersonal?.toLowerCase().includes(q);
+        const matchVendedor = c.vendedor?.toLowerCase().includes(q);
+        const matchPlan = c.planContratado?.toLowerCase().includes(q);
+        return matchRuc || matchRazon || matchComercial || matchTel || matchVendedor || matchPlan;
+      });
+    }
+
+    if (estadoFilter === 'CAPACITADO') {
+      list = list.filter((c) => Boolean(
+        c.fechaCapacitacion ||
+        c.estadoCapacitacion === 'COMPLETADO' ||
+        c.estadoCapacitacion === 'COMPLETADA' ||
+        (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion)
+      ));
+    } else if (estadoFilter === 'PENDIENTE') {
+      list = list.filter((c) => !Boolean(
+        c.fechaCapacitacion ||
+        c.estadoCapacitacion === 'COMPLETADO' ||
+        c.estadoCapacitacion === 'COMPLETADA' ||
+        (c.estadoCuenta === 'HABILITADO' && c.fechaCapacitacion)
+      ));
+    }
+
+    return list;
+  }, [targetList, searchTerm, estadoFilter]);
+
   const pageSize = 10;
   const [currentPage, setCurrentPage] = React.useState(1);
-  const totalPages = Math.max(1, Math.ceil(targetList.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredList.length / pageSize));
   const visibleClients = React.useMemo(
-    () => targetList.slice((currentPage - 1) * pageSize, currentPage * pageSize),
-    [targetList, currentPage]
+    () => filteredList.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredList, currentPage]
   );
 
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [targetList.length]);
+  }, [filteredList.length, searchTerm, estadoFilter]);
 
   React.useEffect(() => {
     setCurrentPage((page) => Math.min(page, totalPages));
@@ -93,8 +129,63 @@ export default function CapacitacionesTab({
           </div>
         </div>
         <span className="admin-badge-count-pill admin-badge-count-pill--primary">
-          {targetList.length} Registros
+          {filteredList.length} Registros
         </span>
+      </div>
+
+      {/* Buscador de Capacitaciones */}
+      <div className="stitch-filter-toolbar mb-3">
+        <div className="row g-2 align-items-center">
+          <div className="col-lg-6 col-md-7 col-12">
+            <div className="stitch-filter-search position-relative">
+              <Search size={15} />
+              <input
+                type="text"
+                className="form-control stitch-filter-input pe-5"
+                placeholder="Buscar capacitación por RUC, Empresa, Teléfono, Asesor, Plan..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  className="btn-circle-meta position-absolute end-0 top-50 translate-middle-y me-2 border-0 bg-transparent text-muted"
+                  style={{ width: '24px', height: '24px' }}
+                  onClick={() => setSearchTerm('')}
+                  title="Limpiar búsqueda"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="col-lg-3 col-md-5 col-8">
+            <select
+              className="form-select stitch-filter-select"
+              value={estadoFilter}
+              onChange={(e) => setEstadoFilter(e.target.value)}
+            >
+              <option value="">Capacitación: Todos</option>
+              <option value="PENDIENTE">Pendientes de Capacitar</option>
+              <option value="CAPACITADO">Capacitados Realizados</option>
+            </select>
+          </div>
+          <div className="col-lg-3 col-12 d-flex justify-content-lg-end">
+            {(searchTerm || estadoFilter) && (
+              <button
+                type="button"
+                className="btn-meta-action btn-meta-action-secondary"
+                onClick={() => {
+                  setSearchTerm('');
+                  setEstadoFilter('');
+                }}
+              >
+                <X size={13} />
+                <span>Limpiar ({filteredList.length})</span>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Tabla Expandida al 100% con Dropdown de Acciones */}
@@ -113,10 +204,12 @@ export default function CapacitacionesTab({
               </tr>
             </thead>
             <tbody>
-              {targetList.length === 0 ? (
+              {filteredList.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center text-muted py-5 fw-semibold">
-                    No hay empresas para capacitación en este momento.
+                    {searchTerm || estadoFilter
+                      ? 'No se encontraron empresas que coincidan con la búsqueda o filtro seleccionado.'
+                      : 'No hay empresas para capacitación en este momento.'}
                   </td>
                 </tr>
               ) : (
@@ -227,7 +320,7 @@ export default function CapacitacionesTab({
 
       <PaginationControls
         currentPage={currentPage}
-        totalItems={targetList.length}
+        totalItems={filteredList.length}
         pageSize={pageSize}
         onPageChange={setCurrentPage}
       />

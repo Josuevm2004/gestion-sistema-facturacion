@@ -90,6 +90,7 @@ export default function EditClientModal({
     IMPULSA: { MENSUAL: 39, ANUAL: 390 },
     EMPRESARIAL: { MENSUAL: 59, ANUAL: 590 },
     LIDER: { MENSUAL: 89, ANUAL: 890 },
+    REST: { MENSUAL: 109, ANUAL: 1090 },
   };
 
   const activePrices = PLAN_PRICES[selectedPlan] || { MENSUAL: 19, ANUAL: 190 };
@@ -247,6 +248,7 @@ export default function EditClientModal({
                     <option value="IMPULSA">Plan Impulsa (S/ 39 / mes)</option>
                     <option value="EMPRESARIAL">Plan Empresarial (S/ 59 / mes)</option>
                     <option value="LIDER">Plan Líder (S/ 89 / mes)</option>
+                    <option value="REST">Plan REST (S/ 109 / mes)</option>
                   </select>
                 </div>
                 <div className="col-md-4">

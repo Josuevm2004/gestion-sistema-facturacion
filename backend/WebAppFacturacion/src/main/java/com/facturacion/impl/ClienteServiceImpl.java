@@ -726,6 +726,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Transactional
     public ClienteDashboardResponse cambiarColorTag(Long clienteId, Long colorTagId) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
         ColorTag color = colorTagRepository.findById(colorTagId)
                 .orElseThrow(() -> new ResourceNotFoundException("Color no encontrado"));
@@ -738,6 +739,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Transactional
     public ClienteDashboardResponse cambiarVendedor(Long clienteId, Long vendedorId) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
         List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
         if (ventasCliente.isEmpty()) {
@@ -751,6 +753,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Transactional
     public ClienteDashboardResponse asignarmeVendedor(Long clienteId, String username) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
         UsuarioAdmin vendedor = usuarioAdminRepository.findByUsernameAndActivoTrue(username)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario vendedor no encontrado"));
@@ -784,6 +787,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Transactional
     public ClienteDashboardResponse cambiarEstadoCliente(Long clienteId, String nuevoEstadoNombre) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
         EstadoCliente viejoEstado = cliente.getEstado();
@@ -815,6 +819,7 @@ public class ClienteServiceImpl implements ClienteService {
     @Transactional
     public ClienteDashboardResponse toggleAvisado(Long clienteId, Boolean avisado) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + clienteId));
         boolean nuevoEstado = avisado != null ? avisado : !cliente.getAvisado();
         cliente.setAvisado(nuevoEstado);
@@ -827,13 +832,46 @@ public class ClienteServiceImpl implements ClienteService {
     @Transactional
     public void eliminarClientePermanentemente(Long clienteId) {
         Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
 
-        // Se elimina en orden explícito para evitar bloqueos por claves foráneas
-        notificacionRepository.deleteByClienteId(clienteId);
-        historialEstadoClienteRepository.deleteByClienteId(clienteId);
-        encuestaInicialRepository.deleteByClienteId(clienteId);
-        servicioClienteRepository.deleteAll(servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId));
+
+        // 1. Borrado lógico del cliente (desaparece de clientes activos y futuras cobranzas)
+        cliente.setActivo(false);
+        cliente.setFechaEliminacion(LocalDateTime.now());
+        clienteRepository.save(cliente);
+
+        // 2. Cancelar servicios en curso
+        servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId).forEach(servicio -> {
+            servicio.setEstado(EstadoServicio.CANCELADO);
+            servicio.setFechaActualizacion(LocalDateTime.now());
+            servicioClienteRepository.save(servicio);
+        });
+
+        // 3. Cancelar ventas pendientes de pago para que no sigan sumando como deuda futura
+        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+        for (Venta venta : ventas) {
+            if (venta.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO) {
+                venta.setEstadoVenta(EstadoVenta.CANCELADA);
+                venta.setFechaActualizacion(LocalDateTime.now());
+                ventaRepository.save(venta);
+            }
+        }
+    }
+
+    /*
+    private void oldBlock(Long clienteId) {
+        Cliente cliente = null;
+
+
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+
+
+
+
+
 
         List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
         for (Venta venta : ventas) {
@@ -845,9 +883,10 @@ public class ClienteServiceImpl implements ClienteService {
         }
 
         ventaRepository.deleteAll(ventas);
-        clienteRepository.delete(cliente);
+        clienteRepository.delete(cliente); } */ /*
     }
 
+    */
     private void registrarHistorial(Cliente cliente, EstadoCliente viejo, EstadoCliente nuevo, UsuarioAdmin usuario, String motivo) {
         HistorialEstadoCliente h = new HistorialEstadoCliente();
         h.setCliente(cliente);
