@@ -161,6 +161,21 @@ export default function RegistrarPagoModal({
       };
     }
 
+    // Si el cliente tiene un cobro programado pendiente (ej. segundo prorrateo de S/ 44.90 que debe regularizar):
+    const scheduledMonto = Number(client.montoSiguienteCobro || 0);
+    if (scheduledMonto > 0 && scheduledMonto !== precioOficialPlan) {
+      const fin = new Date(inicio);
+      fin.setMonth(fin.getMonth() + 1);
+      const diasAdic = client.diasProrrateoAdicional ? ` + ${client.diasProrrateoAdicional} días adic.` : '';
+      const montoAdic = client.montoProrrateoAdicional ? ` (S/ ${Number(client.montoProrrateoAdicional).toFixed(2)})` : '';
+      return {
+        monto: scheduledMonto,
+        fechaInicioPeriodo: inicio,
+        fechaFinPeriodo: fin,
+        detalleCalculo: `Cobro pendiente por regularizar: S/ ${scheduledMonto.toFixed(2)} (Mes base S/ ${precioOficialPlan.toFixed(2)}${diasAdic}${montoAdic}). Nuevo período inicia en fecha de pago y se recalculará el prorrateo de realineación.`,
+      };
+    }
+
     const dia = payDate.getDate();
     const y = payDate.getFullYear();
     const m = payDate.getMonth();
