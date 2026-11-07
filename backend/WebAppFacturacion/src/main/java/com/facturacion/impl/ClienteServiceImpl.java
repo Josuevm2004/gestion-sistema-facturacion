@@ -1,1197 +1,2138 @@
-package com.facturacion.impl;
-
-import com.facturacion.entity.*;
-import com.facturacion.enums.EstadoServicio;
-import com.facturacion.enums.EstadoVenta;
-import com.facturacion.enums.TipoProrrateo;
-import com.facturacion.enums.TipoSuscripcion;
-import com.facturacion.enums.TipoVenta;
-import com.facturacion.exception.ResourceNotFoundException;
-import com.facturacion.exception.VentaInvalidaException;
-import com.facturacion.repository.*;
-import com.facturacion.request.ClienteUpdateRequest;
-import com.facturacion.request.RegistroFormularioRequest;
-import com.facturacion.response.ClienteDashboardResponse;
-import com.facturacion.response.DetalleClienteResponse;
-import com.facturacion.response.OperacionHistorialResponse;
-import com.facturacion.service.ClienteService;
-import com.facturacion.util.ProrrateoCalculatorUtil;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-
-@Service
-public class ClienteServiceImpl implements ClienteService {
-
-    private static final LocalTime BILLING_CUTOFF_TIME = LocalTime.MIDNIGHT;
-
-    @Autowired
-    private ClienteRepository clienteRepository;
-    @Autowired
-    private EstadoClienteRepository estadoClienteRepository;
-    @Autowired
-    private ColorTagRepository colorTagRepository;
-    @Autowired
-    private EntornoRepository entornoRepository;
-    @Autowired
-    private UsuarioAdminRepository usuarioAdminRepository;
-    @Autowired
-    private PlanRepository planRepository;
-    @Autowired
-    private SuscripcionRepository suscripcionRepository;
-    @Autowired
-    private VentaRepository ventaRepository;
-    @Autowired
-    private ServicioClienteRepository servicioClienteRepository;
-    @Autowired
-    private PagoRepository pagoRepository;
-    @Autowired
-    private EncuestaInicialRepository encuestaInicialRepository;
-    @Autowired
-    private HistorialEstadoClienteRepository historialEstadoClienteRepository;
-    @Autowired
-    private NotificacionRepository notificacionRepository;
-
-    @Value("${app.billing.monthly-billing-day:1}")
-    private int monthlyBillingDay;
-
-    @Override
-    @Transactional
-    public ClienteDashboardResponse registrarFormulario(RegistroFormularioRequest request) {
-        LocalDateTime fechaOperacion = LocalDateTime.now();
-
-        // 1. Obtener o asignar estado POR_COBRAR
-        EstadoCliente estadoPorCobrar = estadoClienteRepository.findByNombreAndActivoTrue("POR_COBRAR")
-                .orElseGet(() -> {
-                    EstadoCliente nuevo = new EstadoCliente();
-                    nuevo.setNombre("POR_COBRAR");
-                    nuevo.setDescripcion("Cliente registrado pero pendiente de pago");
-                    return estadoClienteRepository.save(nuevo);
-                });
-
-        // 2. Comprobar si el RUC ya existe para evitar errores 500 de clave duplicada
-        String rucFinal = request.getRuc();
-        if (rucFinal == null || rucFinal.trim().isBlank()) {
-            rucFinal = "99" + String.format("%09d", System.currentTimeMillis() % 1000000000L);
-        } else {
-            rucFinal = rucFinal.trim().replaceAll("\\D", "");
-            if (rucFinal.isBlank()) {
-                rucFinal = "99" + String.format("%09d", System.currentTimeMillis() % 1000000000L);
-            } else if (rucFinal.length() < 11) {
-                rucFinal = String.format("%-11s", rucFinal).replace(' ', '0');
-            } else if (rucFinal.length() > 11) {
-                rucFinal = rucFinal.substring(0, 11);
-            }
-        }
-        request.setRuc(rucFinal);
-
-        Optional<Cliente> clienteExistenteOpt = clienteRepository.findByRuc(request.getRuc());
-        Cliente cliente;
-        if (clienteExistenteOpt.isPresent()) {
-            Cliente existente = clienteExistenteOpt.get();
-            if (!Boolean.TRUE.equals(existente.getActivo())) {
-                // Reactivar cliente previo eliminado
-                cliente = existente;
-                cliente.setActivo(true);
-            } else {
-                throw new VentaInvalidaException("El RUC " + request.getRuc() + " ya se encuentra registrado en el sistema.");
-            }
-        } else {
-            cliente = new Cliente();
-            cliente.setRuc(request.getRuc());
-        }
-
-        boolean tieneUsuarioSol = request.getUsuarioSol() != null && !request.getUsuarioSol().trim().isBlank();
-        boolean tieneClaveSol = request.getClaveSol() != null && !request.getClaveSol().trim().isBlank();
-        cliente.setUsuarioSol(tieneUsuarioSol ? request.getUsuarioSol().trim() : "SIN_USUARIO");
-        cliente.setClaveSolCifrada(tieneClaveSol ? request.getClaveSol().trim() : "SIN_CLAVE");
-
-        String razonSocialFinal = request.getRazonSocial();
-        if (razonSocialFinal == null || razonSocialFinal.trim().isBlank()) {
-            if (request.getNombreComercial() != null && !request.getNombreComercial().trim().isBlank()) {
-                razonSocialFinal = request.getNombreComercial().trim();
-            } else {
-                razonSocialFinal = "Cliente " + rucFinal;
-            }
-        }
-        cliente.setRazonSocial(razonSocialFinal.trim());
-
-        cliente.setNombreComercial(request.getNombreComercial());
-        cliente.setDireccion(request.getDireccion());
-        cliente.setTelefono(request.getTelefono());
-        cliente.setEmail(request.getEmail());
-        cliente.setNombres(request.getNombres());
-        cliente.setApellidos(request.getApellidos());
-        cliente.setDni(request.getDni());
-        cliente.setEmailPersonal(request.getEmailPersonal());
-        cliente.setTelefonoPersonal(request.getTelefonoPersonal());
-        cliente.setDepartamento(request.getDepartamento());
-        cliente.setProvincia(request.getProvincia());
-        cliente.setDistrito(request.getDistrito());
-        if (request.getDniRepresentante() != null) {
-            String dniRep = request.getDniRepresentante().trim();
-            cliente.setDniRepresentante(dniRep.isBlank() ? null : dniRep);
-        }
-        if (request.getCorreoRepresentante() != null) {
-            String correoRep = request.getCorreoRepresentante().trim();
-            cliente.setCorreoRepresentante(correoRep.isBlank() ? null : correoRep);
-        }
-        if (request.getPrimeraVezOProviene() != null) {
-            String val = request.getPrimeraVezOProviene().trim();
-            cliente.setPrimeraVezOProviene(val.isBlank() ? null : val);
-        }
-        if (request.getUsabaSunatAnteriormente() != null) {
-            String val = request.getUsabaSunatAnteriormente().trim();
-            cliente.setUsabaSunatAnteriormente(val.isBlank() ? null : val);
-        }
-        if (request.getTipoIgv() != null) {
-            String val = request.getTipoIgv().trim();
-            cliente.setTipoIgv(val.isBlank() ? null : val);
-        }
-        if (request.getRegimenTributario() != null) {
-            String val = request.getRegimenTributario().trim();
-            cliente.setRegimenTributario(val.isBlank() ? null : val);
-        }
-        Entorno entornoSeleccionado = null;
-        if (request.getEntornoId() != null) {
-            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
-                    .orElse(null);
-        }
-        if (entornoSeleccionado == null) {
-            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(1L)
-                    .orElseGet(() -> entornoRepository.findAll().stream()
-                            .filter(e -> Boolean.TRUE.equals(e.getActivo()))
-                            .findFirst()
-                            .orElse(null));
-        }
-        if (entornoSeleccionado != null) {
-            cliente.setEntorno(entornoSeleccionado);
-        }
-        cliente.setEstado(estadoPorCobrar);
-        cliente.setFechaRegistro(fechaOperacion);
-        cliente.setFechaActualizacion(fechaOperacion);
-        cliente = clienteRepository.save(cliente);
-
-        // 3. Registrar Encuesta Inicial
-        if (request.getComoNosConocio() != null || request.getComentarios() != null) {
-            EncuestaInicial encuesta = new EncuestaInicial();
-            encuesta.setCliente(cliente);
-            encuesta.setComoNosConocio(request.getComoNosConocio());
-            encuesta.setUsoSistemaAnterior(Boolean.TRUE.equals(request.getUsoSistemaAnterior()));
-            encuesta.setVolumenFacturacionEstimado(request.getVolumenFacturacionEstimado());
-            encuesta.setComentarios(request.getComentarios());
-            encuesta.setFechaRespuesta(fechaOperacion);
-            encuestaInicialRepository.save(encuesta);
-        }
-
-        // 4. Obtener Suscripción elegida
-        Long planId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
-        if (planId == null) {
-            planId = 2L; // EMPRENDE por defecto
-        }
-        TipoSuscripcion tipoSub = request.getTipoSuscripcion() != null ? request.getTipoSuscripcion() : TipoSuscripcion.MENSUAL;
-
-        Suscripcion suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(planId, tipoSub)
-                .orElse(null);
-        if (suscripcion == null) {
-            for (Suscripcion s : suscripcionRepository.findAll()) {
-                if (Boolean.TRUE.equals(s.getActivo())) {
-                    suscripcion = s;
-                    break;
-                }
-            }
-        }
-        if (suscripcion == null) {
-            throw new ResourceNotFoundException("No existe una suscripcion activa para el plan y modalidad seleccionados");
-        }
-
-        // 5. Vendedor inicial
-        UsuarioAdmin vendedor = null;
-        if (request.getVendedorId() != null) {
-            vendedor = usuarioAdminRepository.findById(request.getVendedorId()).orElse(null);
-        }
-
-        // 6. Crear Venta ALTA
-        Venta venta = new Venta();
-        venta.setCliente(cliente);
-        venta.setVendedor(vendedor);
-        venta.setSuscripcion(suscripcion);
-        venta.setTipoVenta(TipoVenta.ALTA);
-        venta.setPrecioLista(suscripcion.getPrecio());
-        venta.setMontoProrrateado(BigDecimal.ZERO);
-        venta.setMontoTotal(suscripcion.getPrecio());
-        venta.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
-        venta.setObservaciones("Venta inicial generada desde el formulario onboarding");
-        venta.setFechaVenta(fechaOperacion);
-        venta.setFechaActualizacion(fechaOperacion);
-        venta = ventaRepository.save(venta);
-
-        // 7. Crear ServicioCliente PENDIENTE_CAPACITACION
-        ServicioCliente servicio = new ServicioCliente();
-        servicio.setCliente(cliente);
-        servicio.setVenta(venta);
-        servicio.setFechaInicio(fechaOperacion);
-        if (tipoSub == TipoSuscripcion.ANUAL) {
-            servicio.setFechaFin(fechaOperacion.plusYears(1));
-        } else if (fechaOperacion.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
-            LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
-                    suscripcion.getPrecio(),
-                    fechaOperacion.toLocalDate()
-            ).fechaFin().plusDays(1);
-            servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
-        } else {
-            LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaOperacion.toLocalDate(), monthlyBillingDay);
-            servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
-        }
-        servicio.setEstado(EstadoServicio.PENDIENTE_CAPACITACION);
-        servicio.setObservaciones("Servicio registrado desde formulario de onboarding");
-        servicio.setFechaCreacion(fechaOperacion);
-        servicio.setFechaActualizacion(fechaOperacion);
-        servicioClienteRepository.save(servicio);
-
-        // 8. Historial de Estado
-        registrarHistorial(cliente, null, estadoPorCobrar, vendedor, "Registro inicial vía encuesta onboarding");
-
-        return mapToDashboardResponse(cliente);
-    }
-
-    private Long resolverPlanId(String planContratado) {
-        String rawPlan = planContratado == null ? "" : planContratado;
-        String normalized = java.text.Normalizer.normalize(rawPlan, java.text.Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "")
-                .toUpperCase()
-                .replace("PLAN ", "")
-                .trim();
-
-        return switch (normalized) {
-            case "EMPRENDE" -> 2L;
-            case "IMPULSA" -> 3L;
-            case "EMPRESARIAL" -> 4L;
-            case "LIDER" -> 5L;
-            case "REST" -> 6L;
-            case "INICIAL", "INICIA" -> 1L;
-            default -> null;
-        };
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ClienteDashboardResponse> listarClientes() {
-        List<Cliente> clientes = clienteRepository.findByActivoTrue();
-        if (clientes.isEmpty()) {
-            return List.of();
-        }
-
-        List<Long> clienteIds = clientes.stream()
-                .map(Cliente::getId)
-                .filter(java.util.Objects::nonNull)
-                .toList();
-        Map<Long, ServicioCliente> servicioPorCliente = new HashMap<>();
-        Map<Long, LocalDateTime> capInicialPorCliente = new HashMap<>();
-        for (ServicioCliente servicio : servicioClienteRepository.findByClienteIdInOrderByFechaFinDesc(clienteIds)) {
-            if (servicio.getCliente() != null && servicio.getCliente().getId() != null) {
-                Long cid = servicio.getCliente().getId();
-                servicioPorCliente.putIfAbsent(cid, servicio);
-                if (servicio.getFechaCapacitacion() != null) {
-                    capInicialPorCliente.compute(cid, (k, currentMin) ->
-                            currentMin == null || servicio.getFechaCapacitacion().isBefore(currentMin)
-                                    ? servicio.getFechaCapacitacion()
-                                    : currentMin
-                    );
-                }
-            }
-        }
-
-        Map<Long, List<Venta>> ventasPorCliente = new HashMap<>();
-        for (Venta venta : ventaRepository.findByClienteIdInOrderByFechaVentaDesc(clienteIds)) {
-            if (venta.getCliente() != null && venta.getCliente().getId() != null) {
-                ventasPorCliente.computeIfAbsent(venta.getCliente().getId(), ignored -> new ArrayList<>()).add(venta);
-            }
-        }
-
-        List<ClienteDashboardResponse> list = new ArrayList<>();
-        for (Cliente c : clientes) {
-            try {
-                list.add(mapToDashboardResponse(
-                        c,
-                        servicioPorCliente.get(c.getId()),
-                        ventasPorCliente.getOrDefault(c.getId(), List.of()),
-                        capInicialPorCliente.get(c.getId())
-                ));
-            } catch (RuntimeException ex) {
-                list.add(mapToDashboardResponseBasico(c));
-            }
-        }
-        return list;
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public DetalleClienteResponse obtenerPorId(Long id) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
-
-        DetalleClienteResponse detalle = new DetalleClienteResponse();
-        detalle.setCliente(mapToDashboardResponse(cliente));
-
-        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(id);
-        detalle.setVentasHistorial(mapVentasHistorial(ventas));
-
-        List<Pago> pagos = pagoRepository.findByVentaClienteIdOrderByFechaRegistroDesc(id);
-        detalle.setPagosHistorial(mapPagosHistorial(pagos));
-
-        List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(id);
-        detalle.setOperacionesHistorial(construirHistorialOperaciones(ventas, pagos, servicios));
-
-        List<HistorialEstadoCliente> historico = historialEstadoClienteRepository.findByClienteIdOrderByFechaCambioDesc(id);
-        detalle.setEstadosHistorial(mapEstadosHistorial(historico));
-
-        return detalle;
-    }
-
-    private List<Object> mapVentasHistorial(List<Venta> ventas) {
-        List<Object> result = new ArrayList<>();
-        for (Venta v : ventas) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", v.getId());
-            item.put("ventaId", v.getId());
-            item.put("clienteId", v.getCliente() != null ? v.getCliente().getId() : null);
-            item.put("tipoVenta", v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
-            item.put("tipoOperacion", v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
-            item.put("estadoVenta", v.getEstadoVenta() != null ? v.getEstadoVenta().name() : null);
-            item.put("fechaVenta", v.getFechaVenta());
-            item.put("fechaOperacion", v.getFechaVenta());
-            item.put("precioLista", v.getPrecioLista());
-            item.put("montoTotal", v.getMontoTotal());
-            item.put("montoVenta", v.getMontoTotal());
-            item.put("montoProrrateado", v.getMontoProrrateado());
-            item.put("tipoProrrateo", v.getTipoProrrateo() != null ? v.getTipoProrrateo().name() : TipoProrrateo.NINGUNO.name());
-            item.put("montoProrrateoAdicional", v.getMontoProrrateoAdicional());
-            item.put("diasProrrateoAdicional", v.getDiasProrrateoAdicional());
-            item.put("fechaInicioProrrateoAdicional", v.getFechaInicioProrrateoAdicional());
-            item.put("fechaFinProrrateoAdicional", v.getFechaFinProrrateoAdicional());
-            item.put("observaciones", v.getObservaciones());
-            if (v.getSuscripcion() != null) {
-                item.put("suscripcionId", v.getSuscripcion().getId());
-                item.put("tipoSuscripcion", v.getSuscripcion().getTipoSuscripcion() != null ? v.getSuscripcion().getTipoSuscripcion().name() : null);
-                if (v.getSuscripcion().getPlan() != null) {
-                    item.put("planId", v.getSuscripcion().getPlan().getId());
-                    item.put("plan", v.getSuscripcion().getPlan().getNombrePlan());
-                    item.put("planNombre", v.getSuscripcion().getPlan().getNombrePlan());
-                }
-            }
-            result.add(item);
-        }
-        return result;
-    }
-
-    private List<Object> mapPagosHistorial(List<Pago> pagos) {
-        List<Object> result = new ArrayList<>();
-        for (Pago p : pagos) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", p.getId());
-            item.put("pagoId", p.getId());
-            item.put("ventaId", p.getVenta() != null ? p.getVenta().getId() : null);
-            item.put("clienteId", p.getVenta() != null && p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
-            item.put("codigoOperacion", p.getCodigoOperacion());
-            item.put("monto", p.getMonto());
-            item.put("medioPago", p.getMedioPago() != null ? p.getMedioPago().name() : null);
-            item.put("estadoPago", p.getEstadoPago() != null ? p.getEstadoPago().name() : null);
-            item.put("fechaPago", p.getFechaPago());
-            item.put("fechaRegistro", p.getFechaRegistro());
-            item.put("comprobanteUrl", p.getComprobanteUrl());
-            item.put("observaciones", p.getObservaciones());
-
-            if (p.getVenta() != null) {
-                ServicioCliente sc = servicioClienteRepository.findByVentaId(p.getVenta().getId()).orElse(null);
-                if (sc != null) {
-                    item.put("periodoInicio", sc.getFechaInicio());
-                    item.put("periodoFin", sc.getFechaFin());
-                } else if (p.getVenta().getFechaVenta() != null) {
-                    item.put("periodoInicio", p.getVenta().getFechaVenta());
-                    item.put("periodoFin", p.getVenta().getFechaVenta().plusMonths(1));
-                }
-
-                Map<String, Object> venta = new LinkedHashMap<>();
-                venta.put("id", p.getVenta().getId());
-                venta.put("clienteId", p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
-                if (sc != null) {
-                    venta.put("periodoInicio", sc.getFechaInicio());
-                    venta.put("periodoFin", sc.getFechaFin());
-                }
-                venta.put("montoTotal", p.getVenta().getMontoTotal());
-                venta.put("tipoProrrateo", p.getVenta().getTipoProrrateo() != null
-                        ? p.getVenta().getTipoProrrateo().name()
-                        : TipoProrrateo.NINGUNO.name());
-                venta.put("montoProrrateoAdicional", p.getVenta().getMontoProrrateoAdicional());
-                venta.put("diasProrrateoAdicional", p.getVenta().getDiasProrrateoAdicional());
-                venta.put("fechaInicioProrrateoAdicional", p.getVenta().getFechaInicioProrrateoAdicional());
-                venta.put("fechaFinProrrateoAdicional", p.getVenta().getFechaFinProrrateoAdicional());
-                venta.put("estadoVenta", p.getVenta().getEstadoVenta() != null ? p.getVenta().getEstadoVenta().name() : null);
-                venta.put("tipoVenta", p.getVenta().getTipoVenta() != null ? p.getVenta().getTipoVenta().name() : null);
-                venta.put("fechaVenta", p.getVenta().getFechaVenta());
-                if (p.getVenta().getSuscripcion() != null) {
-                    venta.put("tipoSuscripcion", p.getVenta().getSuscripcion().getTipoSuscripcion() != null
-                            ? p.getVenta().getSuscripcion().getTipoSuscripcion().name()
-                            : null);
-                    if (p.getVenta().getSuscripcion().getPlan() != null) {
-                        venta.put("plan", p.getVenta().getSuscripcion().getPlan().getNombrePlan());
-                        venta.put("planNombre", p.getVenta().getSuscripcion().getPlan().getNombrePlan());
-                    }
-                }
-                item.put("venta", venta);
-            }
-
-            result.add(item);
-        }
-        return result;
-    }
-
-    private List<Object> mapEstadosHistorial(List<HistorialEstadoCliente> historico) {
-        List<Object> result = new ArrayList<>();
-        for (HistorialEstadoCliente h : historico) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", h.getId());
-            item.put("estadoAnterior", h.getEstadoAnterior() != null ? h.getEstadoAnterior().getNombre() : null);
-            item.put("estadoNuevo", h.getEstadoNuevo() != null ? h.getEstadoNuevo().getNombre() : null);
-            item.put("motivo", h.getMotivo());
-            item.put("fechaCambio", h.getFechaCambio());
-            item.put("usuarioAdmin", h.getUsuarioAdmin() != null ? h.getUsuarioAdmin().getNombre() : null);
-            result.add(item);
-        }
-        return result;
-    }
-
-    private List<OperacionHistorialResponse> construirHistorialOperaciones(
-            List<Venta> ventas,
-            List<Pago> pagos,
-            List<ServicioCliente> servicios) {
-        Map<Long, Pago> pagoPorVenta = new HashMap<>();
-        for (Pago p : pagos) {
-            if (p.getVenta() != null && p.getVenta().getId() != null) {
-                pagoPorVenta.putIfAbsent(p.getVenta().getId(), p);
-            }
-        }
-
-        Map<Long, ServicioCliente> servicioPorVenta = new HashMap<>();
-        for (ServicioCliente s : servicios) {
-            if (s.getVenta() != null && s.getVenta().getId() != null) {
-                servicioPorVenta.put(s.getVenta().getId(), s);
-            }
-        }
-
-        List<OperacionHistorialResponse> operaciones = new ArrayList<>();
-        for (Venta v : ventas) {
-            Pago p = pagoPorVenta.get(v.getId());
-            ServicioCliente s = servicioPorVenta.get(v.getId());
-
-            OperacionHistorialResponse op = new OperacionHistorialResponse();
-            op.setVentaId(v.getId());
-            op.setFechaOperacion(v.getFechaVenta());
-            op.setTipoOperacion(v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
-            op.setEstadoVenta(v.getEstadoVenta() != null ? v.getEstadoVenta().name() : null);
-            op.setPrecioLista(v.getPrecioLista());
-            op.setMontoVenta(v.getMontoTotal());
-            op.setDescuentoProrrateo(v.getMontoProrrateado());
-            op.setTipoProrrateo(v.getTipoProrrateo() != null ? v.getTipoProrrateo().name() : TipoProrrateo.NINGUNO.name());
-            op.setMontoProrrateoAdicional(v.getMontoProrrateoAdicional());
-            op.setDiasProrrateoAdicional(v.getDiasProrrateoAdicional());
-            op.setFechaInicioProrrateoAdicional(v.getFechaInicioProrrateoAdicional());
-            op.setFechaFinProrrateoAdicional(v.getFechaFinProrrateoAdicional());
-            op.setObservaciones(v.getObservaciones());
-
-            if (v.getSuscripcion() != null) {
-                op.setTipoSuscripcion(v.getSuscripcion().getTipoSuscripcion() != null ? v.getSuscripcion().getTipoSuscripcion().name() : null);
-                op.setPrecioPlan(v.getSuscripcion().getPrecio());
-                if (v.getSuscripcion().getPlan() != null) {
-                    op.setPlan(v.getSuscripcion().getPlan().getNombrePlan());
-                }
-            }
-
-            if (p != null) {
-                op.setPagoId(p.getId());
-                op.setFechaPago(p.getFechaPago());
-                op.setEstadoPago(p.getEstadoPago() != null ? p.getEstadoPago().name() : null);
-                op.setMontoPagado(p.getMonto());
-            }
-
-            if (s != null) {
-                op.setServicioId(s.getId());
-                op.setFechaInicioServicio(s.getFechaInicio());
-                op.setFechaFinServicio(s.getFechaFin());
-                op.setEstadoServicio(s.getEstado() != null ? s.getEstado().name() : null);
-                op.setMontoProrrateado(s.getMontoProrrateo());
-                op.setDiasProrrateados(s.getDiasProrrateados());
-            }
-
-            operaciones.add(op);
-        }
-
-        operaciones.sort(Comparator.comparing(OperacionHistorialResponse::getFechaOperacion, Comparator.nullsLast(Comparator.reverseOrder())));
-        return operaciones;
-    }
-
-    @Override
-    @Transactional
-    public ClienteDashboardResponse actualizarCliente(Long id, ClienteUpdateRequest request) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
-
-        if (request.getRazonSocial() != null) cliente.setRazonSocial(request.getRazonSocial());
-        if (request.getRuc() != null) cliente.setRuc(request.getRuc());
-        if (request.getUsuarioSol() != null) cliente.setUsuarioSol(request.getUsuarioSol());
-        if (request.getClaveSol() != null) cliente.setClaveSolCifrada(request.getClaveSol());
-        if (request.getNombreComercial() != null) cliente.setNombreComercial(request.getNombreComercial());
-        if (request.getDireccion() != null) cliente.setDireccion(request.getDireccion());
-        if (request.getTelefono() != null) cliente.setTelefono(request.getTelefono());
-        if (request.getEmail() != null) cliente.setEmail(request.getEmail());
-        if (request.getNombres() != null) cliente.setNombres(request.getNombres());
-        if (request.getApellidos() != null) cliente.setApellidos(request.getApellidos());
-        if (request.getDni() != null) cliente.setDni(request.getDni());
-        if (request.getEmailPersonal() != null) cliente.setEmailPersonal(request.getEmailPersonal());
-        if (request.getTelefonoPersonal() != null) cliente.setTelefonoPersonal(request.getTelefonoPersonal());
-        if (request.getDepartamento() != null) cliente.setDepartamento(request.getDepartamento());
-        if (request.getProvincia() != null) cliente.setProvincia(request.getProvincia());
-        if (request.getDistrito() != null) cliente.setDistrito(request.getDistrito());
-
-        if (request.getUsuarioAdminFacturador() != null) cliente.setUsuarioAdminFacturador(request.getUsuarioAdminFacturador());
-        if (request.getClaveTemporal() != null) cliente.setClaveTemporal(request.getClaveTemporal());
-        if (request.getUrlAcceso() != null) cliente.setUrlAcceso(request.getUrlAcceso());
-        if (request.getUsuarioWsp() != null) {
-            String usuarioWsp = request.getUsuarioWsp().trim();
-            cliente.setUsuarioWsp(usuarioWsp.isBlank() ? null : usuarioWsp);
-        }
-        if (request.getDniRepresentante() != null) cliente.setDniRepresentante(request.getDniRepresentante());
-        if (request.getCorreoRepresentante() != null) cliente.setCorreoRepresentante(request.getCorreoRepresentante());
-        if (request.getPrimeraVezOProviene() != null) {
-            String val = request.getPrimeraVezOProviene().trim();
-            cliente.setPrimeraVezOProviene(val.isBlank() ? null : val);
-        }
-        if (request.getUsabaSunatAnteriormente() != null) {
-            String val = request.getUsabaSunatAnteriormente().trim();
-            cliente.setUsabaSunatAnteriormente(val.isBlank() ? null : val);
-        }
-        if (request.getTipoIgv() != null) {
-            String val = request.getTipoIgv().trim();
-            cliente.setTipoIgv(val.isBlank() ? null : val);
-        }
-        if (request.getRegimenTributario() != null) {
-            String val = request.getRegimenTributario().trim();
-            cliente.setRegimenTributario(val.isBlank() ? null : val);
-        }
-
-        if (request.getColorTagId() != null) {
-            ColorTag colorTag = colorTagRepository.findById(request.getColorTagId()).orElse(null);
-            cliente.setColorTag(colorTag);
-        }
-
-        if (request.getEntornoId() != null) {
-            Entorno entorno = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Entorno no encontrado"));
-            cliente.setEntorno(entorno);
-        }
-
-        if (request.getEstadoId() != null) {
-            EstadoCliente nuevoEstado = estadoClienteRepository.findById(request.getEstadoId()).orElse(null);
-            if (nuevoEstado != null && !nuevoEstado.equals(cliente.getEstado())) {
-                EstadoCliente viejo = cliente.getEstado();
-                cliente.setEstado(nuevoEstado);
-                registrarHistorial(cliente, viejo, nuevoEstado, null, "Actualización de estado manual");
-            }
-        }
-
-        clienteRepository.save(cliente);
-
-        // Actualizar Plan y Precio SOLO si el plan o la suscripción cambiaron efectivamente
-        if (request.getPlanId() != null || request.getPlanContratado() != null || request.getTipoSuscripcion() != null) {
-            Long nuevoPlanId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
-            TipoSuscripcion tipoSub = null;
-            if (request.getTipoSuscripcion() != null && !request.getTipoSuscripcion().isBlank()) {
-                try {
-                    tipoSub = TipoSuscripcion.valueOf(request.getTipoSuscripcion().trim().toUpperCase());
-                } catch (IllegalArgumentException ignored) {}
-            }
-
-            List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(cliente.getId());
-            Venta ventaPendiente = ventasCliente.stream()
-                    .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
-                    .findFirst()
-                    .orElse(null);
-
-            if (nuevoPlanId == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null && ventaPendiente.getSuscripcion().getPlan() != null) {
-                nuevoPlanId = ventaPendiente.getSuscripcion().getPlan().getId();
-            }
-            if (tipoSub == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null) {
-                tipoSub = ventaPendiente.getSuscripcion().getTipoSuscripcion();
-            }
-            if (tipoSub == null) {
-                tipoSub = TipoSuscripcion.MENSUAL;
-            }
-
-            if (nuevoPlanId != null) {
-                Suscripcion nuevaSuscripcion = suscripcionRepository
-                        .findByPlanIdAndTipoSuscripcionAndActivoTrue(nuevoPlanId, tipoSub)
-                        .orElse(null);
-
-                if (nuevaSuscripcion != null && ventaPendiente != null) {
-                    boolean planCambio = ventaPendiente.getSuscripcion() == null
-                            || !nuevaSuscripcion.getId().equals(ventaPendiente.getSuscripcion().getId());
-
-                    // Solo actualizar venta y servicio si el plan realmente cambió
-                    if (planCambio) {
-                        ventaPendiente.setSuscripcion(nuevaSuscripcion);
-                        ventaPendiente.setPrecioLista(nuevaSuscripcion.getPrecio());
-
-                        if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
-                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
-                            ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
-                            LocalDate fechaBase = (serv != null && serv.getFechaCapacitacion() != null)
-                                    ? serv.getFechaCapacitacion().toLocalDate()
-                                    : (serv != null && serv.getFechaInicio() != null ? serv.getFechaInicio().toLocalDate() : LocalDate.now());
-
-                            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resSegundo =
-                                    ProrrateoCalculatorUtil.calcularSegundoProrrateo(nuevaSuscripcion.getPrecio(), fechaBase);
-                            Integer diasExistentes = ventaPendiente.getDiasProrrateoAdicional();
-                            int dias = (diasExistentes != null && diasExistentes > 0)
-                                    ? diasExistentes
-                                    : resSegundo.diasProrrateados();
-                            int diasDelMes = resSegundo.fechaInicio().lengthOfMonth();
-
-                            BigDecimal montoAdicional = (dias == resSegundo.diasProrrateados())
-                                    ? resSegundo.montoAdicional()
-                                    : nuevaSuscripcion.getPrecio()
-                                            .divide(BigDecimal.valueOf(diasDelMes), 10, RoundingMode.HALF_UP)
-                                            .multiply(BigDecimal.valueOf(dias))
-                                            .setScale(2, RoundingMode.HALF_UP);
-
-                            ventaPendiente.setMontoProrrateoAdicional(montoAdicional);
-                            ventaPendiente.setDiasProrrateoAdicional(dias);
-                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio().add(montoAdicional));
-                        } else if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO) {
-                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
-                            ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
-                            LocalDate fechaBase = (serv != null && serv.getFechaCapacitacion() != null)
-                                    ? serv.getFechaCapacitacion().toLocalDate()
-                                    : (serv != null && serv.getFechaInicio() != null ? serv.getFechaInicio().toLocalDate() : LocalDate.now());
-
-                            ProrrateoCalculatorUtil.ResultadoProrrateo resPrimer =
-                                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(nuevaSuscripcion.getPrecio(), fechaBase, monthlyBillingDay);
-                            ventaPendiente.setMontoProrrateado(resPrimer.descuento());
-                            ventaPendiente.setMontoTotal(resPrimer.montoFinal());
-                        } else {
-                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
-                        }
-
-                        ventaRepository.save(ventaPendiente);
-
-                        List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
-                        if (!servicios.isEmpty()) {
-                            ServicioCliente servicio = servicios.get(0);
-                            String estadoNombre = cliente.getEstado() != null ? cliente.getEstado().getNombre() : null;
-                            if (servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION || "POR_COBRAR".equals(estadoNombre)) {
-                                LocalDateTime inicio = servicio.getFechaInicio() != null ? servicio.getFechaInicio() : LocalDateTime.now();
-                                if (tipoSub == TipoSuscripcion.ANUAL) {
-                                    servicio.setFechaFin(inicio.plusYears(1));
-                                } else if (inicio.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
-                                    LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
-                                            nuevaSuscripcion.getPrecio(),
-                                            inicio.toLocalDate()
-                                    ).fechaFin().plusDays(1);
-                                    servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
-                                } else {
-                                    LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(inicio.toLocalDate(), monthlyBillingDay);
-                                    servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
-                                }
-                                servicio.setVenta(ventaPendiente);
-                                servicioClienteRepository.save(servicio);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (request.getVendedorId() != null) {
-            asignarVendedorAVentasExistentes(cliente.getId(), request.getVendedorId());
-        }
-        return mapToDashboardResponse(cliente);
-    }
-
-    @Override
-    @Transactional
-    public ClienteDashboardResponse cambiarColorTag(Long clienteId, Long colorTagId) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
-
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-        ColorTag color = colorTagRepository.findById(colorTagId)
-                .orElseThrow(() -> new ResourceNotFoundException("Color no encontrado"));
-        cliente.setColorTag(color);
-        clienteRepository.save(cliente);
-        return mapToDashboardResponse(cliente);
-    }
-
-    @Override
-    @Transactional
-    public ClienteDashboardResponse cambiarVendedor(Long clienteId, Long vendedorId) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
-
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
-        if (ventasCliente.isEmpty()) {
-            return mapToDashboardResponse(cliente);
-        }
-        asignarVendedorAVentasExistentes(clienteId, vendedorId);
-        return mapToDashboardResponse(cliente);
-    }
-
-    @Override
-    @Transactional
-    public ClienteDashboardResponse asignarmeVendedor(Long clienteId, String username) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
-
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-        UsuarioAdmin vendedor = usuarioAdminRepository.findByUsernameAndActivoTrue(username)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario vendedor no encontrado"));
-        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
-
-        if (ventasCliente.isEmpty()) {
-            throw new IllegalStateException("El cliente todavía no tiene una venta asignable");
-        }
-        boolean yaAsignado = ventasCliente.stream().anyMatch(venta -> venta.getVendedor() != null);
-        if (yaAsignado) {
-            throw new IllegalStateException("Este cliente ya tiene un vendedor asignado");
-        }
-
-        ventasCliente.forEach(venta -> venta.setVendedor(vendedor));
-        ventaRepository.saveAll(ventasCliente);
-        return mapToDashboardResponse(cliente);
-    }
-
-    private void asignarVendedorAVentasExistentes(Long clienteId, Long vendedorId) {
-        UsuarioAdmin vendedor = usuarioAdminRepository.findById(vendedorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Vendedor no encontrado"));
-        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
-        if (ventasCliente.isEmpty()) {
-            return;
-        }
-        ventasCliente.forEach(venta -> venta.setVendedor(vendedor));
-        ventaRepository.saveAll(ventasCliente);
-    }
-
-    @Override
-    @Transactional
-    public ClienteDashboardResponse cambiarEstadoCliente(Long clienteId, String nuevoEstadoNombre) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
-
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-
-        EstadoCliente viejoEstado = cliente.getEstado();
-        EstadoCliente nuevoEstado = estadoClienteRepository.findByNombreAndActivoTrue(nuevoEstadoNombre)
-                .orElseGet(() -> {
-                    EstadoCliente e = new EstadoCliente();
-                    e.setNombre(nuevoEstadoNombre);
-                    e.setDescripcion("Estado " + nuevoEstadoNombre);
-                    return estadoClienteRepository.save(e);
-                });
-
-        cliente.setEstado(nuevoEstado);
-        cliente.setAvisado(false);
-        cliente.setFechaActualizacion(LocalDateTime.now());
-        clienteRepository.save(cliente);
-
-        HistorialEstadoCliente h = new HistorialEstadoCliente();
-        h.setCliente(cliente);
-        h.setEstadoAnterior(viejoEstado);
-        h.setEstadoNuevo(nuevoEstado);
-        h.setMotivo("Cambio de estado a " + nuevoEstadoNombre);
-        h.setFechaCambio(LocalDateTime.now());
-        historialEstadoClienteRepository.save(h);
-
-        return mapToDashboardResponse(cliente);
-    }
-
-    @Override
-    @Transactional
-    public ClienteDashboardResponse toggleAvisado(Long clienteId, Boolean avisado) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
-
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + clienteId));
-        boolean nuevoEstado = avisado != null ? avisado : !cliente.getAvisado();
-        cliente.setAvisado(nuevoEstado);
-        cliente.setFechaActualizacion(LocalDateTime.now());
-        clienteRepository.save(cliente);
-        return mapToDashboardResponse(cliente);
-    }
-
-    @Override
-    @Transactional
-    public void eliminarClientePermanentemente(Long clienteId) {
-        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
-
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-
-
-        // 1. Borrado lógico del cliente (desaparece de clientes activos y futuras cobranzas)
-        cliente.setActivo(false);
-        cliente.setFechaEliminacion(LocalDateTime.now());
-        clienteRepository.save(cliente);
-
-        // 2. Cancelar / bloquear servicios en curso
-        servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId).forEach(servicio -> {
-            servicio.setEstado(EstadoServicio.BLOQUEADO);
-            servicio.setFechaActualizacion(LocalDateTime.now());
-            servicioClienteRepository.save(servicio);
-        });
-
-        // 3. Cancelar ventas pendientes de pago para que no sigan sumando como deuda futura
-        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
-        for (Venta venta : ventas) {
-            if (venta.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO) {
-                venta.setEstadoVenta(EstadoVenta.CANCELADA);
-                venta.setFechaActualizacion(LocalDateTime.now());
-                ventaRepository.save(venta);
-            }
-        }
-    }
-
-    /*
-    private void oldBlock(Long clienteId) {
-        Cliente cliente = null;
-
-
-
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
-
-
-
-
-
-
-
-        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
-        for (Venta venta : ventas) {
-            ventaRepository.findByVentaAnteriorId(venta.getId()).forEach(dependiente -> {
-                dependiente.setVentaAnterior(null);
-                ventaRepository.save(dependiente);
-            });
-            pagoRepository.deleteAll(pagoRepository.findByVentaId(venta.getId()));
-        }
-
-        ventaRepository.deleteAll(ventas);
-        clienteRepository.delete(cliente); } */ /*
-    }
-
-    */
-    private void registrarHistorial(Cliente cliente, EstadoCliente viejo, EstadoCliente nuevo, UsuarioAdmin usuario, String motivo) {
-        HistorialEstadoCliente h = new HistorialEstadoCliente();
-        h.setCliente(cliente);
-        h.setEstadoAnterior(viejo);
-        h.setEstadoNuevo(nuevo);
-        h.setUsuarioAdmin(usuario);
-        h.setMotivo(motivo);
-        h.setFechaCambio(LocalDateTime.now());
-        historialEstadoClienteRepository.save(h);
-    }
-
-    public ClienteDashboardResponse mapToDashboardResponse(Cliente c) {
-        ServicioCliente servicio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(c.getId()).orElse(null);
-        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(c.getId());
-        LocalDateTime capInicial = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(c.getId()).stream()
-                .map(ServicioCliente::getFechaCapacitacion)
-                .filter(Objects::nonNull)
-                .min(Comparator.naturalOrder())
-                .orElse(null);
-        return mapToDashboardResponse(c, servicio, ventasCliente, capInicial);
-    }
-
-    private ClienteDashboardResponse mapToDashboardResponse(
-            Cliente c,
-            ServicioCliente servicio,
-            List<Venta> ventasCliente) {
-        return mapToDashboardResponse(c, servicio, ventasCliente, null);
-    }
-
-    private ClienteDashboardResponse mapToDashboardResponse(
-            Cliente c,
-            ServicioCliente servicio,
-            List<Venta> ventasCliente,
-            LocalDateTime fechaCapacitacionInicial) {
-        ClienteDashboardResponse res = new ClienteDashboardResponse();
-        res.setId(c.getId());
-        res.setRuc(c.getRuc());
-        res.setUsuarioSol(c.getUsuarioSol());
-        res.setClaveSolCifrada(c.getClaveSolCifrada());
-        res.setRazonSocial(c.getRazonSocial());
-        res.setNombreComercial(c.getNombreComercial());
-        res.setDireccion(c.getDireccion());
-        res.setTelefono(c.getTelefono());
-        res.setEmail(c.getEmail());
-        res.setNombres(c.getNombres());
-        res.setApellidos(c.getApellidos());
-        res.setDni(c.getDni());
-        res.setEmailPersonal(c.getEmailPersonal());
-        res.setTelefonoPersonal(c.getTelefonoPersonal());
-        res.setDepartamento(c.getDepartamento());
-        res.setProvincia(c.getProvincia());
-        res.setDistrito(c.getDistrito());
-
-        res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
-        res.setClaveTemporal(c.getClaveTemporal());
-        res.setUrlAcceso(c.getUrlAcceso());
-        res.setUsuarioWsp(c.getUsuarioWsp());
-        res.setDniRepresentante(c.getDniRepresentante());
-        res.setCorreoRepresentante(c.getCorreoRepresentante());
-        res.setPrimeraVezOProviene(c.getPrimeraVezOProviene());
-        res.setUsabaSunatAnteriormente(c.getUsabaSunatAnteriormente());
-        res.setTipoIgv(c.getTipoIgv());
-        res.setRegimenTributario(c.getRegimenTributario());
-        res.setAvisado(c.getAvisado());
-
-        LocalDateTime ahora = LocalDateTime.now();
-        String estadoNombre = c.getEstado() != null ? c.getEstado().getNombre() : null;
-
-        if ("VENCIDO".equalsIgnoreCase(estadoNombre)
-                && servicio != null
-                && servicio.getEstado() == EstadoServicio.ACTIVO
-                && servicio.getFechaFin() != null
-                && servicio.getFechaFin().isAfter(ahora)) {
-            EstadoCliente estadoHabilitado = estadoClienteRepository.findByNombreAndActivoTrue("HABILITADO").orElse(null);
-            if (estadoHabilitado != null) {
-                c.setEstado(estadoHabilitado);
-                clienteRepository.save(c);
-                estadoNombre = estadoHabilitado.getNombre();
-            }
-        }
-
-        if (c.getEstado() != null) {
-            res.setEstadoId(c.getEstado().getId());
-            res.setEstadoNombre(estadoNombre);
-        }
-
-        if (c.getColorTag() != null) {
-            res.setColorTagId(c.getColorTag().getId());
-            res.setColorCodigo(c.getColorTag().getCodigo());
-            res.setColorHex(c.getColorTag().getHex());
-        }
-
-        if (c.getEntorno() != null) {
-            res.setEntornoId(c.getEntorno().getId());
-            res.setEntornoNombre(c.getEntorno().getNombre());
-        }
-
-        Venta ventaPendiente = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
-                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
-                .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
-                .findFirst()
-                .orElse(null);
-        Venta ventaPendienteVencida = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
-                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
-                .filter(v -> v.getFechaVenta() == null || !v.getFechaVenta().toLocalDate().isAfter(ahora.toLocalDate()))
-                .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
-                .findFirst()
-                .orElse(null);
-        Venta ventaPlan = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
-                .findFirst()
-                .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
-        BigDecimal totalDeudaPendiente = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
-                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
-                .map(Venta::getMontoTotal)
-                .filter(Objects::nonNull)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        Venta ventaParaCobro = ventaPendienteVencida != null ? ventaPendienteVencida : ventaPendiente;
-
-        if (ventaParaCobro != null) {
-            res.setVentaId(ventaParaCobro.getId());
-            if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
-                res.setMontoSiguienteCobro(totalDeudaPendiente != null && totalDeudaPendiente.compareTo(BigDecimal.ZERO) > 0
-                        ? totalDeudaPendiente
-                        : (ventaPlan != null && ventaPlan.getSuscripcion() != null && ventaPlan.getSuscripcion().getPrecio() != null
-                                ? ventaPlan.getSuscripcion().getPrecio()
-                                : ventaParaCobro.getMontoTotal()));
-            } else {
-                res.setMontoSiguienteCobro(ventaParaCobro.getMontoTotal());
-            }
-            mapProrrateoVenta(ventaParaCobro, res);
-            if (ventaPendienteVencida != null
-                    && !"BLOQUEADO".equals(estadoNombre)
-                    && !"POR_CAPACITAR".equals(estadoNombre)
-                    && !"VENCIDO".equals(estadoNombre)
-                    && (servicio == null || servicio.getEstado() != EstadoServicio.ACTIVO || servicio.getFechaFin() == null || !servicio.getFechaFin().isAfter(ahora))) {
-                res.setEstadoNombre("POR_COBRAR");
-            }
-        } else if (ventaPlan != null) {
-            res.setVentaId(ventaPlan.getId());
-        }
-
-        Venta ventaConVendedor = ventaPlan != null && ventaPlan.getVendedor() != null
-                ? ventaPlan
-                : ventasCliente.stream()
-                        .filter(v -> v.getVendedor() != null)
-                        .findFirst()
-                        .orElse(null);
-        if (ventaConVendedor != null) {
-            res.setVendedorId(ventaConVendedor.getVendedor().getId());
-            res.setVendedorNombre(ventaConVendedor.getVendedor().getNombre());
-        } else {
-            res.setVendedorNombre("Por asignar");
-        }
-
-        if (ventaPlan != null) {
-            if (ventaPlan.getSuscripcion() != null) {
-                res.setPrecioPlan(ventaPlan.getSuscripcion().getPrecio());
-                if (ventaPlan.getSuscripcion().getPlan() != null) {
-                    res.setPlanId(ventaPlan.getSuscripcion().getPlan().getId());
-                    res.setPlanNombre(ventaPlan.getSuscripcion().getPlan().getNombrePlan());
-                }
-                res.setTipoSuscripcion(ventaPlan.getSuscripcion().getTipoSuscripcion() != null
-                        ? ventaPlan.getSuscripcion().getTipoSuscripcion().name()
-                        : null);
-            }
-        }
-
-        if (servicio != null) {
-            res.setServicioId(servicio.getId());
-            res.setFechaCapacitacion(fechaCapacitacionInicial != null ? fechaCapacitacionInicial : servicio.getFechaCapacitacion());
-            res.setFechaInicioServicio(servicio.getFechaInicio());
-            res.setFechaFinServicio(servicio.getFechaFin());
-            res.setEstadoServicio(servicio.getEstado() != null ? servicio.getEstado().name() : null);
-            if (res.getMontoSiguienteCobro() == null
-                    || res.getMontoSiguienteCobro().compareTo(BigDecimal.ZERO) <= 0) {
-                if (!"BLOQUEADO".equalsIgnoreCase(estadoNombre) && !"VENCIDO".equalsIgnoreCase(estadoNombre) && !"SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
-                    BigDecimal montoServicio = calcularMontoSiguienteCobro(servicio, ventasCliente);
-                    res.setMontoSiguienteCobro(montoServicio != null ? montoServicio : servicio.getMontoProrrateo());
-                } else {
-                    BigDecimal montoPlan = res.getPrecioPlan() != null && res.getPrecioPlan().compareTo(BigDecimal.ZERO) > 0
-                            ? res.getPrecioPlan()
-                            : (ventaPlan != null && ventaPlan.getSuscripcion() != null ? ventaPlan.getSuscripcion().getPrecio() : null);
-                    res.setMontoSiguienteCobro(montoPlan != null && montoPlan.compareTo(BigDecimal.ZERO) > 0 ? montoPlan : BigDecimal.ZERO);
-                }
-            }
-            res.setDiasProrrateados(servicio.getDiasProrrateados());
-            if (res.getTipoProrrateo() == null && servicio.getVenta() != null) {
-                mapProrrateoVenta(servicio.getVenta(), res);
-            }
-        }
-
-        if (res.getMontoSiguienteCobro() == null
-                || (("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre))
-                        && res.getMontoSiguienteCobro().compareTo(BigDecimal.ZERO) <= 0)) {
-            if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
-                BigDecimal montoPlan = res.getPrecioPlan() != null && res.getPrecioPlan().compareTo(BigDecimal.ZERO) > 0
-                        ? res.getPrecioPlan()
-                        : (ventaPlan != null && ventaPlan.getSuscripcion() != null ? ventaPlan.getSuscripcion().getPrecio() : null);
-                res.setMontoSiguienteCobro(montoPlan != null && montoPlan.compareTo(BigDecimal.ZERO) > 0 ? montoPlan : BigDecimal.ZERO);
-            }
-        }
-
-        res.setFechaRegistro(c.getFechaRegistro());
-        return res;
-    }
-
-    private BigDecimal calcularMontoSiguienteCobro(ServicioCliente servicio, List<Venta> ventasCliente) {
-        if (servicio == null
-                || servicio.getEstado() != EstadoServicio.ACTIVO
-                || ventasCliente == null) {
-            return null;
-        }
-
-        Venta ventaVigente = ventasCliente.stream()
-                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
-                .filter(v -> v.getSuscripcion() != null && v.getSuscripcion().getPrecio() != null)
-                .findFirst()
-                .orElse(servicio.getVenta());
-
-        if (ventaVigente == null
-                || ventaVigente.getSuscripcion() == null
-                || ventaVigente.getSuscripcion().getPrecio() == null) {
-            return null;
-        }
-
-        BigDecimal precio = ventaVigente.getSuscripcion().getPrecio();
-        // Una vez que el servicio está activo y su ciclo alineado al día de corte mensual,
-        // el monto del SIGUIENTE cobro es el precio regular mensual del plan contratado.
-        return precio;
-    }
-
-    private void mapProrrateoVenta(Venta venta, ClienteDashboardResponse response) {
-        response.setTipoProrrateo(venta.getTipoProrrateo() != null
-                ? venta.getTipoProrrateo().name()
-                : TipoProrrateo.NINGUNO.name());
-        response.setMontoProrrateoAdicional(venta.getMontoProrrateoAdicional());
-        response.setDiasProrrateoAdicional(venta.getDiasProrrateoAdicional());
-        response.setFechaInicioProrrateoAdicional(venta.getFechaInicioProrrateoAdicional());
-        response.setFechaFinProrrateoAdicional(venta.getFechaFinProrrateoAdicional());
-    }
-
-    private ClienteDashboardResponse mapToDashboardResponseBasico(Cliente c) {
-        ClienteDashboardResponse res = new ClienteDashboardResponse();
-        res.setId(c.getId());
-        res.setRuc(c.getRuc());
-        res.setUsuarioSol(c.getUsuarioSol());
-        res.setClaveSolCifrada(c.getClaveSolCifrada());
-        res.setRazonSocial(c.getRazonSocial());
-        res.setNombreComercial(c.getNombreComercial());
-        res.setDireccion(c.getDireccion());
-        res.setTelefono(c.getTelefono());
-        res.setEmail(c.getEmail());
-        res.setNombres(c.getNombres());
-        res.setApellidos(c.getApellidos());
-        res.setDni(c.getDni());
-        res.setEmailPersonal(c.getEmailPersonal());
-        res.setTelefonoPersonal(c.getTelefonoPersonal());
-        res.setDepartamento(c.getDepartamento());
-        res.setProvincia(c.getProvincia());
-        res.setDistrito(c.getDistrito());
-        res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
-        res.setClaveTemporal(c.getClaveTemporal());
-        res.setUrlAcceso(c.getUrlAcceso());
-        res.setUsuarioWsp(c.getUsuarioWsp());
-        res.setDniRepresentante(c.getDniRepresentante());
-        res.setCorreoRepresentante(c.getCorreoRepresentante());
-        res.setPrimeraVezOProviene(c.getPrimeraVezOProviene());
-        res.setUsabaSunatAnteriormente(c.getUsabaSunatAnteriormente());
-        res.setTipoIgv(c.getTipoIgv());
-        if (c.getEntorno() != null) {
-            res.setEntornoId(c.getEntorno().getId());
-            res.setEntornoNombre(c.getEntorno().getNombre());
-        }
-        res.setEstadoNombre(c.getEstado() != null ? c.getEstado().getNombre() : null);
-        res.setVendedorNombre("Por asignar");
-        res.setFechaRegistro(c.getFechaRegistro());
-        return res;
-    }
-
-    private boolean esPendienteObsoletaPorServicioActivo(Venta venta, ServicioCliente servicio) {
-        if (venta == null || servicio == null || servicio.getEstado() != EstadoServicio.ACTIVO) {
-            return false;
-        }
-        if (servicio.getFechaFin() != null && servicio.getFechaFin().isAfter(LocalDateTime.now())) {
-            if (venta.getFechaVenta() != null && venta.getFechaVenta().toLocalDate().isBefore(servicio.getFechaFin().toLocalDate())) {
-                return true;
-            }
-        }
-        return venta.getFechaVenta() != null
-                && servicio.getFechaInicio() != null
-                && venta.getFechaVenta().isBefore(servicio.getFechaInicio());
-    }
-}
+package com.facturacion.impl;
+
+import com.facturacion.entity.*;
+
+import com.facturacion.enums.EstadoServicio;
+
+import com.facturacion.enums.EstadoVenta;
+
+import com.facturacion.enums.TipoProrrateo;
+
+import com.facturacion.enums.TipoSuscripcion;
+
+import com.facturacion.enums.TipoVenta;
+
+import com.facturacion.exception.ResourceNotFoundException;
+
+import com.facturacion.exception.VentaInvalidaException;
+
+import com.facturacion.repository.*;
+
+import com.facturacion.request.ClienteUpdateRequest;
+
+import com.facturacion.request.RegistroFormularioRequest;
+
+import com.facturacion.response.ClienteDashboardResponse;
+
+import com.facturacion.response.DetalleClienteResponse;
+
+import com.facturacion.response.OperacionHistorialResponse;
+
+import com.facturacion.service.ClienteService;
+
+import com.facturacion.util.ProrrateoCalculatorUtil;
+
+import org.springframework.beans.factory.annotation.Autowired;
+
+import org.springframework.beans.factory.annotation.Value;
+
+import org.springframework.stereotype.Service;
+
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+
+import java.math.RoundingMode;
+
+import java.time.LocalDate;
+
+import java.time.LocalDateTime;
+
+import java.time.LocalTime;
+
+import java.util.ArrayList;
+
+import java.util.Comparator;
+
+import java.util.HashMap;
+
+import java.util.LinkedHashMap;
+
+import java.util.List;
+
+import java.util.Map;
+
+import java.util.Objects;
+
+import java.util.Optional;
+
+@Service
+
+public class ClienteServiceImpl implements ClienteService {
+
+    private static final LocalTime BILLING_CUTOFF_TIME = LocalTime.MIDNIGHT;
+
+    @Autowired
+
+    private ClienteRepository clienteRepository;
+
+    @Autowired
+
+    private EstadoClienteRepository estadoClienteRepository;
+
+    @Autowired
+
+    private ColorTagRepository colorTagRepository;
+
+    @Autowired
+
+    private EntornoRepository entornoRepository;
+
+    @Autowired
+
+    private UsuarioAdminRepository usuarioAdminRepository;
+
+    @Autowired
+
+    private PlanRepository planRepository;
+
+    @Autowired
+
+    private SuscripcionRepository suscripcionRepository;
+
+    @Autowired
+
+    private VentaRepository ventaRepository;
+
+    @Autowired
+
+    private ServicioClienteRepository servicioClienteRepository;
+
+    @Autowired
+
+    private PagoRepository pagoRepository;
+
+    @Autowired
+
+    private EncuestaInicialRepository encuestaInicialRepository;
+
+    @Autowired
+
+    private HistorialEstadoClienteRepository historialEstadoClienteRepository;
+
+    @Autowired
+
+    private NotificacionRepository notificacionRepository;
+
+    @Value("${app.billing.monthly-billing-day:1}")
+
+    private int monthlyBillingDay;
+
+    @Override
+
+    @Transactional
+
+    public ClienteDashboardResponse registrarFormulario(RegistroFormularioRequest request) {
+
+        LocalDateTime fechaOperacion = LocalDateTime.now();
+
+        // 1. Obtener o asignar estado POR_COBRAR
+
+        EstadoCliente estadoPorCobrar = estadoClienteRepository.findByNombreAndActivoTrue("POR_COBRAR")
+
+                .orElseGet(() -> {
+
+                    EstadoCliente nuevo = new EstadoCliente();
+
+                    nuevo.setNombre("POR_COBRAR");
+
+                    nuevo.setDescripcion("Cliente registrado pero pendiente de pago");
+
+                    return estadoClienteRepository.save(nuevo);
+
+                });
+
+        // 2. Comprobar si el RUC ya existe para evitar errores 500 de clave duplicada
+
+        String rucFinal = request.getRuc();
+
+        if (rucFinal == null || rucFinal.trim().isBlank()) {
+
+            rucFinal = "99" + String.format("%09d", System.currentTimeMillis() % 1000000000L);
+
+        } else {
+
+            rucFinal = rucFinal.trim().replaceAll("\\D", "");
+
+            if (rucFinal.isBlank()) {
+
+                rucFinal = "99" + String.format("%09d", System.currentTimeMillis() % 1000000000L);
+
+            } else if (rucFinal.length() < 11) {
+
+                rucFinal = String.format("%-11s", rucFinal).replace(' ', '0');
+
+            } else if (rucFinal.length() > 11) {
+
+                rucFinal = rucFinal.substring(0, 11);
+
+            }
+
+        }
+
+        request.setRuc(rucFinal);
+
+        Optional<Cliente> clienteExistenteOpt = clienteRepository.findByRuc(request.getRuc());
+
+        Cliente cliente;
+
+        if (clienteExistenteOpt.isPresent()) {
+
+            Cliente existente = clienteExistenteOpt.get();
+
+            if (!Boolean.TRUE.equals(existente.getActivo())) {
+
+                // Reactivar cliente previo eliminado
+
+                cliente = existente;
+
+                cliente.setActivo(true);
+
+            } else {
+
+                throw new VentaInvalidaException("El RUC " + request.getRuc() + " ya se encuentra registrado en el sistema.");
+
+            }
+
+        } else {
+
+            cliente = new Cliente();
+
+            cliente.setRuc(request.getRuc());
+
+        }
+
+        boolean tieneUsuarioSol = request.getUsuarioSol() != null && !request.getUsuarioSol().trim().isBlank();
+
+        boolean tieneClaveSol = request.getClaveSol() != null && !request.getClaveSol().trim().isBlank();
+
+        cliente.setUsuarioSol(tieneUsuarioSol ? request.getUsuarioSol().trim() : "SIN_USUARIO");
+
+        cliente.setClaveSolCifrada(tieneClaveSol ? request.getClaveSol().trim() : "SIN_CLAVE");
+
+        String razonSocialFinal = request.getRazonSocial();
+
+        if (razonSocialFinal == null || razonSocialFinal.trim().isBlank()) {
+
+            if (request.getNombreComercial() != null && !request.getNombreComercial().trim().isBlank()) {
+
+                razonSocialFinal = request.getNombreComercial().trim();
+
+            } else {
+
+                razonSocialFinal = "Cliente " + rucFinal;
+
+            }
+
+        }
+
+        cliente.setRazonSocial(razonSocialFinal.trim());
+
+        cliente.setNombreComercial(request.getNombreComercial());
+
+        cliente.setDireccion(request.getDireccion());
+
+        cliente.setTelefono(request.getTelefono());
+
+        cliente.setEmail(request.getEmail());
+
+        cliente.setNombres(request.getNombres());
+
+        cliente.setApellidos(request.getApellidos());
+
+        cliente.setDni(request.getDni());
+
+        cliente.setEmailPersonal(request.getEmailPersonal());
+
+        cliente.setTelefonoPersonal(request.getTelefonoPersonal());
+
+        cliente.setDepartamento(request.getDepartamento());
+
+        cliente.setProvincia(request.getProvincia());
+
+        cliente.setDistrito(request.getDistrito());
+
+        if (request.getDniRepresentante() != null) {
+
+            String dniRep = request.getDniRepresentante().trim();
+
+            cliente.setDniRepresentante(dniRep.isBlank() ? null : dniRep);
+
+        }
+
+        if (request.getCorreoRepresentante() != null) {
+
+            String correoRep = request.getCorreoRepresentante().trim();
+
+            cliente.setCorreoRepresentante(correoRep.isBlank() ? null : correoRep);
+
+        }
+
+        if (request.getPrimeraVezOProviene() != null) {
+
+            String val = request.getPrimeraVezOProviene().trim();
+
+            cliente.setPrimeraVezOProviene(val.isBlank() ? null : val);
+
+        }
+
+        if (request.getUsabaSunatAnteriormente() != null) {
+
+            String val = request.getUsabaSunatAnteriormente().trim();
+
+            cliente.setUsabaSunatAnteriormente(val.isBlank() ? null : val);
+
+        }
+
+        if (request.getTipoIgv() != null) {
+
+            String val = request.getTipoIgv().trim();
+
+            cliente.setTipoIgv(val.isBlank() ? null : val);
+
+        }
+
+        if (request.getRegimenTributario() != null) {
+
+            String val = request.getRegimenTributario().trim();
+
+            cliente.setRegimenTributario(val.isBlank() ? null : val);
+
+        }
+
+        Entorno entornoSeleccionado = null;
+
+        if (request.getEntornoId() != null) {
+
+            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
+
+                    .orElse(null);
+
+        }
+
+        if (entornoSeleccionado == null) {
+
+            entornoSeleccionado = entornoRepository.findByIdAndActivoTrue(1L)
+
+                    .orElseGet(() -> entornoRepository.findAll().stream()
+
+                            .filter(e -> Boolean.TRUE.equals(e.getActivo()))
+
+                            .findFirst()
+
+                            .orElse(null));
+
+        }
+
+        if (entornoSeleccionado != null) {
+
+            cliente.setEntorno(entornoSeleccionado);
+
+        }
+
+        cliente.setEstado(estadoPorCobrar);
+
+        cliente.setFechaRegistro(fechaOperacion);
+
+        cliente.setFechaActualizacion(fechaOperacion);
+
+        cliente = clienteRepository.save(cliente);
+
+        // 3. Registrar Encuesta Inicial
+
+        if (request.getComoNosConocio() != null || request.getComentarios() != null) {
+
+            EncuestaInicial encuesta = new EncuestaInicial();
+
+            encuesta.setCliente(cliente);
+
+            encuesta.setComoNosConocio(request.getComoNosConocio());
+
+            encuesta.setUsoSistemaAnterior(Boolean.TRUE.equals(request.getUsoSistemaAnterior()));
+
+            encuesta.setVolumenFacturacionEstimado(request.getVolumenFacturacionEstimado());
+
+            encuesta.setComentarios(request.getComentarios());
+
+            encuesta.setFechaRespuesta(fechaOperacion);
+
+            encuestaInicialRepository.save(encuesta);
+
+        }
+
+        // 4. Obtener Suscripción elegida
+
+        Long planId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
+
+        if (planId == null) {
+
+            planId = 2L; // EMPRENDE por defecto
+
+        }
+
+        TipoSuscripcion tipoSub = request.getTipoSuscripcion() != null ? request.getTipoSuscripcion() : TipoSuscripcion.MENSUAL;
+
+        Suscripcion suscripcion = suscripcionRepository.findByPlanIdAndTipoSuscripcionAndActivoTrue(planId, tipoSub)
+
+                .orElse(null);
+
+        if (suscripcion == null) {
+
+            for (Suscripcion s : suscripcionRepository.findAll()) {
+
+                if (Boolean.TRUE.equals(s.getActivo())) {
+
+                    suscripcion = s;
+
+                    break;
+
+                }
+
+            }
+
+        }
+
+        if (suscripcion == null) {
+
+            throw new ResourceNotFoundException("No existe una suscripcion activa para el plan y modalidad seleccionados");
+
+        }
+
+        // 5. Vendedor inicial
+
+        UsuarioAdmin vendedor = null;
+
+        if (request.getVendedorId() != null) {
+
+            vendedor = usuarioAdminRepository.findById(request.getVendedorId()).orElse(null);
+
+        }
+
+        // 6. Crear Venta ALTA
+
+        Venta venta = new Venta();
+
+        venta.setCliente(cliente);
+
+        venta.setVendedor(vendedor);
+
+        venta.setSuscripcion(suscripcion);
+
+        venta.setTipoVenta(TipoVenta.ALTA);
+
+        venta.setPrecioLista(suscripcion.getPrecio());
+
+        venta.setMontoProrrateado(BigDecimal.ZERO);
+
+        venta.setMontoTotal(suscripcion.getPrecio());
+
+        venta.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
+
+        venta.setObservaciones("Venta inicial generada desde el formulario onboarding");
+
+        venta.setFechaVenta(fechaOperacion);
+
+        venta.setFechaActualizacion(fechaOperacion);
+
+        venta = ventaRepository.save(venta);
+
+        // 7. Crear ServicioCliente PENDIENTE_CAPACITACION
+
+        ServicioCliente servicio = new ServicioCliente();
+
+        servicio.setCliente(cliente);
+
+        servicio.setVenta(venta);
+
+        servicio.setFechaInicio(fechaOperacion);
+
+        if (tipoSub == TipoSuscripcion.ANUAL) {
+
+            servicio.setFechaFin(fechaOperacion.plusYears(1));
+
+        } else if (fechaOperacion.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
+
+            LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
+
+                    suscripcion.getPrecio(),
+
+                    fechaOperacion.toLocalDate()
+
+            ).fechaFin().plusDays(1);
+
+            servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
+
+        } else {
+
+            LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(fechaOperacion.toLocalDate(), monthlyBillingDay);
+
+            servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
+
+        }
+
+        servicio.setEstado(EstadoServicio.PENDIENTE_CAPACITACION);
+
+        servicio.setObservaciones("Servicio registrado desde formulario de onboarding");
+
+        servicio.setFechaCreacion(fechaOperacion);
+
+        servicio.setFechaActualizacion(fechaOperacion);
+
+        servicioClienteRepository.save(servicio);
+
+        // 8. Historial de Estado
+
+        registrarHistorial(cliente, null, estadoPorCobrar, vendedor, "Registro inicial vía encuesta onboarding");
+
+        return mapToDashboardResponse(cliente);
+
+    }
+
+    private Long resolverPlanId(String planContratado) {
+
+        String rawPlan = planContratado == null ? "" : planContratado;
+
+        String normalized = java.text.Normalizer.normalize(rawPlan, java.text.Normalizer.Form.NFD)
+
+                .replaceAll("\\p{M}", "")
+
+                .toUpperCase()
+
+                .replace("PLAN ", "")
+
+                .trim();
+
+        return switch (normalized) {
+
+            case "EMPRENDE" -> 2L;
+
+            case "IMPULSA" -> 3L;
+
+            case "EMPRESARIAL" -> 4L;
+
+            case "LIDER" -> 5L;
+
+            case "REST" -> 6L;
+
+            case "INICIAL", "INICIA" -> 1L;
+
+            default -> null;
+
+        };
+
+    }
+
+    @Override
+
+    @Transactional(readOnly = true)
+
+    public List<ClienteDashboardResponse> listarClientes() {
+
+        List<Cliente> clientes = clienteRepository.findByActivoTrue();
+
+        if (clientes.isEmpty()) {
+
+            return List.of();
+
+        }
+
+        List<Long> clienteIds = clientes.stream()
+
+                .map(Cliente::getId)
+
+                .filter(java.util.Objects::nonNull)
+
+                .toList();
+
+        Map<Long, ServicioCliente> servicioPorCliente = new HashMap<>();
+
+        Map<Long, LocalDateTime> capInicialPorCliente = new HashMap<>();
+
+        for (ServicioCliente servicio : servicioClienteRepository.findByClienteIdInOrderByFechaFinDesc(clienteIds)) {
+
+            if (servicio.getCliente() != null && servicio.getCliente().getId() != null) {
+
+                Long cid = servicio.getCliente().getId();
+
+                servicioPorCliente.putIfAbsent(cid, servicio);
+
+                if (servicio.getFechaCapacitacion() != null) {
+
+                    capInicialPorCliente.compute(cid, (k, currentMin) ->
+
+                            currentMin == null || servicio.getFechaCapacitacion().isBefore(currentMin)
+
+                                    ? servicio.getFechaCapacitacion()
+
+                                    : currentMin
+
+                    );
+
+                }
+
+            }
+
+        }
+
+        Map<Long, List<Venta>> ventasPorCliente = new HashMap<>();
+
+        for (Venta venta : ventaRepository.findByClienteIdInOrderByFechaVentaDesc(clienteIds)) {
+
+            if (venta.getCliente() != null && venta.getCliente().getId() != null) {
+
+                ventasPorCliente.computeIfAbsent(venta.getCliente().getId(), ignored -> new ArrayList<>()).add(venta);
+
+            }
+
+        }
+
+        List<ClienteDashboardResponse> list = new ArrayList<>();
+
+        for (Cliente c : clientes) {
+
+            try {
+
+                list.add(mapToDashboardResponse(
+
+                        c,
+
+                        servicioPorCliente.get(c.getId()),
+
+                        ventasPorCliente.getOrDefault(c.getId(), List.of()),
+
+                        capInicialPorCliente.get(c.getId())
+
+                ));
+
+            } catch (RuntimeException ex) {
+
+                list.add(mapToDashboardResponseBasico(c));
+
+            }
+
+        }
+
+        return list;
+
+    }
+
+    @Override
+
+    @Transactional(readOnly = true)
+
+    public DetalleClienteResponse obtenerPorId(Long id) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(id)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
+
+        DetalleClienteResponse detalle = new DetalleClienteResponse();
+
+        detalle.setCliente(mapToDashboardResponse(cliente));
+
+        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(id);
+
+        detalle.setVentasHistorial(mapVentasHistorial(ventas));
+
+        List<Pago> pagos = pagoRepository.findByVentaClienteIdOrderByFechaRegistroDesc(id);
+
+        detalle.setPagosHistorial(mapPagosHistorial(pagos));
+
+        List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(id);
+
+        detalle.setOperacionesHistorial(construirHistorialOperaciones(ventas, pagos, servicios));
+
+        List<HistorialEstadoCliente> historico = historialEstadoClienteRepository.findByClienteIdOrderByFechaCambioDesc(id);
+
+        detalle.setEstadosHistorial(mapEstadosHistorial(historico));
+
+        return detalle;
+
+    }
+
+    private List<Object> mapVentasHistorial(List<Venta> ventas) {
+
+        List<Object> result = new ArrayList<>();
+
+        for (Venta v : ventas) {
+
+            Map<String, Object> item = new LinkedHashMap<>();
+
+            item.put("id", v.getId());
+
+            item.put("ventaId", v.getId());
+
+            item.put("clienteId", v.getCliente() != null ? v.getCliente().getId() : null);
+
+            item.put("tipoVenta", v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
+
+            item.put("tipoOperacion", v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
+
+            item.put("estadoVenta", v.getEstadoVenta() != null ? v.getEstadoVenta().name() : null);
+
+            item.put("fechaVenta", v.getFechaVenta());
+
+            item.put("fechaOperacion", v.getFechaVenta());
+
+            item.put("precioLista", v.getPrecioLista());
+
+            item.put("montoTotal", v.getMontoTotal());
+
+            item.put("montoVenta", v.getMontoTotal());
+
+            item.put("montoProrrateado", v.getMontoProrrateado());
+
+            item.put("tipoProrrateo", v.getTipoProrrateo() != null ? v.getTipoProrrateo().name() : TipoProrrateo.NINGUNO.name());
+
+            item.put("montoProrrateoAdicional", v.getMontoProrrateoAdicional());
+
+            item.put("diasProrrateoAdicional", v.getDiasProrrateoAdicional());
+
+            item.put("fechaInicioProrrateoAdicional", v.getFechaInicioProrrateoAdicional());
+
+            item.put("fechaFinProrrateoAdicional", v.getFechaFinProrrateoAdicional());
+
+            item.put("observaciones", v.getObservaciones());
+
+            if (v.getSuscripcion() != null) {
+
+                item.put("suscripcionId", v.getSuscripcion().getId());
+
+                item.put("tipoSuscripcion", v.getSuscripcion().getTipoSuscripcion() != null ? v.getSuscripcion().getTipoSuscripcion().name() : null);
+
+                if (v.getSuscripcion().getPlan() != null) {
+
+                    item.put("planId", v.getSuscripcion().getPlan().getId());
+
+                    item.put("plan", v.getSuscripcion().getPlan().getNombrePlan());
+
+                    item.put("planNombre", v.getSuscripcion().getPlan().getNombrePlan());
+
+                }
+
+            }
+
+            result.add(item);
+
+        }
+
+        return result;
+
+    }
+
+    private List<Object> mapPagosHistorial(List<Pago> pagos) {
+
+        List<Object> result = new ArrayList<>();
+
+        for (Pago p : pagos) {
+
+            Map<String, Object> item = new LinkedHashMap<>();
+
+            item.put("id", p.getId());
+
+            item.put("pagoId", p.getId());
+
+            item.put("ventaId", p.getVenta() != null ? p.getVenta().getId() : null);
+
+            item.put("clienteId", p.getVenta() != null && p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
+
+            item.put("codigoOperacion", p.getCodigoOperacion());
+
+            item.put("monto", p.getMonto());
+
+            item.put("medioPago", p.getMedioPago() != null ? p.getMedioPago().name() : null);
+
+            item.put("estadoPago", p.getEstadoPago() != null ? p.getEstadoPago().name() : null);
+
+            item.put("fechaPago", p.getFechaPago());
+
+            item.put("fechaRegistro", p.getFechaRegistro());
+
+            item.put("comprobanteUrl", p.getComprobanteUrl());
+
+            item.put("observaciones", p.getObservaciones());
+
+            if (p.getVenta() != null) {
+
+                ServicioCliente sc = servicioClienteRepository.findByVentaId(p.getVenta().getId()).orElse(null);
+
+                if (sc != null) {
+
+                    item.put("periodoInicio", sc.getFechaInicio());
+
+                    item.put("periodoFin", sc.getFechaFin());
+
+                } else if (p.getVenta().getFechaVenta() != null) {
+
+                    item.put("periodoInicio", p.getVenta().getFechaVenta());
+
+                    item.put("periodoFin", p.getVenta().getFechaVenta().plusMonths(1));
+
+                }
+
+                Map<String, Object> venta = new LinkedHashMap<>();
+
+                venta.put("id", p.getVenta().getId());
+
+                venta.put("clienteId", p.getVenta().getCliente() != null ? p.getVenta().getCliente().getId() : null);
+
+                if (sc != null) {
+
+                    venta.put("periodoInicio", sc.getFechaInicio());
+
+                    venta.put("periodoFin", sc.getFechaFin());
+
+                }
+
+                venta.put("montoTotal", p.getVenta().getMontoTotal());
+
+                venta.put("tipoProrrateo", p.getVenta().getTipoProrrateo() != null
+
+                        ? p.getVenta().getTipoProrrateo().name()
+
+                        : TipoProrrateo.NINGUNO.name());
+
+                venta.put("montoProrrateoAdicional", p.getVenta().getMontoProrrateoAdicional());
+
+                venta.put("diasProrrateoAdicional", p.getVenta().getDiasProrrateoAdicional());
+
+                venta.put("fechaInicioProrrateoAdicional", p.getVenta().getFechaInicioProrrateoAdicional());
+
+                venta.put("fechaFinProrrateoAdicional", p.getVenta().getFechaFinProrrateoAdicional());
+
+                venta.put("estadoVenta", p.getVenta().getEstadoVenta() != null ? p.getVenta().getEstadoVenta().name() : null);
+
+                venta.put("tipoVenta", p.getVenta().getTipoVenta() != null ? p.getVenta().getTipoVenta().name() : null);
+
+                venta.put("fechaVenta", p.getVenta().getFechaVenta());
+
+                if (p.getVenta().getSuscripcion() != null) {
+
+                    venta.put("tipoSuscripcion", p.getVenta().getSuscripcion().getTipoSuscripcion() != null
+
+                            ? p.getVenta().getSuscripcion().getTipoSuscripcion().name()
+
+                            : null);
+
+                    if (p.getVenta().getSuscripcion().getPlan() != null) {
+
+                        venta.put("plan", p.getVenta().getSuscripcion().getPlan().getNombrePlan());
+
+                        venta.put("planNombre", p.getVenta().getSuscripcion().getPlan().getNombrePlan());
+
+                    }
+
+                }
+
+                item.put("venta", venta);
+
+            }
+
+            result.add(item);
+
+        }
+
+        return result;
+
+    }
+
+    private List<Object> mapEstadosHistorial(List<HistorialEstadoCliente> historico) {
+
+        List<Object> result = new ArrayList<>();
+
+        for (HistorialEstadoCliente h : historico) {
+
+            Map<String, Object> item = new LinkedHashMap<>();
+
+            item.put("id", h.getId());
+
+            item.put("estadoAnterior", h.getEstadoAnterior() != null ? h.getEstadoAnterior().getNombre() : null);
+
+            item.put("estadoNuevo", h.getEstadoNuevo() != null ? h.getEstadoNuevo().getNombre() : null);
+
+            item.put("motivo", h.getMotivo());
+
+            item.put("fechaCambio", h.getFechaCambio());
+
+            item.put("usuarioAdmin", h.getUsuarioAdmin() != null ? h.getUsuarioAdmin().getNombre() : null);
+
+            result.add(item);
+
+        }
+
+        return result;
+
+    }
+
+    private List<OperacionHistorialResponse> construirHistorialOperaciones(
+
+            List<Venta> ventas,
+
+            List<Pago> pagos,
+
+            List<ServicioCliente> servicios) {
+
+        Map<Long, Pago> pagoPorVenta = new HashMap<>();
+
+        for (Pago p : pagos) {
+
+            if (p.getVenta() != null && p.getVenta().getId() != null) {
+
+                pagoPorVenta.putIfAbsent(p.getVenta().getId(), p);
+
+            }
+
+        }
+
+        Map<Long, ServicioCliente> servicioPorVenta = new HashMap<>();
+
+        for (ServicioCliente s : servicios) {
+
+            if (s.getVenta() != null && s.getVenta().getId() != null) {
+
+                servicioPorVenta.put(s.getVenta().getId(), s);
+
+            }
+
+        }
+
+        List<OperacionHistorialResponse> operaciones = new ArrayList<>();
+
+        for (Venta v : ventas) {
+
+            Pago p = pagoPorVenta.get(v.getId());
+
+            ServicioCliente s = servicioPorVenta.get(v.getId());
+
+            OperacionHistorialResponse op = new OperacionHistorialResponse();
+
+            op.setVentaId(v.getId());
+
+            op.setFechaOperacion(v.getFechaVenta());
+
+            op.setTipoOperacion(v.getTipoVenta() != null ? v.getTipoVenta().name() : null);
+
+            op.setEstadoVenta(v.getEstadoVenta() != null ? v.getEstadoVenta().name() : null);
+
+            op.setPrecioLista(v.getPrecioLista());
+
+            op.setMontoVenta(v.getMontoTotal());
+
+            op.setDescuentoProrrateo(v.getMontoProrrateado());
+
+            op.setTipoProrrateo(v.getTipoProrrateo() != null ? v.getTipoProrrateo().name() : TipoProrrateo.NINGUNO.name());
+
+            op.setMontoProrrateoAdicional(v.getMontoProrrateoAdicional());
+
+            op.setDiasProrrateoAdicional(v.getDiasProrrateoAdicional());
+
+            op.setFechaInicioProrrateoAdicional(v.getFechaInicioProrrateoAdicional());
+
+            op.setFechaFinProrrateoAdicional(v.getFechaFinProrrateoAdicional());
+
+            op.setObservaciones(v.getObservaciones());
+
+            if (v.getSuscripcion() != null) {
+
+                op.setTipoSuscripcion(v.getSuscripcion().getTipoSuscripcion() != null ? v.getSuscripcion().getTipoSuscripcion().name() : null);
+
+                op.setPrecioPlan(v.getSuscripcion().getPrecio());
+
+                if (v.getSuscripcion().getPlan() != null) {
+
+                    op.setPlan(v.getSuscripcion().getPlan().getNombrePlan());
+
+                }
+
+            }
+
+            if (p != null) {
+
+                op.setPagoId(p.getId());
+
+                op.setFechaPago(p.getFechaPago());
+
+                op.setEstadoPago(p.getEstadoPago() != null ? p.getEstadoPago().name() : null);
+
+                op.setMontoPagado(p.getMonto());
+
+            }
+
+            if (s != null) {
+
+                op.setServicioId(s.getId());
+
+                op.setFechaInicioServicio(s.getFechaInicio());
+
+                op.setFechaFinServicio(s.getFechaFin());
+
+                op.setEstadoServicio(s.getEstado() != null ? s.getEstado().name() : null);
+
+                op.setMontoProrrateado(s.getMontoProrrateo());
+
+                op.setDiasProrrateados(s.getDiasProrrateados());
+
+            }
+
+            operaciones.add(op);
+
+        }
+
+        operaciones.sort(Comparator.comparing(OperacionHistorialResponse::getFechaOperacion, Comparator.nullsLast(Comparator.reverseOrder())));
+
+        return operaciones;
+
+    }
+
+    @Override
+
+    @Transactional
+
+    public ClienteDashboardResponse actualizarCliente(Long id, ClienteUpdateRequest request) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(id)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con ID: " + id));
+
+        if (request.getRazonSocial() != null) cliente.setRazonSocial(request.getRazonSocial());
+
+        if (request.getRuc() != null) cliente.setRuc(request.getRuc());
+
+        if (request.getUsuarioSol() != null) cliente.setUsuarioSol(request.getUsuarioSol());
+
+        if (request.getClaveSol() != null) cliente.setClaveSolCifrada(request.getClaveSol());
+
+        if (request.getNombreComercial() != null) cliente.setNombreComercial(request.getNombreComercial());
+
+        if (request.getDireccion() != null) cliente.setDireccion(request.getDireccion());
+
+        if (request.getTelefono() != null) cliente.setTelefono(request.getTelefono());
+
+        if (request.getEmail() != null) cliente.setEmail(request.getEmail());
+
+        if (request.getNombres() != null) cliente.setNombres(request.getNombres());
+
+        if (request.getApellidos() != null) cliente.setApellidos(request.getApellidos());
+
+        if (request.getDni() != null) cliente.setDni(request.getDni());
+
+        if (request.getEmailPersonal() != null) cliente.setEmailPersonal(request.getEmailPersonal());
+
+        if (request.getTelefonoPersonal() != null) cliente.setTelefonoPersonal(request.getTelefonoPersonal());
+
+        if (request.getDepartamento() != null) cliente.setDepartamento(request.getDepartamento());
+
+        if (request.getProvincia() != null) cliente.setProvincia(request.getProvincia());
+
+        if (request.getDistrito() != null) cliente.setDistrito(request.getDistrito());
+
+        if (request.getUsuarioAdminFacturador() != null) cliente.setUsuarioAdminFacturador(request.getUsuarioAdminFacturador());
+
+        if (request.getClaveTemporal() != null) cliente.setClaveTemporal(request.getClaveTemporal());
+
+        if (request.getUrlAcceso() != null) cliente.setUrlAcceso(request.getUrlAcceso());
+
+        if (request.getUsuarioWsp() != null) {
+
+            String usuarioWsp = request.getUsuarioWsp().trim();
+
+            cliente.setUsuarioWsp(usuarioWsp.isBlank() ? null : usuarioWsp);
+
+        }
+
+        if (request.getDniRepresentante() != null) cliente.setDniRepresentante(request.getDniRepresentante());
+
+        if (request.getCorreoRepresentante() != null) cliente.setCorreoRepresentante(request.getCorreoRepresentante());
+
+        if (request.getPrimeraVezOProviene() != null) {
+
+            String val = request.getPrimeraVezOProviene().trim();
+
+            cliente.setPrimeraVezOProviene(val.isBlank() ? null : val);
+
+        }
+
+        if (request.getUsabaSunatAnteriormente() != null) {
+
+            String val = request.getUsabaSunatAnteriormente().trim();
+
+            cliente.setUsabaSunatAnteriormente(val.isBlank() ? null : val);
+
+        }
+
+        if (request.getTipoIgv() != null) {
+
+            String val = request.getTipoIgv().trim();
+
+            cliente.setTipoIgv(val.isBlank() ? null : val);
+
+        }
+
+        if (request.getRegimenTributario() != null) {
+
+            String val = request.getRegimenTributario().trim();
+
+            cliente.setRegimenTributario(val.isBlank() ? null : val);
+
+        }
+
+        if (request.getColorTagId() != null) {
+
+            ColorTag colorTag = colorTagRepository.findById(request.getColorTagId()).orElse(null);
+
+            cliente.setColorTag(colorTag);
+
+        }
+
+        if (request.getEntornoId() != null) {
+
+            Entorno entorno = entornoRepository.findByIdAndActivoTrue(request.getEntornoId())
+
+                    .orElseThrow(() -> new ResourceNotFoundException("Entorno no encontrado"));
+
+            cliente.setEntorno(entorno);
+
+        }
+
+        if (request.getEstadoId() != null) {
+
+            EstadoCliente nuevoEstado = estadoClienteRepository.findById(request.getEstadoId()).orElse(null);
+
+            if (nuevoEstado != null && !nuevoEstado.equals(cliente.getEstado())) {
+
+                EstadoCliente viejo = cliente.getEstado();
+
+                cliente.setEstado(nuevoEstado);
+
+                registrarHistorial(cliente, viejo, nuevoEstado, null, "Actualización de estado manual");
+
+            }
+
+        }
+
+        clienteRepository.save(cliente);
+
+        // Actualizar Plan y Precio SOLO si el plan o la suscripción cambiaron efectivamente
+
+        if (request.getPlanId() != null || request.getPlanContratado() != null || request.getTipoSuscripcion() != null) {
+
+            Long nuevoPlanId = request.getPlanId() != null ? request.getPlanId() : resolverPlanId(request.getPlanContratado());
+
+            TipoSuscripcion tipoSub = null;
+
+            if (request.getTipoSuscripcion() != null && !request.getTipoSuscripcion().isBlank()) {
+
+                try {
+
+                    tipoSub = TipoSuscripcion.valueOf(request.getTipoSuscripcion().trim().toUpperCase());
+
+                } catch (IllegalArgumentException ignored) {}
+
+            }
+
+            List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(cliente.getId());
+
+            Venta ventaPendiente = ventasCliente.stream()
+
+                    .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+
+                    .findFirst()
+
+                    .orElse(null);
+
+            if (nuevoPlanId == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null && ventaPendiente.getSuscripcion().getPlan() != null) {
+
+                nuevoPlanId = ventaPendiente.getSuscripcion().getPlan().getId();
+
+            }
+
+            if (tipoSub == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null) {
+
+                tipoSub = ventaPendiente.getSuscripcion().getTipoSuscripcion();
+
+            }
+
+            if (tipoSub == null) {
+
+                tipoSub = TipoSuscripcion.MENSUAL;
+
+            }
+
+            if (nuevoPlanId != null) {
+
+                Suscripcion nuevaSuscripcion = suscripcionRepository
+
+                        .findByPlanIdAndTipoSuscripcionAndActivoTrue(nuevoPlanId, tipoSub)
+
+                        .orElse(null);
+
+                if (nuevaSuscripcion != null && ventaPendiente != null) {
+
+                    boolean planCambio = ventaPendiente.getSuscripcion() == null
+
+                            || !nuevaSuscripcion.getId().equals(ventaPendiente.getSuscripcion().getId());
+
+                    // Solo actualizar venta y servicio si el plan realmente cambió
+
+                    if (planCambio) {
+
+                        ventaPendiente.setSuscripcion(nuevaSuscripcion);
+
+                        ventaPendiente.setPrecioLista(nuevaSuscripcion.getPrecio());
+
+                        if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
+
+                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+
+                            ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
+
+                            LocalDate fechaBase = (serv != null && serv.getFechaCapacitacion() != null)
+
+                                    ? serv.getFechaCapacitacion().toLocalDate()
+
+                                    : (serv != null && serv.getFechaInicio() != null ? serv.getFechaInicio().toLocalDate() : LocalDate.now());
+
+                            ProrrateoCalculatorUtil.ResultadoSegundoProrrateo resSegundo =
+
+                                    ProrrateoCalculatorUtil.calcularSegundoProrrateo(nuevaSuscripcion.getPrecio(), fechaBase);
+
+                            Integer diasExistentes = ventaPendiente.getDiasProrrateoAdicional();
+
+                            int dias = (diasExistentes != null && diasExistentes > 0)
+
+                                    ? diasExistentes
+
+                                    : resSegundo.diasProrrateados();
+
+                            int diasDelMes = resSegundo.fechaInicio().lengthOfMonth();
+
+                            BigDecimal montoAdicional = (dias == resSegundo.diasProrrateados())
+
+                                    ? resSegundo.montoAdicional()
+
+                                    : nuevaSuscripcion.getPrecio()
+
+                                            .divide(BigDecimal.valueOf(diasDelMes), 10, RoundingMode.HALF_UP)
+
+                                            .multiply(BigDecimal.valueOf(dias))
+
+                                            .setScale(2, RoundingMode.HALF_UP);
+
+                            ventaPendiente.setMontoProrrateoAdicional(montoAdicional);
+
+                            ventaPendiente.setDiasProrrateoAdicional(dias);
+
+                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio().add(montoAdicional));
+
+                        } else if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO) {
+
+                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+
+                            ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
+
+                            LocalDate fechaBase = (serv != null && serv.getFechaCapacitacion() != null)
+
+                                    ? serv.getFechaCapacitacion().toLocalDate()
+
+                                    : (serv != null && serv.getFechaInicio() != null ? serv.getFechaInicio().toLocalDate() : LocalDate.now());
+
+                            ProrrateoCalculatorUtil.ResultadoProrrateo resPrimer =
+
+                                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(nuevaSuscripcion.getPrecio(), fechaBase, monthlyBillingDay);
+
+                            ventaPendiente.setMontoProrrateado(resPrimer.descuento());
+
+                            ventaPendiente.setMontoTotal(resPrimer.montoFinal());
+
+                        } else {
+
+                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
+
+                        }
+
+                        ventaRepository.save(ventaPendiente);
+
+                        List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+
+                        if (!servicios.isEmpty()) {
+
+                            ServicioCliente servicio = servicios.get(0);
+
+                            String estadoNombre = cliente.getEstado() != null ? cliente.getEstado().getNombre() : null;
+
+                            if (servicio.getEstado() == EstadoServicio.PENDIENTE_CAPACITACION || "POR_COBRAR".equals(estadoNombre)) {
+
+                                LocalDateTime inicio = servicio.getFechaInicio() != null ? servicio.getFechaInicio() : LocalDateTime.now();
+
+                                if (tipoSub == TipoSuscripcion.ANUAL) {
+
+                                    servicio.setFechaFin(inicio.plusYears(1));
+
+                                } else if (inicio.getDayOfMonth() >= ProrrateoCalculatorUtil.SECOND_PRORATION_TRANSITION_DAY) {
+
+                                    LocalDate fechaCobroSegundo = ProrrateoCalculatorUtil.calcularSegundoProrrateo(
+
+                                            nuevaSuscripcion.getPrecio(),
+
+                                            inicio.toLocalDate()
+
+                                    ).fechaFin().plusDays(1);
+
+                                    servicio.setFechaFin(LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME));
+
+                                } else {
+
+                                    LocalDate fechaFinMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(inicio.toLocalDate(), monthlyBillingDay);
+
+                                    servicio.setFechaFin(LocalDateTime.of(fechaFinMensual, BILLING_CUTOFF_TIME));
+
+                                }
+
+                                servicio.setVenta(ventaPendiente);
+
+                                servicioClienteRepository.save(servicio);
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+        if (request.getVendedorId() != null) {
+
+            asignarVendedorAVentasExistentes(cliente.getId(), request.getVendedorId());
+
+        }
+
+        return mapToDashboardResponse(cliente);
+
+    }
+
+    @Override
+
+    @Transactional
+
+    public ClienteDashboardResponse cambiarColorTag(Long clienteId, Long colorTagId) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        ColorTag color = colorTagRepository.findById(colorTagId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Color no encontrado"));
+
+        cliente.setColorTag(color);
+
+        clienteRepository.save(cliente);
+
+        return mapToDashboardResponse(cliente);
+
+    }
+
+    @Override
+
+    @Transactional
+
+    public ClienteDashboardResponse cambiarVendedor(Long clienteId, Long vendedorId) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+
+        if (ventasCliente.isEmpty()) {
+
+            return mapToDashboardResponse(cliente);
+
+        }
+
+        asignarVendedorAVentasExistentes(clienteId, vendedorId);
+
+        return mapToDashboardResponse(cliente);
+
+    }
+
+    @Override
+
+    @Transactional
+
+    public ClienteDashboardResponse asignarmeVendedor(Long clienteId, String username) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        UsuarioAdmin vendedor = usuarioAdminRepository.findByUsernameAndActivoTrue(username)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario vendedor no encontrado"));
+
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+
+        if (ventasCliente.isEmpty()) {
+
+            throw new IllegalStateException("El cliente todavía no tiene una venta asignable");
+
+        }
+
+        boolean yaAsignado = ventasCliente.stream().anyMatch(venta -> venta.getVendedor() != null);
+
+        if (yaAsignado) {
+
+            throw new IllegalStateException("Este cliente ya tiene un vendedor asignado");
+
+        }
+
+        ventasCliente.forEach(venta -> venta.setVendedor(vendedor));
+
+        ventaRepository.saveAll(ventasCliente);
+
+        return mapToDashboardResponse(cliente);
+
+    }
+
+    private void asignarVendedorAVentasExistentes(Long clienteId, Long vendedorId) {
+
+        UsuarioAdmin vendedor = usuarioAdminRepository.findById(vendedorId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Vendedor no encontrado"));
+
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+
+        if (ventasCliente.isEmpty()) {
+
+            return;
+
+        }
+
+        ventasCliente.forEach(venta -> venta.setVendedor(vendedor));
+
+        ventaRepository.saveAll(ventasCliente);
+
+    }
+
+    @Override
+
+    @Transactional
+
+    public ClienteDashboardResponse cambiarEstadoCliente(Long clienteId, String nuevoEstadoNombre) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        EstadoCliente viejoEstado = cliente.getEstado();
+
+        EstadoCliente nuevoEstado = estadoClienteRepository.findByNombreAndActivoTrue(nuevoEstadoNombre)
+
+                .orElseGet(() -> {
+
+                    EstadoCliente e = new EstadoCliente();
+
+                    e.setNombre(nuevoEstadoNombre);
+
+                    e.setDescripcion("Estado " + nuevoEstadoNombre);
+
+                    return estadoClienteRepository.save(e);
+
+                });
+
+        cliente.setEstado(nuevoEstado);
+
+        cliente.setAvisado(false);
+
+        cliente.setFechaActualizacion(LocalDateTime.now());
+
+        clienteRepository.save(cliente);
+
+        HistorialEstadoCliente h = new HistorialEstadoCliente();
+
+        h.setCliente(cliente);
+
+        h.setEstadoAnterior(viejoEstado);
+
+        h.setEstadoNuevo(nuevoEstado);
+
+        h.setMotivo("Cambio de estado a " + nuevoEstadoNombre);
+
+        h.setFechaCambio(LocalDateTime.now());
+
+        historialEstadoClienteRepository.save(h);
+
+        return mapToDashboardResponse(cliente);
+
+    }
+
+    @Override
+
+    @Transactional
+
+    public ClienteDashboardResponse toggleAvisado(Long clienteId, Boolean avisado) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado con id: " + clienteId));
+
+        boolean nuevoEstado = avisado != null ? avisado : !cliente.getAvisado();
+
+        cliente.setAvisado(nuevoEstado);
+
+        cliente.setFechaActualizacion(LocalDateTime.now());
+
+        clienteRepository.save(cliente);
+
+        return mapToDashboardResponse(cliente);
+
+    }
+
+    @Override
+
+    @Transactional
+
+    public void eliminarClientePermanentemente(Long clienteId) {
+
+        Cliente cliente = clienteRepository.findByIdAndActivoTrue(clienteId)
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        // 1. Borrado lógico del cliente (desaparece de clientes activos y futuras cobranzas)
+
+        cliente.setActivo(false);
+
+        cliente.setFechaEliminacion(LocalDateTime.now());
+
+        clienteRepository.save(cliente);
+
+        // 2. Cancelar / bloquear servicios en curso
+
+        servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId).forEach(servicio -> {
+
+            servicio.setEstado(EstadoServicio.BLOQUEADO);
+
+            servicio.setFechaActualizacion(LocalDateTime.now());
+
+            servicioClienteRepository.save(servicio);
+
+        });
+
+        // 3. Cancelar ventas pendientes de pago para que no sigan sumando como deuda futura
+
+        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+
+        for (Venta venta : ventas) {
+
+            if (venta.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO) {
+
+                venta.setEstadoVenta(EstadoVenta.CANCELADA);
+
+                venta.setFechaActualizacion(LocalDateTime.now());
+
+                ventaRepository.save(venta);
+
+            }
+
+        }
+
+    }
+
+    /*
+
+    private void oldBlock(Long clienteId) {
+
+        Cliente cliente = null;
+
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente no encontrado"));
+
+        List<Venta> ventas = ventaRepository.findByClienteIdOrderByFechaVentaDesc(clienteId);
+
+        for (Venta venta : ventas) {
+
+            ventaRepository.findByVentaAnteriorId(venta.getId()).forEach(dependiente -> {
+
+                dependiente.setVentaAnterior(null);
+
+                ventaRepository.save(dependiente);
+
+            });
+
+            pagoRepository.deleteAll(pagoRepository.findByVentaId(venta.getId()));
+
+        }
+
+        ventaRepository.deleteAll(ventas);
+
+        clienteRepository.delete(cliente); } */ /*
+
+    }
+
+    */
+
+    private void registrarHistorial(Cliente cliente, EstadoCliente viejo, EstadoCliente nuevo, UsuarioAdmin usuario, String motivo) {
+
+        HistorialEstadoCliente h = new HistorialEstadoCliente();
+
+        h.setCliente(cliente);
+
+        h.setEstadoAnterior(viejo);
+
+        h.setEstadoNuevo(nuevo);
+
+        h.setUsuarioAdmin(usuario);
+
+        h.setMotivo(motivo);
+
+        h.setFechaCambio(LocalDateTime.now());
+
+        historialEstadoClienteRepository.save(h);
+
+    }
+
+    public ClienteDashboardResponse mapToDashboardResponse(Cliente c) {
+
+        ServicioCliente servicio = servicioClienteRepository.findTopByClienteIdOrderByFechaFinDesc(c.getId()).orElse(null);
+
+        List<Venta> ventasCliente = ventaRepository.findByClienteIdOrderByFechaVentaDesc(c.getId());
+
+        LocalDateTime capInicial = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(c.getId()).stream()
+
+                .map(ServicioCliente::getFechaCapacitacion)
+
+                .filter(Objects::nonNull)
+
+                .min(Comparator.naturalOrder())
+
+                .orElse(null);
+
+        return mapToDashboardResponse(c, servicio, ventasCliente, capInicial);
+
+    }
+
+    private ClienteDashboardResponse mapToDashboardResponse(
+
+            Cliente c,
+
+            ServicioCliente servicio,
+
+            List<Venta> ventasCliente) {
+
+        return mapToDashboardResponse(c, servicio, ventasCliente, null);
+
+    }
+
+    private ClienteDashboardResponse mapToDashboardResponse(
+
+            Cliente c,
+
+            ServicioCliente servicio,
+
+            List<Venta> ventasCliente,
+
+            LocalDateTime fechaCapacitacionInicial) {
+
+        ClienteDashboardResponse res = new ClienteDashboardResponse();
+
+        res.setId(c.getId());
+
+        res.setRuc(c.getRuc());
+
+        res.setUsuarioSol(c.getUsuarioSol());
+
+        res.setClaveSolCifrada(c.getClaveSolCifrada());
+
+        res.setRazonSocial(c.getRazonSocial());
+
+        res.setNombreComercial(c.getNombreComercial());
+
+        res.setDireccion(c.getDireccion());
+
+        res.setTelefono(c.getTelefono());
+
+        res.setEmail(c.getEmail());
+
+        res.setNombres(c.getNombres());
+
+        res.setApellidos(c.getApellidos());
+
+        res.setDni(c.getDni());
+
+        res.setEmailPersonal(c.getEmailPersonal());
+
+        res.setTelefonoPersonal(c.getTelefonoPersonal());
+
+        res.setDepartamento(c.getDepartamento());
+
+        res.setProvincia(c.getProvincia());
+
+        res.setDistrito(c.getDistrito());
+
+        res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
+
+        res.setClaveTemporal(c.getClaveTemporal());
+
+        res.setUrlAcceso(c.getUrlAcceso());
+
+        res.setUsuarioWsp(c.getUsuarioWsp());
+
+        res.setDniRepresentante(c.getDniRepresentante());
+
+        res.setCorreoRepresentante(c.getCorreoRepresentante());
+
+        res.setPrimeraVezOProviene(c.getPrimeraVezOProviene());
+
+        res.setUsabaSunatAnteriormente(c.getUsabaSunatAnteriormente());
+
+        res.setTipoIgv(c.getTipoIgv());
+        res.setRegimenTributario(c.getRegimenTributario());
+
+        res.setRegimenTributario(c.getRegimenTributario());
+
+        res.setAvisado(c.getAvisado());
+
+        LocalDateTime ahora = LocalDateTime.now();
+
+        String estadoNombre = c.getEstado() != null ? c.getEstado().getNombre() : null;
+
+        if ("VENCIDO".equalsIgnoreCase(estadoNombre)
+
+                && servicio != null
+
+                && servicio.getEstado() == EstadoServicio.ACTIVO
+
+                && servicio.getFechaFin() != null
+
+                && servicio.getFechaFin().isAfter(ahora)) {
+
+            EstadoCliente estadoHabilitado = estadoClienteRepository.findByNombreAndActivoTrue("HABILITADO").orElse(null);
+
+            if (estadoHabilitado != null) {
+
+                c.setEstado(estadoHabilitado);
+
+                clienteRepository.save(c);
+
+                estadoNombre = estadoHabilitado.getNombre();
+
+            }
+
+        }
+
+        if (c.getEstado() != null) {
+
+            res.setEstadoId(c.getEstado().getId());
+
+            res.setEstadoNombre(estadoNombre);
+
+        }
+
+        if (c.getColorTag() != null) {
+
+            res.setColorTagId(c.getColorTag().getId());
+
+            res.setColorCodigo(c.getColorTag().getCodigo());
+
+            res.setColorHex(c.getColorTag().getHex());
+
+        }
+
+        if (c.getEntorno() != null) {
+
+            res.setEntornoId(c.getEntorno().getId());
+
+            res.setEntornoNombre(c.getEntorno().getNombre());
+
+        }
+
+        Venta ventaPendiente = ventasCliente.stream()
+
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+
+                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
+
+                .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
+
+                .findFirst()
+
+                .orElse(null);
+
+        Venta ventaPendienteVencida = ventasCliente.stream()
+
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+
+                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
+
+                .filter(v -> v.getFechaVenta() == null || !v.getFechaVenta().toLocalDate().isAfter(ahora.toLocalDate()))
+
+                .sorted(Comparator.comparing(Venta::getFechaVenta, Comparator.nullsLast(Comparator.naturalOrder())))
+
+                .findFirst()
+
+                .orElse(null);
+
+        Venta ventaPlan = ventasCliente.stream()
+
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+
+                .findFirst()
+
+                .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
+
+        BigDecimal totalDeudaPendiente = ventasCliente.stream()
+
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PENDIENTE_PAGO)
+
+                .filter(v -> !esPendienteObsoletaPorServicioActivo(v, servicio))
+
+                .map(Venta::getMontoTotal)
+
+                .filter(Objects::nonNull)
+
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Venta ventaParaCobro = ventaPendienteVencida != null ? ventaPendienteVencida : ventaPendiente;
+
+        if (ventaParaCobro != null) {
+
+            res.setVentaId(ventaParaCobro.getId());
+
+            if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
+
+                res.setMontoSiguienteCobro(totalDeudaPendiente != null && totalDeudaPendiente.compareTo(BigDecimal.ZERO) > 0
+
+                        ? totalDeudaPendiente
+
+                        : (ventaPlan != null && ventaPlan.getSuscripcion() != null && ventaPlan.getSuscripcion().getPrecio() != null
+
+                                ? ventaPlan.getSuscripcion().getPrecio()
+
+                                : ventaParaCobro.getMontoTotal()));
+
+            } else {
+
+                res.setMontoSiguienteCobro(ventaParaCobro.getMontoTotal());
+
+            }
+
+            mapProrrateoVenta(ventaParaCobro, res);
+
+            if (ventaPendienteVencida != null
+
+                    && !"BLOQUEADO".equals(estadoNombre)
+
+                    && !"POR_CAPACITAR".equals(estadoNombre)
+
+                    && !"VENCIDO".equals(estadoNombre)
+
+                    && (servicio == null || servicio.getEstado() != EstadoServicio.ACTIVO || servicio.getFechaFin() == null || !servicio.getFechaFin().isAfter(ahora))) {
+
+                res.setEstadoNombre("POR_COBRAR");
+
+            }
+
+        } else if (ventaPlan != null) {
+
+            res.setVentaId(ventaPlan.getId());
+
+        }
+
+        Venta ventaConVendedor = ventaPlan != null && ventaPlan.getVendedor() != null
+
+                ? ventaPlan
+
+                : ventasCliente.stream()
+
+                        .filter(v -> v.getVendedor() != null)
+
+                        .findFirst()
+
+                        .orElse(null);
+
+        if (ventaConVendedor != null) {
+
+            res.setVendedorId(ventaConVendedor.getVendedor().getId());
+
+            res.setVendedorNombre(ventaConVendedor.getVendedor().getNombre());
+
+        } else {
+
+            res.setVendedorNombre("Por asignar");
+
+        }
+
+        if (ventaPlan != null) {
+
+            if (ventaPlan.getSuscripcion() != null) {
+
+                res.setPrecioPlan(ventaPlan.getSuscripcion().getPrecio());
+
+                if (ventaPlan.getSuscripcion().getPlan() != null) {
+
+                    res.setPlanId(ventaPlan.getSuscripcion().getPlan().getId());
+
+                    res.setPlanNombre(ventaPlan.getSuscripcion().getPlan().getNombrePlan());
+
+                }
+
+                res.setTipoSuscripcion(ventaPlan.getSuscripcion().getTipoSuscripcion() != null
+
+                        ? ventaPlan.getSuscripcion().getTipoSuscripcion().name()
+
+                        : null);
+
+            }
+
+        }
+
+        if (servicio != null) {
+
+            res.setServicioId(servicio.getId());
+
+            res.setFechaCapacitacion(fechaCapacitacionInicial != null ? fechaCapacitacionInicial : servicio.getFechaCapacitacion());
+
+            res.setFechaInicioServicio(servicio.getFechaInicio());
+
+            res.setFechaFinServicio(servicio.getFechaFin());
+
+            res.setEstadoServicio(servicio.getEstado() != null ? servicio.getEstado().name() : null);
+
+            if (res.getMontoSiguienteCobro() == null
+
+                    || res.getMontoSiguienteCobro().compareTo(BigDecimal.ZERO) <= 0) {
+
+                if (!"BLOQUEADO".equalsIgnoreCase(estadoNombre) && !"VENCIDO".equalsIgnoreCase(estadoNombre) && !"SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
+
+                    BigDecimal montoServicio = calcularMontoSiguienteCobro(servicio, ventasCliente);
+
+                    res.setMontoSiguienteCobro(montoServicio != null ? montoServicio : servicio.getMontoProrrateo());
+
+                } else {
+
+                    BigDecimal montoPlan = res.getPrecioPlan() != null && res.getPrecioPlan().compareTo(BigDecimal.ZERO) > 0
+
+                            ? res.getPrecioPlan()
+
+                            : (ventaPlan != null && ventaPlan.getSuscripcion() != null ? ventaPlan.getSuscripcion().getPrecio() : null);
+
+                    res.setMontoSiguienteCobro(montoPlan != null && montoPlan.compareTo(BigDecimal.ZERO) > 0 ? montoPlan : BigDecimal.ZERO);
+
+                }
+
+            }
+
+            res.setDiasProrrateados(servicio.getDiasProrrateados());
+
+            if (res.getTipoProrrateo() == null && servicio.getVenta() != null) {
+
+                mapProrrateoVenta(servicio.getVenta(), res);
+
+            }
+
+        }
+
+        if (res.getMontoSiguienteCobro() == null
+
+                || (("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre))
+
+                        && res.getMontoSiguienteCobro().compareTo(BigDecimal.ZERO) <= 0)) {
+
+            if ("BLOQUEADO".equalsIgnoreCase(estadoNombre) || "VENCIDO".equalsIgnoreCase(estadoNombre) || "SUSPENDIDO".equalsIgnoreCase(estadoNombre)) {
+
+                BigDecimal montoPlan = res.getPrecioPlan() != null && res.getPrecioPlan().compareTo(BigDecimal.ZERO) > 0
+
+                        ? res.getPrecioPlan()
+
+                        : (ventaPlan != null && ventaPlan.getSuscripcion() != null ? ventaPlan.getSuscripcion().getPrecio() : null);
+
+                res.setMontoSiguienteCobro(montoPlan != null && montoPlan.compareTo(BigDecimal.ZERO) > 0 ? montoPlan : BigDecimal.ZERO);
+
+            }
+
+        }
+
+        res.setFechaRegistro(c.getFechaRegistro());
+
+        return res;
+
+    }
+
+    private BigDecimal calcularMontoSiguienteCobro(ServicioCliente servicio, List<Venta> ventasCliente) {
+
+        if (servicio == null
+
+                || servicio.getEstado() != EstadoServicio.ACTIVO
+
+                || ventasCliente == null) {
+
+            return null;
+
+        }
+
+        Venta ventaVigente = ventasCliente.stream()
+
+                .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
+
+                .filter(v -> v.getSuscripcion() != null && v.getSuscripcion().getPrecio() != null)
+
+                .findFirst()
+
+                .orElse(servicio.getVenta());
+
+        if (ventaVigente == null
+
+                || ventaVigente.getSuscripcion() == null
+
+                || ventaVigente.getSuscripcion().getPrecio() == null) {
+
+            return null;
+
+        }
+
+        BigDecimal precio = ventaVigente.getSuscripcion().getPrecio();
+
+        // Una vez que el servicio está activo y su ciclo alineado al día de corte mensual,
+
+        // el monto del SIGUIENTE cobro es el precio regular mensual del plan contratado.
+
+        return precio;
+
+    }
+
+    private void mapProrrateoVenta(Venta venta, ClienteDashboardResponse response) {
+
+        response.setTipoProrrateo(venta.getTipoProrrateo() != null
+
+                ? venta.getTipoProrrateo().name()
+
+                : TipoProrrateo.NINGUNO.name());
+
+        response.setMontoProrrateoAdicional(venta.getMontoProrrateoAdicional());
+
+        response.setDiasProrrateoAdicional(venta.getDiasProrrateoAdicional());
+
+        response.setFechaInicioProrrateoAdicional(venta.getFechaInicioProrrateoAdicional());
+
+        response.setFechaFinProrrateoAdicional(venta.getFechaFinProrrateoAdicional());
+
+    }
+
+    private ClienteDashboardResponse mapToDashboardResponseBasico(Cliente c) {
+
+        ClienteDashboardResponse res = new ClienteDashboardResponse();
+
+        res.setId(c.getId());
+
+        res.setRuc(c.getRuc());
+
+        res.setUsuarioSol(c.getUsuarioSol());
+
+        res.setClaveSolCifrada(c.getClaveSolCifrada());
+
+        res.setRazonSocial(c.getRazonSocial());
+
+        res.setNombreComercial(c.getNombreComercial());
+
+        res.setDireccion(c.getDireccion());
+
+        res.setTelefono(c.getTelefono());
+
+        res.setEmail(c.getEmail());
+
+        res.setNombres(c.getNombres());
+
+        res.setApellidos(c.getApellidos());
+
+        res.setDni(c.getDni());
+
+        res.setEmailPersonal(c.getEmailPersonal());
+
+        res.setTelefonoPersonal(c.getTelefonoPersonal());
+
+        res.setDepartamento(c.getDepartamento());
+
+        res.setProvincia(c.getProvincia());
+
+        res.setDistrito(c.getDistrito());
+
+        res.setUsuarioAdminFacturador(c.getUsuarioAdminFacturador());
+
+        res.setClaveTemporal(c.getClaveTemporal());
+
+        res.setUrlAcceso(c.getUrlAcceso());
+
+        res.setUsuarioWsp(c.getUsuarioWsp());
+
+        res.setDniRepresentante(c.getDniRepresentante());
+
+        res.setCorreoRepresentante(c.getCorreoRepresentante());
+
+        res.setPrimeraVezOProviene(c.getPrimeraVezOProviene());
+
+        res.setUsabaSunatAnteriormente(c.getUsabaSunatAnteriormente());
+
+        res.setTipoIgv(c.getTipoIgv());
+        res.setRegimenTributario(c.getRegimenTributario());
+
+        res.setRegimenTributario(c.getRegimenTributario());
+
+        if (c.getEntorno() != null) {
+
+            res.setEntornoId(c.getEntorno().getId());
+
+            res.setEntornoNombre(c.getEntorno().getNombre());
+
+        }
+
+        res.setEstadoNombre(c.getEstado() != null ? c.getEstado().getNombre() : null);
+
+        res.setVendedorNombre("Por asignar");
+
+        res.setFechaRegistro(c.getFechaRegistro());
+
+        return res;
+
+    }
+
+    private boolean esPendienteObsoletaPorServicioActivo(Venta venta, ServicioCliente servicio) {
+
+        if (venta == null || servicio == null || servicio.getEstado() != EstadoServicio.ACTIVO) {
+
+            return false;
+
+        }
+
+        if (servicio.getFechaFin() != null && servicio.getFechaFin().isAfter(LocalDateTime.now())) {
+
+            if (venta.getFechaVenta() != null && venta.getFechaVenta().toLocalDate().isBefore(servicio.getFechaFin().toLocalDate())) {
+
+                return true;
+
+            }
+
+        }
+
+        return venta.getFechaVenta() != null
+
+                && servicio.getFechaInicio() != null
+
+                && venta.getFechaVenta().isBefore(servicio.getFechaInicio());
+
+    }
+
+}
+

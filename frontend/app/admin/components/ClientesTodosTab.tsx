@@ -151,6 +151,7 @@ interface ClientesTodosTabProps {
   onOpenCreateClient?: () => void;
   handleToggleAvisado?: (client: Client, nextAvisado?: boolean) => void;
   handleAdelantoPago?: (client: Client, monto?: number, observaciones?: string, paymentDetails?: any) => Promise<void> | void;
+  handleRenovarPlan?: (client: Client, nuevoPlan?: string, nuevoTipo?: string, paymentDetails?: any) => Promise<void> | void;
   setHistoryClient?: (client: Client) => void;
 }
 
@@ -185,6 +186,7 @@ export default function ClientesTodosTab({
   onOpenCreateClient,
   handleToggleAvisado,
   handleAdelantoPago,
+  handleRenovarPlan,
   setHistoryClient,
 }: ClientesTodosTabProps) {
   const currentSearch = search !== undefined ? search : (searchTerm || '');
@@ -1044,7 +1046,20 @@ export default function ClientesTodosTab({
                             )}
                           </button>
 
-                          {/* 5. Registrar Adelanto */}
+                          {/* 5. Registrar Pago / Renovar */}
+                          <button
+                            type="button"
+                            className="table-action-item item-primary"
+                            onClick={() => {
+                              setAdelantoClient(c);
+                              setOpenActionClientId(null);
+                            }}
+                          >
+                            <RotateCcw size={15} />
+                            <span>Registrar Pago / Renovar</span>
+                          </button>
+
+                          {/* 6. Registrar Adelanto */}
                           <button
                             type="button"
                             className="table-action-item"
@@ -1057,7 +1072,7 @@ export default function ClientesTodosTab({
                             <span>Registrar Adelanto</span>
                           </button>
 
-                          {/* 6. Ver Historial */}
+                          {/* 7. Ver Historial */}
                           <button
                             type="button"
                             className="table-action-item"
@@ -1236,19 +1251,36 @@ export default function ClientesTodosTab({
         }}
       />
 
-      {/* Modal de Adelanto de Pago */}
+      {/* Modal de Pago / Renovación / Adelanto */}
       {adelantoClient && (
         <RegistrarPagoModal
           client={adelantoClient}
-          mode="ADELANTO"
+          mode={
+            adelantoClient.estadoCuenta === 'VENCIDO' || adelantoClient.estadoCuenta === 'POR_COBRAR'
+              ? 'RENOVAR_PRORRATEO'
+              : 'ADELANTO'
+          }
           onClose={() => setAdelantoClient(null)}
           onConfirm={async (client, data) => {
-            await handleAdelantoPago?.(client, data.monto, data.observaciones, {
-              fechaPago: data.fechaPago,
-              medioPago: data.medioPago,
-              codigoOperacion: data.codigoOperacion,
-              observaciones: data.observaciones,
-            });
+            if (data.modalidad === 'ADELANTO' && handleAdelantoPago) {
+              await handleAdelantoPago(client, data.monto, data.observaciones, {
+                fechaPago: data.fechaPago,
+                medioPago: data.medioPago,
+                codigoOperacion: data.codigoOperacion,
+                observaciones: data.observaciones,
+              });
+            } else if (handleRenovarPlan) {
+              await handleRenovarPlan(client, undefined, undefined, {
+                monto: data.monto,
+                fechaPago: data.fechaPago,
+                medioPago: data.medioPago,
+                codigoOperacion: data.codigoOperacion,
+                observaciones: data.observaciones,
+                conProrrateo: data.conProrrateo,
+                fechaInicioPeriodo: data.fechaInicioPeriodo,
+                fechaFinPeriodo: data.fechaFinPeriodo,
+              });
+            }
             setAdelantoClient(null);
           }}
         />

@@ -44,12 +44,16 @@ export default function EditClientModal({
   const [selectedEntornoId, setSelectedEntornoId] = React.useState<string>(
     editingClient?.entornoId ? String(editingClient.entornoId) : ''
   );
+  const [selectedRegimen, setSelectedRegimen] = React.useState<string>(
+    normalizeRegimen(editingClient?.regimenTributario)
+  );
 
   React.useEffect(() => {
     if (editingClient) {
       setSelectedPlan(normalizePlanKey(editingClient.planContratado));
       setSelectedTipo((editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase());
       setSelectedEntornoId(editingClient.entornoId ? String(editingClient.entornoId) : '');
+      setSelectedRegimen(normalizeRegimen(editingClient.regimenTributario));
     }
   }, [editingClient]);
 
@@ -225,8 +229,8 @@ export default function EditClientModal({
                   <select
                     className="form-select"
                     name="regimenTributario"
-                    defaultValue={normalizeRegimen(editingClient.regimenTributario)}
-                    key={`regimen_${editingClient.id}_${editingClient.regimenTributario}`}
+                    value={selectedRegimen}
+                    onChange={(e) => setSelectedRegimen(e.target.value)}
                   >
                     <option value="MYPE_TRIBUTARIO">MYPE Tributario</option>
                     <option value="REGIMEN_GENERAL">Régimen General</option>

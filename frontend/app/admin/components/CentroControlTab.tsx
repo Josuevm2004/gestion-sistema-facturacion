@@ -33,7 +33,7 @@ export default function CentroControlTab({
   setHistoryClient,
   handleToggleAvisado,
   handleAdelantoPago,
-  handleRenovarPlan: _handleRenovarPlan,
+  handleRenovarPlan,
 }: CentroControlTabProps) {
   const [billingMessageClient, setBillingMessageClient] = React.useState<Client | null>(null);
   const [adelantoClient, setAdelantoClient] = React.useState<Client | null>(null);
@@ -433,12 +433,25 @@ export default function CentroControlTab({
           mode="ADELANTO"
           onClose={() => setAdelantoClient(null)}
           onConfirm={async (client, data) => {
-            await handleAdelantoPago?.(client, data.monto, data.observaciones, {
-              fechaPago: data.fechaPago,
-              medioPago: data.medioPago,
-              codigoOperacion: data.codigoOperacion,
-              observaciones: data.observaciones,
-            });
+            if (data.modalidad === 'ADELANTO' && handleAdelantoPago) {
+              await handleAdelantoPago(client, data.monto, data.observaciones, {
+                fechaPago: data.fechaPago,
+                medioPago: data.medioPago,
+                codigoOperacion: data.codigoOperacion,
+                observaciones: data.observaciones,
+              });
+            } else if (handleRenovarPlan) {
+              await handleRenovarPlan(client, undefined, undefined, {
+                monto: data.monto,
+                fechaPago: data.fechaPago,
+                medioPago: data.medioPago,
+                codigoOperacion: data.codigoOperacion,
+                observaciones: data.observaciones,
+                conProrrateo: data.conProrrateo,
+                fechaInicioPeriodo: data.fechaInicioPeriodo,
+                fechaFinPeriodo: data.fechaFinPeriodo,
+              });
+            }
             setAdelantoClient(null);
           }}
         />

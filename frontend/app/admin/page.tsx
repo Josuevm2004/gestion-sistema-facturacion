@@ -214,6 +214,7 @@ export default function AdminPage() {
                 onOpenCreateClient={() => adminData.setShowCreateClientModal(true)}
                 handleToggleAvisado={adminData.handleToggleAvisado}
                 handleAdelantoPago={adminData.handleAdelantoPago}
+                handleRenovarPlan={adminData.handleRenovarPlan}
                 setHistoryClient={adminData.setHistoryClient}
               />
             )}

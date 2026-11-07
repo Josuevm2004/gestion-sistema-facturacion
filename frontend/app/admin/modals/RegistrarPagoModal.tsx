@@ -161,40 +161,6 @@ export default function RegistrarPagoModal({
       };
     }
 
-    // Si el cliente ya tiene una renovación pendiente con 2.° o 1.° prorrateo programado desde la capacitación o monto agendado:
-    const scheduledMonto = Number(client.montoSiguienteCobro || 0);
-    if (
-      scheduledMonto > 0 &&
-      (client.tipoProrrateo === 'SEGUNDO_PRORRATEO' ||
-        client.tipoProrrateo === 'PRIMER_PRORRATEO' ||
-        scheduledMonto !== precioOficialPlan)
-    ) {
-      const primerDiaMesActual = new Date(now.getFullYear(), now.getMonth(), 1);
-      let inicioCiclo = primerDiaMesActual;
-      if (vencDate && vencDate >= primerDiaMesActual) {
-        inicioCiclo = new Date(vencDate.getFullYear(), vencDate.getMonth(), 1);
-      }
-      const fin = new Date(inicioCiclo.getFullYear(), inicioCiclo.getMonth() + 1, 1);
-      if (client.tipoProrrateo === 'SEGUNDO_PRORRATEO' || scheduledMonto > precioOficialPlan) {
-        const diasAdic = client.diasProrrateoAdicional ? ` + ${client.diasProrrateoAdicional} días adic.` : '';
-        const montoAdic = client.montoProrrateoAdicional ? ` (S/ ${Number(client.montoProrrateoAdicional).toFixed(2)})` : '';
-        return {
-          monto: scheduledMonto,
-          fechaInicioPeriodo: inicioCiclo,
-          fechaFinPeriodo: fin,
-          detalleCalculo: `Renovación programada con 2.° prorrateo pendiente: S/ ${scheduledMonto.toFixed(2)} (Mes regular S/ ${precioOficialPlan.toFixed(2)}${diasAdic}${montoAdic})`,
-        };
-      } else {
-        const descuento = Math.max(0, Number((precioOficialPlan - scheduledMonto).toFixed(2)));
-        return {
-          monto: scheduledMonto,
-          fechaInicioPeriodo: inicioCiclo,
-          fechaFinPeriodo: fin,
-          detalleCalculo: `Renovación programada con 1.° prorrateo pendiente: S/ ${scheduledMonto.toFixed(2)} (Mes regular S/ ${precioOficialPlan.toFixed(2)} - S/ ${descuento.toFixed(2)} descuento)`,
-        };
-      }
-    }
-
     const dia = payDate.getDate();
     const y = payDate.getFullYear();
     const m = payDate.getMonth();

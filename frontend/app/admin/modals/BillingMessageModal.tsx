@@ -89,6 +89,17 @@ export default function BillingMessageModal({ client, onClose, onAvisado }: Bill
   const [isEditing, setIsEditing] = useState(false);
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
 
+  const defaultPhone = useMemo(() => {
+    if (!client) return '';
+    return client.telefonoPersonal || client.usuarioWsp || client.telefono || '';
+  }, [client]);
+
+  const [selectedPhone, setSelectedPhone] = useState<string>('');
+
+  useEffect(() => {
+    setSelectedPhone(defaultPhone);
+  }, [defaultPhone]);
+
   const monthNames = [
     'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
   ];
@@ -119,6 +130,9 @@ export default function BillingMessageModal({ client, onClose, onAvisado }: Bill
     const tarifaBase = Number(client.montoMensual || 29).toFixed(2);
     const planName = client.planContratado || 'Plan Estándar';
     const now = new Date();
+    const rucStr = client.ruc ? `📄 *RUC:* ${client.ruc}\n` : '';
+    const razonSocialStr = client.razonSocial || client.nombreComercial ? `👤 *Cliente:* ${client.razonSocial || client.nombreComercial}\n` : '';
+    const clientHeader = `${razonSocialStr}${rucStr}`;
 
     if (activeType === 'SEGUNDO_PRORRATEO') {
       let dInicioProrr = parseLocalDate(client.fechaInicioProrrateoAdicional);
@@ -147,7 +161,7 @@ export default function BillingMessageModal({ client, onClose, onAvisado }: Bill
 
       return `💳 *¿CÓMO FUNCIONA TU PRÓXIMO PAGO?*
 
-Al activar tu cuenta el *${diaInit}/${mesInit}*, tu primer pago cubre un mes completo.
+${clientHeader}Al activar tu cuenta el *${diaInit}/${mesInit}*, tu primer pago cubre un mes completo.
 Para alinearte a nuestro ciclo de cobro de los días 01, los días restantes de ${nombreMesAniv} se juntan con el mes siguiente:
 
 📌 *Tus fechas:*
@@ -174,7 +188,7 @@ Para alinearte a nuestro ciclo de cobro de los días 01, los días restantes de 
 
       return `💳 *¿CÓMO SERÁ TU PRÓXIMO PAGO?*
 
-Como te inscribiste el *${diaInit} de ${monthNames[dInit.getMonth()]}*, tu primer pago cubrió hasta el ${diaInit} de ${monthNames[dCobro.getMonth()]}.
+${clientHeader}Como te inscribiste el *${diaInit} de ${monthNames[dInit.getMonth()]}*, tu primer pago cubrió hasta el ${diaInit} de ${monthNames[dCobro.getMonth()]}.
 
 1. *El 01 de ${nombreMesCobro.toUpperCase()} pagas solo:* S/ ${montoProrrateado} (ajuste de días).
 2. *El 01 de ${monthNamesCapital[(dCobro.getMonth() + 1) % 12].toUpperCase()} en adelante:* S/ ${tarifaBase} normal.
@@ -194,7 +208,7 @@ Como te inscribiste el *${diaInit} de ${monthNames[dInit.getMonth()]}*, tu prime
       return `👋 *¡Hola!*
 Tu suscripción anual (*${planName}*) está lista para renovar. Mantener tu pago al día garantiza tu servicio sin interrupciones 🚀
 
-📅 *Vencimiento:* ${vencDate.toLocaleDateString('es-PE')}
+${clientHeader}📅 *Vencimiento:* ${vencDate.toLocaleDateString('es-PE')}
 💳 *Monto:* S/ ${tarifaBase}
 
 🏦 *BCP:* 194-9357265-026 | *CCI:* 00219400935726502690
@@ -209,7 +223,7 @@ Tu suscripción anual (*${planName}*) está lista para renovar. Mantener tu pago
     return `👋 *¡Hola!*
 
 Tu cuota de *${nombreMes}* está lista para ser abonada.
-📅 *Mes:* ${nombreMes}
+${clientHeader}📅 *Mes:* ${nombreMes}
 💳 *Monto:* S/ ${tarifaBase}
 
 🏦 *BCP:* 194-9357265-026 | *CCI:* 00219400935726502690
@@ -243,7 +257,7 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
     if (!client) return;
 
     const text = currentActiveText;
-    const rawPhone = client.usuarioWsp || client.telefono || client.telefonoPersonal || '';
+    const rawPhone = selectedPhone || client.telefonoPersonal || client.usuarioWsp || client.telefono || '';
     const cleanPhone = rawPhone.replace(/\D/g, '');
     const fullPhone = cleanPhone.startsWith('51') ? cleanPhone : `51${cleanPhone}`;
     const url = `https://web.whatsapp.com/send?phone=${cleanPhone ? fullPhone : ''}&text=${encodeURIComponent(text)}`;
@@ -397,8 +411,33 @@ Tu cuota de *${nombreMes}* está lista para ser abonada.
           </div>
 
           <div className="modal-footer px-4 py-3 d-flex justify-content-between align-items-center border-top bg-light">
-            <div className="small text-muted">
-              Destinatario: <strong className="text-dark">{client.usuarioWsp || client.telefono || client.telefonoPersonal || 'Sin número'}</strong>
+            <div className="small text-muted d-flex align-items-center gap-2 flex-wrap">
+              <span>Destinatario:</span>
+              {client.telefonoPersonal && (
+                <button
+                  type="button"
+                  className={`btn btn-xs rounded-pill px-2.5 py-0.5 fw-semibold ${selectedPhone === client.telefonoPersonal ? 'btn-success text-white shadow-xs' : 'btn-outline-secondary bg-white'}`}
+                  style={{ fontSize: '0.78rem' }}
+                  onClick={() => setSelectedPhone(client.telefonoPersonal!)}
+                  title="Teléfono personal de la persona / contacto"
+                >
+                  👤 Personal: {client.telefonoPersonal}
+                </button>
+              )}
+              {client.telefono && client.telefono !== client.telefonoPersonal && (
+                <button
+                  type="button"
+                  className={`btn btn-xs rounded-pill px-2.5 py-0.5 fw-semibold ${selectedPhone === client.telefono ? 'btn-success text-white shadow-xs' : 'btn-outline-secondary bg-white'}`}
+                  style={{ fontSize: '0.78rem' }}
+                  onClick={() => setSelectedPhone(client.telefono!)}
+                  title="Teléfono general de la empresa"
+                >
+                  🏢 Empresa: {client.telefono}
+                </button>
+              )}
+              {!client.telefonoPersonal && !client.telefono && (
+                <strong className="text-dark">{client.usuarioWsp || 'Sin número'}</strong>
+              )}
             </div>
             <div className="d-flex gap-2">
               <button className="btn-meta-action btn-meta-action-secondary" onClick={() => handleCopy()}>
