@@ -245,7 +245,6 @@ export default function EditClientModal({
                     name="planContratado"
                     value={selectedPlan}
                     onChange={(e) => setSelectedPlan(e.target.value)}
-                    disabled={planLocked}
                   >
                     <option value="INICIA">Plan Inicia (S/ 19 / mes)</option>
                     <option value="EMPRENDE">Plan Emprende (S/ 29 / mes)</option>
@@ -262,7 +261,6 @@ export default function EditClientModal({
                     name="tipoSuscripcion"
                     value={selectedTipo}
                     onChange={(e) => setSelectedTipo(e.target.value)}
-                    disabled={planLocked}
                   >
                     <option value="MENSUAL">Mensual</option>
                     <option value="ANUAL">Anual (x10 meses)</option>
@@ -271,10 +269,10 @@ export default function EditClientModal({
                 <div className="col-12 mt-2">
                   <div className="alert alert-info py-2 px-3 mb-0 d-flex justify-content-between align-items-center rounded-3 border-0 bg-opacity-75">
                     <div className="small">
-                      <strong className="text-dark">Precio a cobrar por este plan:</strong> Plan {selectedPlan} ({selectedTipo})
-                      {planLocked && (
-                        <span className="ms-2 text-muted fst-italic">
-                          (Bloqueado: para clientes habilitados o vencidos utilice el botón "Cambiar Plan")
+                      <strong className="text-dark">Precio base de este plan:</strong> Plan {selectedPlan} ({selectedTipo})
+                      {selectedPlan !== normalizePlanKey(editingClient.planContratado) && (
+                        <span className="ms-2 text-success fw-bold">
+                          • Se actualizará el plan y se recalculará cualquier prorrateo pendiente con esta tarifa
                         </span>
                       )}
                     </div>

@@ -1153,11 +1153,13 @@ export function useAdminData() {
       IMPULSA: { MENSUAL: 39, ANUAL: 390 },
       EMPRESARIAL: { MENSUAL: 59, ANUAL: 590 },
       LIDER: { MENSUAL: 89, ANUAL: 890 },
+      REST: { MENSUAL: 109, ANUAL: 1090 },
     };
     const planPriceConfig = PLAN_PRICES[planKey] || { MENSUAL: 19, ANUAL: 190 };
     const nuevoPrecio = tipoSuscripcion === 'ANUAL' ? planPriceConfig.ANUAL : planPriceConfig.MENSUAL;
 
-    const planCambio = !planLocked && (planKey !== editingClient.planContratado || tipoSuscripcion !== (editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase());
+    const planCambio = planKey !== normalizePlanKey(editingClient.planContratado) ||
+      tipoSuscripcion !== (editingClient.tipoSuscripcion || 'MENSUAL').toUpperCase();
 
     const PLAN_ID_MAP: Record<string, string | number> = {
       INICIA: 1,
@@ -1266,8 +1268,8 @@ export function useAdminData() {
           fechaInicioServicio: editingClient.fechaInicioServicio || normalized.fechaInicioServicio,
           fechaFinServicio: editingClient.fechaFinServicio || normalized.fechaFinServicio,
           fechaVencimientoMensual: editingClient.fechaVencimientoMensual || normalized.fechaVencimientoMensual,
-          diasProrrateados: editingClient.diasProrrateados !== undefined ? editingClient.diasProrrateados : normalized.diasProrrateados,
-          tipoProrrateo: editingClient.tipoProrrateo || normalized.tipoProrrateo,
+          diasProrrateados: planCambio ? normalized.diasProrrateados : (editingClient.diasProrrateados !== undefined ? editingClient.diasProrrateados : normalized.diasProrrateados),
+          tipoProrrateo: planCambio ? normalized.tipoProrrateo : (editingClient.tipoProrrateo || normalized.tipoProrrateo),
           fechaCapacitacion: editingClient.fechaCapacitacion || normalized.fechaCapacitacion,
           montoMensual: planCambio ? normalized.montoMensual : (editingClient.montoMensual ?? normalized.montoMensual),
           montoSiguienteCobro: planCambio ? normalized.montoSiguienteCobro : (editingClient.montoSiguienteCobro ?? normalized.montoSiguienteCobro),

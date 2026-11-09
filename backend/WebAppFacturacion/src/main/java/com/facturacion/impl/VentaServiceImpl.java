@@ -452,7 +452,13 @@ public class VentaServiceImpl implements VentaService {
         Venta ventaActual = ventasCliente.stream()
                 .filter(v -> v.getEstadoVenta() == EstadoVenta.PAGADA)
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("No existe una venta vigente pagada para mejorar plan"));
+                .orElseGet(() -> ventasCliente.stream()
+                        .filter(v -> v.getTipoVenta() == TipoVenta.ALTA)
+                        .findFirst()
+                        .orElse(null));
+        if (ventaActual == null) {
+            throw new ResourceNotFoundException("No existe una venta vigente para mejorar plan");
+        }
         if (ventaActual.getSuscripcion() == null) {
             throw new ResourceNotFoundException("La venta vigente no tiene suscripción registrada");
         }

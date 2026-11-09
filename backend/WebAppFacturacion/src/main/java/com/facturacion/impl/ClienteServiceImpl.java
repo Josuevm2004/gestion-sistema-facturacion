@@ -522,7 +522,7 @@ public class ClienteServiceImpl implements ClienteService {
 
             case "LIDER" -> 5L;
 
-            case "REST" -> 6L;
+            case "REST" -> 1224527417792757761L;
 
             case "INICIAL", "INICIA" -> 1L;
 
@@ -1190,7 +1190,21 @@ public class ClienteServiceImpl implements ClienteService {
 
                         ventaPendiente.setPrecioLista(nuevaSuscripcion.getPrecio());
 
-                        if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
+                        if (tipoSub == TipoSuscripcion.ANUAL) {
+
+                            ventaPendiente.setTipoProrrateo(TipoProrrateo.NINGUNO);
+
+                            ventaPendiente.setMontoProrrateado(BigDecimal.ZERO);
+
+                            ventaPendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
+
+                            ventaPendiente.setDiasProrrateoAdicional(0);
+
+                            ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
+
+                            ventaPendiente.setObservaciones("Renovación anual generada por cambio de plan");
+
+                        } else if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO) {
 
                             List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
 
@@ -1234,29 +1248,37 @@ public class ClienteServiceImpl implements ClienteService {
 
                             ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio().add(montoAdicional));
 
+                            ventaPendiente.setObservaciones("Renovacion con segundo prorrateo del " + resSegundo.fechaInicio() + " al " + resSegundo.fechaFin());
+
                         } else if (ventaPendiente.getTipoProrrateo() == TipoProrrateo.PRIMER_PRORRATEO) {
 
-                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+                            LocalDate fechaBasePrimer = ventaPendiente.getFechaVenta() != null
 
-                            ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
+                                    ? ventaPendiente.getFechaVenta().toLocalDate()
 
-                            LocalDate fechaBase = (serv != null && serv.getFechaCapacitacion() != null)
-
-                                    ? serv.getFechaCapacitacion().toLocalDate()
-
-                                    : (serv != null && serv.getFechaInicio() != null ? serv.getFechaInicio().toLocalDate() : LocalDate.now());
+                                    : LocalDate.now();
 
                             ProrrateoCalculatorUtil.ResultadoProrrateo resPrimer =
 
-                                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(nuevaSuscripcion.getPrecio(), fechaBase, monthlyBillingDay);
+                                    ProrrateoCalculatorUtil.calcularHastaDiaCobro(nuevaSuscripcion.getPrecio(), fechaBasePrimer, monthlyBillingDay);
 
                             ventaPendiente.setMontoProrrateado(resPrimer.descuento());
 
                             ventaPendiente.setMontoTotal(resPrimer.montoFinal());
 
+                            ventaPendiente.setObservaciones("Renovacion con primer prorrateo para fecha " + fechaBasePrimer);
+
                         } else {
 
+                            ventaPendiente.setMontoProrrateado(BigDecimal.ZERO);
+
+                            ventaPendiente.setMontoProrrateoAdicional(BigDecimal.ZERO);
+
+                            ventaPendiente.setDiasProrrateoAdicional(0);
+
                             ventaPendiente.setMontoTotal(nuevaSuscripcion.getPrecio());
+
+                            ventaPendiente.setObservaciones("Renovación mensual regular para " + (ventaPendiente.getFechaVenta() != null ? ventaPendiente.getFechaVenta().toLocalDate() : LocalDate.now()));
 
                         }
 
@@ -1305,6 +1327,46 @@ public class ClienteServiceImpl implements ClienteService {
                             }
 
                         }
+
+                    }
+
+                } else if (nuevaSuscripcion != null && cliente.getEstado() != null && "HABILITADO".equalsIgnoreCase(cliente.getEstado().getNombre())) {
+
+                    List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+
+                    ServicioCliente serv = servicios.isEmpty() ? null : servicios.get(0);
+
+                    if (serv != null && serv.getFechaFin() != null) {
+
+                        Venta nuevaRenovacion = new Venta();
+
+                        nuevaRenovacion.setCliente(cliente);
+
+                        nuevaRenovacion.setSuscripcion(nuevaSuscripcion);
+
+                        nuevaRenovacion.setPrecioLista(nuevaSuscripcion.getPrecio());
+
+                        nuevaRenovacion.setTipoVenta(TipoVenta.RENOVACION);
+
+                        nuevaRenovacion.setEstadoVenta(EstadoVenta.PENDIENTE_PAGO);
+
+                        nuevaRenovacion.setTipoProrrateo(TipoProrrateo.NINGUNO);
+
+                        nuevaRenovacion.setMontoProrrateado(BigDecimal.ZERO);
+
+                        nuevaRenovacion.setMontoProrrateoAdicional(BigDecimal.ZERO);
+
+                        nuevaRenovacion.setDiasProrrateoAdicional(0);
+
+                        nuevaRenovacion.setMontoTotal(nuevaSuscripcion.getPrecio());
+
+                        nuevaRenovacion.setFechaVenta(serv.getFechaFin());
+
+                        nuevaRenovacion.setObservaciones("Renovación programada por actualización de plan");
+
+                        nuevaRenovacion.setFechaActualizacion(LocalDateTime.now());
+
+                        ventaRepository.save(nuevaRenovacion);
 
                     }
 
