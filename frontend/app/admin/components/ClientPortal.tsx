@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 interface ClientPortalProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   selector?: string;
 }
 

@@ -914,14 +914,9 @@ export function useAdminData() {
       if (tipoAUsar === 'ANUAL') {
         const nextYear = new Date(y + 1, m, dia);
         nextDateStr = `${nextYear.getFullYear()}-${String(nextYear.getMonth() + 1).padStart(2, '0')}-${String(nextYear.getDate()).padStart(2, '0')}`;
-      } else if (paymentDetails?.conProrrateo && dia >= 10) {
-        // Segundo Prorrateo (día >= 10): fin del período es el 1.° de 2 meses después
-        const finSegundo = new Date(y, m + 2, 1);
-        nextDateStr = `${finSegundo.getFullYear()}-${String(finSegundo.getMonth() + 1).padStart(2, '0')}-01`;
       } else {
-        // Primer Prorrateo (día < 10) o Ciclo regular: 1.° del próximo mes
-        const finPrimer = new Date(y, m + 1, 1);
-        nextDateStr = `${finPrimer.getFullYear()}-${String(finPrimer.getMonth() + 1).padStart(2, '0')}-01`;
+        const finMes = new Date(y, m + 1, dia);
+        nextDateStr = `${finMes.getFullYear()}-${String(finMes.getMonth() + 1).padStart(2, '0')}-${String(finMes.getDate()).padStart(2, '0')}`;
       }
     }
 

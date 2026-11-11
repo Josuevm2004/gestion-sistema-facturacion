@@ -94,10 +94,6 @@ public class ClienteServiceImpl implements ClienteService {
 
     @Autowired
 
-    private PlanRepository planRepository;
-
-    @Autowired
-
     private SuscripcionRepository suscripcionRepository;
 
     @Autowired
@@ -119,10 +115,6 @@ public class ClienteServiceImpl implements ClienteService {
     @Autowired
 
     private HistorialEstadoClienteRepository historialEstadoClienteRepository;
-
-    @Autowired
-
-    private NotificacionRepository notificacionRepository;
 
     @Value("${app.billing.monthly-billing-day:1}")
 
@@ -1683,18 +1675,6 @@ public class ClienteServiceImpl implements ClienteService {
                 .orElse(null);
 
         return mapToDashboardResponse(c, servicio, ventasCliente, capInicial);
-
-    }
-
-    private ClienteDashboardResponse mapToDashboardResponse(
-
-            Cliente c,
-
-            ServicioCliente servicio,
-
-            List<Venta> ventasCliente) {
-
-        return mapToDashboardResponse(c, servicio, ventasCliente, null);
 
     }
 
