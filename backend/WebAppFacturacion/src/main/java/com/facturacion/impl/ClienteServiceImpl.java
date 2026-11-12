@@ -1142,15 +1142,19 @@ public class ClienteServiceImpl implements ClienteService {
 
                     .orElse(null);
 
-            if (nuevoPlanId == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null && ventaPendiente.getSuscripcion().getPlan() != null) {
+            Venta ventaExistente = ventaPendiente != null
+                    ? ventaPendiente
+                    : (ventasCliente.isEmpty() ? null : ventasCliente.get(0));
 
-                nuevoPlanId = ventaPendiente.getSuscripcion().getPlan().getId();
+            if (nuevoPlanId == null && ventaExistente != null && ventaExistente.getSuscripcion() != null && ventaExistente.getSuscripcion().getPlan() != null) {
+
+                nuevoPlanId = ventaExistente.getSuscripcion().getPlan().getId();
 
             }
 
-            if (tipoSub == null && ventaPendiente != null && ventaPendiente.getSuscripcion() != null) {
+            if (tipoSub == null && ventaExistente != null && ventaExistente.getSuscripcion() != null) {
 
-                tipoSub = ventaPendiente.getSuscripcion().getTipoSuscripcion();
+                tipoSub = ventaExistente.getSuscripcion().getTipoSuscripcion();
 
             }
 
@@ -1320,6 +1324,60 @@ public class ClienteServiceImpl implements ClienteService {
 
                         }
 
+                    }
+
+                } else if (nuevaSuscripcion != null && (cliente.getEstado() == null || !"HABILITADO".equalsIgnoreCase(cliente.getEstado().getNombre()))) {
+
+                    // Cliente en etapa inicial o por capacitar sin venta pendiente: actualizar la venta de alta, pago y vigencia
+                    Venta ventaAlta = ventasCliente.stream()
+                            .filter(v -> v.getTipoVenta() == TipoVenta.ALTA)
+                            .findFirst()
+                            .orElse(ventasCliente.isEmpty() ? null : ventasCliente.get(0));
+
+                    if (ventaAlta != null) {
+                        boolean planCambio = ventaAlta.getSuscripcion() == null
+                                || !nuevaSuscripcion.getId().equals(ventaAlta.getSuscripcion().getId());
+
+                        if (planCambio) {
+                            ventaAlta.setSuscripcion(nuevaSuscripcion);
+                            ventaAlta.setPrecioLista(nuevaSuscripcion.getPrecio());
+                            ventaAlta.setMontoTotal(nuevaSuscripcion.getPrecio());
+                            ventaAlta.setTipoProrrateo(TipoProrrateo.NINGUNO);
+                            ventaAlta.setMontoProrrateado(BigDecimal.ZERO);
+                            ventaAlta.setMontoProrrateoAdicional(BigDecimal.ZERO);
+                            ventaAlta.setDiasProrrateoAdicional(0);
+                            ventaAlta.setObservaciones("Venta inicial actualizada a " + nuevaSuscripcion.getPlan().getNombrePlan() + " (" + tipoSub + ")");
+                            ventaAlta.setFechaActualizacion(LocalDateTime.now());
+                            ventaRepository.save(ventaAlta);
+
+                            // Si la venta de alta ya tenía pago registrado, actualizar el monto comercial del pago
+                            List<Pago> pagos = pagoRepository.findByVentaClienteIdOrderByFechaRegistroDesc(cliente.getId()).stream()
+                                    .filter(p -> p.getVenta() != null && ventaAlta.getId().equals(p.getVenta().getId()))
+                                    .toList();
+                            for (Pago p : pagos) {
+                                p.setMonto(nuevaSuscripcion.getPrecio());
+                                pagoRepository.save(p);
+                            }
+
+                            // Actualizar vigencia en servicio_cliente
+                            List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(cliente.getId());
+                            if (!servicios.isEmpty()) {
+                                ServicioCliente servicio = servicios.get(0);
+                                LocalDateTime inicio = servicio.getFechaInicio() != null ? servicio.getFechaInicio() : LocalDateTime.now();
+                                if (tipoSub == TipoSuscripcion.ANUAL) {
+                                    servicio.setFechaFin(inicio.plusYears(1));
+                                    servicio.setDiasProrrateados(365);
+                                } else {
+                                    LocalDate finMensual = ProrrateoCalculatorUtil.calcularFechaFinMensual(inicio.toLocalDate(), monthlyBillingDay);
+                                    servicio.setFechaFin(LocalDateTime.of(finMensual, BILLING_CUTOFF_TIME));
+                                    servicio.setDiasProrrateados(Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(inicio.toLocalDate(), finMensual)));
+                                }
+                                servicio.setMontoProrrateo(BigDecimal.ZERO);
+                                servicio.setObservaciones("Servicio actualizado por cambio a " + tipoSub);
+                                servicio.setFechaActualizacion(LocalDateTime.now());
+                                servicioClienteRepository.save(servicio);
+                            }
+                        }
                     }
 
                 } else if (nuevaSuscripcion != null && cliente.getEstado() != null && "HABILITADO".equalsIgnoreCase(cliente.getEstado().getNombre())) {
