@@ -151,15 +151,16 @@ public class PagoServiceImpl implements PagoService {
             return new AjusteCobro(fechaInicio, fechaInicio.plusYears(1), BigDecimal.ZERO, precioLista, 365);
         }
 
-        if (venta.getTipoVenta() == TipoVenta.CAMBIO_PLAN) {
-            LocalDateTime fechaFinMes = fechaInicio.plusMonths(1);
-            int dias = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMes.toLocalDate()));
-            return new AjusteCobro(fechaInicio, fechaFinMes, BigDecimal.ZERO, precioLista, dias);
+        if (venta.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO && venta.getFechaFinProrrateoAdicional() != null) {
+            LocalDate fechaCobroSegundo = venta.getFechaFinProrrateoAdicional().toLocalDate().plusDays(1);
+            LocalDateTime fechaFinSegundo = LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME);
+            int diasSegundo = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaCobroSegundo));
+            return new AjusteCobro(fechaInicio, fechaFinSegundo, BigDecimal.ZERO, venta.getMontoTotal() != null ? venta.getMontoTotal() : precioLista, diasSegundo);
         }
 
         LocalDateTime fechaFinMes = fechaInicio.plusMonths(1);
-        int dias = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMes.toLocalDate()));
-        return new AjusteCobro(fechaInicio, fechaFinMes, BigDecimal.ZERO, precioLista, dias);
+        int diasMes = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaFinMes.toLocalDate()));
+        return new AjusteCobro(fechaInicio, fechaFinMes, BigDecimal.ZERO, precioLista, diasMes);
     }
 
     private boolean debeUsarMontoPendienteProgramado(Venta venta, LocalDateTime fechaOperacion) {
@@ -191,6 +192,19 @@ public class PagoServiceImpl implements PagoService {
                     BigDecimal.ZERO,
                     venta.getMontoTotal(),
                     365
+            );
+        }
+
+        if (venta.getTipoProrrateo() == TipoProrrateo.SEGUNDO_PRORRATEO && venta.getFechaFinProrrateoAdicional() != null) {
+            LocalDate fechaCobroSegundo = venta.getFechaFinProrrateoAdicional().toLocalDate().plusDays(1);
+            LocalDateTime fechaFinSegundo = LocalDateTime.of(fechaCobroSegundo, BILLING_CUTOFF_TIME);
+            int diasSegundoProrrateo = Math.max(1, (int) java.time.temporal.ChronoUnit.DAYS.between(fechaInicioDate, fechaCobroSegundo));
+            return new AjusteCobro(
+                    fechaInicio,
+                    fechaFinSegundo,
+                    BigDecimal.ZERO,
+                    venta.getMontoTotal(),
+                    diasSegundoProrrateo
             );
         }
 
