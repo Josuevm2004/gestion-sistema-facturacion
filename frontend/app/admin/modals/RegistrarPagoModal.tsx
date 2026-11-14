@@ -161,49 +161,50 @@ export default function RegistrarPagoModal({
       };
     }
 
-    const dia = payDate.getDate();
+    // 1 mes exacto de servicio desde la fecha de pago (hasta el mismo día del mes siguiente)
+    const fin = new Date(inicio);
+    fin.setMonth(fin.getMonth() + 1);
 
-    // Si el día >= 10, aplica SEGUNDO PRORRATEO (1 mes base + días adicionales hasta fin de mes subsiguiente)
+    // Si el cliente ya tiene un cobro programado pendiente por regularizar con prorrateo (ej. S/ 45.84):
+    const scheduledMonto = Number(client.montoSiguienteCobro || 0);
+    if (scheduledMonto > 0 && scheduledMonto !== precioOficialPlan) {
+      const diasAdic = client.diasProrrateoAdicional ? ` + ${client.diasProrrateoAdicional} días adic.` : '';
+      const montoAdic = client.montoProrrateoAdicional ? ` (S/ ${Number(client.montoProrrateoAdicional).toFixed(2)})` : '';
+      return {
+        monto: scheduledMonto,
+        fechaInicioPeriodo: inicio,
+        fechaFinPeriodo: fin,
+        detalleCalculo: `Cobro pendiente con prorrateo: S/ ${scheduledMonto.toFixed(2)} (Mes base S/ ${precioOficialPlan.toFixed(2)}${diasAdic}${montoAdic}). Vigencia por 1 mes hasta ${formatDatePeru(fin)}.`,
+      };
+    }
+
+    // Cobro regular por renovación fuera de ciclo:
+    // Paga 1 mes base (ej. S/ 29.00) con vigencia real de 1 mes (hasta ej. 14 de dic).
+    // En su próximo cobro se calculará el prorrateo de realineación al día 1.
+    const dia = fin.getDate();
+    const y = fin.getFullYear();
+    const m = fin.getMonth();
+    const diasMesSiguiente = new Date(y, m + 1, 0).getDate();
+    let proxCobroInfo = '';
+
     if (dia >= 10) {
-      const fin1Mes = new Date(inicio.getFullYear(), inicio.getMonth() + 1, dia);
-      const nextMonthLastDay = new Date(fin1Mes.getFullYear(), fin1Mes.getMonth() + 1, 0).getDate();
-      const diasAdicionales = Math.max(0, nextMonthLastDay - dia + 1);
-      const precioDiario = precioOficialPlan / nextMonthLastDay;
+      const diasAdicionales = Math.max(1, diasMesSiguiente - dia + 1);
+      const precioDiario = precioOficialPlan / diasMesSiguiente;
       const montoAdic = Number((precioDiario * diasAdicionales).toFixed(2));
-      const totalSegundo = Number((precioOficialPlan + montoAdic).toFixed(2));
-      const finSegundo = new Date(fin1Mes.getFullYear(), fin1Mes.getMonth() + 1, 1);
-
-      return {
-        monto: totalSegundo,
-        fechaInicioPeriodo: inicio,
-        fechaFinPeriodo: finSegundo,
-        detalleCalculo: `Segundo Prorrateo (Día ${dia} ≥ 10): 1 mes base (S/ ${precioOficialPlan.toFixed(2)}) + ${diasAdicionales} días adic. (S/ ${montoAdic.toFixed(2)}) con cobertura hasta el ${formatDatePeru(finSegundo)}. Próximo cobro el 1.° del mes regular.`,
-      };
+      const totalProx = Number((precioOficialPlan + montoAdic).toFixed(2));
+      proxCobroInfo = ` • En su próximo cobro (${formatDatePeru(fin)}) pagará Segundo Prorrateo de S/ ${totalProx.toFixed(2)} (${diasAdicionales} días adic. S/ ${montoAdic.toFixed(2)}) para alinearse al día 1.`;
+    } else if (dia > 1) {
+      const diasCobrados = Math.max(1, diasMesSiguiente - dia + 1);
+      const precioDiario = precioOficialPlan / diasMesSiguiente;
+      const totalProx = Math.round(precioDiario * diasCobrados);
+      proxCobroInfo = ` • En su próximo cobro (${formatDatePeru(fin)}) pagará Primer Prorrateo de S/ ${totalProx.toFixed(2)} para alinearse al día 1.`;
     }
 
-    // Si el día está entre 2 y 9, aplica PRIMER PRORRATEO (días proporcionales hasta el 1.° del mes siguiente)
-    if (dia > 1) {
-      const diasMes = new Date(inicio.getFullYear(), inicio.getMonth() + 1, 0).getDate();
-      const diasCobrados = Math.max(1, diasMes - dia + 1);
-      const precioDiario = precioOficialPlan / diasMes;
-      const totalPrimer = Math.round(precioDiario * diasCobrados);
-      const finPrimer = new Date(inicio.getFullYear(), inicio.getMonth() + 1, 1);
-
-      return {
-        monto: totalPrimer,
-        fechaInicioPeriodo: inicio,
-        fechaFinPeriodo: finPrimer,
-        detalleCalculo: `Primer Prorrateo (Día ${dia} < 10): ${diasCobrados} días proporcionales (S/ ${totalPrimer.toFixed(2)}) con cobertura hasta el ${formatDatePeru(finPrimer)}. Próximo cobro el 1.° del mes regular.`,
-      };
-    }
-
-    // Día 1 exacto: ciclo regular
-    const finRegular = new Date(inicio.getFullYear(), inicio.getMonth() + 1, 1);
     return {
       monto: precioOficialPlan,
       fechaInicioPeriodo: inicio,
-      fechaFinPeriodo: finRegular,
-      detalleCalculo: `Renovación ciclo regular: 1 mes de servicio (S/ ${precioOficialPlan.toFixed(2)}) hasta el ${formatDatePeru(finRegular)}.`,
+      fechaFinPeriodo: fin,
+      detalleCalculo: `Renovación fuera de ciclo: 1 mes de servicio (S/ ${precioOficialPlan.toFixed(2)}) hasta el ${formatDatePeru(fin)}.${proxCobroInfo}`,
     };
   }, [isAdelanto, isReanudarPago, isRenovarProrrateo, precioOficialPlan, vencDate, now, isAnual, payDate, client]);
 
