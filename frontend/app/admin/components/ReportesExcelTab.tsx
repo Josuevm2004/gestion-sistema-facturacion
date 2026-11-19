@@ -169,12 +169,13 @@ export default function ReportesExcelTab({
     const obs = obsRaw.toLowerCase();
 
     // 1. REGLA DE ALTA / AFILIACIÓN INICIAL:
-    // El pago de alta / afiliación inicial pertenece a la fecha de inicio/capacitación del servicio inicial o fecha de pago.
+    // El pago de alta / afiliación inicial pertenece prioritariamente a la fecha de pago (flujo en caja).
+    // Si el cliente usa el sistema un mes después (uso posterior), figura en el mes pagado pero fuera de operativos.
     const isAlta = tipoVentaRaw === 'ALTA' || obs.includes('alta') || obs.includes('inicial') || obs.includes('afiliac');
     if (isAlta) {
       const fCapDate = parseDateSafe(matchedClient?.fechaCapacitacion);
       const fRegDate = parseDateSafe(matchedClient?.fechaRegistro);
-      const fAltaDate = fCapDate || fPago || fRegDate;
+      const fAltaDate = fPago || fCapDate || fRegDate;
       if (fAltaDate) {
         return `${fAltaDate.getFullYear()}-${String(fAltaDate.getMonth() + 1).padStart(2, '0')}`;
       }
@@ -371,10 +372,15 @@ export default function ReportesExcelTab({
         const telefono = matchedClient?.telefono || matchedClient?.telefonoPersonal || '—';
         const st = (matchedClient?.estadoCuenta || 'HABILITADO').toUpperCase();
 
+        const fCap = parseDateSafe(matchedClient?.fechaCapacitacion);
+        const endOfTargetMonth = new Date(selectedYear, Number(selectedMonth), 0, 23, 59, 59);
+        const isFutureUsage = fCap ? fCap > endOfTargetMonth : false;
+
         const isUntrained =
           st === 'POR_CAPACITAR' ||
           (matchedClient?.estadoCapacitacion || '').toUpperCase() === 'PENDIENTE' ||
-          (!matchedClient?.fechaCapacitacion && isAlta);
+          (!matchedClient?.fechaCapacitacion && isAlta) ||
+          isFutureUsage;
 
         row = {
           clienteId: clientKey,
@@ -417,7 +423,10 @@ export default function ReportesExcelTab({
 
       if (isAlta) {
         row.esAlta = true;
-        if (row.estadoCuenta === 'POR_CAPACITAR' || !matchedClient?.fechaCapacitacion) {
+        const fCap = parseDateSafe(matchedClient?.fechaCapacitacion);
+        const endOfTargetMonth = new Date(selectedYear, Number(selectedMonth), 0, 23, 59, 59);
+        const isFutureUsage = fCap ? fCap > endOfTargetMonth : false;
+        if (row.estadoCuenta === 'POR_CAPACITAR' || !matchedClient?.fechaCapacitacion || isFutureUsage) {
           row.esPorCapacitar = true;
         }
       }
@@ -478,7 +487,7 @@ export default function ReportesExcelTab({
             esAdelanto: false,
             esProrrateo: false,
             esAumentoPlan: false,
-            esPorCapacitar: st === 'POR_CAPACITAR' || (c.estadoCapacitacion || '').toUpperCase() === 'PENDIENTE' || !fCap,
+            esPorCapacitar: st === 'POR_CAPACITAR' || (c.estadoCapacitacion || '').toUpperCase() === 'PENDIENTE' || !fCap || Boolean(fCap && fCap > new Date(selectedYear, Number(selectedMonth), 0, 23, 59, 59)),
             estadoCuenta: st,
           });
         }
@@ -711,15 +720,16 @@ export default function ReportesExcelTab({
         });
         csv += `\nTOTAL AFILIACIONES PENDIENTES DE CAPACITACION,,,,,,,,,,${sumaTotalFiltrada.toFixed(2)}\n`;
       } else {
-        csv += 'N°,RUC,Cliente / Razon Social,Nombre Comercial,Plan Activo,Modalidad,Conceptos en el Mes,Fecha Ultimo Pago,Medios de Pago,Operaciones,Asesor,Total Cobrado (S/)\n';
+        csv += 'N°,RUC,Cliente / Razon Social,Nombre Comercial,Plan Activo,Modalidad,Condicion,Conceptos en el Mes,Fecha Ultimo Pago,Medios de Pago,Operaciones,Asesor,Total Cobrado (S/)\n';
         filteredRows.forEach((r, idx) => {
           const conceptosStr = Array.from(r.conceptosSet).join(' + ');
           const mediosStr = Array.from(r.mediosPagoSet).join(', ');
           const opStr = Array.from(r.operacionesSet).join(', ') || '—';
           const fUlt = r.fechasPagoList.length > 0 ? formatFechaPE(r.fechasPagoList[0]) : '—';
-          csv += `${idx + 1},"${r.ruc}","${r.razonSocial.replace(/"/g, '""')}","${r.nombreComercial.replace(/"/g, '""')}","${r.planNombre}","${r.tipoSuscripcion}","${conceptosStr}","${fUlt}","${mediosStr}","${opStr}","${r.asesor}",${r.totalCobradoMes.toFixed(2)}\n`;
+          const condStr = r.esPorCapacitar ? 'Uso Posterior / Por Capacitar' : 'Operativo Activo';
+          csv += `${idx + 1},"${r.ruc}","${r.razonSocial.replace(/"/g, '""')}","${r.nombreComercial.replace(/"/g, '""')}","${r.planNombre}","${r.tipoSuscripcion}","${condStr}","${conceptosStr}","${fUlt}","${mediosStr}","${opStr}","${r.asesor}",${r.totalCobradoMes.toFixed(2)}\n`;
         });
-        csv += `\nSUBTOTAL COBRADO CLIENTES OPERATIVOS,,,,,,,,,,,${sumaTotalFiltrada.toFixed(2)}\n`;
+        csv += `\nSUBTOTAL COBRADO CLIENTES OPERATIVOS,,,,,,,,,,,,${sumaTotalFiltrada.toFixed(2)}\n`;
 
         if (porCapacitarRows.length > 0) {
           csv += `\n\n--- AFILIACIONES PENDIENTES DE CAPACITACION (${mesNombreSeleccionado.toUpperCase()} ${selectedYear}) ---\n`;
@@ -842,14 +852,14 @@ export default function ReportesExcelTab({
         </div>
       </div>
 
-      {/* 3. TARJETAS DE INDICADORES (CON EL FORMATO DE LA IMAGEN "PREVIA MES" + DESGLOSE + PÉRDIDA) */}
+      {/* 3. TARJETAS DE INDICADORES (INDICADORES DEL MES + DESGLOSE + PÉRDIDA) */}
       <div className="row g-2.5 mb-3">
-        {/* Card 1: Formato Previa Mes (Total, Regulares, Prorrateos, Adelantos, Planes Activos) */}
+        {/* Card 1: Indicador Mes Seleccionado (Operativos, Regulares, Prorrateos, Uso Posterior) */}
         <div className="col-12 col-lg-4">
           <div className="card h-100 shadow-sm border-0 p-3.5 bg-white position-relative" style={{ borderRadius: '14px', border: '1px solid #E2E8F0' }}>
             <div className="d-flex justify-content-between align-items-center mb-1">
               <span className="fw-bold text-primary" style={{ fontSize: '1.05rem' }}>
-                Previa {mesNombreSeleccionado} {selectedYear}
+                {mesNombreSeleccionado} {selectedYear}
               </span>
               <div className="p-1.5 rounded-2 bg-primary-subtle text-primary">
                 <CalendarDays size={18} />
@@ -857,7 +867,10 @@ export default function ReportesExcelTab({
             </div>
 
             <div className="fw-bold text-primary my-1" style={{ fontSize: '2rem', letterSpacing: '-0.8px', lineHeight: '1.2' }}>
-              S/ {periodMetrics.totalRecaudadoMes.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              S/ {periodMetrics.sumaOperativaMes.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+            <div className="text-muted small mb-1" style={{ fontSize: '0.78rem' }}>
+              Ganancia mensual de clientes operativos
             </div>
 
             <div className="mt-2 pt-2 border-top" style={{ fontSize: '0.84rem' }}>
@@ -870,14 +883,18 @@ export default function ReportesExcelTab({
                 <span>· Prorrateos ({periodMetrics.countProrrateos}): S/ {periodMetrics.sumaProrrateos.toFixed(2)}</span>
               </div>
               <div className="d-flex justify-content-between py-1 text-muted border-top mt-1">
-                <span className="text-warning-emphasis fw-semibold">Por Capacitar ({periodMetrics.countPorCapacitar}):</span>
+                <span className="text-warning-emphasis fw-semibold">Uso Posterior / Por Capacitar ({periodMetrics.countPorCapacitar}):</span>
                 <strong className="text-warning-emphasis">S/ {periodMetrics.sumaPorCapacitarMes.toFixed(2)}</strong>
+              </div>
+              <div className="d-flex justify-content-between py-0.5 text-muted ps-2" style={{ fontSize: '0.75rem' }}>
+                <span className="text-muted">Total recaudado en caja:</span>
+                <span className="fw-semibold text-secondary">S/ {periodMetrics.totalRecaudadoMes.toFixed(2)}</span>
               </div>
             </div>
 
             <div className="pt-2 mt-2 border-top text-success fw-semibold small d-flex align-items-center gap-1.5" style={{ fontSize: '0.78rem' }}>
               <CheckCircle2 size={15} />
-              <span>{periodMetrics.countOperativos} operativos + {periodMetrics.countPorCapacitar} por capacitar ({periodMetrics.countClientesMes} total)</span>
+              <span>{periodMetrics.countOperativos} operativos activos en {mesNombreSeleccionado}</span>
             </div>
           </div>
         </div>
@@ -1021,7 +1038,7 @@ export default function ReportesExcelTab({
               }}
             >
               <Clock size={14} className="me-1" />
-              Por Capacitar ({periodMetrics.countPorCapacitar})
+              Uso Posterior / Por Capacitar ({periodMetrics.countPorCapacitar})
             </button>
           </li>
           <li className="nav-item">
@@ -1174,6 +1191,7 @@ export default function ReportesExcelTab({
                   <th className="py-3" style={{ minWidth: '220px' }}>Cliente / Razón Social</th>
                   <th className="py-3" style={{ minWidth: '110px' }}>RUC</th>
                   <th className="py-3" style={{ minWidth: '150px' }}>Plan Activo</th>
+                  <th className="py-3" style={{ minWidth: '135px' }}>Condición</th>
                   <th className="py-3" style={{ minWidth: '180px' }}>{activeReportSubTab === 'POR_CAPACITAR' ? 'Estado / Concepto' : `Conceptos en ${mesNombreSeleccionado}`}</th>
                   <th className="py-3 text-center" style={{ minWidth: '105px' }}>Último Pago</th>
                   <th className="py-3" style={{ minWidth: '110px' }}>Medio Pago</th>
@@ -1184,7 +1202,7 @@ export default function ReportesExcelTab({
               <tbody>
                 {paginatedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-5 text-muted">
+                    <td colSpan={10} className="text-center py-5 text-muted">
                       <AlertCircle size={28} className="mb-2 text-muted d-block mx-auto opacity-50" />
                       <span className="fw-semibold d-block text-dark">No se encontraron cobros registrados para {mesNombreSeleccionado} {selectedYear}</span>
                       <small className="text-muted">Si se registraron adelantos o cobros en otros meses, puedes cambiar de mes en la barra superior.</small>
@@ -1240,6 +1258,37 @@ export default function ReportesExcelTab({
                           >
                             {row.tipoSuscripcion} (S/ {row.precioBasePlan.toFixed(2)})
                           </span>
+                        </td>
+
+                        {/* Condición Operativa */}
+                        <td className="py-2.5">
+                          {row.esPorCapacitar ? (
+                            <div>
+                              <span className="badge rounded-pill fw-semibold bg-warning-subtle text-warning-emphasis border border-warning-subtle" style={{ fontSize: '0.71rem', padding: '3px 8px' }}>
+                                Uso Posterior
+                              </span>
+                              {row.rawClient?.fechaCapacitacion ? (
+                                <div className="text-muted small mt-0.5" style={{ fontSize: '0.72rem' }}>
+                                  Inicia: {formatFechaPE(parseDateSafe(row.rawClient.fechaCapacitacion))}
+                                </div>
+                              ) : (
+                                <div className="text-muted small mt-0.5" style={{ fontSize: '0.72rem' }}>
+                                  Por Capacitar
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="badge rounded-pill fw-semibold bg-success-subtle text-success border border-success-subtle" style={{ fontSize: '0.71rem', padding: '3px 8px' }}>
+                                Operativo Activo
+                              </span>
+                              {row.rawClient?.fechaCapacitacion && (
+                                <div className="text-muted small mt-0.5" style={{ fontSize: '0.72rem' }}>
+                                  Desde {formatFechaPE(parseDateSafe(row.rawClient.fechaCapacitacion))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         {/* Conceptos en el mes */}

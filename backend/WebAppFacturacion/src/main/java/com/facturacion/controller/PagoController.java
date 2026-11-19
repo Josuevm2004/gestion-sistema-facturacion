@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,22 +29,42 @@ public class PagoController {
     @PostMapping({"/registrar", "/confirmar"})
     public ResponseEntity<ApiResponse<Map<String, Object>>> registrarPago(@RequestBody RegistrarPagoRequest request) {
         Pago pago = pagoService.registrarPago(request);
-        return ResponseEntity.ok(ApiResponse.success("Pago registrado exitosamente", mapPago(pago)));
+        return ResponseEntity.ok(ApiResponse.success("Pago registrado exitosamente", mapPago(pago, null)));
     }
 
     @GetMapping({"", "/"})
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarTodosPagos() {
         List<Pago> pagos = pagoService.listarTodosPagos();
-        return ResponseEntity.ok(ApiResponse.success("Listado de pagos obtenido", pagos.stream().map(this::mapPago).toList()));
+        List<ServicioCliente> servicios = servicioClienteRepository.findAll();
+        Map<Long, ServicioCliente> serviciosPorVenta = new HashMap<>(servicios.size());
+        for (ServicioCliente sc : servicios) {
+            if (sc.getVenta() != null && sc.getVenta().getId() != null) {
+                serviciosPorVenta.put(sc.getVenta().getId(), sc);
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.success(
+            "Listado de pagos obtenido",
+            pagos.stream().map(p -> mapPago(p, serviciosPorVenta)).toList()
+        ));
     }
 
     @GetMapping("/cliente/{clienteId}")
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> listarPagosPorCliente(@PathVariable Long clienteId) {
         List<Pago> pagos = pagoService.listarPagosPorCliente(clienteId);
-        return ResponseEntity.ok(ApiResponse.success("Historial de pagos obtenido", pagos.stream().map(this::mapPago).toList()));
+        List<ServicioCliente> servicios = servicioClienteRepository.findByClienteIdOrderByFechaInicioDesc(clienteId);
+        Map<Long, ServicioCliente> serviciosPorVenta = new HashMap<>(servicios.size());
+        for (ServicioCliente sc : servicios) {
+            if (sc.getVenta() != null && sc.getVenta().getId() != null) {
+                serviciosPorVenta.put(sc.getVenta().getId(), sc);
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.success(
+            "Historial de pagos obtenido",
+            pagos.stream().map(p -> mapPago(p, serviciosPorVenta)).toList()
+        ));
     }
 
-    private Map<String, Object> mapPago(Pago pago) {
+    private Map<String, Object> mapPago(Pago pago, Map<Long, ServicioCliente> serviciosPorVenta) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("id", pago.getId() != null ? pago.getId().toString() : null);
         data.put("pagoId", pago.getId() != null ? pago.getId().toString() : null);
@@ -59,7 +80,10 @@ public class PagoController {
         data.put("observaciones", pago.getObservaciones());
 
         if (pago.getVenta() != null) {
-            ServicioCliente sc = servicioClienteRepository.findByVentaId(pago.getVenta().getId()).orElse(null);
+            Long ventaId = pago.getVenta().getId();
+            ServicioCliente sc = (serviciosPorVenta != null && ventaId != null)
+                    ? serviciosPorVenta.get(ventaId)
+                    : (ventaId != null ? servicioClienteRepository.findByVentaId(ventaId).orElse(null) : null);
             if (sc != null) {
                 data.put("periodoInicio", sc.getFechaInicio());
                 data.put("periodoFin", sc.getFechaFin());
